@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Ingress Within | A Sanctuary for the Mind</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        :root {
+            --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+            --ease-in-out-quint: cubic-bezier(0.83, 0, 0.17, 1);
+            --editorial-transition: 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        body {
+            font-feature-settings: "ss01", "ss02", "cv01";
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        /* Reveal Animations */
+        .reveal-section {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 1.5s var(--editorial-transition), transform 1.5s var(--editorial-transition);
+        }
+        .reveal-section.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .stagger-text span {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.8s var(--editorial-transition);
+        }
+        .reveal-section.active .stagger-text span {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Hero Interactivity */
+        @keyframes pulse-soft {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; text-shadow: 0 0 10px rgba(224, 168, 152, 0.3); }
+        }
+        .pulse-insight { animation: pulse-soft 4s infinite ease-in-out; }
+        .pulse-growth { animation: pulse-soft 4s infinite ease-in-out 1.5s; }
+
+        @keyframes floating {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .floating-node { animation: floating 6s infinite ease-in-out; }
+
+        /* Personalization Engine Glow */
+        @keyframes line-glow {
+            0% { stroke-dashoffset: 1000; opacity: 0.2; }
+            50% { opacity: 0.5; }
+            100% { stroke-dashoffset: 0; opacity: 0.2; }
+        }
+        .engine-svg circle {
+            stroke-dasharray: 1000;
+            animation: line-glow 10s linear infinite;
+        }
+
+        /* Scroll-driven Highlight */
+        .journey-card {
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            opacity: 0.3;
+        }
+        .journey-card.highlight {
+            opacity: 1;
+            transform: scale(1.02);
+        }
+
+        /* Philosophy Reveal */
+        .philosophy-word {
+            display: inline-block;
+            opacity: 0;
+            filter: blur(4px);
+            transform: translateY(10px);
+            transition: all 1s var(--editorial-transition);
+        }
+        .philosophy-section.active .philosophy-word {
+            opacity: 1;
+            filter: blur(0);
+            transform: translateY(0);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, ::before, ::after {
+                animation-delay: -1ms !important;
+                animation-duration: 1ms !important;
+                animation-iteration-count: 1 !important;
+                background-attachment: initial !important;
+                scroll-behavior: auto !important;
+                transition-duration: 0s !important;
+                transition-delay: 0s !important;
+            }
+            .reveal-section, .philosophy-word, .stagger-text span {
+                opacity: 1 !important;
+                transform: none !important;
+                filter: none !important;
+            }
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 2px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1E2A2E; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#ECEFF0",
+                        "on-surface": "#1E2A2E",
+                        "primary": "#1E2A2E",
+                        "on-primary": "#ECEFF0",
+                        "accent": "#E0A898",
+                        "secondary": "#8DBFB4",
+                        "tertiary": "#B8A8D4",
+                        "surface-container": "#DDE3E5",
+                        "surface-container-low": "#ECEFF0",
+                        "surface-container-high": "#CFD8DC",
+                        "outline": "#73787a",
+                        "on-surface-variant": "#434749"
+                    },
+                    "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                    "spacing": { "unit": "8px", "section-gap": "160px", "margin-mobile": "24px", "gutter": "32px", "margin-desktop": "120px" },
+                    "fontFamily": {
+                        "caption": ["Instrument Sans"], "display-xl": ["Literata"], "headline-lg": ["Literata"], "body-md": ["Instrument Sans"], "label-caps": ["Instrument Sans"], "headline-lg-mobile": ["Literata"], "display-xl-mobile": ["Literata"]
+                    },
+                    "fontSize": {
+                        "caption": ["14px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "400" }], "display-xl": ["120px", { "lineHeight": "110px", "letterSpacing": "-0.02em", "fontWeight": "300" }], "headline-lg": ["64px", { "lineHeight": "72px", "letterSpacing": "-0.01em", "fontWeight": "400" }], "body-md": ["20px", { "lineHeight": "32px", "letterSpacing": "0.01em", "fontWeight": "400" }], "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.2em", "fontWeight": "600" }], "headline-lg-mobile": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.01em", "fontWeight": "400" }], "display-xl-mobile": ["56px", { "lineHeight": "60px", "letterSpacing": "-0.01em", "fontWeight": "300" }]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-surface text-primary font-body-md overflow-x-hidden selection:bg-accent selection:text-primary">
+<nav class="fixed top-0 w-full z-50 bg-transparent backdrop-blur-none border-b border-primary/0 flex justify-between items-center px-margin-mobile md:px-margin-desktop py-4 transition-all duration-700 ease-in-out" id="main-nav">
+<div class="font-headline-lg text-2xl md:text-3xl tracking-tighter text-primary">Ingress Within</div>
+<div class="hidden md:flex gap-12">
+<a class="font-label-caps text-label-caps text-primary border-b border-primary pb-1 transition-opacity duration-500 hover:opacity-100" href="#">Essays</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant opacity-70 hover:opacity-100 transition-opacity duration-500" href="#">Sanctuary</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant opacity-70 hover:opacity-100 transition-opacity duration-500" href="#">Practice</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant opacity-70 hover:opacity-100 transition-opacity duration-500" href="#">Archive</a>
+</div>
+<button class="font-label-caps text-label-caps text-primary border-b border-primary/20 hover:border-primary pb-1 transition-all duration-500">Begin Journey</button>
+</nav>
+<main>
+<!-- Hero Section -->
+<section class="min-h-screen flex flex-col md:flex-row items-center pt-32 px-margin-mobile md:px-margin-desktop gap-20 relative overflow-hidden">
+<!-- Subtle Background Parallax Shape -->
+<div class="absolute -top-20 -left-20 w-96 h-96 bg-accent/10 rounded-full blur-3xl parallax-bg" data-speed="0.05"></div>
+<div class="flex-1 space-y-8 z-10 reveal-section">
+<h1 class="font-display-xl-mobile md:font-display-xl text-display-xl-mobile md:text-display-xl stagger-text" id="hero-title">
+                    Understand Yourself.<br/>
+<span class="italic font-light">Not Just Your Thoughts.</span>
+</h1>
+<p class="max-w-md font-body-md text-body-md text-on-surface-variant opacity-0 translate-y-4 transition-all duration-1000 delay-500" id="hero-p">
+                    An immersive editorial sanctuary for high-resolution self-reflection. We combine psychometric rigor with the elegance of a silent retreat.
+                </p>
+<div class="pt-10 opacity-0 translate-y-4 transition-all duration-1000 delay-700" id="hero-btn">
+<button class="font-label-caps text-label-caps border-b border-primary py-4 px-2 hover:translate-x-4 transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]">
+                        EXPLORE THE ARCHIVE
+                    </button>
+</div>
+</div>
+<div class="flex-1 w-full h-[600px] bg-surface-container overflow-hidden relative group z-10">
+<img alt="Abstract Stillness" class="w-full h-full object-cover parallax-bg" data-speed="0.1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCobPn1kM-mjJX0dqtj3mV4yL40nT1PJjpEA147y1HM9VIC_31Dwb2Q77MBucwwPm8wj_4947kTXItiUgpIFh4e_8bbtH3pP5X9vnfFh-XM9FBchFKBt2zpb1-FzBWh2KsrFnNg3aKqU8phr-PO-dSoby28wRTo2rqSFJjY2F85hceBnp0-s3WRRfbIm57tg7VcTSW0g8BPV2rmiRCaQoPB8dLn8g4TZfaDymiK9OTZR7L-ya5L3JVyIPKUaQ73rj0jWlXaV0FYtNM"/>
+<div class="absolute inset-0 flex flex-col justify-end p-12 bg-gradient-to-t from-primary/80 to-transparent">
+<div class="space-y-4" id="hero-interactive">
+<div class="flex items-center gap-4 text-on-primary opacity-40 hover:opacity-100 transition-opacity cursor-pointer floating-node" style="animation-delay: 0s">
+<span class="font-label-caps">01</span>
+<span class="font-label-caps tracking-widest">JOURNAL</span>
+</div>
+<div class="flex items-center gap-4 text-on-primary opacity-40 hover:opacity-100 transition-opacity cursor-pointer floating-node" style="animation-delay: 0.5s">
+<span class="font-label-caps">02</span>
+<span class="font-label-caps tracking-widest">EXERCISE</span>
+</div>
+<div class="flex items-center gap-4 text-on-primary opacity-40 hover:opacity-100 transition-opacity cursor-pointer floating-node" style="animation-delay: 1s">
+<span class="font-label-caps">03</span>
+<span class="font-label-caps tracking-widest">PATTERN</span>
+</div>
+<div class="flex items-center gap-4 text-accent transition-opacity cursor-pointer pulse-insight">
+<span class="font-label-caps">04</span>
+<span class="font-label-caps tracking-widest border-b border-accent">INSIGHT</span>
+</div>
+<div class="flex items-center gap-4 text-secondary transition-opacity cursor-pointer pulse-growth">
+<span class="font-label-caps">05</span>
+<span class="font-label-caps tracking-widest">GROWTH</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- 30-Day Journey Simulator -->
+<section class="py-section-gap bg-surface-container px-margin-mobile md:px-margin-desktop overflow-hidden reveal-section" id="journey-section">
+<div class="max-w-4xl mx-auto space-y-20">
+<div class="text-center space-y-4">
+<span class="font-label-caps text-accent">THE ARCHITECTURE OF CHANGE</span>
+<h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg">A 30-Day Narrative Arc</h2>
+</div>
+<div class="relative min-h-[500px] flex items-center justify-center">
+<div class="absolute top-1/2 left-0 w-full h-[1px] bg-primary/10"></div>
+<div class="absolute top-1/2 left-0 w-0 h-[1px] bg-accent transition-all duration-300" id="journey-progress"></div>
+<div class="grid grid-cols-2 md:grid-cols-5 gap-8 w-full relative z-10">
+<!-- Day 1 -->
+<div class="journey-card group cursor-pointer" data-day="0.1">
+<div class="mb-4 font-label-caps opacity-50">DAY 01</div>
+<div class="h-32 p-6 bg-surface-container-low border border-primary/5 group-hover:border-accent transition-all">
+<span class="font-caption block mb-2">Assessment</span>
+<div class="w-full h-1 bg-surface-container-high"></div>
+</div>
+</div>
+<!-- Day 4 -->
+<div class="journey-card group cursor-pointer mt-12" data-day="0.3">
+<div class="mb-4 font-label-caps opacity-50">DAY 04</div>
+<div class="h-32 p-6 bg-surface-container-low border border-primary/5 group-hover:border-secondary transition-all">
+<span class="font-caption block mb-2">Reflection</span>
+<div class="flex gap-1">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<div class="w-2 h-2 rounded-full bg-secondary/30"></div>
+</div>
+</div>
+</div>
+<!-- Day 8 -->
+<div class="journey-card group cursor-pointer" data-day="0.5">
+<div class="mb-4 font-label-caps opacity-50">DAY 08</div>
+<div class="h-32 p-6 bg-surface-container-low border border-primary/5 group-hover:border-tertiary transition-all">
+<span class="font-caption block mb-2">Exercise</span>
+<div class="italic text-caption text-tertiary">Cognitive Framing</div>
+</div>
+</div>
+<!-- Day 15 -->
+<div class="journey-card group cursor-pointer mt-12" data-day="0.7">
+<div class="mb-4 font-label-caps opacity-50">DAY 15</div>
+<div class="h-32 p-6 bg-surface-container-low border border-primary/5 group-hover:border-accent transition-all">
+<span class="font-caption block mb-2">Weekly Report</span>
+<div class="font-label-caps text-[10px] text-accent">92% COHESION</div>
+</div>
+</div>
+<!-- Day 30 -->
+<div class="journey-card group cursor-pointer" data-day="0.9">
+<div class="mb-4 font-label-caps opacity-50">DAY 30</div>
+<div class="h-32 p-6 bg-primary text-on-primary transition-all">
+<span class="font-caption block mb-2">Insight Report</span>
+<span class="material-symbols-outlined text-sm text-accent">auto_graph</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Inside the Experience: Bento Grid -->
+<section class="py-section-gap px-margin-mobile md:px-margin-desktop bg-surface reveal-section">
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<div class="md:col-span-8 h-[600px] bg-surface-container p-12 flex flex-col justify-between group overflow-hidden">
+<div class="max-w-md">
+<span class="font-label-caps text-accent mb-4 block">DAILY DIALOGUE</span>
+<h3 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg leading-tight mb-8">Journaling without the friction.</h3>
+<p class="text-on-surface-variant">An adaptive interface that learns your vocabulary and emotional rhythm over time, offering prompts that actually matter.</p>
+</div>
+<div class="relative h-64 w-full mt-12 translate-y-12 group-hover:translate-y-4 transition-transform duration-1000">
+<div class="absolute right-0 bottom-0 w-3/4 aspect-video bg-surface-container-low shadow-2xl p-8 rounded-t-xl">
+<div class="space-y-4">
+<div class="w-full h-1 bg-primary/10"></div>
+<div class="w-3/4 h-1 bg-primary/10"></div>
+<div class="w-5/6 h-1 bg-primary/10"></div>
+<div class="pt-8 italic text-on-surface-variant font-display-xl-mobile">"I noticed a recurring tension in..."</div>
+</div>
+</div>
+</div>
+</div>
+<div class="md:col-span-4 h-[600px] bg-primary text-on-primary p-12 flex flex-col justify-between">
+<div>
+<span class="font-label-caps text-secondary mb-4 block">PSYCHOMETRICS</span>
+<h3 class="text-3xl font-display-xl-mobile leading-snug mb-6">Exercises derived from modern research.</h3>
+</div>
+<div class="space-y-6">
+<div class="border-t border-on-primary/10 pt-6 flex justify-between items-center group cursor-pointer hover:text-accent transition-colors">
+<span class="font-label-caps">STRESS AUDIT</span>
+<span class="material-symbols-outlined opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+</div>
+<div class="border-t border-on-primary/10 pt-6 flex justify-between items-center group cursor-pointer hover:text-secondary transition-colors">
+<span class="font-label-caps">VALUE ALIGNMENT</span>
+<span class="material-symbols-outlined opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+</div>
+<div class="border-t border-on-primary/10 pt-6 flex justify-between items-center group cursor-pointer hover:text-tertiary transition-colors">
+<span class="font-label-caps">NARRATIVE REFRAMING</span>
+<span class="material-symbols-outlined opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+</div>
+</div>
+</div>
+<div class="md:col-span-12 h-[400px] bg-tertiary/10 flex items-center justify-center p-12 overflow-hidden relative">
+<div class="relative z-10 text-center max-w-2xl">
+<span class="font-label-caps text-tertiary mb-4 block">REPORTS</span>
+<h3 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary mb-6 italic">The pattern becomes clear.</h3>
+</div>
+<div class="absolute inset-0 opacity-10">
+<div class="w-full h-full" style="background-image: radial-gradient(circle at 2px 2px, #1E2A2E 1px, transparent 0); background-size: 40px 40px;"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Personalization Engine -->
+<section class="py-section-gap px-margin-mobile md:px-margin-desktop bg-surface-container reveal-section">
+<div class="flex flex-col md:flex-row gap-20 items-center">
+<div class="flex-1 space-y-8">
+<h2 class="font-display-xl-mobile md:text-6xl leading-tight">Your data is the brush.<br/>Understanding is the art.</h2>
+<p class="text-on-surface-variant max-w-md">Our personalization engine doesn't just categorize you; it maps the unique topography of your internal world using linguistic analysis and behavioral patterns.</p>
+</div>
+<div class="flex-1 w-full flex items-center justify-center">
+<div class="relative w-80 h-80 flex items-center justify-center" id="engine-viz">
+<svg class="engine-svg absolute inset-0 w-full h-full overflow-visible" viewbox="0 0 100 100">
+<circle class="text-accent" cx="50" cy="50" fill="none" r="48" stroke="currentColor" stroke-width="0.2"></circle>
+<circle class="text-secondary" cx="50" cy="50" fill="none" r="38" stroke="currentColor" stroke-width="0.2" style="animation-duration: 15s; animation-direction: reverse;"></circle>
+<circle class="text-tertiary" cx="50" cy="50" fill="none" r="28" stroke="currentColor" stroke-width="0.2" style="animation-duration: 8s;"></circle>
+</svg>
+<div class="w-4 h-4 bg-primary rounded-full relative z-10"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Philosophy Section -->
+<section class="py-section-gap px-margin-mobile md:px-margin-desktop text-center bg-surface philosophy-section reveal-section relative overflow-hidden">
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-secondary/10 rounded-full blur-3xl parallax-bg" data-speed="-0.03"></div>
+<div class="max-w-5xl mx-auto space-y-12 relative z-10">
+<span class="font-label-caps text-accent">OUR PHILOSOPHY</span>
+<p class="font-display-xl-mobile md:font-display-xl text-display-xl-mobile md:text-5xl leading-tight text-primary" id="philosophy-text">
+                    We do not diagnose. We do not define. We do not reduce people to scores. We help people notice.
+                </p>
+<div class="pt-12">
+<div class="w-px h-32 bg-primary mx-auto"></div>
+</div>
+</div>
+</section>
+<!-- Pricing -->
+<section class="py-section-gap px-margin-mobile md:px-margin-desktop bg-surface-container reveal-section">
+<div class="max-w-6xl mx-auto">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<div class="bg-surface-container-low p-12 space-y-12 border border-primary/5 hover:border-accent transition-all">
+<div class="space-y-4">
+<span class="font-label-caps tracking-widest text-accent">THE INGRESS</span>
+<h4 class="text-4xl font-headline-lg">Journey Plan</h4>
+<p class="text-on-surface-variant">A guided 30-day experience to establish your baseline internal narrative.</p>
+</div>
+<div class="text-5xl font-display-xl-mobile">₹499</div>
+<ul class="space-y-4 font-caption text-on-surface-variant">
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-secondary">check</span> Daily Sanctuary Access</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-secondary">check</span> 5 Core Psychometric Exercises</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-secondary">check</span> Final Insight Summary</li>
+</ul>
+<button class="w-full font-label-caps text-label-caps border border-primary py-4 hover:bg-primary hover:text-on-primary transition-all duration-500">SELECT JOURNEY</button>
+</div>
+<div class="bg-primary text-on-primary p-12 space-y-12 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-8">
+<span class="font-label-caps px-3 py-1 border border-accent/40 rounded-full text-[10px] text-accent">RECOMMENDED</span>
+</div>
+<div class="space-y-4">
+<span class="font-label-caps tracking-widest text-accent opacity-80">THE DEPTHS</span>
+<h4 class="text-4xl font-headline-lg">Deep Journey</h4>
+<p class="opacity-70">A comprehensive three-month dive into recurring patterns and core values.</p>
+</div>
+<div class="text-5xl font-display-xl-mobile">₹799</div>
+<ul class="space-y-4 font-caption opacity-70">
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-secondary">check</span> Unlimited Journaling &amp; Audio Logs</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-secondary">check</span> Weekly Cohesion Reports</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-secondary">check</span> Full Narrative Architecture Analysis</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-secondary">check</span> Personal Value Blueprint</li>
+</ul>
+<button class="w-full font-label-caps text-label-caps bg-accent text-primary py-4 hover:opacity-90 transition-all duration-500">START DEEP JOURNEY</button>
+</div>
+</div>
+</div>
+</section>
+<!-- FAQ -->
+<section class="py-section-gap px-margin-mobile md:px-margin-desktop bg-surface reveal-section">
+<div class="max-w-3xl mx-auto">
+<h2 class="font-headline-lg text-headline-lg-mobile mb-16 text-center">Inquiries</h2>
+<div class="space-y-0 border-t border-primary/10">
+<div class="group border-b border-primary/10">
+<button class="w-full py-8 flex justify-between items-center text-left" onclick="toggleFaq(this)">
+<span class="font-body-md text-xl">Is this therapy?</span>
+<span class="material-symbols-outlined transition-transform duration-500 text-accent">add</span>
+</button>
+<div class="faq-content max-h-0 overflow-hidden transition-all duration-500">
+<p class="pb-8 text-on-surface-variant">No. Ingress Within is a tool for self-discovery and reflection. While it uses research-backed methods, it is not a clinical intervention or a substitute for professional mental healthcare.</p>
+</div>
+</div>
+<div class="group border-b border-primary/10">
+<button class="w-full py-8 flex justify-between items-center text-left" onclick="toggleFaq(this)">
+<span class="font-body-md text-xl">How is my data handled?</span>
+<span class="material-symbols-outlined transition-transform duration-500 text-secondary">add</span>
+</button>
+<div class="faq-content max-h-0 overflow-hidden transition-all duration-500">
+<p class="pb-8 text-on-surface-variant">Your entries are yours. We use high-level encryption and do not sell your personal reflections to any third parties. Our business model is based on subscriptions, not data monetization.</p>
+</div>
+</div>
+<div class="group border-b border-primary/10">
+<button class="w-full py-8 flex justify-between items-center text-left" onclick="toggleFaq(this)">
+<span class="font-body-md text-xl">Can I export my journey?</span>
+<span class="material-symbols-outlined transition-transform duration-500 text-tertiary">add</span>
+</button>
+<div class="faq-content max-h-0 overflow-hidden transition-all duration-500">
+<p class="pb-8 text-on-surface-variant">Yes. At the end of any journey phase, you can export your narrative architecture as a beautifully typeset PDF archive for your own records.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Final CTA -->
+<section class="py-section-gap px-margin-mobile md:px-margin-desktop bg-primary text-on-primary text-center overflow-hidden relative">
+<div class="absolute -bottom-40 -right-40 w-96 h-96 bg-accent/20 rounded-full blur-3xl parallax-bg" data-speed="0.08"></div>
+<div class="max-w-4xl mx-auto space-y-12 relative z-10 reveal-section">
+<h2 class="font-display-xl-mobile md:text-6xl leading-tight">
+                    The most important conversation you'll ever have is the one with <span class="italic text-accent">yourself.</span>
+</h2>
+<div class="flex justify-center pt-8">
+<button class="font-label-caps text-label-caps bg-accent text-primary px-12 py-6 hover:scale-105 transition-transform duration-700">BEGIN NOW</button>
+</div>
+</div>
+</section>
+</main>
+<footer class="w-full flex flex-col items-center justify-center py-section-gap px-margin-mobile md:px-margin-desktop text-center bg-primary text-on-primary overflow-hidden">
+<div class="font-display-xl-mobile md:font-display-xl text-on-primary opacity-5 leading-none select-none pointer-events-none mb-12">INGRESS WITHIN</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-12 mb-20">
+<a class="font-label-caps text-on-primary/60 hover:text-accent transition-colors duration-300" href="#">Philosophy</a>
+<a class="font-label-caps text-on-primary/60 hover:text-accent transition-colors duration-300" href="#">Privacy</a>
+<a class="font-label-caps text-on-primary/60 hover:text-accent transition-colors duration-300" href="#">Terms</a>
+<a class="font-label-caps text-on-primary/60 hover:text-accent transition-colors duration-300" href="#">Contact</a>
+</div>
+<p class="font-body-md text-body-md text-on-primary opacity-40">
+            © 2024 Ingress Within. A Sanctuary for the Mind.
+        </p>
+</footer>
+<script>
+        // 1. Section Reveal & Header Stagger Logic
+        const observerOptions = {
+            threshold: 0.15,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const sectionObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                    
+                    // Specific for hero to trigger additional staggered elements
+                    if(entry.target.querySelector('#hero-p')) {
+                        setTimeout(() => entry.target.querySelector('#hero-p').classList.replace('opacity-0', 'opacity-100'), 400);
+                        setTimeout(() => entry.target.querySelector('#hero-btn').classList.replace('opacity-0', 'opacity-100'), 600);
+                    }
+                }
+            });
+        }, observerOptions);
+
+        // Prep stagger text
+        document.querySelectorAll('.stagger-text').forEach(el => {
+            const text = el.textContent;
+            const words = text.split(' ');
+            el.innerHTML = words.map((word, i) => `<span style="transition-delay: ${i * 0.1}s">${word} </span>`).join('');
+        });
+
+        // Prep philosophy text
+        const philosophyText = document.getElementById('philosophy-text');
+        if(philosophyText) {
+            const words = philosophyText.textContent.trim().split(' ');
+            philosophyText.innerHTML = words.map((word, i) => {
+                const isSpecial = word.toLowerCase() === 'diagnose.' || word.toLowerCase() === 'define.' || word.toLowerCase() === 'notice.' || word.toLowerCase() === 'scores.';
+                let classes = "philosophy-word";
+                if (word.toLowerCase() === 'notice.') classes += " font-bold underline decoration-accent decoration-2 underline-offset-8";
+                if (word.toLowerCase() === 'diagnose.' || word.toLowerCase() === 'define.') classes += " italic font-light opacity-80";
+                if (word.toLowerCase() === 'scores.') classes += " line-through decoration-tertiary";
+                
+                return `<span class="${classes}" style="transition-delay: ${i * 0.15}s">${word}</span> `;
+            }).join('');
+        }
+
+        document.querySelectorAll('.reveal-section').forEach(el => sectionObserver.observe(el));
+
+        // 2. Parallax Effect (Mouse Follow)
+        document.addEventListener('mousemove', (e) => {
+            const parallaxEls = document.querySelectorAll('.parallax-bg');
+            const mouseX = e.clientX;
+            const mouseY = e.clientY;
+
+            parallaxEls.forEach(el => {
+                const speed = el.getAttribute('data-speed') || 0.05;
+                const x = (window.innerWidth - mouseX * speed) / 100;
+                const y = (window.innerHeight - mouseY * speed) / 100;
+                el.style.transform = `translateX(${x}px) translateY(${y}px)`;
+            });
+        });
+
+        // 3. Scroll Logic (Header & Journey)
+        const nav = document.getElementById('main-nav');
+        const journeyProgress = document.getElementById('journey-progress');
+        const journeyCards = document.querySelectorAll('.journey-card');
+        const journeySection = document.getElementById('journey-section');
+
+        window.addEventListener('scroll', () => {
+            const scrolled = window.scrollY;
+            
+            // Header transition
+            if (scrolled > 50) {
+                nav.classList.add('bg-surface/80', 'backdrop-blur-md', 'border-primary/10', 'py-2');
+                nav.classList.remove('bg-transparent', 'backdrop-blur-none', 'border-primary/0', 'py-4');
+            } else {
+                nav.classList.remove('bg-surface/80', 'backdrop-blur-md', 'border-primary/10', 'py-2');
+                nav.classList.add('bg-transparent', 'backdrop-blur-none', 'border-primary/0', 'py-4');
+            }
+
+            // Journey logic
+            if (journeySection) {
+                const rect = journeySection.getBoundingClientRect();
+                const sectionStart = window.innerHeight * 0.2;
+                
+                // Calculate progress through section (0 to 1)
+                let progress = ( -rect.top + sectionStart ) / (rect.height);
+                progress = Math.min(Math.max(0, progress), 1);
+                
+                if (journeyProgress) journeyProgress.style.width = (progress * 100) + '%';
+                
+                journeyCards.forEach(card => {
+                    const trigger = parseFloat(card.dataset.day);
+                    if (progress > trigger - 0.1 && progress < trigger + 0.1) {
+                        card.classList.add('highlight');
+                    } else {
+                        card.classList.remove('highlight');
+                    }
+                });
+            }
+        });
+
+        // Engine Visualization Micro-interactions
+        const engineViz = document.getElementById('engine-viz');
+        if (engineViz) {
+            const colors = ['#E0A898', '#8DBFB4', '#B8A8D4'];
+            for (let i = 0; i < 12; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'absolute w-1 h-1 rounded-full z-0';
+                dot.style.backgroundColor = colors[i % 3];
+                const angle = (i / 12) * Math.PI * 2;
+                const radius = 40 + Math.random() * 60;
+                dot.style.left = `calc(50% + ${Math.cos(angle) * radius}px)`;
+                dot.style.top = `calc(50% + ${Math.sin(angle) * radius}px)`;
+                engineViz.appendChild(dot);
+                
+                dot.animate([
+                    { transform: 'translate(0, 0) scale(1)', opacity: 0.3 },
+                    { transform: `translate(${Math.random() * 30 - 15}px, ${Math.random() * 30 - 15}px) scale(1.5)`, opacity: 0.6 }
+                ], {
+                    duration: 4000 + Math.random() * 3000,
+                    iterations: Infinity,
+                    direction: 'alternate',
+                    easing: 'ease-in-out'
+                });
+            }
+        }
+
+        // FAQ Toggle
+        function toggleFaq(button) {
+            const content = button.nextElementSibling;
+            const icon = button.querySelector('.material-symbols-outlined');
+            
+            document.querySelectorAll('.faq-content').forEach(c => {
+                if (c !== content) {
+                    c.style.maxHeight = null;
+                    c.previousElementSibling.querySelector('.material-symbols-outlined').style.transform = 'rotate(0deg)';
+                }
+            });
+
+            if (content.style.maxHeight) {
+                content.style.maxHeight = null;
+                icon.style.transform = 'rotate(0deg)';
+            } else {
+                content.style.maxHeight = content.scrollHeight + "px";
+                icon.style.transform = 'rotate(45deg)';
+            }
+        }
+    </script>
+</body></html>
