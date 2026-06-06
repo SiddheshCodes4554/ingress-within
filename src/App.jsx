@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ArrowRight, 
-  Sparkles, 
-  Check, 
-  PenTool, 
-  Sliders, 
-  TrendingUp, 
+import {
+  ArrowRight,
+  Sparkles,
+  Check,
+  PenTool,
+  Sliders,
+  TrendingUp,
   BrainCircuit,
   Quote,
   Star,
@@ -60,7 +60,7 @@ export default function App() {
   const [activeDayIndex, setActiveDayIndex] = useState(0);
   const [authTab, setAuthTab] = useState('signin');
   const [currentPage, setCurrentPage] = useState('home'); // 'home', 'pricing', 'faq'
-  
+
   // Parallax positions for Hero Portal Particles
   const heroRef = useRef(null);
   const [heroMousePos, setHeroMousePos] = useState({ x: 0, y: 0 });
@@ -120,7 +120,7 @@ export default function App() {
     let stressCount = 0;
     let clarityCount = 0;
     let distortions = [];
-    
+
     // Keywords for stress
     if (lower.includes("anxious") || lower.includes("worry") || lower.includes("worried") || lower.includes("stress") || lower.includes("sluggish") || lower.includes("overwhelmed") || lower.includes("tired") || lower.includes("tiredness")) {
       stressCount += 2;
@@ -128,7 +128,7 @@ export default function App() {
     if (lower.includes("fail") || lower.includes("failure") || lower.includes("mistake") || lower.includes("bad") || lower.includes("argument")) {
       stressCount += 2.5;
     }
-    
+
     // Keywords for clarity/growth
     if (lower.includes("calm") || lower.includes("focus") || lower.includes("clear") || lower.includes("silence") || lower.includes("breaths") || lower.includes("realized") || lower.includes("remind")) {
       clarityCount += 2.5;
@@ -263,30 +263,29 @@ export default function App() {
   return (
     <div className="min-h-screen bg-mint-grey text-primary selection:bg-accent/30 font-body-md">
       {/* Scroll Progress Bar */}
-      <div 
-        className="fixed top-0 left-0 h-[3px] bg-primary z-[100] transition-all duration-100 ease-out" 
+      <div
+        className="fixed top-0 left-0 h-[3px] bg-primary z-[100] transition-all duration-100 ease-out"
         style={{ width: `${scrollProgress}%` }}
       />
 
       {/* Header Navigation */}
-      <nav className={`fixed top-0 w-full z-50 transition-all duration-500 py-4 px-6 md:px-16 flex justify-between items-center ${
-        isNavScrolled 
-          ? 'bg-surface/90 glass-nav border-b border-primary/5 py-3 shadow-[0_2px_12px_rgba(30,42,46,0.02)]' 
+      <nav className={`fixed top-0 w-full z-50 transition-all duration-500 py-4 px-6 md:px-16 flex justify-between items-center ${isNavScrolled
+          ? 'bg-surface/90 glass-nav border-b border-primary/5 py-3 shadow-[0_2px_12px_rgba(30,42,46,0.02)]'
           : 'bg-transparent border-b border-primary/0'
-      }`}>
+        }`}>
         <div className="flex justify-between items-center w-full max-w-container-max mx-auto">
           <div className="flex items-center gap-12">
-            <button 
+            <button
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
               className="flex items-center transition-opacity hover:opacity-85 focus:outline-none cursor-pointer text-left"
             >
               <div className="flex items-center gap-2">
                 <svg className="w-8 h-8 text-primary" viewBox="0 0 32 32" fill="none">
-                  <circle cx="16" cy="16" r="2" fill="currentColor"/>
-                  <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-                  <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary"/>
-                  <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="0.9" fill="none" opacity="0.65" className="text-secondary"/>
-                  <circle cx="16" cy="16" r="14" stroke="currentColor" strokeWidth="0.6" fill="none" opacity="0.35" className="text-secondary"/>
+                  <circle cx="16" cy="16" r="2" fill="currentColor" />
+                  <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none" />
+                  <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary" />
+                  <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="0.9" fill="none" opacity="0.65" className="text-secondary" />
+                  <circle cx="16" cy="16" r="14" stroke="currentColor" strokeWidth="0.6" fill="none" opacity="0.35" className="text-secondary" />
                 </svg>
                 <div className="flex flex-col">
                   <span className="font-headline-md text-lg font-bold tracking-tight text-primary leading-none">
@@ -298,7 +297,7 @@ export default function App() {
                 </div>
               </div>
             </button>
-            
+
             {/* Desktop Navigation Links */}
             <div className="hidden lg:flex gap-8 items-center">
               <button onClick={() => scrollToSection('what')} className="text-on-surface-variant hover:text-primary transition-colors font-label-md text-label-md tracking-wide font-bold cursor-pointer">What it is</button>
@@ -308,7 +307,7 @@ export default function App() {
           </div>
 
           {/* Desktop CTA */}
-          <button 
+          <button
             onClick={() => scrollToSection('auth')}
             className="hidden lg:block bg-primary text-on-primary px-7 py-3 rounded-full font-label-md text-label-md tracking-wider uppercase text-[11px] hover:bg-primary/95 hover:shadow-lg transition-all duration-300 cursor-pointer font-bold"
           >
@@ -316,7 +315,7 @@ export default function App() {
           </button>
 
           {/* Mobile Menu Button */}
-          <button 
+          <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="lg:hidden text-primary focus:outline-none flex flex-col gap-1.5 p-1 z-50 cursor-pointer"
           >
@@ -329,7 +328,7 @@ export default function App() {
         {/* Mobile Menu Overlay */}
         <AnimatePresence>
           {isMobileMenuOpen && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -339,7 +338,7 @@ export default function App() {
               <button onClick={() => scrollToSection('what')} className="text-left font-label-md text-sm uppercase tracking-widest font-bold text-primary/70 py-1">What it is</button>
               <button onClick={() => scrollToSection('trust')} className="text-left font-label-md text-sm uppercase tracking-widest font-bold text-primary/70 py-1">How it works</button>
               <button onClick={() => scrollToSection('pricing')} className="text-left font-label-md text-sm uppercase tracking-widest font-bold text-primary/70 py-1">Pricing</button>
-              <button 
+              <button
                 onClick={() => scrollToSection('auth')}
                 className="w-full bg-primary text-white font-label-md text-xs uppercase tracking-widest font-bold py-4 rounded-xl text-center mt-4 shadow-sm"
               >
@@ -353,11 +352,11 @@ export default function App() {
       {/* Main Content */}
       <main className="pt-16">
         {/* HERO SECTION */}
-        <section 
+        <section
           ref={heroRef}
           onMouseMove={handleHeroMouseMove}
           onMouseLeave={handleHeroMouseLeave}
-          className="min-h-[95vh] flex items-center px-6 md:px-16 py-20 md:py-28 max-w-container-max mx-auto overflow-hidden" 
+          className="min-h-[95vh] flex items-center px-6 md:px-16 py-20 md:py-28 max-w-container-max mx-auto overflow-hidden"
           id="hero"
         >
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center w-full">
@@ -371,37 +370,37 @@ export default function App() {
 
                 <RevealText>
                   <h1 className="font-display-lg-mobile md:font-display-lg text-[48px] md:text-[68px] text-primary leading-[1.05] tracking-tight">
-                    The things you avoid naming<br/>
+                    The things you avoid naming<br />
                     shape you <span className="italic font-normal text-secondary font-headline-lg font-headline-md">anyway.</span>
                   </h1>
                 </RevealText>
-                
+
                 <RevealText delay={0.2}>
                   <p className="font-body-lg text-body-lg text-on-surface-variant leading-relaxed max-w-xl mx-auto lg:mx-0">
                     We gave it a framework. You fill it in — one entry at a time. The more clearly you see what you're actually carrying, the more clearly it reflects it back.
                   </p>
                 </RevealText>
               </div>
-              
+
               <RevealText delay={0.4}>
                 <div className="space-y-6">
                   <div className="flex flex-col sm:flex-row justify-center lg:justify-start gap-4">
-                    <button 
+                    <button
                       onClick={() => scrollToSection('auth')}
                       className="bg-primary text-on-primary px-12 py-5 rounded-xl font-label-md text-label-md hover:scale-[1.03] hover:bg-primary/95 active:scale-95 transition-all shadow-xl cursor-pointer font-bold"
                     >
                       Start writing free
                     </button>
-                    <button 
+                    <button
                       onClick={() => scrollToSection('what')}
                       className="border border-outline text-primary px-12 py-5 rounded-xl font-label-md text-label-md hover:bg-white hover:scale-[1.03] transition-all cursor-pointer bg-white/50 font-bold"
                     >
                       Read why it exists &rarr;
                     </button>
                   </div>
-                  
+
                   <div className="flex justify-center lg:justify-start gap-x-2 gap-y-2 text-xs font-label-md text-on-surface-variant items-center font-bold">
-                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" className="stroke-on-surface-variant shrink-0"><rect x="1" y="5" width="11" height="8" rx="1.5" strokeWidth="1.2"/><path d="M4 5V3.5a2.5 2.5 0 0 1 5 0V5" strokeWidth="1.2"/></svg>
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" className="stroke-on-surface-variant shrink-0"><rect x="1" y="5" width="11" height="8" rx="1.5" strokeWidth="1.2" /><path d="M4 5V3.5a2.5 2.5 0 0 1 5 0V5" strokeWidth="1.2" /></svg>
                     <span>Private by design. Your writing stays yours.</span>
                   </div>
                 </div>
@@ -442,9 +441,9 @@ export default function App() {
               <div className="absolute w-[300px] h-[300px] bg-accent/15 rounded-full blur-[80px] pointer-events-none" />
 
               {/* 3D Parallax Rotation Wrapper */}
-              <motion.div 
-                style={{ 
-                  rotateX: heroMousePos.y * -8, 
+              <motion.div
+                style={{
+                  rotateX: heroMousePos.y * -8,
                   rotateY: heroMousePos.x * 8,
                   transformStyle: 'preserve-3d',
                   perspective: 1000
@@ -453,7 +452,7 @@ export default function App() {
                 className="relative w-full h-full flex flex-col items-center justify-center gap-5 max-w-[480px] z-10"
               >
                 {/* 1. Main Journal reflection sheet */}
-                <div 
+                <div
                   className="w-full bg-[#FDFDFD] border border-primary/5 rounded-premium p-6 shadow-[0_15px_45px_rgba(30,42,46,0.06)] flex flex-col gap-4 text-left"
                   style={{ transform: 'translate3d(0px, 0px, 20px)' }}
                 >
@@ -484,14 +483,14 @@ export default function App() {
                 </div>
 
                 {/* 2. Overlapping Metrics & CBT Reframe card grid */}
-                <div 
+                <div
                   className="grid grid-cols-2 gap-4 w-full"
                   style={{ transform: 'translate3d(0px, 0px, 40px)' }}
                 >
                   {/* Metric Panel */}
                   <div className="bg-white border border-primary/5 rounded-premium p-5 shadow-[0_15px_45px_rgba(30,42,46,0.06)] flex flex-col justify-between h-[150px] text-left">
                     <span className="text-[9px] font-label-md text-primary/45 uppercase tracking-widest font-bold block">Emotional Balance</span>
-                    
+
                     <div className="space-y-3">
                       <div className="space-y-1">
                         <div className="flex justify-between text-[10px] font-label-md font-bold">
@@ -547,8 +546,8 @@ export default function App() {
             <ScrollReveal className="max-w-3xl mx-auto space-y-6">
               <span className="font-label-md text-xs font-semibold text-secondary uppercase tracking-[0.14em] block">The gap no one is filling</span>
               <h2 className="font-display-lg-mobile md:font-display-lg text-[36px] md:text-[54px] text-white leading-tight font-medium font-headline-md">
-                Something is off.<br/>
-                But you're not broken enough<br/>
+                Something is off.<br />
+                But you're not broken enough<br />
                 to ask for help.
               </h2>
               <div className="w-16 h-[1px] bg-accent mx-auto" />
@@ -625,7 +624,7 @@ export default function App() {
             <ScrollReveal className="max-w-3xl mx-auto space-y-6">
               <span className="font-label-md text-xs font-semibold text-secondary uppercase tracking-[0.14em] block">What Ingress Within is and isn't</span>
               <h2 className="font-display-lg-mobile md:font-display-lg text-[36px] md:text-[54px] text-primary leading-tight font-medium font-headline-md">
-                Not a replacement for anything.<br/>
+                Not a replacement for anything.<br />
                 A space that works alongside everything.
               </h2>
               <div className="w-16 h-[1px] bg-accent mx-auto" />
@@ -701,7 +700,7 @@ export default function App() {
             <ScrollReveal className="max-w-3xl mx-auto space-y-6">
               <span className="font-label-md text-xs font-semibold text-secondary uppercase tracking-[0.14em] block">Why trust it</span>
               <h2 className="font-display-lg-mobile md:font-display-lg text-[36px] md:text-[54px] text-primary leading-tight font-medium font-headline-md">
-                You train it.<br/>
+                You train it.<br />
                 Not the other way around.
               </h2>
               <div className="w-16 h-[1px] bg-accent mx-auto" />
@@ -755,7 +754,7 @@ export default function App() {
               <span className="font-label-md text-xs font-semibold text-secondary uppercase tracking-[0.14em] block">The practice</span>
               <RevealText>
                 <h2 className="font-display-lg-mobile md:font-display-lg text-[36px] md:text-[54px] text-primary leading-tight font-medium font-headline-md">
-                  One entry a day.<br/>
+                  One entry a day.<br />
                   A thread that builds into a picture.
                 </h2>
               </RevealText>
@@ -778,7 +777,7 @@ export default function App() {
             <ScrollReveal className="max-w-3xl mx-auto space-y-6">
               <span className="font-label-md text-xs font-semibold text-secondary uppercase tracking-[0.14em] block">Who it's for</span>
               <h2 className="font-display-lg-mobile md:font-display-lg text-[36px] md:text-[54px] text-primary leading-tight font-medium font-headline-md">
-                Neither of them is in crisis.<br/>
+                Neither of them is in crisis.<br />
                 Neither of them is broken.
               </h2>
               <div className="w-16 h-[1px] bg-accent mx-auto" />
@@ -796,7 +795,7 @@ export default function App() {
                       Self-aware staller
                     </span>
                     <h4 className="font-headline-md text-xl font-bold text-primary leading-snug">
-                      Knows something is off.<br/>
+                      Knows something is off.<br />
                       Has nowhere honest to take it.
                     </h4>
                     <p className="font-body-md text-xs text-on-surface-variant leading-relaxed">
@@ -818,7 +817,7 @@ export default function App() {
                       Quietly accumulating
                     </span>
                     <h4 className="font-headline-md text-xl font-bold text-primary leading-snug">
-                      Functional by every measure.<br/>
+                      Functional by every measure.<br />
                       Something is quietly building.
                     </h4>
                     <p className="font-body-md text-xs text-on-surface-variant leading-relaxed">
@@ -846,7 +845,7 @@ export default function App() {
             <ScrollReveal className="max-w-3xl mx-auto space-y-6">
               <span className="font-label-md text-xs font-semibold text-secondary uppercase tracking-[0.14em] block">Our approach</span>
               <h2 className="font-display-lg-mobile md:font-display-lg text-[36px] md:text-[54px] text-white leading-tight font-medium font-headline-md">
-                Clarity comes from truth,<br/>
+                Clarity comes from truth,<br />
                 not comfort.
               </h2>
               <div className="w-16 h-[1px] bg-accent mx-auto" />
@@ -910,10 +909,10 @@ export default function App() {
 
             {/* Bento Grid */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-stretch">
-              
+
               {/* Card 1: Monthly Reflection Synthesis */}
               <ScrollReveal className="md:col-span-8 flex h-full">
-                <motion.div 
+                <motion.div
                   whileHover={{ y: -8, scale: 1.01 }}
                   transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                   className="w-full bg-white rounded-premium p-8 md:p-10 border border-primary/5 tonal-layer-1 flex flex-col justify-between relative overflow-hidden group cursor-pointer"
@@ -922,46 +921,46 @@ export default function App() {
                     <h5 className="font-headline-md text-headline-md text-primary">Monthly Reflection Synthesis</h5>
                     <span className="font-label-md text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Oct 2026 — Dec 2026</span>
                   </div>
-                  
+
                   <div className="space-y-6">
                     {/* Visual Chart Bars */}
                     <div className="h-44 w-full bg-surface-container rounded-xl flex items-end justify-between p-6 gap-3">
-                      <motion.div 
+                      <motion.div
                         className="w-full bg-secondary rounded-t-lg"
                         initial={{ height: 0 }}
                         whileInView={{ height: '40%' }}
                         viewport={{ once: true }}
                         transition={{ duration: 1, ease: 'easeOut' }}
                       />
-                      <motion.div 
+                      <motion.div
                         className="w-full bg-primary rounded-t-lg"
                         initial={{ height: 0 }}
                         whileInView={{ height: '70%' }}
                         viewport={{ once: true }}
                         transition={{ duration: 1, delay: 0.1, ease: 'easeOut' }}
                       />
-                      <motion.div 
+                      <motion.div
                         className="w-full bg-secondary rounded-t-lg"
                         initial={{ height: 0 }}
                         whileInView={{ height: '55%' }}
                         viewport={{ once: true }}
                         transition={{ duration: 1, delay: 0.2, ease: 'easeOut' }}
                       />
-                      <motion.div 
+                      <motion.div
                         className="w-full bg-accent rounded-t-lg"
                         initial={{ height: 0 }}
                         whileInView={{ height: '85%' }}
                         viewport={{ once: true }}
                         transition={{ duration: 1, delay: 0.3, ease: 'easeOut' }}
                       />
-                      <motion.div 
+                      <motion.div
                         className="w-full bg-secondary rounded-t-lg"
                         initial={{ height: 0 }}
                         whileInView={{ height: '60%' }}
                         viewport={{ once: true }}
                         transition={{ duration: 1, delay: 0.4, ease: 'easeOut' }}
                       />
-                      <motion.div 
+                      <motion.div
                         className="w-full bg-primary rounded-t-lg"
                         initial={{ height: 0 }}
                         whileInView={{ height: '45%' }}
@@ -986,7 +985,7 @@ export default function App() {
 
               {/* Card 2: Journal Entry Preview */}
               <ScrollReveal className="md:col-span-4 flex h-full" delay={0.15}>
-                <motion.div 
+                <motion.div
                   whileHover={{ y: -8, scale: 1.01 }}
                   transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                   className="w-full bg-primary text-on-primary rounded-premium p-8 md:p-10 shadow-2xl flex flex-col justify-between min-h-[360px] relative overflow-hidden group cursor-pointer"
@@ -1000,7 +999,7 @@ export default function App() {
                       "The noise of the city felt different today. Not a distraction, but a texture. I am finding space between my thoughts..."
                     </p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => {
                       scrollToSection('experience');
                       setActiveDayIndex(1);
@@ -1014,7 +1013,7 @@ export default function App() {
 
               {/* Card 3: Consistency Score Circle */}
               <ScrollReveal className="md:col-span-4 flex h-full" delay={0.15}>
-                <motion.div 
+                <motion.div
                   whileHover={{ y: -8, scale: 1.01 }}
                   transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                   className="w-full bg-white rounded-premium p-8 border border-primary/5 tonal-layer-1 flex flex-col items-center justify-center text-center gap-6 min-h-[300px] cursor-pointer"
@@ -1022,8 +1021,8 @@ export default function App() {
                   <div className="w-24 h-24 relative flex items-center justify-center">
                     <svg className="w-full h-full transform -rotate-90">
                       <circle cx="48" cy="48" r="40" stroke="#ECEFF0" strokeWidth="6" fill="transparent" />
-                      <motion.circle 
-                        cx="48" cy="48" r="40" stroke="#8DBFB4" strokeWidth="6" fill="transparent" 
+                      <motion.circle
+                        cx="48" cy="48" r="40" stroke="#8DBFB4" strokeWidth="6" fill="transparent"
                         strokeDasharray="251.2"
                         initial={{ strokeDashoffset: 251.2 }}
                         whileInView={{ strokeDashoffset: 251.2 - (251.2 * 78) / 100 }}
@@ -1044,15 +1043,15 @@ export default function App() {
 
               {/* Card 4: Weekly Summary Card */}
               <ScrollReveal className="md:col-span-8 flex h-full" delay={0.3}>
-                <motion.div 
+                <motion.div
                   whileHover={{ y: -8, scale: 1.01 }}
                   transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                   className="w-full bg-white rounded-premium p-8 border border-primary/5 tonal-layer-1 flex flex-col sm:flex-row items-center gap-8 min-h-[300px] justify-between cursor-pointer"
                 >
-                  <div 
+                  <div
                     className="w-full sm:w-44 h-44 rounded-2xl flex-shrink-0 bg-cover bg-center shadow-sm border border-primary/5"
-                    style={{ 
-                      backgroundImage: `url('https://lh3.googleusercontent.com/aida-public/AB6AXuBQcdo1bAukmfVHSDACcX3yaKlNFciSVzFQA0Ha8av80Zo7N5GfRnL-TgrffuCKLCCAqCPrVI5cUziEBTp2OpzioHAOVL62mWk2MqsNDRqsbAjC89El_OOG1ke4vvTeQBwFCkjpxOW191i5rnHUbLbH5wA90Z3Ltex4IMkrtPrd9xCFEqQ2IyPGwrcAjyLWCUcxV2HufEXYETWTZtUhDvUEmcAkdWjtYLegbilLENfd1aEVoLN2cqNh6CQHo44JwjwTCkoz3mEGMKI')` 
+                    style={{
+                      backgroundImage: `url('https://lh3.googleusercontent.com/aida-public/AB6AXuBQcdo1bAukmfVHSDACcX3yaKlNFciSVzFQA0Ha8av80Zo7N5GfRnL-TgrffuCKLCCAqCPrVI5cUziEBTp2OpzioHAOVL62mWk2MqsNDRqsbAjC89El_OOG1ke4vvTeQBwFCkjpxOW191i5rnHUbLbH5wA90Z3Ltex4IMkrtPrd9xCFEqQ2IyPGwrcAjyLWCUcxV2HufEXYETWTZtUhDvUEmcAkdWjtYLegbilLENfd1aEVoLN2cqNh6CQHo44JwjwTCkoz3mEGMKI')`
                     }}
                   />
                   <div className="flex-grow flex-1 space-y-4 text-center sm:text-left">
@@ -1061,7 +1060,7 @@ export default function App() {
                     <p className="font-body-md text-xs text-on-surface-variant leading-relaxed">
                       Your emotional landscape shifted toward "Productive Focus" this week. Would you like to explore what routine shifts caused this increase?
                     </p>
-                    <button 
+                    <button
                       onClick={() => {
                         scrollToSection('experience');
                         setActiveDayIndex(3);
@@ -1083,16 +1082,16 @@ export default function App() {
           {/* Ambient Glows */}
           <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-secondary/5 rounded-full blur-[140px] pointer-events-none" />
           <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[140px] pointer-events-none" />
-          
+
           <div className="max-w-container-max mx-auto flex flex-col lg:flex-row gap-20 items-center relative z-10">
-            
+
             {/* Left Column: Live Parser Editor */}
             <ScrollReveal className="flex-1 space-y-8 text-left w-full">
               <div className="space-y-4">
                 <span className="text-[10px] font-label-md text-secondary font-bold uppercase tracking-[0.25em] block">SYNTHESIS ENGINE</span>
                 <RevealText>
                   <h2 className="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-5xl text-white leading-tight font-light">
-                    Your daily words are the paint.<br/>
+                    Your daily words are the paint.<br />
                     <span className="italic font-normal text-secondary font-headline-lg">Self-awareness is the portrait.</span>
                   </h2>
                 </RevealText>
@@ -1168,18 +1167,18 @@ export default function App() {
             {/* Right Column: Concentric Visualizer Panel */}
             {(() => {
               const analysis = analyzeText(parserText);
-              
+
               // Determine active states for individual nodes based on analysis
               const isSyntaxActive = parserText.trim().length > 15;
               const isSentimentActive = analysis.primaryEmotion !== "Neutral Attention" && parserText.trim().length > 0;
               const isCbtActive = analysis.distortions !== "None Detected" && parserText.trim().length > 0;
               const isBiometricsActive = (analysis.coreTheme === "Morning Clarity" || parserText.includes("silence") || parserText.includes("intentions") || parserText.includes("routine")) && parserText.trim().length > 0;
-              
+
               return (
                 <ScrollReveal className="flex-1 w-full flex flex-col items-center justify-center relative min-h-[460px] gap-8" delay={0.25}>
                   {/* Digital circular dashboard frame */}
                   <div className="relative w-80 h-80 flex items-center justify-center bg-white/[0.02] rounded-full border border-white/5 shadow-inner">
-                    
+
                     {/* Concentric rotating grids */}
                     <div className="absolute inset-0 border border-dashed border-secondary/15 rounded-full animate-spin-slow" />
                     <div className="absolute top-[8%] left-[8%] right-[8%] bottom-[8%] border border-dashed border-accent/20 rounded-full animate-spin-slow-reverse" />
@@ -1214,9 +1213,9 @@ export default function App() {
                         const radAngle = (node.angle * Math.PI) / 180;
                         const x = Math.cos(radAngle) * radius;
                         const y = Math.sin(radAngle) * radius;
-                        
+
                         const isNodeActive = activeEngineNode && activeEngineNode.id === node.id;
-                        
+
                         let isHighlighted = isNodeActive;
                         if (node.id === 'syntax') isHighlighted = isHighlighted || isSyntaxActive;
                         if (node.id === 'sentiment') isHighlighted = isHighlighted || isSentimentActive;
@@ -1267,7 +1266,7 @@ export default function App() {
                       <div className="absolute -inset-2 rounded-full bg-secondary/5 animate-pulse" />
                       <div className="absolute -inset-4 rounded-full bg-secondary/5 animate-ping opacity-30 pointer-events-none" />
                       <div className="absolute -inset-1.5 rounded-full border border-dashed border-secondary/20 animate-[spin_10s_linear_infinite]" />
-                      
+
                       <span className="text-[16px] font-bold text-secondary leading-none">{analysis.clarityScore}%</span>
                       <span className="text-[7px] font-label-md font-bold tracking-widest uppercase mt-1 text-white/50">Clarity</span>
                     </div>
@@ -1278,9 +1277,9 @@ export default function App() {
                       const radAngle = (node.angle * Math.PI) / 180;
                       const x = Math.cos(radAngle) * radius;
                       const y = Math.sin(radAngle) * radius;
-                      
+
                       const isNodeActive = activeEngineNode && activeEngineNode.id === node.id;
-                      
+
                       let isHighlighted = isNodeActive;
                       if (node.id === 'syntax') isHighlighted = isHighlighted || isSyntaxActive;
                       if (node.id === 'sentiment') isHighlighted = isHighlighted || isSentimentActive;
@@ -1288,27 +1287,25 @@ export default function App() {
                       if (node.id === 'biometrics') isHighlighted = isHighlighted || isBiometricsActive;
 
                       const dotColorClass = node.category === 'linguistic' ? 'bg-secondary' : 'bg-accent';
-                      
+
                       return (
                         <motion.button
                           key={node.id}
                           onMouseEnter={() => setActiveEngineNode(node)}
                           onMouseLeave={() => setActiveEngineNode(null)}
-                          className={`absolute px-3 py-2 bg-white/5 backdrop-blur-md rounded-xl shadow-lg border transition-all duration-300 cursor-pointer z-30 flex items-center gap-2 select-none ${
-                            isHighlighted 
-                              ? node.category === 'linguistic' 
+                          className={`absolute px-3 py-2 bg-white/5 backdrop-blur-md rounded-xl shadow-lg border transition-all duration-300 cursor-pointer z-30 flex items-center gap-2 select-none ${isHighlighted
+                              ? node.category === 'linguistic'
                                 ? 'border-secondary scale-110 shadow-[0_0_15px_rgba(141,191,180,0.35)] bg-white/10'
                                 : 'border-accent scale-110 shadow-[0_0_15px_rgba(224,168,152,0.35)] bg-white/10'
                               : 'border-white/10 hover:border-white/20 hover:scale-105'
-                          }`}
+                            }`}
                           style={{
                             transform: `translate(${x}px, ${y}px)`,
                           }}
                         >
                           <span className={`w-2 h-2 rounded-full ${dotColorClass} ${isHighlighted ? 'animate-pulse' : ''}`} />
-                          <span className={`text-[9px] font-label-md font-bold uppercase tracking-wider transition-colors duration-300 ${
-                            isHighlighted ? 'text-white' : 'text-white/60'
-                          }`}>
+                          <span className={`text-[9px] font-label-md font-bold uppercase tracking-wider transition-colors duration-300 ${isHighlighted ? 'text-white' : 'text-white/60'
+                            }`}>
                             {node.label}
                           </span>
                         </motion.button>
@@ -1332,7 +1329,7 @@ export default function App() {
                           {activeEngineNode.detail}
                         </motion.div>
                       ) : (
-                        <motion.div 
+                        <motion.div
                           key="default-prompt"
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 0.8 }}
@@ -1355,7 +1352,7 @@ export default function App() {
             <span className="font-label-md text-xs font-semibold text-secondary uppercase tracking-[0.14em] block">Simple pricing</span>
             <RevealText>
               <h2 className="font-display-lg-mobile md:font-display-lg text-[36px] md:text-[54px] text-primary leading-tight font-medium font-headline-md">
-                Start free. Continue only<br/>
+                Start free. Continue only<br />
                 if it's honest enough to.
               </h2>
             </RevealText>
@@ -1399,7 +1396,7 @@ export default function App() {
                     </li>
                   </ul>
                 </div>
-                <button 
+                <button
                   onClick={() => scrollToSection('auth')}
                   className="w-full bg-white hover:bg-primary hover:text-white border border-primary/15 hover:border-primary hover:scale-[1.02] text-primary font-label-md text-xs font-bold tracking-wider uppercase py-4 rounded-xl mt-8 transition-all shadow-xs cursor-pointer duration-300"
                 >
@@ -1444,7 +1441,7 @@ export default function App() {
                     </li>
                   </ul>
                 </div>
-                <button 
+                <button
                   onClick={() => scrollToSection('auth')}
                   className="w-full bg-accent hover:opacity-95 hover:scale-[1.02] text-primary font-label-md text-xs font-bold tracking-wider uppercase py-4 rounded-xl mt-8 transition-all shadow-md cursor-pointer duration-300"
                 >
@@ -1485,7 +1482,7 @@ export default function App() {
                     </li>
                   </ul>
                 </div>
-                <button 
+                <button
                   onClick={() => scrollToSection('auth')}
                   className="w-full bg-white hover:bg-primary hover:text-white border border-primary/15 hover:border-primary hover:scale-[1.02] text-primary font-label-md text-xs font-bold tracking-wider uppercase py-4 rounded-xl mt-8 transition-all shadow-xs cursor-pointer duration-300"
                 >
@@ -1500,8 +1497,8 @@ export default function App() {
           </ScrollReveal>
 
           <ScrollReveal className="text-center pt-8" delay={0.1}>
-            <button 
-              onClick={() => window.location.hash = '#/pricing'} 
+            <button
+              onClick={() => window.location.hash = '#/pricing'}
               className="font-label-md text-xs font-bold tracking-wider text-secondary border-b-[1.5px] border-secondary hover:pb-1 hover:text-primary hover:border-primary transition-all cursor-pointer inline-flex items-center gap-1.5"
             >
               Compare plans &amp; view founding member details &rarr;
@@ -1517,12 +1514,12 @@ export default function App() {
                 <h2 className="font-headline-lg text-headline-lg text-primary">Frequent Enquiries</h2>
               </RevealText>
             </div>
-            
+
             <FaqAccordion />
 
             <div className="text-center pt-8">
               <span className="font-body-md text-xs text-primary/50 block">Have other questions regarding security or methods?</span>
-              <button 
+              <button
                 onClick={() => window.location.hash = '#/faq'}
                 className="font-label-md text-xs font-bold tracking-wider text-secondary border-b-[1.5px] border-secondary hover:pb-1 hover:text-primary hover:border-primary transition-all mt-2 cursor-pointer inline-flex items-center gap-1.5"
               >
@@ -1543,7 +1540,7 @@ export default function App() {
               <span className="font-label-md text-xs font-semibold text-secondary uppercase tracking-[0.14em] block">Begin</span>
               <RevealText>
                 <h2 className="font-display-lg-mobile md:font-display-lg text-[36px] md:text-[54px] text-white leading-tight font-medium font-headline-md">
-                  Start where<br/>
+                  Start where<br />
                   clarity begins.
                 </h2>
               </RevealText>
@@ -1559,23 +1556,21 @@ export default function App() {
             <ScrollReveal className="max-w-[400px] mx-auto" delay={0.3}>
               <div className="bg-white/[0.03] border border-white/10 rounded-premium p-8 shadow-2xl backdrop-blur-md text-left space-y-6">
                 <div className="flex rounded-lg overflow-hidden border border-white/15">
-                  <button 
+                  <button
                     onClick={() => setAuthTab('signin')}
-                    className={`flex-1 py-3 text-xs font-semibold tracking-wider uppercase transition-all cursor-pointer ${
-                      authTab === 'signin' 
-                        ? 'bg-accent text-primary font-bold' 
+                    className={`flex-1 py-3 text-xs font-semibold tracking-wider uppercase transition-all cursor-pointer ${authTab === 'signin'
+                        ? 'bg-accent text-primary font-bold'
                         : 'bg-transparent text-white/70 hover:text-white'
-                    }`}
+                      }`}
                   >
                     Sign in
                   </button>
-                  <button 
+                  <button
                     onClick={() => setAuthTab('signup')}
-                    className={`flex-1 py-3 text-xs font-semibold tracking-wider uppercase transition-all cursor-pointer ${
-                      authTab === 'signup' 
-                        ? 'bg-accent text-primary font-bold' 
+                    className={`flex-1 py-3 text-xs font-semibold tracking-wider uppercase transition-all cursor-pointer ${authTab === 'signup'
+                        ? 'bg-accent text-primary font-bold'
                         : 'bg-transparent text-white/70 hover:text-white'
-                    }`}
+                      }`}
                   >
                     Create account
                   </button>
@@ -1591,23 +1586,23 @@ export default function App() {
                         exit={{ opacity: 0, height: 0 }}
                         transition={{ duration: 0.2 }}
                       >
-                        <input 
-                          type="text" 
-                          placeholder="Your name" 
+                        <input
+                          type="text"
+                          placeholder="Your name"
                           className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3.5 text-sm text-white placeholder-white/30 outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/20 transition-all shadow-inner"
                         />
                       </motion.div>
                     )}
                   </AnimatePresence>
 
-                  <input 
-                    type="email" 
-                    placeholder="Email address" 
+                  <input
+                    type="email"
+                    placeholder="Email address"
                     className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3.5 text-sm text-white placeholder-white/30 outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/20 transition-all shadow-inner"
                   />
-                  <input 
-                    type="password" 
-                    placeholder="Password" 
+                  <input
+                    type="password"
+                    placeholder="Password"
                     className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3.5 text-sm text-white placeholder-white/30 outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/20 transition-all shadow-inner"
                   />
 
@@ -1623,7 +1618,7 @@ export default function App() {
                 </div>
 
                 <button className="w-full bg-transparent hover:bg-white/5 border border-white/15 hover:border-white/30 text-white py-3.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M15.68 8.18c0-.57-.05-1.11-.14-1.64H8v3.1h4.3a3.67 3.67 0 0 1-1.6 2.42v2h2.6c1.52-1.4 2.38-3.46 2.38-5.88z" fill="#4285F4"/><path d="M8 16c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-2.7.75 4.8 4.8 0 0 1-4.52-3.32H.8v2.06A8 8 0 0 0 8 16z" fill="#34A853"/><path d="M3.48 9.49A4.83 4.83 0 0 1 3.23 8c0-.52.09-1.02.25-1.49V4.45H.8A8 8 0 0 0 0 8c0 1.29.31 2.51.8 3.55l2.68-2.06z" fill="#FBBC05"/><path d="M8 3.18c1.22 0 2.3.42 3.16 1.24l2.37-2.37A7.97 7.97 0 0 0 8 0 8 8 0 0 0 .8 4.45l2.68 2.06A4.8 4.8 0 0 1 8 3.18z" fill="#EA4335"/></svg>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M15.68 8.18c0-.57-.05-1.11-.14-1.64H8v3.1h4.3a3.67 3.67 0 0 1-1.6 2.42v2h2.6c1.52-1.4 2.38-3.46 2.38-5.88z" fill="#4285F4" /><path d="M8 16c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-2.7.75 4.8 4.8 0 0 1-4.52-3.32H.8v2.06A8 8 0 0 0 8 16z" fill="#34A853" /><path d="M3.48 9.49A4.83 4.83 0 0 1 3.23 8c0-.52.09-1.02.25-1.49V4.45H.8A8 8 0 0 0 0 8c0 1.29.31 2.51.8 3.55l2.68-2.06z" fill="#FBBC05" /><path d="M8 3.18c1.22 0 2.3.42 3.16 1.24l2.37-2.37A7.97 7.97 0 0 0 8 0 8 8 0 0 0 .8 4.45l2.68 2.06A4.8 4.8 0 0 1 8 3.18z" fill="#EA4335" /></svg>
                   Continue with Google
                 </button>
 
@@ -1657,11 +1652,11 @@ export default function App() {
           <div className="md:col-span-2 space-y-6">
             <div className="flex items-center gap-2">
               <svg className="w-8 h-8 text-primary" viewBox="0 0 32 32" fill="none">
-                <circle cx="16" cy="16" r="2" fill="currentColor"/>
-                <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-                <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary"/>
-                <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="0.9" fill="none" opacity="0.65" className="text-secondary"/>
-                <circle cx="16" cy="16" r="14" stroke="currentColor" strokeWidth="0.6" fill="none" opacity="0.35" className="text-secondary"/>
+                <circle cx="16" cy="16" r="2" fill="currentColor" />
+                <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none" />
+                <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary" />
+                <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="0.9" fill="none" opacity="0.65" className="text-secondary" />
+                <circle cx="16" cy="16" r="14" stroke="currentColor" strokeWidth="0.6" fill="none" opacity="0.35" className="text-secondary" />
               </svg>
               <div className="flex flex-col">
                 <span className="font-headline-md text-lg font-bold tracking-tight text-primary leading-none">
@@ -1710,9 +1705,9 @@ export default function App() {
             </ul>
           </div>
         </div>
-        
+
         <div className="max-w-container-max mx-auto px-4 pt-8 border-t border-outline-variant/30 flex flex-col md:flex-row justify-between items-center gap-4 text-xs font-label-md">
-          <span className="text-on-surface-variant font-medium">© 2025 Ingress Within. All rights reserved.</span>
+          <span className="text-on-surface-variant font-medium">© 2026 Ingress Within. All rights reserved.</span>
           <div className="flex gap-6">
             <a className="text-on-surface-variant hover:text-primary transition-colors" href="#">Privacy policy</a>
             <a className="text-on-surface-variant hover:text-primary transition-colors" href="#">Terms</a>
