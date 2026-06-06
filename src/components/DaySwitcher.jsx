@@ -68,8 +68,10 @@ export default function DaySwitcher({ activeIndex: propActiveIndex, setActiveInd
 
   // Day 5 (Daily Journaling) States
   const journalPrompts = [
-    "Today, my main goal is to remain calm and focused during the deployment review.",
-    "Woke up feeling tense. I am taking 5 deep breaths to reset my attention before reading emails."
+    "I keep having the same argument with my manager and I don't know if it's me or them.",
+    "I said yes again when I wanted to say no. I don't know why I keep doing this.",
+    "Everything is fine on paper. I just feel like something is quietly off.",
+    "I've been calling it tiredness for months now. Maybe it's something else."
   ];
   const [journalText, setJournalText] = useState("");
   const [typingIndex, setTypingIndex] = useState(0);
