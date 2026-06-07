@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ArrowLeft, 
-  Check, 
-  X, 
-  HelpCircle, 
-  Plus, 
-  Minus, 
-  ShieldCheck, 
-  RotateCcw, 
-  CreditCard, 
-  AlertCircle 
+import {
+  ArrowLeft,
+  Check,
+  X,
+  HelpCircle,
+  Plus,
+  Minus,
+  ShieldCheck,
+  RotateCcw,
+  CreditCard,
+  AlertCircle
 } from 'lucide-react';
 
 const ScrollReveal = ({ children, delay = 0, className = "" }) => {
@@ -75,17 +75,17 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-mint-grey text-primary selection:bg-accent/30 font-body-md pt-20">
-      
+
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 bg-surface/90 glass-nav border-b border-primary/5 py-3 shadow-[0_2px_12px_rgba(30,42,46,0.02)]">
         <div className="flex justify-between items-center w-full max-w-container-max mx-auto px-6 md:px-16">
           <a href="#/" className="flex items-center gap-2 hover:opacity-85 transition-opacity">
             <svg className="w-8 h-8 text-primary" viewBox="0 0 32 32" fill="none">
-              <circle cx="16" cy="16" r="2" fill="currentColor"/>
-              <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-              <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary"/>
-              <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="0.9" fill="none" opacity="0.65" className="text-secondary"/>
-              <circle cx="16" cy="16" r="14" stroke="currentColor" strokeWidth="0.6" fill="none" opacity="0.35" className="text-secondary"/>
+              <circle cx="16" cy="16" r="2" fill="currentColor" />
+              <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none" />
+              <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary" />
+              <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="0.9" fill="none" opacity="0.65" className="text-secondary" />
+              <circle cx="16" cy="16" r="14" stroke="currentColor" strokeWidth="0.6" fill="none" opacity="0.35" className="text-secondary" />
             </svg>
             <div className="flex flex-col">
               <span className="font-headline-md text-lg font-bold tracking-tight text-primary leading-none">
@@ -98,13 +98,13 @@ export default function PricingPage() {
           </a>
 
           <div className="flex items-center gap-4">
-            <a 
-              href="#/" 
+            <a
+              href="#/"
               className="font-label-md text-xs font-bold uppercase tracking-wider text-primary/70 hover:text-primary transition-colors flex items-center gap-1.5 px-4 py-2 border border-primary/10 rounded-lg hover:bg-primary/5 transition-all duration-300"
             >
               <ArrowLeft size={13} /> Back
             </a>
-            <button 
+            <button
               onClick={handleStartWriting}
               className="bg-primary text-on-primary px-5 py-2.5 rounded-lg font-label-md text-xs tracking-wider uppercase hover:bg-primary/95 hover:shadow-lg transition-all duration-300 cursor-pointer font-bold"
             >
@@ -119,7 +119,7 @@ export default function PricingPage() {
         <div className="max-w-3xl mx-auto space-y-6">
           <span className="font-label-md text-xs font-semibold text-secondary uppercase tracking-[0.18em] block">Pricing</span>
           <h1 className="font-headline-md text-4xl md:text-5xl lg:text-6xl text-primary leading-tight font-medium">
-            Start free. Continue only<br/>
+            Start free. Continue only<br />
             <span className="italic text-accent">if it's honest enough to.</span>
           </h1>
           <div className="w-12 h-[1.5px] bg-accent mx-auto" />
@@ -131,10 +131,10 @@ export default function PricingPage() {
 
       {/* Pricing Cards Grid & Spots Counter */}
       <section className="py-20 px-6 md:px-16 max-w-container-max mx-auto space-y-16">
-        
+
         {/* Pricing Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
-          
+
           {/* Plan 1: Free */}
           <ScrollReveal className="h-full flex" delay={0.05}>
             <div className="bg-white border border-primary/5 rounded-premium p-8 md:p-10 flex flex-col justify-between shadow-sm hover:shadow-md transition-all w-full text-left">
@@ -170,7 +170,7 @@ export default function PricingPage() {
                   </li>
                 </ul>
               </div>
-              <button 
+              <button
                 onClick={handleStartWriting}
                 className="w-full bg-white hover:bg-primary hover:text-white border border-primary/15 hover:border-primary hover:scale-[1.02] text-primary font-label-md text-xs font-bold tracking-wider uppercase py-4 rounded-xl mt-8 transition-all shadow-xs cursor-pointer duration-300 text-center"
               >
@@ -219,7 +219,7 @@ export default function PricingPage() {
                   </li>
                 </ul>
               </div>
-              <button 
+              <button
                 onClick={handleStartWriting}
                 className="w-full bg-accent hover:opacity-95 hover:scale-[1.02] text-primary font-label-md text-xs font-bold tracking-wider uppercase py-4 rounded-xl mt-8 transition-all shadow-md cursor-pointer duration-300 text-center"
               >
@@ -264,7 +264,7 @@ export default function PricingPage() {
                   </li>
                 </ul>
               </div>
-              <button 
+              <button
                 onClick={handleStartWriting}
                 className="w-full bg-white hover:bg-primary hover:text-white border border-primary/15 hover:border-primary hover:scale-[1.02] text-primary font-label-md text-xs font-bold tracking-wider uppercase py-4 rounded-xl mt-8 transition-all shadow-xs cursor-pointer duration-300 text-center"
               >
@@ -274,32 +274,6 @@ export default function PricingPage() {
           </ScrollReveal>
 
         </div>
-
-        {/* Add-ons Note */}
-        <ScrollReveal className="text-center font-body-md text-sm text-primary/55 max-w-xl mx-auto pt-4 leading-relaxed italic">
-          <strong>Add-ons coming soon</strong> &mdash; therapy reports, group reflection sessions, and therapist referrals. Early users get first access.
-        </ScrollReveal>
-
-        {/* Spots Counter progress bar */}
-        <ScrollReveal className="max-w-4xl mx-auto">
-          <div className="bg-accent/5 border border-accent/20 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
-            <div className="space-y-2 text-center md:text-left">
-              <p className="font-body-md text-sm text-on-surface-variant leading-relaxed">
-                Founding 50 spots — <strong>7 claimed</strong>, 43 remaining at ₹799. Spots that open up go to our{' '}
-                <a href="mailto:hello@ingresswithin.com" className="text-accent hover:underline font-bold transition-all">
-                  founding waitlist
-                </a>.
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-4 w-full md:w-auto min-w-[240px]">
-              <div className="flex-grow bg-accent/20 h-2 rounded-full overflow-hidden">
-                <div className="bg-accent h-full rounded-full" style={{ width: '14%' }} />
-              </div>
-              <span className="font-headline-md text-lg text-accent font-semibold whitespace-nowrap">43 left</span>
-            </div>
-          </div>
-        </ScrollReveal>
       </section>
 
       {/* Feature Comparison Table */}
@@ -470,11 +444,11 @@ export default function PricingPage() {
             {FAQ_ITEMS.map((item, index) => {
               const isOpen = openFaqIndex === index;
               return (
-                <div 
+                <div
                   key={index}
                   className="bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:bg-white/[0.08] transition-colors duration-300"
                 >
-                  <button 
+                  <button
                     onClick={() => toggleFaq(index)}
                     className="w-full px-6 py-5 flex justify-between items-center text-left focus:outline-none cursor-pointer group"
                   >
@@ -485,7 +459,7 @@ export default function PricingPage() {
                       {isOpen ? '−' : '+'}
                     </span>
                   </button>
-                  
+
                   <AnimatePresence initial={false}>
                     {isOpen && (
                       <motion.div
@@ -537,13 +511,13 @@ export default function PricingPage() {
       <section className="bg-mint-grey py-20 px-6 md:px-16 text-center">
         <div className="max-w-xl mx-auto space-y-6">
           <h2 className="font-headline-md text-3xl md:text-4xl text-primary font-medium leading-snug">
-            Seven days to find out<br/>
+            Seven days to find out<br />
             <span className="italic text-accent">if it's honest enough.</span>
           </h2>
           <p className="font-body-md text-sm md:text-base text-on-surface-variant max-w-sm mx-auto leading-relaxed">
             No card. No commitment. Write without editing yourself — or don't bother.
           </p>
-          <button 
+          <button
             onClick={handleStartWriting}
             className="bg-primary hover:bg-primary/95 text-white px-8 py-3.5 rounded-xl font-label-md text-xs font-bold tracking-wider uppercase inline-block shadow-sm transition-all duration-300 cursor-pointer mt-4"
           >
@@ -557,9 +531,9 @@ export default function PricingPage() {
         <div className="max-w-container-max mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-2 text-white/80">
             <svg className="w-6 h-6" viewBox="0 0 32 32" fill="none">
-              <circle cx="16" cy="16" r="2" fill="currentColor"/>
-              <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-              <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary"/>
+              <circle cx="16" cy="16" r="2" fill="currentColor" />
+              <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none" />
+              <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary" />
             </svg>
             <span className="font-headline-md text-sm font-bold tracking-tight text-white leading-none">
               ingress <span className="font-normal text-secondary italic font-headline-md">within</span>
