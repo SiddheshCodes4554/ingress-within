@@ -1,185 +1,60 @@
 @import "tailwindcss";
 
 @theme {
-  /* Colors from the schema */
-  --color-primary: #091519;
-  --color-background: #fbf9f8;
-  --color-surface: #fbf9f8;
-  --color-surface-container: #f0eded;
-  --color-surface-container-low: #f5f3f3;
-  --color-surface-container-high: #eae8e7;
-  --color-surface-container-highest: #e4e2e2;
-  --color-on-surface: #1b1c1c;
-  --color-on-surface-variant: #434749;
-  --color-outline-variant: #c3c7c9;
-  --color-on-primary: #ffffff;
-  
-  --color-accent: #E0A898;
+  /* Colors from the source of truth reference designs */
+  --color-primary: #1E2A2E;
   --color-mint-grey: #ECEFF0;
-  --color-teal-black: #1E2A2E;
-  --color-ocean-sage: #8DBFB4;
-  --color-soft-iris: #B8A8D4;
-  --color-secondary: var(--color-ocean-sage);
-  --color-supporting: var(--color-soft-iris);
+  --color-accent: #E0A898;
+  --color-secondary: #8DBFB4;
+  --color-supporting: #B8A8D4;
+  --color-white: #FFFFFF;
+  --color-mid: #4A6A64;
+  --color-light-mid: #D8ECEA;
 
   /* Font Families */
-  --font-headline-md: 'Lora', serif;
-  --font-headline-lg: 'Lora', serif;
-  --font-headline-lg-mobile: 'Lora', serif;
-  --font-display-lg: 'Lora', serif;
-  --font-display-lg-mobile: 'Lora', serif;
-  --font-body-lg: 'Instrument Sans', sans-serif;
-  --font-body-md: 'Instrument Sans', sans-serif;
-  --font-label-md: 'Instrument Sans', sans-serif;
-  --font-label-sm: 'Instrument Sans', sans-serif;
-  --font-caption: 'Instrument Sans', sans-serif;
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
+  --font-sans: 'DM Sans', sans-serif;
 
-  /* Typography Sizing & Defaults (Tailwind v4 syntax) */
-  --text-headline-md: 24px;
-  --text-headline-md--line-height: 32px;
-  --text-headline-md--font-weight: 500;
-
-  --text-headline-lg: 32px;
-  --text-headline-lg--line-height: 40px;
-  --text-headline-lg--font-weight: 500;
-
-  --text-headline-lg-mobile: 28px;
-  --text-headline-lg-mobile--line-height: 36px;
-  --text-headline-lg-mobile--font-weight: 500;
-
-  --text-display-lg: 56px;
-  --text-display-lg--line-height: 64px;
-  --text-display-lg--letter-spacing: -0.01em;
-  --text-display-lg--font-weight: 600;
-
-  --text-display-lg-mobile: 40px;
-  --text-display-lg-mobile--line-height: 48px;
-  --text-display-lg-mobile--letter-spacing: -0.01em;
-  --text-display-lg-mobile--font-weight: 600;
-
-  --text-body-lg: 18px;
-  --text-body-lg--line-height: 28px;
-  --text-body-lg--font-weight: 400;
-
-  --text-body-md: 16px;
-  --text-body-md--line-height: 24px;
-  --text-body-md--font-weight: 400;
-
-  --text-label-md: 14px;
-  --text-label-md--line-height: 20px;
-  --text-label-md--letter-spacing: 0.02em;
-  --text-label-md--font-weight: 500;
-
-  --text-label-sm: 12px;
-  --text-label-sm--line-height: 16px;
-  --text-label-sm--font-weight: 500;
-
-  --text-caption: 14px;
-  --text-caption--line-height: 20px;
-  --text-caption--letter-spacing: 0.05em;
-  --text-caption--font-weight: 400;
+  /* Layout tokens compatibility classes mapping */
+  --font-headline-md: 'Cormorant Garamond', Georgia, serif;
+  --font-headline-lg: 'Cormorant Garamond', Georgia, serif;
+  --font-headline-lg-mobile: 'Cormorant Garamond', Georgia, serif;
+  --font-display-lg: 'Cormorant Garamond', Georgia, serif;
+  --font-display-lg-mobile: 'Cormorant Garamond', Georgia, serif;
+  --font-body-lg: 'DM Sans', sans-serif;
+  --font-body-md: 'DM Sans', sans-serif;
+  --font-label-md: 'DM Sans', sans-serif;
+  --font-label-sm: 'DM Sans', sans-serif;
+  --font-caption: 'DM Sans', sans-serif;
 
   /* Border Radii */
-  --radius-card: 24px;
-  --radius-premium: 32px;
-
-  /* Easing curves */
-  --ease-editorial: cubic-bezier(0.22, 1, 0.36, 1);
-
-  /* Spacing, Margins, and Containers */
-  --spacing-section-gap: var(--section-gap);
-  --spacing-margin-mobile: var(--margin-mobile);
-  --spacing-margin-desktop: var(--margin-desktop);
-  --spacing-gutter: var(--gutter);
-  --width-container-max: 1280px;
+  --radius-card: 12px;
+  --radius-premium: 14px;
 }
 
 @layer base {
-  :root {
-    --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
-    --ease-in-out-quint: cubic-bezier(0.83, 0, 0.17, 1);
-    --editorial-transition: 1.2s cubic-bezier(0.22, 1, 0.36, 1);
-    
-    --section-gap: 80px;
-    --margin-mobile: 24px;
-    --margin-desktop: 40px;
-    --gutter: 24px;
-  }
-
-  @media (min-width: 1024px) {
-    :root {
-      --section-gap: 160px;
-      --margin-mobile: 32px;
-      --margin-desktop: 96px;
-      --gutter: 32px;
-    }
-  }
-
   body {
     background-color: var(--color-mint-grey);
-    color: var(--color-on-surface);
-    font-family: var(--font-body-md);
-    font-feature-settings: "ss01", "ss02", "cv01";
+    color: var(--color-primary);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
   }
 
-  /* Custom animations */
-  @keyframes morphing {
-    0% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; }
-    25% { border-radius: 40% 60% 60% 40% / 40% 40% 60% 60%; }
-    50% { border-radius: 60% 40% 40% 60% / 60% 60% 40% 40%; }
-    75% { border-radius: 45% 55% 50% 50% / 50% 45% 55% 50%; }
-    100% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; }
-  }
-
-  @keyframes pulse-soft {
-    0%, 100% { transform: scale(1); opacity: 0.9; }
-    50% { transform: scale(1.05); opacity: 1; }
-  }
-
-  @keyframes floating {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-8px); }
-  }
-
-  @keyframes line-glow {
-    0% { stroke-dashoffset: 1000; opacity: 0.2; }
-    50% { opacity: 0.5; }
-    100% { stroke-dashoffset: 0; opacity: 0.2; }
-  }
-
-  .pulse-insight {
-    animation: pulse-soft 4s infinite ease-in-out;
-  }
-
-  .pulse-growth {
-    animation: pulse-soft 4s infinite ease-in-out 1.5s;
-  }
-
-  .floating-node {
-    animation: floating 6s infinite ease-in-out;
-  }
-
-  .engine-svg circle {
-    stroke-dasharray: 1000;
-    animation: line-glow 10s linear infinite;
-  }
-
-  @keyframes svg-dash {
-    to {
-      stroke-dashoffset: -20;
-    }
-  }
-
-  .animate-svg-dash {
-    animation: svg-dash 1s linear infinite;
+  /* Headings must be light, elegant, and soft */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    letter-spacing: -0.01em;
   }
 
   /* Custom scrollbar matching brand theme */
   ::-webkit-scrollbar {
     width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-track {
     background: var(--color-mint-grey);
@@ -190,28 +65,11 @@
   }
 }
 
-/* Reflection Portal Styles */
-.portal-container {
-  perspective: 1000px;
-}
-
-.portal-sphere {
-  background: radial-gradient(circle at 30% 30%, #8DBFB4 0%, #1E2A2E 100%);
-  box-shadow: 0 0 80px 20px rgba(141, 191, 180, 0.2);
-  animation: pulse-soft 8s ease-in-out infinite, morphing 12s ease-in-out infinite;
-}
-
-.tonal-layer-1 {
-  background: #ffffff;
-  box-shadow: 0 4px 24px rgba(30, 42, 46, 0.04);
-}
-
-.pricing-glow {
-  box-shadow: 0 12px 48px rgba(30, 42, 46, 0.12);
-}
-
-.timeline-line {
-  background: linear-gradient(90deg, transparent 0%, #1e2a2e 15%, #1e2a2e 85%, transparent 100%);
+/* Glassmorphic Nav & Card styles from reference */
+.glass-nav {
+  background: rgba(236, 239, 240, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -222,61 +80,29 @@
   scrollbar-width: none;
 }
 
-.nav-link-active {
-  position: relative;
+/* Subtle transitions for layout connectivity */
+.page-fade-enter {
+  opacity: 0;
+  transform: translateY(10px);
 }
-.nav-link-active::after {
-  content: '';
-  position: absolute;
-  bottom: -4px;
-  left: 0;
-  width: 100%;
-  height: 1.5px;
-  background-color: currentColor;
+.page-fade-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Scroll Snap and Smooth Behavior */
-html {
-  scroll-behavior: smooth;
+/* Layout animations from reference */
+.fade-up {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.fade-up.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
-/* Synthesis Engine Redesign Custom Styles */
-.engine-dark-bg {
-  background-color: #081113;
-  background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.012) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
-  background-size: 40px 40px;
-}
-
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes spin-slow-reverse {
-  from { transform: rotate(360deg); }
-  to { transform: rotate(0deg); }
-}
-
-.animate-spin-slow {
-  animation: spin-slow 90s linear infinite;
-}
-
-.animate-spin-slow-reverse {
-  animation: spin-slow-reverse 70s linear infinite;
-}
-
-@keyframes laser-pulse {
-  0%, 100% { stroke-dashoffset: 0; stroke-width: 2px; opacity: 0.8; }
-  50% { stroke-dashoffset: -40; stroke-width: 3.5px; opacity: 1; }
-}
-
-.animate-laser-pulse-linguistic {
-  animation: laser-pulse 2s linear infinite;
-}
-
-.animate-laser-pulse-psychometric {
-  animation: laser-pulse 2s linear infinite;
-}
-
+.delay-1 { transition-delay: 0.1s; }
+.delay-2 { transition-delay: 0.2s; }
+.delay-3 { transition-delay: 0.3s; }
+.delay-4 { transition-delay: 0.4s; }
