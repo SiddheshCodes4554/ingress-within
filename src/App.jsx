@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import LandingPage from './pages/LandingPage';
 import WhatItIsPage from './pages/WhatItIsPage';
 import HowItWorksPage from './pages/HowItWorksPage';
@@ -84,7 +85,17 @@ export default function App() {
 
   return (
     <>
-      {renderPage()}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentRoute}
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -15 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {renderPage()}
+        </motion.div>
+      </AnimatePresence>
       
       <PolicyModal 
         isOpen={policyModalOpen} 
