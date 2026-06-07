@@ -18,7 +18,6 @@ const ScrollReveal = ({ children, delay = 0, className = "" }) => {
 };
 
 export default function LandingPage({ onOpenPolicy }) {
-  const [authTab, setAuthTab] = useState('signin');
   
   // Hero Mock Card typing animation
   const [typedText, setTypedText] = useState('');
@@ -615,120 +614,31 @@ export default function LandingPage({ onOpenPolicy }) {
         </div>
       </section>
 
-      {/* AUTH */}
+      {/* AUTH SECTION (NOW SIMPLIFIED CTA) */}
       <section className="bg-primary text-mint-grey text-center py-[7rem] px-[8%]" id="auth">
-        <div className="max-w-[480px] mx-auto space-y-8">
+        <div className="max-w-[640px] mx-auto space-y-8">
           <ScrollReveal className="space-y-4">
             <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary block">Begin</span>
-            <h2 className="font-serif text-3xl md:text-4xl text-mint-grey leading-tight font-normal">Start where<br />clarity begins.</h2>
+            <h2 className="font-serif text-3xl md:text-5xl text-mint-grey leading-tight font-normal">Start where<br />clarity begins.</h2>
             <div className="w-12 h-[1px] bg-accent mx-auto" />
-            <p className="font-sans text-[15px] font-light text-light-mid leading-relaxed">
+            <p className="font-sans text-[15.5px] font-light text-light-mid leading-relaxed max-w-[500px] mx-auto">
               Seven days free. No card needed. Write without editing yourself — or don't bother.
             </p>
           </ScrollReveal>
 
-          {/* Auth Card Box */}
-          <ScrollReveal className="bg-white/5 border border-white/12 rounded-premium p-8 max-w-[400px] mx-auto text-left shadow-xl" delay={0.15}>
-            <div className="flex border border-white/15 rounded-md overflow-hidden mb-6">
-              <button 
-                onClick={() => setAuthTab('signin')}
-                className={`flex-1 py-2.5 font-sans text-[13.5px] cursor-pointer border-none transition-all ${
-                  authTab === 'signin' 
-                    ? 'bg-accent text-primary font-medium' 
-                    : 'bg-transparent text-light-mid hover:text-white'
-                }`}
-              >
-                Sign in
-              </button>
-              <button 
-                onClick={() => setAuthTab('signup')}
-                className={`flex-1 py-2.5 font-sans text-[13.5px] cursor-pointer border-none transition-all ${
-                  authTab === 'signup' 
-                    ? 'bg-accent text-primary font-medium' 
-                    : 'bg-transparent text-light-mid hover:text-white'
-                }`}
-              >
-                Create account
-              </button>
-            </div>
-
-            <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-              <AnimatePresence mode="wait">
-                {authTab === 'signup' && (
-                  <motion.div
-                    key="name"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <input 
-                      type="text" 
-                      className="w-full bg-white/6 border border-white/15 rounded-md px-4 py-3 font-sans text-sm text-mint-grey outline-none focus:border-secondary/40 placeholder-white/30" 
-                      placeholder="Your name" 
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <input 
-                type="email" 
-                className="w-full bg-white/6 border border-white/15 rounded-md px-4 py-3 font-sans text-sm text-mint-grey outline-none focus:border-secondary/40 placeholder-white/30" 
-                placeholder="Email address" 
-              />
-              <input 
-                type="password" 
-                className="w-full bg-white/6 border border-white/15 rounded-md px-4 py-3 font-sans text-sm text-mint-grey outline-none focus:border-secondary/40 placeholder-white/30" 
-                placeholder="Password" 
-              />
-
-              <button 
-                type="submit"
-                className="w-full py-3 bg-accent text-primary border-none rounded-md font-sans text-sm font-medium tracking-wide hover:bg-[#D49888] transition-colors cursor-pointer mt-2"
-              >
-                {authTab === 'signin' ? 'Sign in →' : 'Create account →'}
-              </button>
-            </form>
-
-            <div className="flex items-center gap-4 my-5">
-              <div className="flex-1 h-[1px] bg-white/10" />
-              <span className="font-sans text-[11px] text-white/30 uppercase tracking-widest font-bold">or</span>
-              <div className="flex-1 h-[1px] bg-white/10" />
-            </div>
-
-            <button className="w-full py-2.5 bg-transparent border border-white/15 rounded-md font-sans text-[13.5px] text-light-mid hover:border-white/30 transition-all flex items-center justify-center gap-2 cursor-pointer">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M15.68 8.18c0-.57-.05-1.11-.14-1.64H8v3.1h4.3a3.67 3.67 0 0 1-1.6 2.42v2h2.6c1.52-1.4 2.38-3.46 2.38-5.88z" fill="#4285F4" />
-                <path d="M8 16c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-2.7.75 4.8 4.8 0 0 1-4.52-3.32H.8v2.06A8 8 0 0 0 8 16z" fill="#34A853" />
-                <path d="M3.48 9.49A4.83 4.83 0 0 1 3.23 8c0-.52.09-1.02.25-1.49V4.45H.8A8 8 0 0 0 0 8c0 1.29.31 2.51.8 3.55l2.68-2.06z" fill="#FBBC05" />
-                <path d="M8 3.18c1.22 0 2.3.42 3.16 1.24l2.37-2.37A7.97 7.97 0 0 0 8 0 8 8 0 0 0 .8 4.45l2.68 2.06A4.8 4.8 0 0 1 8 3.18z" fill="#EA4335" />
-              </svg>
-              Continue with Google
-            </button>
-
-            <p className="font-sans text-xs text-white/50 mt-5 text-center leading-relaxed">
-              {authTab === 'signin' ? (
-                <>
-                  Don't have an account?{' '}
-                  <button 
-                    onClick={() => setAuthTab('signup')}
-                    className="text-accent bg-transparent border-none p-0 cursor-pointer font-medium hover:underline"
-                  >
-                    Create one free
-                  </button>
-                </>
-              ) : (
-                <>
-                  Already have an account?{' '}
-                  <button 
-                    onClick={() => setAuthTab('signin')}
-                    className="text-accent bg-transparent border-none p-0 cursor-pointer font-medium hover:underline"
-                  >
-                    Sign in
-                  </button>
-                </>
-              )}
-            </p>
+          <ScrollReveal className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4" delay={0.15}>
+            <a 
+              href="#/auth" 
+              className="w-full sm:w-auto bg-accent text-primary hover:bg-[#D49888] hover:translate-y-[-2px] px-8 py-4 rounded font-sans text-sm font-medium tracking-[0.04em] transition-all duration-200 no-underline shadow-md text-center"
+            >
+              Start writing free &rarr;
+            </a>
+            <a 
+              href="#/auth/login" 
+              className="w-full sm:w-auto bg-transparent border border-white/20 hover:border-white hover:bg-white/5 hover:translate-y-[-2px] text-mint-grey px-8 py-4 rounded font-sans text-sm font-medium tracking-[0.04em] transition-all duration-200 no-underline text-center"
+            >
+              Sign in to your account
+            </a>
           </ScrollReveal>
         </div>
       </section>
