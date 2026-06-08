@@ -18,61 +18,78 @@ const ScrollReveal = ({ children, delay = 0, className = "" }) => {
 };
 
 export default function LandingPage({ onOpenPolicy }) {
-  
+
   // Hero Mock Card typing animation
   const [typedText, setTypedText] = useState('');
   const [showReflection, setShowReflection] = useState(false);
   const fullPromptText = "I keep saying everything is fine, but I've been avoiding calling my sister back for three days now. I tell myself I'm just busy, but she said something last week that I haven't let myself fully hear yet...";
 
   useEffect(() => {
-    let timer;
-    let charIdx = 0;
-    
-    const startTyping = () => {
+    let isMounted = true;
+    let currentTimeout = null;
+
+    const runLoop = () => {
+      if (!isMounted) return;
+
+      // Step 1: Reset state
       setTypedText('');
       setShowReflection(false);
-      charIdx = 0;
-      
-      const type = () => {
-        if (charIdx < fullPromptText.length) {
-          setTypedText(fullPromptText.substring(0, charIdx + 1));
-          charIdx++;
-          timer = setTimeout(type, 35);
-        } else {
-          // Finished typing, show reflection after a brief delay
-          timer = setTimeout(() => {
-            setShowReflection(true);
-            // Restart loop after 10 seconds of showing the reflection
-            timer = setTimeout(startTyping, 10000);
-          }, 800);
-        }
-      };
-      
-      timer = setTimeout(type, 1000);
+
+      // Step 2: Delay before starting to type
+      currentTimeout = setTimeout(() => {
+        if (!isMounted) return;
+
+        let charIdx = 0;
+        const type = () => {
+          if (!isMounted) return;
+          if (charIdx < fullPromptText.length) {
+            setTypedText(fullPromptText.substring(0, charIdx + 1));
+            charIdx++;
+            currentTimeout = setTimeout(type, 30);
+          } else {
+            // Finished typing, show reflection after a brief delay
+            currentTimeout = setTimeout(() => {
+              if (!isMounted) return;
+              setShowReflection(true);
+
+              // Restart loop after 6 seconds of showing the reflection
+              currentTimeout = setTimeout(runLoop, 6000);
+            }, 800);
+          }
+        };
+
+        type();
+      }, 1000);
     };
 
-    startTyping();
-    return () => clearTimeout(timer);
+    runLoop();
+
+    return () => {
+      isMounted = false;
+      if (currentTimeout) {
+        clearTimeout(currentTimeout);
+      }
+    };
   }, []);
 
   return (
     <div className="min-h-screen bg-mint-grey text-primary selection:bg-accent/30 font-sans">
-      
+
       <Navbar isSubpage={false} />
 
       {/* HERO */}
       <section className="min-h-screen pt-[68px] grid grid-cols-1 lg:grid-cols-2 items-center relative overflow-hidden px-[5%] lg:px-[8%] py-12 lg:py-0">
-        
+
         {/* Left column */}
         <div className="space-y-8 lg:pr-[10%] text-center lg:text-left pt-12 lg:pt-0">
           <div className="flex items-center justify-center lg:justify-start gap-2">
-            <span className="w-7 h-[1.5px] bg-secondary hidden lg:block" />
-            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary">
+            <span className="w-7 h-[1.5px] bg-secondary-dark hidden lg:block" />
+            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark">
               For urban India
             </span>
           </div>
 
-          <h1 className="font-serif text-[42px] sm:text-[54px] lg:text-[68px] leading-[1.12] tracking-tight font-normal text-primary">
+          <h1 className="font-serif text-[42px] sm:text-[54px] lg:text-[80px] leading-[1.12] tracking-tight font-normal text-primary">
             The things you avoid naming<br />
             shape you <em className="italic text-accent font-normal">anyway.</em>
           </h1>
@@ -82,14 +99,14 @@ export default function LandingPage({ onOpenPolicy }) {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-5">
-            <a 
-              href="#auth" 
+            <a
+              href="#auth"
               className="bg-primary text-mint-grey hover:bg-[#2A3A3E] hover:translate-y-[-2px] px-8 py-4 rounded font-sans text-sm font-medium tracking-[0.04em] transition-all duration-200 no-underline shadow-sm"
             >
               Start writing free
             </a>
-            <a 
-              href="#/what-it-is" 
+            <a
+              href="#/what-it-is"
               className="font-sans text-sm font-normal text-primary hover:gap-3 flex items-center gap-1.5 no-underline transition-all duration-200"
             >
               Read why it exists &rarr;
@@ -106,36 +123,35 @@ export default function LandingPage({ onOpenPolicy }) {
         </div>
 
         {/* Right column */}
-        <div className="relative h-[480px] lg:h-screen w-full overflow-hidden flex items-center justify-center mt-8 lg:mt-0">
-          <div className="absolute inset-0 bg-primary rounded-2xl lg:rounded-none" />
-          <div className="absolute inset-0 flex items-center justify-center p-6 lg:p-12 z-10">
-            
+        <div className="relative w-full flex items-center justify-center py-8 lg:py-16 mt-8 lg:mt-0">
+          <div className="w-full max-w-[540px] lg:max-w-[600px] bg-primary rounded-3xl p-8 lg:p-12 shadow-2xl flex items-center justify-center relative">
+
             {/* Visual Card Mockup */}
-            <div className="bg-white/6 border border-white/12 rounded-card p-6 w-full max-w-[360px] backdrop-blur-[4px] shadow-2xl flex flex-col gap-4 text-left">
-              <div className="font-sans text-[10px] font-medium tracking-[0.12em] uppercase text-secondary">
+            <div className="bg-white/6 border border-white/12 rounded-card p-6 lg:p-8 w-full max-w-[420px] lg:max-w-[460px] backdrop-blur-[4px] shadow-2xl flex flex-col gap-5 text-left">
+              <div className="font-sans text-[10px] lg:text-[11px] font-medium tracking-[0.12em] uppercase text-secondary">
                 Today &middot; Day 6
               </div>
-              <div className="font-serif text-lg md:text-xl font-normal text-mint-grey leading-tight">
+              <div className="font-serif text-lg md:text-xl lg:text-2xl font-normal text-mint-grey leading-tight">
                 What's on your mind right now?
               </div>
-              <div className="bg-white/5 border border-white/15 rounded-md p-4 min-h-[120px] relative font-serif text-sm text-[#D8ECEA] leading-relaxed">
+              <div className="bg-white/5 border border-white/15 rounded-md p-4 lg:p-5 min-h-[140px] lg:min-h-[160px] relative font-serif text-sm lg:text-base text-[#D8ECEA] leading-relaxed">
                 <span>{typedText}</span>
-                <span className="inline-block w-[2px] h-[16px] bg-accent animate-[blink_1.1s_infinite] ml-[2px] align-middle" />
+                <span className="inline-block w-[2px] h-[18px] bg-accent animate-[blink_1.1s_infinite] ml-[2px] align-middle" />
               </div>
-              <button className="w-full bg-accent text-primary border-none rounded-md py-2.5 font-sans text-[13px] font-medium tracking-[0.04em] cursor-default transition-opacity opacity-90">
+              <button className="w-full bg-accent text-primary border-none rounded-md py-3 font-sans text-[13px] lg:text-sm font-medium tracking-[0.04em] cursor-default transition-opacity opacity-90">
                 Reflect &rarr;
               </button>
 
               <AnimatePresence>
                 {showReflection && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.5 }}
-                    className="bg-secondary/10 border-l-2 border-secondary rounded-r-md p-3.5"
+                    className="bg-secondary/10 border-l-2 border-secondary rounded-r-md p-4"
                   >
-                    <p className="font-serif text-[13.5px] font-normal text-[#D8ECEA] leading-relaxed italic">
+                    <p className="font-serif text-[13.5px] lg:text-[14.5px] font-normal text-[#D8ECEA] leading-relaxed italic">
                       You've written about this situation three times now. Each time the ending is the same — but you describe yourself differently in each version.
                     </p>
                   </motion.div>
@@ -193,7 +209,7 @@ export default function LandingPage({ onOpenPolicy }) {
               <div className="bg-white/5 border border-white/10 rounded-card p-8 text-left space-y-3 hover:border-white/20 transition-all duration-300 flex flex-col justify-between w-full">
                 <span className="font-serif text-5xl md:text-6xl text-accent font-light leading-none block">167hrs</span>
                 <div>
-                  <h4 className="font-sans text-sm font-normal text-mint-grey mb-2 uppercase tracking-wide font-serif">hours a week where most people have no structured space to process what they're carrying</h4>
+                  <h4 className="font-sans text-sm text-mint-grey mb-2 uppercase tracking-wide font-normal">hours a week where most people have no structured space to process what they're carrying</h4>
                   <p className="font-sans text-[13.5px] font-light text-light-mid leading-relaxed">
                     A weekly session covers 0.6% of your waking life. Whatever you're carrying sits with you the rest of the time with nothing at all.
                   </p>
@@ -227,7 +243,7 @@ export default function LandingPage({ onOpenPolicy }) {
       <section className="py-[7rem] px-[8%] bg-mint-grey" id="what">
         <div className="max-w-[960px] mx-auto space-y-12 text-center">
           <ScrollReveal className="space-y-4 max-w-[640px] mx-auto">
-            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary block">
+            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">
               What Ingress Within is and isn't
             </span>
             <h2 className="font-serif text-3xl md:text-4xl text-primary font-normal leading-snug">
@@ -301,7 +317,7 @@ export default function LandingPage({ onOpenPolicy }) {
       <section className="py-[7rem] px-[8%] bg-white" id="trust">
         <div className="max-w-[960px] mx-auto space-y-12 text-center">
           <ScrollReveal className="space-y-4 max-w-[640px] mx-auto">
-            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary block">Why trust it</span>
+            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">Why trust it</span>
             <h2 className="font-serif text-3xl md:text-4xl text-primary font-normal leading-snug">You train it.<br />Not the other way around.</h2>
             <div className="w-12 h-[1px] bg-accent mx-auto" />
             <p className="font-sans text-[16px] font-light text-mid leading-relaxed max-w-[520px] mx-auto">
@@ -388,7 +404,7 @@ export default function LandingPage({ onOpenPolicy }) {
       <section className="py-[7rem] px-[8%] bg-mint-grey" id="who">
         <div className="max-w-[960px] mx-auto space-y-12 text-center">
           <ScrollReveal className="space-y-4 max-w-[640px] mx-auto">
-            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary block">Who it's for</span>
+            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">Who it's for</span>
             <h2 className="font-serif text-3xl md:text-4xl text-primary font-normal leading-snug">Neither of them is in crisis.<br />Neither of them is broken.</h2>
             <div className="w-12 h-[1px] bg-accent mx-auto" />
             <p className="font-sans text-[16px] font-light text-mid leading-relaxed max-w-[520px] mx-auto">
@@ -455,7 +471,7 @@ export default function LandingPage({ onOpenPolicy }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-[900px] mx-auto text-left">
             <ScrollReveal className="border-t border-secondary/25 pt-6 space-y-3" delay={0.05}>
               <h3 className="font-serif text-[21px] font-medium text-mint-grey">We don't validate blindly.</h3>
-              <p className="font-sans text-[13.5px] font-light text-light-mid leading-relaxed">
+              <p className="font-sans text-[13.5px] font-light text-light-mid leading-relaxed min-h-[140px]">
                 There is a version of emotional support that agrees with everything and changes nothing. It is comfortable. It is also useless. If you are writing the same entry for the fifth time with different characters, we will name the loop.
               </p>
               <p className="font-serif text-[13px] italic text-[#C8B8E4] leading-relaxed pt-2 border-t border-white/5">
@@ -465,7 +481,7 @@ export default function LandingPage({ onOpenPolicy }) {
 
             <ScrollReveal className="border-t border-secondary/25 pt-6 space-y-3" delay={0.15}>
               <h3 className="font-serif text-[21px] font-medium text-mint-grey">We don't give solutions.</h3>
-              <p className="font-sans text-[13.5px] font-light text-light-mid leading-relaxed">
+              <p className="font-sans text-[13.5px] font-light text-light-mid leading-relaxed min-h-[140px]">
                 The moment we start telling you what to do, we've removed you from the equation. People don't build self-awareness by following instructions. They build it by sitting with hard questions long enough to find their own answers.
               </p>
               <p className="font-serif text-[13px] italic text-[#C8B8E4] leading-relaxed pt-2 border-t border-white/5">
@@ -475,7 +491,7 @@ export default function LandingPage({ onOpenPolicy }) {
 
             <ScrollReveal className="border-t border-secondary/25 pt-6 space-y-3" delay={0.25}>
               <h3 className="font-serif text-[21px] font-medium text-mint-grey">We don't create dependency.</h3>
-              <p className="font-sans text-[13.5px] font-light text-light-mid leading-relaxed">
+              <p className="font-sans text-[13.5px] font-light text-light-mid leading-relaxed min-h-[140px]">
                 This product should make itself progressively less necessary, not more. A person using it for a year should know themselves well enough that they need it less, not feel like they cannot function without checking in.
               </p>
               <p className="font-serif text-[13px] italic text-[#C8B8E4] leading-relaxed pt-2 border-t border-white/5">
@@ -490,7 +506,7 @@ export default function LandingPage({ onOpenPolicy }) {
       <section className="py-[7rem] px-[8%] bg-mint-grey" id="pricing">
         <div className="max-w-[960px] mx-auto space-y-12 text-center">
           <ScrollReveal className="space-y-4 max-w-[640px] mx-auto">
-            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary block">Simple pricing</span>
+            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">Simple pricing</span>
             <h2 className="font-serif text-3xl md:text-4xl text-primary font-normal leading-snug">Start free. Continue only<br />if it's honest enough to.</h2>
             <div className="w-12 h-[1px] bg-accent mx-auto" />
             <p className="font-sans text-[16px] font-light text-mid leading-relaxed max-w-[520px] mx-auto">
@@ -500,7 +516,7 @@ export default function LandingPage({ onOpenPolicy }) {
 
           {/* Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-[900px] mx-auto text-left items-stretch">
-            
+
             {/* Free */}
             <ScrollReveal className="bg-white rounded-card p-8 flex flex-col justify-between hover:translate-y-[-2px] transition-transform duration-300 w-full" delay={0.05}>
               <div className="space-y-5">
@@ -523,7 +539,7 @@ export default function LandingPage({ onOpenPolicy }) {
                   </li>
                 </ul>
               </div>
-              <button 
+              <button
                 onClick={(e) => { e.preventDefault(); document.getElementById('auth').scrollIntoView({ behavior: 'smooth' }); }}
                 className="w-full mt-6 py-3 px-4 rounded border border-primary/20 bg-transparent text-primary hover:border-primary font-sans text-sm font-medium tracking-wide transition-all cursor-pointer text-center"
               >
@@ -557,7 +573,7 @@ export default function LandingPage({ onOpenPolicy }) {
                   </li>
                 </ul>
               </div>
-              <button 
+              <button
                 onClick={(e) => { e.preventDefault(); document.getElementById('auth').scrollIntoView({ behavior: 'smooth' }); }}
                 className="w-full mt-6 py-3 px-4 rounded bg-accent text-primary hover:bg-[#D49888] border-none font-sans text-sm font-medium tracking-wide transition-all cursor-pointer text-center"
               >
@@ -588,7 +604,7 @@ export default function LandingPage({ onOpenPolicy }) {
                   </li>
                 </ul>
               </div>
-              <button 
+              <button
                 onClick={(e) => { e.preventDefault(); document.getElementById('auth').scrollIntoView({ behavior: 'smooth' }); }}
                 className="w-full mt-6 py-3 px-4 rounded border border-primary/20 bg-transparent text-primary hover:border-primary font-sans text-sm font-medium tracking-wide transition-all cursor-pointer text-center"
               >
@@ -604,9 +620,9 @@ export default function LandingPage({ onOpenPolicy }) {
 
           {/* Pricing detail subpage anchor link */}
           <ScrollReveal className="text-center pt-2">
-            <a 
-              href="#/pricing" 
-              className="font-sans text-xs font-bold uppercase tracking-wider text-secondary hover:text-primary transition-colors border-b border-secondary hover:border-primary pb-1 no-underline"
+            <a
+              href="/pricing"
+              className="font-sans text-xs font-bold uppercase tracking-wider text-secondary-dark hover:text-primary transition-colors border-b border-secondary-dark hover:border-primary pb-1 no-underline"
             >
               Compare features &amp; view founding members waitlist &rarr;
             </a>
@@ -627,14 +643,14 @@ export default function LandingPage({ onOpenPolicy }) {
           </ScrollReveal>
 
           <ScrollReveal className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4" delay={0.15}>
-            <a 
-              href="#/auth" 
+            <a
+              href="/auth"
               className="w-full sm:w-auto bg-accent text-primary hover:bg-[#D49888] hover:translate-y-[-2px] px-8 py-4 rounded font-sans text-sm font-medium tracking-[0.04em] transition-all duration-200 no-underline shadow-md text-center"
             >
               Start writing free &rarr;
             </a>
-            <a 
-              href="#/auth/login" 
+            <a
+              href="/auth/login"
               className="w-full sm:w-auto bg-transparent border border-white/20 hover:border-white hover:bg-white/5 hover:translate-y-[-2px] text-mint-grey px-8 py-4 rounded font-sans text-sm font-medium tracking-[0.04em] transition-all duration-200 no-underline text-center"
             >
               Sign in to your account

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft,
   Check,
   X,
   HelpCircle,
@@ -12,6 +11,8 @@ import {
   CreditCard,
   AlertCircle
 } from 'lucide-react';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const ScrollReveal = ({ children, delay = 0, className = "" }) => {
   return (
@@ -62,7 +63,7 @@ const FAQ_ITEMS = [
   }
 ];
 
-export default function PricingPage() {
+export default function PricingPage({ onOpenPolicy }) {
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
 
   const toggleFaq = (index) => {
@@ -70,54 +71,23 @@ export default function PricingPage() {
   };
 
   const handleStartWriting = () => {
-    window.location.hash = '#/auth';
+    if (window.navigateTo) {
+      window.navigateTo('/auth');
+    } else {
+      window.location.pathname = '/auth';
+    }
   };
 
   return (
     <div className="min-h-screen bg-mint-grey text-primary selection:bg-accent/30 font-body-md pt-20">
 
       {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 bg-surface/90 glass-nav border-b border-primary/5 py-3 shadow-[0_2px_12px_rgba(30,42,46,0.02)]">
-        <div className="flex justify-between items-center w-full max-w-container-max mx-auto px-6 md:px-16">
-          <a href="#/" className="flex items-center gap-2 hover:opacity-85 transition-opacity">
-            <svg className="w-8 h-8 text-primary" viewBox="0 0 32 32" fill="none">
-              <circle cx="16" cy="16" r="2" fill="currentColor" />
-              <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none" />
-              <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary" />
-              <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="0.9" fill="none" opacity="0.65" className="text-secondary" />
-              <circle cx="16" cy="16" r="14" stroke="currentColor" strokeWidth="0.6" fill="none" opacity="0.35" className="text-secondary" />
-            </svg>
-            <div className="flex flex-col">
-              <span className="font-headline-md text-lg font-bold tracking-tight text-primary leading-none">
-                ingress <span className="font-normal text-secondary italic font-headline-md">within</span>
-              </span>
-              <span className="text-[9px] font-label-md tracking-[0.12em] uppercase text-primary/45 mt-0.5 leading-none font-bold">
-                The way within
-              </span>
-            </div>
-          </a>
-
-          <div className="flex items-center gap-4">
-            <a
-              href="#/"
-              className="font-label-md text-xs font-bold uppercase tracking-wider text-primary/70 hover:text-primary transition-colors flex items-center gap-1.5 px-4 py-2 border border-primary/10 rounded-lg hover:bg-primary/5 transition-all duration-300"
-            >
-              <ArrowLeft size={13} /> Back
-            </a>
-            <button
-              onClick={handleStartWriting}
-              className="bg-primary text-on-primary px-5 py-2.5 rounded-lg font-label-md text-xs tracking-wider uppercase hover:bg-primary/95 hover:shadow-lg transition-all duration-300 cursor-pointer font-bold"
-            >
-              Start writing free
-            </button>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Hero Section */}
       <section className="bg-white py-20 md:py-28 px-6 md:px-16 text-center border-b border-primary/5">
         <div className="max-w-3xl mx-auto space-y-6">
-          <span className="font-label-md text-xs font-semibold text-secondary uppercase tracking-[0.18em] block">Pricing</span>
+          <span className="font-label-md text-xs font-semibold text-secondary-dark uppercase tracking-[0.18em] block">Pricing</span>
           <h1 className="font-headline-md text-4xl md:text-5xl lg:text-6xl text-primary leading-tight font-medium">
             Start free. Continue only<br />
             <span className="italic text-accent">if it's honest enough to.</span>
@@ -140,7 +110,7 @@ export default function PricingPage() {
             <div className="bg-white border border-primary/5 rounded-premium p-8 md:p-10 flex flex-col justify-between shadow-sm hover:shadow-md transition-all w-full text-left">
               <div className="space-y-6">
                 <div>
-                  <span className="text-[10px] font-semibold text-secondary uppercase tracking-[0.25em] block">First 7 days</span>
+                  <span className="text-[10px] font-semibold text-secondary-dark uppercase tracking-[0.25em] block">First 7 days</span>
                   <div className="flex items-baseline gap-1 mt-4">
                     <span className="font-headline-md text-4xl md:text-5xl font-bold text-primary">Free</span>
                   </div>
@@ -233,7 +203,7 @@ export default function PricingPage() {
             <div className="bg-white border border-primary/5 rounded-premium p-8 md:p-10 flex flex-col justify-between shadow-sm hover:shadow-md transition-all w-full text-left">
               <div className="space-y-6">
                 <div>
-                  <span className="text-[10px] font-semibold text-secondary uppercase tracking-[0.25em] block">Standard</span>
+                  <span className="text-[10px] font-semibold text-secondary-dark uppercase tracking-[0.25em] block">Standard</span>
                   <div className="flex items-baseline gap-1 mt-4">
                     <span className="font-headline-md text-4xl md:text-5xl font-bold text-primary">₹999</span>
                     <span className="text-xs text-primary/50 font-label-md">/ month</span>
@@ -280,7 +250,7 @@ export default function PricingPage() {
       <section className="bg-white py-20 px-6 md:px-16 border-t border-b border-primary/5">
         <div className="max-w-4xl mx-auto space-y-12">
           <div className="text-center space-y-3">
-            <span className="font-label-md text-xs font-semibold text-secondary uppercase tracking-[0.18em] block">What you get</span>
+            <span className="font-label-md text-xs font-semibold text-secondary-dark uppercase tracking-[0.18em] block">What you get</span>
             <h2 className="font-headline-md text-3xl md:text-4xl text-primary font-medium">Free vs paid, clearly.</h2>
             <div className="w-10 h-[1px] bg-accent mx-auto" />
             <p className="font-body-md text-sm md:text-base text-on-surface-variant max-w-md mx-auto">
@@ -390,7 +360,7 @@ export default function PricingPage() {
       {/* Personas / Tendencies */}
       <section className="py-20 px-6 md:px-16 max-w-4xl mx-auto space-y-12">
         <div className="text-center space-y-3">
-          <span className="font-label-md text-xs font-semibold text-secondary uppercase tracking-[0.18em] block">Before you pay</span>
+          <span className="font-label-md text-xs font-semibold text-secondary-dark uppercase tracking-[0.18em] block">Before you pay</span>
           <h2 className="font-headline-md text-3xl md:text-4xl text-primary font-medium">Is this the right moment to start?</h2>
           <div className="w-10 h-[1px] bg-accent mx-auto" />
           <p className="font-body-md text-sm md:text-base text-on-surface-variant max-w-md mx-auto">
@@ -417,7 +387,7 @@ export default function PricingPage() {
           <ScrollReveal className="flex h-full" delay={0.1}>
             <div className="bg-white border-l-4 border-secondary rounded-xl p-8 flex flex-col justify-between shadow-xs hover:translate-y-[-2px] transition-transform duration-300">
               <div className="space-y-4">
-                <span className="font-label-md text-[10px] font-bold tracking-wider text-secondary uppercase block">This tends not to work if</span>
+                <span className="font-label-md text-[10px] font-bold tracking-wider text-secondary-dark uppercase block">This tends not to work if</span>
                 <h3 className="font-headline-md text-xl font-bold text-primary leading-snug">You want confirmation that you're handling things well.</h3>
                 <p className="font-body-md text-sm text-on-surface-variant leading-relaxed">
                   If you write entries designed to produce reassurance, you will get reassurance — and leave knowing nothing you didn't know when you arrived. The product can only deliver clarity. It cannot deliver comfort on demand.
@@ -526,32 +496,8 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Simple Subpage Footer */}
-      <footer className="bg-primary text-white/50 text-xs py-10 px-6 md:px-16 border-t border-white/5">
-        <div className="max-w-container-max mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-2 text-white/80">
-            <svg className="w-6 h-6" viewBox="0 0 32 32" fill="none">
-              <circle cx="16" cy="16" r="2" fill="currentColor" />
-              <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none" />
-              <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary" />
-            </svg>
-            <span className="font-headline-md text-sm font-bold tracking-tight text-white leading-none">
-              ingress <span className="font-normal text-secondary italic font-headline-md">within</span>
-            </span>
-          </div>
-
-          <div className="flex gap-6 font-label-md font-bold uppercase tracking-wider text-[10px]">
-            <a href="#/" className="hover:text-white transition-colors">Home</a>
-            <a href="#/#what" className="hover:text-white transition-colors">What it is</a>
-            <a href="#/#trust" className="hover:text-white transition-colors">How it works</a>
-            <a href="#/faq" className="hover:text-white transition-colors text-white">FAQ</a>
-          </div>
-
-          <div>
-            &copy; 2025 Ingress Within. All rights reserved.
-          </div>
-        </div>
-      </footer>
+      {/* Footer */}
+      <Footer onOpenPolicy={onOpenPolicy} />
     </div>
   );
 }

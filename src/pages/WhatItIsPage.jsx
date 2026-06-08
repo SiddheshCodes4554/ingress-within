@@ -19,7 +19,11 @@ const ScrollReveal = ({ children, delay = 0, className = "" }) => {
 
 export default function WhatItIsPage({ onOpenPolicy }) {
   const handleStartWriting = () => {
-    window.location.hash = '#/auth';
+    if (window.navigateTo) {
+      window.navigateTo('/auth');
+    } else {
+      window.location.pathname = '/auth';
+    }
   };
 
   return (
@@ -30,7 +34,7 @@ export default function WhatItIsPage({ onOpenPolicy }) {
       <section className="bg-white">
         <div className="py-24 md:py-36 px-6 md:px-16 max-w-[700px] mx-auto text-center">
           <ScrollReveal className="space-y-5">
-            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary block">
+            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">
               What it is
             </span>
             <h1 className="font-serif text-[40px] md:text-[54px] lg:text-[60px] leading-[1.15] font-normal text-primary">
@@ -48,7 +52,7 @@ export default function WhatItIsPage({ onOpenPolicy }) {
       <section className="max-w-[1060px] mx-auto px-6 md:px-[8%] py-20 md:py-24 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
         <ScrollReveal className="space-y-5">
           <span className="font-serif text-6xl font-light text-primary/18 leading-none block">01</span>
-          <span className="font-sans text-[11px] font-medium tracking-[0.12em] uppercase text-secondary block">
+          <span className="font-sans text-[11px] font-medium tracking-[0.12em] uppercase text-secondary-dark block">
             The entry
           </span>
           <h2 className="font-serif text-3xl md:text-4xl text-primary font-normal leading-snug">
@@ -80,7 +84,7 @@ export default function WhatItIsPage({ onOpenPolicy }) {
                 "I've been thinking about the conversation with Priya again. I said the right things. But I said them to end the conversation, not because I meant them. She looked relieved and I felt nothing. Or maybe I'm calling it nothing because it's easier."
               </div>
               <div className="border-l-2 border-secondary bg-secondary/8 rounded-r-lg p-4 space-y-1">
-                <div className="font-sans text-[10px] font-medium tracking-[0.1em] uppercase text-secondary">
+                <div className="font-sans text-[10px] font-medium tracking-[0.1em] uppercase text-secondary-dark">
                   Noticed
                 </div>
                 <div className="font-serif text-sm font-normal italic text-primary leading-relaxed">
@@ -183,7 +187,7 @@ export default function WhatItIsPage({ onOpenPolicy }) {
         <div className="max-w-[1060px] mx-auto px-6 md:px-[8%] grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
           <ScrollReveal className="space-y-5">
             <span className="font-serif text-6xl font-light text-primary/18 leading-none block">03</span>
-            <span className="font-sans text-[11px] font-medium tracking-[0.12em] uppercase text-secondary block">
+            <span className="font-sans text-[11px] font-medium tracking-[0.12em] uppercase text-secondary-dark block">
               How it works
             </span>
             <h2 className="font-serif text-3xl md:text-4xl text-primary font-normal leading-snug">

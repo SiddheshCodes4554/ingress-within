@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
@@ -47,7 +47,7 @@ export default function ContactPage({ onOpenPolicy }) {
 
   return (
     <div className="min-h-screen bg-white text-primary selection:bg-accent/30 font-sans">
-      <Navbar isSubpage={true} />
+      <Navbar />
 
       {/* Main split layout */}
       <div className="min-h-screen pt-[68px] grid grid-cols-1 lg:grid-cols-2">
@@ -55,7 +55,7 @@ export default function ContactPage({ onOpenPolicy }) {
         {/* LEFT COLUMN: INFO */}
         <div className="left py-16 md:py-24 px-6 md:px-12 lg:pl-[8%] lg:pr-[5%] flex flex-col justify-center bg-white">
           <ScrollReveal className="space-y-4">
-            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary block">
+            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">
               Contact
             </span>
             <h1 className="font-serif text-[42px] sm:text-[48px] lg:text-[54px] leading-[1.12] tracking-tight font-normal text-primary">
@@ -151,7 +151,7 @@ export default function ContactPage({ onOpenPolicy }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
-                className="space-y-6 max-w-[480px]"
+                className="space-y-6 max-w-[480px] w-full"
               >
                 <div>
                   <h2 className="font-serif text-[26px] font-normal text-mint-grey">
@@ -241,7 +241,7 @@ export default function ContactPage({ onOpenPolicy }) {
                   </button>
                 </form>
                 
-                <p className="font-sans text-xs text-secondary/50 text-center leading-relaxed mt-4">
+                <p className="font-sans text-xs text-light-mid/60 text-center leading-relaxed mt-4">
                   If something is urgent, say so in your message. We'll prioritise accordingly.
                 </p>
               </motion.div>
@@ -280,7 +280,7 @@ export default function ContactPage({ onOpenPolicy }) {
           <span className="italic text-accent font-normal">hello@ingresswithin.com</span> gets to the right person.
         </div>
         <a 
-          href="#/faq" 
+          href="/faq" 
           className="font-sans text-sm font-normal text-mid hover:text-primary transition-all flex items-center gap-1.5 no-underline"
         >
           Browse the FAQ &rarr;

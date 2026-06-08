@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Mail, Plus, Minus } from 'lucide-react';
+import { Mail, Plus, Minus } from 'lucide-react';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const ScrollReveal = ({ children, delay = 0, className = "" }) => {
   return (
@@ -301,7 +303,7 @@ const FAQ_DATA = {
   ]
 };
 
-export default function FaqPage() {
+export default function FaqPage({ onOpenPolicy }) {
   const [activeTab, setActiveTab] = useState('product');
   const [openIndex, setOpenIndex] = useState(null);
 
@@ -321,47 +323,12 @@ export default function FaqPage() {
     <div className="min-h-screen bg-mint-grey text-primary selection:bg-accent/30 font-body-md pt-20">
       
       {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 bg-surface/90 glass-nav border-b border-primary/5 py-3 shadow-[0_2px_12px_rgba(30,42,46,0.02)]">
-        <div className="flex justify-between items-center w-full max-w-container-max mx-auto px-6 md:px-16">
-          <a href="#/" className="flex items-center gap-2 hover:opacity-85 transition-opacity">
-            <svg className="w-8 h-8 text-primary" viewBox="0 0 32 32" fill="none">
-              <circle cx="16" cy="16" r="2" fill="currentColor"/>
-              <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-              <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary"/>
-              <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="0.9" fill="none" opacity="0.65" className="text-secondary"/>
-              <circle cx="16" cy="16" r="14" stroke="currentColor" strokeWidth="0.6" fill="none" opacity="0.35" className="text-secondary"/>
-            </svg>
-            <div className="flex flex-col">
-              <span className="font-headline-md text-lg font-bold tracking-tight text-primary leading-none">
-                ingress <span className="font-normal text-secondary italic font-headline-md">within</span>
-              </span>
-              <span className="text-[9px] font-label-md tracking-[0.12em] uppercase text-primary/45 mt-0.5 leading-none font-bold">
-                The way within
-              </span>
-            </div>
-          </a>
-
-          <div className="flex items-center gap-4">
-            <a 
-              href="#/" 
-              className="font-label-md text-xs font-bold uppercase tracking-wider text-primary/70 hover:text-primary transition-colors flex items-center gap-1.5 px-4 py-2 border border-primary/10 rounded-lg hover:bg-primary/5 transition-all duration-300"
-            >
-              <ArrowLeft size={13} /> Back
-            </a>
-            <button 
-              onClick={() => window.location.hash = '#/auth'}
-              className="bg-primary text-on-primary px-5 py-2.5 rounded-lg font-label-md text-xs tracking-wider uppercase hover:bg-primary/95 hover:shadow-lg transition-all duration-300 cursor-pointer font-bold"
-            >
-              Start writing free
-            </button>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Hero Section */}
       <section className="bg-white py-20 md:py-28 px-6 md:px-16 text-center border-b border-primary/5">
         <div className="max-w-3xl mx-auto space-y-6">
-          <span className="font-label-md text-xs font-semibold text-secondary uppercase tracking-[0.18em] block">FAQ</span>
+          <span className="font-label-md text-xs font-semibold text-secondary-dark uppercase tracking-[0.18em] block">FAQ</span>
           <h1 className="font-headline-md text-4xl md:text-5xl lg:text-6xl text-primary leading-tight font-medium">
             Everything you want to know<br/>
             <span className="italic text-accent">before you start.</span>
@@ -427,7 +394,7 @@ export default function FaqPage() {
                       onClick={() => toggleAccordion(index)}
                       className="w-full px-6 py-5 flex justify-between items-center text-left focus:outline-none cursor-pointer group"
                     >
-                      <span className="font-headline-md text-base md:text-lg font-semibold text-primary group-hover:text-secondary transition-colors duration-300 pr-4">
+                      <span className="font-headline-md text-base md:text-lg font-semibold text-primary group-hover:text-secondary-dark transition-colors duration-300 pr-4">
                         {item.q}
                       </span>
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
@@ -492,32 +459,8 @@ export default function FaqPage() {
         </div>
       </section>
 
-      {/* Simple Subpage Footer */}
-      <footer className="bg-primary text-white/50 text-xs py-10 px-6 md:px-16 border-t border-white/5">
-        <div className="max-w-container-max mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-2 text-white/80">
-            <svg className="w-6 h-6" viewBox="0 0 32 32" fill="none">
-              <circle cx="16" cy="16" r="2" fill="currentColor"/>
-              <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-              <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary"/>
-            </svg>
-            <span className="font-headline-md text-sm font-bold tracking-tight text-white leading-none">
-              ingress <span className="font-normal text-secondary italic font-headline-md">within</span>
-            </span>
-          </div>
-
-          <div className="flex gap-6 font-label-md font-bold uppercase tracking-wider text-[10px]">
-            <a href="#/" className="hover:text-white transition-colors">Home</a>
-            <a href="#/#what" className="hover:text-white transition-colors">What it is</a>
-            <a href="#/#trust" className="hover:text-white transition-colors">How it works</a>
-            <a href="#/pricing" className="hover:text-white transition-colors">Pricing</a>
-          </div>
-
-          <div>
-            &copy; 2025 Ingress Within. All rights reserved.
-          </div>
-        </div>
-      </footer>
+      {/* Footer */}
+      <Footer onOpenPolicy={onOpenPolicy} />
     </div>
   );
 }

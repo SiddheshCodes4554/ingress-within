@@ -21,7 +21,11 @@ export default function HowItWorksPage({ onOpenPolicy }) {
   const [cycleProgress, setCycleProgress] = useState(14); // starts at Day 4 (14% progress)
 
   const handleStartWriting = () => {
-    window.location.hash = '#/auth';
+    if (window.navigateTo) {
+      window.navigateTo('/auth');
+    } else {
+      window.location.pathname = '/auth';
+    }
   };
 
   return (
@@ -32,7 +36,7 @@ export default function HowItWorksPage({ onOpenPolicy }) {
       <section className="bg-white">
         <div className="py-24 md:py-36 px-6 md:px-16 max-w-[700px] mx-auto text-center">
           <ScrollReveal className="space-y-5">
-            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary block">
+            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">
               The practice
             </span>
             <h1 className="font-serif text-[40px] md:text-[54px] lg:text-[60px] leading-[1.15] font-normal text-primary">
@@ -223,7 +227,7 @@ export default function HowItWorksPage({ onOpenPolicy }) {
           <ScrollReveal className="space-y-6">
             <div className="space-y-3">
               <span className="font-serif text-6xl font-light text-primary/10 leading-none block">03</span>
-              <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary block">
+              <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">
                 Question
               </span>
               <h2 className="font-serif text-3xl md:text-4xl text-primary font-normal leading-snug">
@@ -246,7 +250,7 @@ export default function HowItWorksPage({ onOpenPolicy }) {
               
               <div className="relative pb-6 last:pb-0">
                 <div className="absolute -left-[25px] top-1 w-2 h-2 rounded-full border-2 border-secondary bg-white" />
-                <div className="font-sans text-[10px] font-medium uppercase tracking-wider text-secondary">A week in</div>
+                <div className="font-sans text-[10px] font-medium uppercase tracking-wider text-secondary-dark">A week in</div>
                 <p className="font-sans text-[13.5px] font-light text-mid leading-relaxed mt-1">
                   The questions stop being easy to dismiss. They surface at inconvenient times. You find yourself thinking about them without choosing to.
                 </p>
@@ -433,7 +437,7 @@ export default function HowItWorksPage({ onOpenPolicy }) {
       <section className="bg-white py-20 md:py-24 px-6 md:px-[8%]">
         <div className="max-w-[900px] mx-auto text-center space-y-12">
           <ScrollReveal className="space-y-4">
-            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary block">
+            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">
               What you receive
             </span>
             <h2 className="font-serif text-3xl md:text-4xl text-primary font-normal leading-snug">
@@ -511,7 +515,7 @@ export default function HowItWorksPage({ onOpenPolicy }) {
       <section className="bg-mint-grey py-20 md:py-24 px-6 md:px-[8%] border-t border-primary/5">
         <div className="max-w-[900px] mx-auto space-y-12 text-center">
           <ScrollReveal className="space-y-4">
-            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary block">
+            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">
               Why two cycles
             </span>
             <h2 className="font-serif text-3xl md:text-4xl text-primary font-normal leading-snug">

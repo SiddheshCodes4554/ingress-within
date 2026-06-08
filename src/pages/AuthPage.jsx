@@ -57,10 +57,10 @@ export default function AuthPage() {
 
   // Read URL parameters on load to decide view
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash.includes('login')) {
+    const path = window.location.pathname;
+    if (path.includes('login')) {
       setView('login');
-    } else if (hash.includes('signup')) {
+    } else if (path.includes('signup')) {
       setView('signup');
     }
   }, []);
@@ -74,7 +74,11 @@ export default function AuthPage() {
       setView('login');
       setErrorMsg('');
     } else {
-      window.location.hash = '#/';
+      if (window.navigateTo) {
+        window.navigateTo('/');
+      } else {
+        window.location.pathname = '/';
+      }
     }
   };
 
@@ -848,7 +852,13 @@ export default function AuthPage() {
 
                 {/* Continue CTA */}
                 <button 
-                  onClick={() => window.location.hash = '#/'}
+                  onClick={() => {
+                    if (window.navigateTo) {
+                      window.navigateTo('/');
+                    } else {
+                      window.location.pathname = '/';
+                    }
+                  }}
                   className="w-full py-4 bg-primary hover:bg-[#2A3A3E] hover:translate-y-[-2px] text-mint-grey border-none rounded-md font-sans text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md"
                 >
                   Continue to dashboard &rarr;
