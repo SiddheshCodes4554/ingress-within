@@ -31,7 +31,7 @@ export default function AboutPage({ onOpenPolicy }) {
       <Navbar />
 
       {/* HERO — light background, centered space consistent with other pages */}
-      <section className="bg-white py-20 md:py-28 px-6 md:px-16 text-center border-b border-primary/5">
+      <section className="bg-white pt-[148px] pb-20 md:pt-[180px] md:pb-28 px-6 md:px-16 text-center border-b border-primary/5">
         <div className="max-w-[700px] mx-auto space-y-5">
           <ScrollReveal>
             <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">
@@ -340,7 +340,7 @@ export default function AboutPage({ onOpenPolicy }) {
       </section>
 
       {/* CTA */}
-      <section className="bg-[#ECEFF0] py-20 px-6 text-center border-t border-primary/5">
+      <section className="bg-white py-20 px-6 text-center border-t border-primary/5">
         <ScrollReveal className="max-w-xl mx-auto space-y-6">
           <h2 className="font-serif text-3xl md:text-4xl text-primary font-normal leading-snug">
             If any part of this resonates,<br />

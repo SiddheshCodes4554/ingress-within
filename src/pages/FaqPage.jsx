@@ -320,21 +320,21 @@ export default function FaqPage({ onOpenPolicy }) {
   const currentFaqList = FAQ_DATA[activeTab] || [];
 
   return (
-    <div className="min-h-screen bg-mint-grey text-primary selection:bg-accent/30 font-body-md pt-20">
+    <div className="min-h-screen bg-mint-grey text-primary selection:bg-accent/30 font-sans">
       
       {/* Navigation */}
       <Navbar />
 
       {/* Hero Section */}
-      <section className="bg-white py-20 md:py-28 px-6 md:px-16 text-center border-b border-primary/5">
-        <div className="max-w-3xl mx-auto space-y-6">
-          <span className="font-label-md text-xs font-semibold text-secondary-dark uppercase tracking-[0.18em] block">FAQ</span>
-          <h1 className="font-headline-md text-4xl md:text-5xl lg:text-6xl text-primary leading-tight font-medium">
+      <section className="bg-white pt-[148px] pb-20 md:pt-[180px] md:pb-28 px-6 md:px-16 text-center border-b border-primary/5">
+        <div className="max-w-[700px] mx-auto space-y-5">
+          <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">FAQ</span>
+          <h1 className="font-serif text-[40px] md:text-[54px] lg:text-[60px] leading-[1.15] font-normal text-primary">
             Everything you want to know<br/>
-            <span className="italic text-accent">before you start.</span>
+            <em className="italic text-accent font-normal">before you start.</em>
           </h1>
-          <div className="w-12 h-[1.5px] bg-accent mx-auto" />
-          <p className="font-body-lg text-base md:text-lg text-on-surface-variant leading-relaxed max-w-xl mx-auto opacity-90">
+          <div className="w-10 h-[1px] bg-accent mx-auto my-6" />
+          <p className="font-sans text-[17px] font-light text-mid leading-relaxed max-w-[580px] mx-auto">
             Honest answers. If something isn't covered here, write to us.
           </p>
         </div>

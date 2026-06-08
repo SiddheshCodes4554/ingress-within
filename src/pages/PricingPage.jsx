@@ -79,21 +79,21 @@ export default function PricingPage({ onOpenPolicy }) {
   };
 
   return (
-    <div className="min-h-screen bg-mint-grey text-primary selection:bg-accent/30 font-body-md pt-20">
+    <div className="min-h-screen bg-mint-grey text-primary selection:bg-accent/30 font-sans">
 
       {/* Navigation */}
       <Navbar />
 
       {/* Hero Section */}
-      <section className="bg-white py-20 md:py-28 px-6 md:px-16 text-center border-b border-primary/5">
-        <div className="max-w-3xl mx-auto space-y-6">
-          <span className="font-label-md text-xs font-semibold text-secondary-dark uppercase tracking-[0.18em] block">Pricing</span>
-          <h1 className="font-headline-md text-4xl md:text-5xl lg:text-6xl text-primary leading-tight font-medium">
+      <section className="bg-white pt-[148px] pb-20 md:pt-[180px] md:pb-28 px-6 md:px-16 text-center border-b border-primary/5">
+        <div className="max-w-[700px] mx-auto space-y-5">
+          <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">Pricing</span>
+          <h1 className="font-serif text-[40px] md:text-[54px] lg:text-[60px] leading-[1.15] font-normal text-primary">
             Start free. Continue only<br />
-            <span className="italic text-accent">if it's honest enough to.</span>
+            <em className="italic text-accent font-normal">if it's honest enough to.</em>
           </h1>
-          <div className="w-12 h-[1.5px] bg-accent mx-auto" />
-          <p className="font-body-lg text-base md:text-lg text-on-surface-variant leading-relaxed max-w-xl mx-auto opacity-90">
+          <div className="w-10 h-[1px] bg-accent mx-auto my-6" />
+          <p className="font-sans text-[17px] font-light text-mid leading-relaxed max-w-[580px] mx-auto">
             We don't ask for commitment before we've earned it. The first seven days are free, unrestricted, and require no card. If the reflections aren't honest enough to make you want to continue, they shouldn't.
           </p>
         </div>
@@ -107,7 +107,7 @@ export default function PricingPage({ onOpenPolicy }) {
 
           {/* Plan 1: Free */}
           <ScrollReveal className="h-full flex" delay={0.05}>
-            <div className="bg-white border border-primary/5 rounded-premium p-8 md:p-10 flex flex-col justify-between shadow-sm hover:shadow-md transition-all w-full text-left">
+            <div className="bg-white border border-primary/5 rounded-premium p-8 md:p-10 flex flex-col justify-between shadow-sm hover:shadow-md transition-all w-full text-left h-full">
               <div className="space-y-6">
                 <div>
                   <span className="text-[10px] font-semibold text-secondary-dark uppercase tracking-[0.25em] block">First 7 days</span>
@@ -117,7 +117,7 @@ export default function PricingPage({ onOpenPolicy }) {
                   <p className="font-body-md text-xs text-primary/50 pt-2 font-bold uppercase tracking-wider">No card required</p>
                 </div>
                 <div className="h-[1px] bg-primary/5" />
-                <ul className="space-y-4 text-sm font-body-md text-on-surface-variant leading-relaxed">
+                <ul className="space-y-4 text-sm font-body-md text-mid leading-relaxed">
                   <li className="flex items-start gap-2.5">
                     <span className="text-accent mt-0.5">→</span>
                     <span>Full access, no restrictions</span>
@@ -151,7 +151,7 @@ export default function PricingPage({ onOpenPolicy }) {
 
           {/* Plan 2: Founding 50 */}
           <ScrollReveal className="h-full flex" delay={0.15}>
-            <div className="bg-primary text-on-primary border border-primary rounded-premium p-8 md:p-10 flex flex-col justify-between shadow-2xl relative overflow-hidden pricing-glow w-full text-left">
+            <div className="bg-primary text-on-primary border border-primary rounded-premium p-8 md:p-10 flex flex-col justify-between shadow-2xl relative overflow-hidden pricing-glow w-full text-left h-full">
               <div className="absolute top-4 right-4 bg-accent text-primary px-3.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-[0.1em]">
                 Founding 50 only
               </div>
@@ -200,7 +200,7 @@ export default function PricingPage({ onOpenPolicy }) {
 
           {/* Plan 3: Standard */}
           <ScrollReveal className="h-full flex" delay={0.25}>
-            <div className="bg-white border border-primary/5 rounded-premium p-8 md:p-10 flex flex-col justify-between shadow-sm hover:shadow-md transition-all w-full text-left">
+            <div className="bg-white border border-primary/5 rounded-premium p-8 md:p-10 flex flex-col justify-between shadow-sm hover:shadow-md transition-all w-full text-left h-full">
               <div className="space-y-6">
                 <div>
                   <span className="text-[10px] font-semibold text-secondary-dark uppercase tracking-[0.25em] block">Standard</span>
@@ -211,7 +211,7 @@ export default function PricingPage({ onOpenPolicy }) {
                   <p className="font-body-md text-xs text-primary/50 pt-2 font-bold uppercase tracking-wider">Price may increase as costs grow</p>
                 </div>
                 <div className="h-[1px] bg-primary/5" />
-                <ul className="space-y-4 text-sm font-body-md text-on-surface-variant leading-relaxed">
+                <ul className="space-y-4 text-sm font-body-md text-mid leading-relaxed">
                   <li className="flex items-start gap-2.5">
                     <span className="text-accent mt-0.5">→</span>
                     <span>One entry a day, every day</span>
@@ -250,7 +250,7 @@ export default function PricingPage({ onOpenPolicy }) {
       <section className="bg-white py-20 px-6 md:px-16 border-t border-b border-primary/5">
         <div className="max-w-4xl mx-auto space-y-12">
           <div className="text-center space-y-3">
-            <span className="font-label-md text-xs font-semibold text-secondary-dark uppercase tracking-[0.18em] block">What you get</span>
+            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">What you get</span>
             <h2 className="font-headline-md text-3xl md:text-4xl text-primary font-medium">Free vs paid, clearly.</h2>
             <div className="w-10 h-[1px] bg-accent mx-auto" />
             <p className="font-body-md text-sm md:text-base text-on-surface-variant max-w-md mx-auto">
@@ -360,7 +360,7 @@ export default function PricingPage({ onOpenPolicy }) {
       {/* Personas / Tendencies */}
       <section className="py-20 px-6 md:px-16 max-w-4xl mx-auto space-y-12">
         <div className="text-center space-y-3">
-          <span className="font-label-md text-xs font-semibold text-secondary-dark uppercase tracking-[0.18em] block">Before you pay</span>
+          <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">Before you pay</span>
           <h2 className="font-headline-md text-3xl md:text-4xl text-primary font-medium">Is this the right moment to start?</h2>
           <div className="w-10 h-[1px] bg-accent mx-auto" />
           <p className="font-body-md text-sm md:text-base text-on-surface-variant max-w-md mx-auto">
@@ -372,7 +372,7 @@ export default function PricingPage({ onOpenPolicy }) {
           <ScrollReveal className="flex h-full">
             <div className="bg-white border-l-4 border-accent rounded-xl p-8 flex flex-col justify-between shadow-xs hover:translate-y-[-2px] transition-transform duration-300">
               <div className="space-y-4">
-                <span className="font-label-md text-[10px] font-bold tracking-wider text-accent uppercase block">This tends to work if</span>
+                <span className="font-sans text-[10px] font-bold tracking-wider text-accent uppercase block">This tends to work if</span>
                 <h3 className="font-headline-md text-xl font-bold text-primary leading-snug">You are willing to write the version before you edited it.</h3>
                 <p className="font-body-md text-sm text-on-surface-variant leading-relaxed">
                   Not the polished version. Not the story you have constructed around what happened. The thought before you made it make sense. Most people believe they are already doing this. The practice helps you see where you are not — without judging it.
@@ -387,7 +387,7 @@ export default function PricingPage({ onOpenPolicy }) {
           <ScrollReveal className="flex h-full" delay={0.1}>
             <div className="bg-white border-l-4 border-secondary rounded-xl p-8 flex flex-col justify-between shadow-xs hover:translate-y-[-2px] transition-transform duration-300">
               <div className="space-y-4">
-                <span className="font-label-md text-[10px] font-bold tracking-wider text-secondary-dark uppercase block">This tends not to work if</span>
+                <span className="font-sans text-[10px] font-bold tracking-wider text-secondary-dark uppercase block">This tends not to work if</span>
                 <h3 className="font-headline-md text-xl font-bold text-primary leading-snug">You want confirmation that you're handling things well.</h3>
                 <p className="font-body-md text-sm text-on-surface-variant leading-relaxed">
                   If you write entries designed to produce reassurance, you will get reassurance — and leave knowing nothing you didn't know when you arrived. The product can only deliver clarity. It cannot deliver comfort on demand.
@@ -405,7 +405,7 @@ export default function PricingPage({ onOpenPolicy }) {
       <section className="bg-primary text-on-primary py-20 px-6 md:px-16 border-t border-b border-white/5">
         <div className="max-w-3xl mx-auto space-y-12">
           <div className="text-center space-y-3">
-            <span className="font-label-md text-xs font-semibold text-secondary uppercase tracking-[0.18em] block">Questions</span>
+            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary block">Questions</span>
             <h2 className="font-headline-md text-3xl md:text-4xl text-white font-medium">Things people ask before they start.</h2>
             <div className="w-10 h-[1px] bg-accent mx-auto" />
           </div>
@@ -477,8 +477,7 @@ export default function PricingPage({ onOpenPolicy }) {
         </div>
       </section>
 
-      {/* Page CTA */}
-      <section className="bg-mint-grey py-20 px-6 md:px-16 text-center">
+      <section className="bg-white py-20 px-6 md:px-16 text-center border-t border-primary/5">
         <div className="max-w-xl mx-auto space-y-6">
           <h2 className="font-headline-md text-3xl md:text-4xl text-primary font-medium leading-snug">
             Seven days to find out<br />

@@ -31,14 +31,14 @@ export default function WhatItIsPage({ onOpenPolicy }) {
       <Navbar isSubpage={true} />
 
       {/* HERO */}
-      <section className="bg-white">
-        <div className="py-24 md:py-36 px-6 md:px-16 max-w-[700px] mx-auto text-center">
+      <section className="bg-white pt-[148px] pb-20 md:pt-[180px] md:pb-28 px-6 md:px-16 text-center border-b border-primary/5">
+        <div className="max-w-[700px] mx-auto">
           <ScrollReveal className="space-y-5">
             <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">
               What it is
             </span>
             <h1 className="font-serif text-[40px] md:text-[54px] lg:text-[60px] leading-[1.15] font-normal text-primary">
-              A space that pays attention to <em className="italic text-accent font-normal">what you keep circling.</em>
+              A space that pays attention to <br></br><em className="italic text-accent font-normal">what you keep circling.</em>
             </h1>
             <div className="w-10 h-[1px] bg-accent mx-auto my-6" />
             <p className="font-sans text-[17px] font-light text-mid leading-relaxed max-w-[580px] mx-auto">
@@ -51,7 +51,7 @@ export default function WhatItIsPage({ onOpenPolicy }) {
       {/* BLOCK 1: The entry */}
       <section className="max-w-[1060px] mx-auto px-6 md:px-[8%] py-20 md:py-24 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
         <ScrollReveal className="space-y-5">
-          <span className="font-serif text-6xl font-light text-primary/18 leading-none block">01</span>
+          <span className="font-serif text-6xl font-light text-primary/80 leading-none block">01</span>
           <span className="font-sans text-[11px] font-medium tracking-[0.12em] uppercase text-secondary-dark block">
             The entry
           </span>
@@ -118,7 +118,7 @@ export default function WhatItIsPage({ onOpenPolicy }) {
                   What keeps surfacing
                 </div>
               </div>
-              
+
               <div className="space-y-3">
                 <div className="bg-white/8 border border-white/18 rounded-lg p-4 flex gap-3.5 items-start">
                   <span className="w-1.5 h-1.5 rounded-full bg-accent mt-[6px] shrink-0" />
@@ -163,7 +163,7 @@ export default function WhatItIsPage({ onOpenPolicy }) {
           </ScrollReveal>
 
           <ScrollReveal className="space-y-5 order-1 md:order-2">
-            <span className="font-serif text-6xl font-light text-mint-grey/10 leading-none block">02</span>
+            <span className="font-serif text-6xl font-light text-secondary leading-none block">02</span>
             <span className="font-sans text-[11px] font-medium tracking-[0.12em] uppercase text-secondary block">
               The pattern
             </span>
@@ -186,7 +186,7 @@ export default function WhatItIsPage({ onOpenPolicy }) {
       <section className="bg-mint-grey py-20 md:py-24">
         <div className="max-w-[1060px] mx-auto px-6 md:px-[8%] grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
           <ScrollReveal className="space-y-5">
-            <span className="font-serif text-6xl font-light text-primary/18 leading-none block">03</span>
+            <span className="font-serif text-6xl font-light text-primary/80 leading-none block">03</span>
             <span className="font-sans text-[11px] font-medium tracking-[0.12em] uppercase text-secondary-dark block">
               How it works
             </span>
@@ -212,7 +212,7 @@ export default function WhatItIsPage({ onOpenPolicy }) {
               <div className="font-sans text-[10px] font-medium tracking-[0.15em] uppercase text-mid block pb-2 border-b border-mint-grey">
                 What it works with
               </div>
-              
+
               <div className="space-y-5">
                 <div className="flex gap-4 items-start">
                   <div className="w-9 h-9 rounded-full bg-secondary/15 flex items-center justify-center text-sm shrink-0">
@@ -263,7 +263,7 @@ export default function WhatItIsPage({ onOpenPolicy }) {
               How this sits alongside everything else.
             </h2>
           </ScrollReveal>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <ScrollReveal className="bg-white/8 border border-white/15 rounded-lg p-6 space-y-3 hover:bg-accent/15 hover:border-accent group transition-all duration-300" delay={0.05}>
               <h3 className="font-serif text-lg font-medium text-mint-grey group-hover:text-accent transition-colors duration-200">Before therapy</h3>
@@ -304,7 +304,7 @@ export default function WhatItIsPage({ onOpenPolicy }) {
               Where this sits and where it doesn't.
             </h2>
           </ScrollReveal>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <ScrollReveal className="bg-white border border-primary/8 rounded-lg p-6 space-y-3 hover:bg-accent/8 hover:border-accent group transition-all duration-300" delay={0.05}>
               <h3 className="font-serif text-lg font-medium text-primary group-hover:text-accent transition-colors duration-200">What we hold</h3>
@@ -338,7 +338,7 @@ export default function WhatItIsPage({ onOpenPolicy }) {
       </section>
 
       {/* CTA */}
-      <section className="bg-mint-grey py-20 px-6 text-center border-t border-primary/5">
+      <section className="bg-white py-20 px-6 text-center border-t border-primary/5">
         <ScrollReveal className="max-w-xl mx-auto space-y-6">
           <h2 className="font-serif text-3xl md:text-4xl text-primary font-normal leading-snug">
             Bring the version that doesn't know<br />
@@ -347,7 +347,7 @@ export default function WhatItIsPage({ onOpenPolicy }) {
           <p className="font-sans text-sm md:text-base text-mid max-w-sm mx-auto leading-relaxed">
             That is who this was built for.
           </p>
-          <button 
+          <button
             onClick={handleStartWriting}
             className="bg-primary hover:bg-[#2A3A3E] text-[#ECEFF0] px-8 py-3.5 rounded font-sans text-xs font-bold tracking-wider uppercase inline-block shadow-sm transition-all duration-200 cursor-pointer mt-4"
           >

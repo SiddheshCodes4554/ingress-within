@@ -414,7 +414,7 @@ export default function LandingPage({ onOpenPolicy }) {
 
           {/* Who grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-[900px] mx-auto text-left">
-            <ScrollReveal className="bg-white rounded-card flex flex-col justify-between shadow-sm hover:translate-y-[-2px] transition-transform duration-300">
+             <ScrollReveal className="bg-white rounded-card flex flex-col justify-between shadow-sm hover:translate-y-[-2px] transition-transform duration-300 h-full">
               <div className="p-8 space-y-4">
                 <span className="font-sans text-[10px] font-semibold text-[#8A4A38] bg-[#E0A898]/15 px-3 py-1 rounded-full uppercase tracking-wider inline-block">
                   Self-aware staller
@@ -433,7 +433,7 @@ export default function LandingPage({ onOpenPolicy }) {
               </div>
             </ScrollReveal>
 
-            <ScrollReveal className="bg-white rounded-card flex flex-col justify-between shadow-sm hover:translate-y-[-2px] transition-transform duration-300" delay={0.1}>
+            <ScrollReveal className="bg-white rounded-card flex flex-col justify-between shadow-sm hover:translate-y-[-2px] transition-transform duration-300 h-full" delay={0.1}>
               <div className="p-8 space-y-4">
                 <span className="font-sans text-[10px] font-semibold text-[#2A6A60] bg-[#8DBFB4]/15 px-3 py-1 rounded-full uppercase tracking-wider inline-block">
                   Quietly accumulating
@@ -468,10 +468,10 @@ export default function LandingPage({ onOpenPolicy }) {
           </ScrollReveal>
 
           {/* Grid Approach */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-[900px] mx-auto text-left">
-            <ScrollReveal className="border-t border-secondary/25 pt-6 space-y-3" delay={0.05}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-6 max-w-[900px] mx-auto text-left md:grid-rows-[auto_1fr_auto]">
+            <ScrollReveal className="border-t border-secondary/25 pt-6 flex flex-col gap-y-3 md:row-span-3 md:grid md:grid-rows-subgrid" delay={0.05}>
               <h3 className="font-serif text-[21px] font-medium text-mint-grey">We don't validate blindly.</h3>
-              <p className="font-sans text-[13.5px] font-light text-light-mid leading-relaxed min-h-[140px]">
+              <p className="font-sans text-[13.5px] font-light text-light-mid leading-relaxed">
                 There is a version of emotional support that agrees with everything and changes nothing. It is comfortable. It is also useless. If you are writing the same entry for the fifth time with different characters, we will name the loop.
               </p>
               <p className="font-serif text-[13px] italic text-[#C8B8E4] leading-relaxed pt-2 border-t border-white/5">
@@ -479,9 +479,9 @@ export default function LandingPage({ onOpenPolicy }) {
               </p>
             </ScrollReveal>
 
-            <ScrollReveal className="border-t border-secondary/25 pt-6 space-y-3" delay={0.15}>
+            <ScrollReveal className="border-t border-secondary/25 pt-6 flex flex-col gap-y-3 md:row-span-3 md:grid md:grid-rows-subgrid" delay={0.15}>
               <h3 className="font-serif text-[21px] font-medium text-mint-grey">We don't give solutions.</h3>
-              <p className="font-sans text-[13.5px] font-light text-light-mid leading-relaxed min-h-[140px]">
+              <p className="font-sans text-[13.5px] font-light text-light-mid leading-relaxed">
                 The moment we start telling you what to do, we've removed you from the equation. People don't build self-awareness by following instructions. They build it by sitting with hard questions long enough to find their own answers.
               </p>
               <p className="font-serif text-[13px] italic text-[#C8B8E4] leading-relaxed pt-2 border-t border-white/5">
@@ -489,9 +489,9 @@ export default function LandingPage({ onOpenPolicy }) {
               </p>
             </ScrollReveal>
 
-            <ScrollReveal className="border-t border-secondary/25 pt-6 space-y-3" delay={0.25}>
+            <ScrollReveal className="border-t border-secondary/25 pt-6 flex flex-col gap-y-3 md:row-span-3 md:grid md:grid-rows-subgrid" delay={0.25}>
               <h3 className="font-serif text-[21px] font-medium text-mint-grey">We don't create dependency.</h3>
-              <p className="font-sans text-[13.5px] font-light text-light-mid leading-relaxed min-h-[140px]">
+              <p className="font-sans text-[13.5px] font-light text-light-mid leading-relaxed">
                 This product should make itself progressively less necessary, not more. A person using it for a year should know themselves well enough that they need it less, not feel like they cannot function without checking in.
               </p>
               <p className="font-serif text-[13px] italic text-[#C8B8E4] leading-relaxed pt-2 border-t border-white/5">
@@ -516,9 +516,8 @@ export default function LandingPage({ onOpenPolicy }) {
 
           {/* Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-[900px] mx-auto text-left items-stretch">
-
             {/* Free */}
-            <ScrollReveal className="bg-white rounded-card p-8 flex flex-col justify-between hover:translate-y-[-2px] transition-transform duration-300 w-full" delay={0.05}>
+            <ScrollReveal className="bg-white rounded-card p-8 flex flex-col justify-between hover:translate-y-[-2px] transition-transform duration-300 w-full h-full" delay={0.05}>
               <div className="space-y-5">
                 <div className="font-sans text-[11px] font-medium tracking-[0.12em] uppercase text-secondary">First 7 days</div>
                 <div className="font-serif text-5xl font-light text-primary leading-none">Free</div>
@@ -548,7 +547,7 @@ export default function LandingPage({ onOpenPolicy }) {
             </ScrollReveal>
 
             {/* Founding 50 */}
-            <ScrollReveal className="bg-primary text-mint-grey rounded-card p-8 flex flex-col justify-between hover:translate-y-[-2px] transition-transform duration-300 relative overflow-hidden w-full" delay={0.15}>
+            <ScrollReveal className="bg-primary text-mint-grey rounded-card p-8 flex flex-col justify-between hover:translate-y-[-2px] transition-transform duration-300 relative overflow-hidden w-full h-full" delay={0.15}>
               <div className="absolute top-[12px] right-4 bg-accent text-primary font-sans text-[9px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded-full">
                 Founding 50 only
               </div>
@@ -582,7 +581,7 @@ export default function LandingPage({ onOpenPolicy }) {
             </ScrollReveal>
 
             {/* Standard */}
-            <ScrollReveal className="bg-white rounded-card p-8 flex flex-col justify-between hover:translate-y-[-2px] transition-transform duration-300 w-full" delay={0.25}>
+            <ScrollReveal className="bg-white rounded-card p-8 flex flex-col justify-between hover:translate-y-[-2px] transition-transform duration-300 w-full h-full" delay={0.25}>
               <div className="space-y-5">
                 <div className="font-sans text-[11px] font-medium tracking-[0.12em] uppercase text-secondary">Standard</div>
                 <div className="font-serif text-5xl font-light text-primary leading-none">&#8377;999</div>

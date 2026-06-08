@@ -33,8 +33,8 @@ export default function HowItWorksPage({ onOpenPolicy }) {
       <Navbar isSubpage={true} />
 
       {/* HERO */}
-      <section className="bg-white">
-        <div className="py-24 md:py-36 px-6 md:px-16 max-w-[700px] mx-auto text-center">
+      <section className="bg-white pt-[148px] pb-20 md:pt-[180px] md:pb-28 px-6 md:px-16 text-center border-b border-primary/5">
+        <div className="max-w-[700px] mx-auto">
           <ScrollReveal className="space-y-5">
             <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">
               The practice
@@ -56,8 +56,8 @@ export default function HowItWorksPage({ onOpenPolicy }) {
         <div className="max-w-[1060px] mx-auto px-6 md:px-[8%] grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
           <ScrollReveal className="space-y-6">
             <div className="space-y-3">
-              <span className="font-serif text-6xl font-light text-primary/10 leading-none block">01</span>
-              <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-[#5A9E94] block">
+              <span className="font-serif text-6xl font-light text-primary/80 leading-none block">01</span>
+              <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">
                 Write
               </span>
               <h2 className="font-serif text-3xl md:text-4xl text-primary font-normal leading-snug">
@@ -80,7 +80,7 @@ export default function HowItWorksPage({ onOpenPolicy }) {
               
               <div className="relative pb-6 last:pb-0">
                 <div className="absolute -left-[25px] top-1 w-2 h-2 rounded-full border-2 border-secondary bg-mint-grey" />
-                <div className="font-sans text-[10px] font-medium uppercase tracking-wider text-[#5A9E94]">A week in</div>
+                <div className="font-sans text-[10px] font-medium uppercase tracking-wider text-secondary-dark">A week in</div>
                 <p className="font-sans text-[13.5px] font-light text-mid leading-relaxed mt-1">
                   The entries get more honest without you deciding to make them so. You stop editing before you type.
                 </p>
@@ -179,7 +179,7 @@ export default function HowItWorksPage({ onOpenPolicy }) {
 
           <ScrollReveal className="space-y-6 order-1 md:order-2">
             <div className="space-y-3">
-              <span className="font-serif text-6xl font-light text-mint-grey/10 leading-none block">02</span>
+              <span className="font-serif text-6xl font-light text-secondary leading-none block">02</span>
               <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary block">
                 Reflect
               </span>
@@ -226,7 +226,7 @@ export default function HowItWorksPage({ onOpenPolicy }) {
         <div className="max-w-[1060px] mx-auto px-6 md:px-[8%] grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
           <ScrollReveal className="space-y-6">
             <div className="space-y-3">
-              <span className="font-serif text-6xl font-light text-primary/10 leading-none block">03</span>
+              <span className="font-serif text-6xl font-light text-primary/80 leading-none block">03</span>
               <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">
                 Question
               </span>
@@ -391,7 +391,7 @@ export default function HowItWorksPage({ onOpenPolicy }) {
 
           <ScrollReveal className="space-y-6 order-1 md:order-2">
             <div className="space-y-3">
-              <span className="font-serif text-6xl font-light text-mint-grey/10 leading-none block">04</span>
+              <span className="font-serif text-6xl font-light text-secondary leading-none block">04</span>
               <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary block">
                 Pattern
               </span>
@@ -463,7 +463,7 @@ export default function HowItWorksPage({ onOpenPolicy }) {
             </ScrollReveal>
 
             <ScrollReveal className="bg-mint-grey border-t-2 border-secondary rounded-b-lg p-8 space-y-4" delay={0.05}>
-              <span className="font-sans text-[10px] font-medium tracking-[0.1em] uppercase text-[#5A9E94] block">
+              <span className="font-sans text-[10px] font-medium tracking-[0.1em] uppercase text-secondary-dark block">
                 Every week
               </span>
               <h3 className="font-serif text-xl font-medium text-primary">
@@ -530,7 +530,7 @@ export default function HowItWorksPage({ onOpenPolicy }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
             <ScrollReveal className="bg-white rounded-lg p-8 flex flex-col justify-between hover:translate-y-[-2px] transition-transform duration-300">
               <div className="space-y-4">
-                <span className="font-serif text-5xl font-light text-accent block leading-none">01</span>
+                <span className="font-serif text-5xl font-light text-[#b37361] block leading-none">01</span>
                 <h3 className="font-serif text-xl font-medium text-primary">
                   The first cycle surfaces the shape.
                 </h3>
@@ -545,7 +545,7 @@ export default function HowItWorksPage({ onOpenPolicy }) {
 
             <ScrollReveal className="bg-white rounded-lg p-8 flex flex-col justify-between hover:translate-y-[-2px] transition-transform duration-300" delay={0.1}>
               <div className="space-y-4">
-                <span className="font-serif text-5xl font-light text-supporting block leading-none">02</span>
+                <span className="font-serif text-5xl font-light text-[#8271a3] block leading-none">02</span>
                 <h3 className="font-serif text-xl font-medium text-primary">
                   The second cycle shows what sits under it.
                 </h3>
@@ -632,8 +632,7 @@ export default function HowItWorksPage({ onOpenPolicy }) {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="bg-mint-grey py-20 px-6 text-center">
+      <section className="bg-white py-20 px-6 text-center border-t border-primary/5">
         <ScrollReveal className="max-w-xl mx-auto space-y-6">
           <h2 className="font-serif text-3xl md:text-4xl text-primary font-normal leading-snug">
             The only way to see the picture<br />

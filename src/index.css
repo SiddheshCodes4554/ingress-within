@@ -6,12 +6,13 @@
   --color-mint-grey: #ECEFF0;
   --color-accent: #E0A898;
   --color-secondary: #8DBFB4;
-  --color-secondary-dark: #3A6D63;
+  --color-secondary-dark: #2B4E47;
   --color-supporting: #B8A8D4;
   --color-white: #FFFFFF;
   --color-mid: #4A6A64;
   --color-light-mid: #D8ECEA;
   --color-on-primary: #ECEFF0;
+  --color-on-surface-variant: #4A6A64;
 
   /* Font Families */
   --font-serif: 'Cormorant Garamond', Georgia, serif;

@@ -77,7 +77,7 @@ export default function ContactPage({ onOpenPolicy }) {
               <a href="mailto:hello@ingresswithin.com" className="font-serif text-[19px] font-normal text-primary hover:text-accent transition-colors no-underline">
                 hello@ingresswithin.com
               </a>
-              <div className="font-sans text-[12.5px] font-light text-[#8AA8A4]">
+              <div className="font-sans text-[12.5px] font-normal text-mid opacity-80">
                 Questions, feedback, anything else
               </div>
             </div>
@@ -89,7 +89,7 @@ export default function ContactPage({ onOpenPolicy }) {
               <a href="mailto:support@ingresswithin.com" className="font-serif text-[19px] font-normal text-primary hover:text-accent transition-colors no-underline">
                 support@ingresswithin.com
               </a>
-              <div className="font-sans text-[12.5px] font-light text-[#8AA8A4]">
+              <div className="font-sans text-[12.5px] font-normal text-mid opacity-80">
                 App issues, billing, account access
               </div>
             </div>
@@ -101,7 +101,7 @@ export default function ContactPage({ onOpenPolicy }) {
               <a href="mailto:press@ingresswithin.com" className="font-serif text-[19px] font-normal text-primary hover:text-accent transition-colors no-underline">
                 press@ingresswithin.com
               </a>
-              <div className="font-sans text-[12.5px] font-light text-[#8AA8A4]">
+              <div className="font-sans text-[12.5px] font-normal text-mid opacity-80">
                 Media, partnerships, grant enquiries
               </div>
             </div>
@@ -113,7 +113,7 @@ export default function ContactPage({ onOpenPolicy }) {
               <a href="mailto:founding@ingresswithin.com" className="font-serif text-[19px] font-normal text-primary hover:text-accent transition-colors no-underline">
                 founding@ingresswithin.com
               </a>
-              <div className="font-sans text-[12.5px] font-light text-[#8AA8A4]">
+              <div className="font-sans text-[12.5px] font-normal text-mid opacity-80">
                 Join the waitlist for spots that open up
               </div>
             </div>
