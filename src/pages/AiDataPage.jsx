@@ -229,7 +229,7 @@ export default function AiDataPage({ onOpenPolicy }) {
                   <div className={`font-serif text-3xl font-bold ${promise.colorClass}`}>
                     {promise.num}
                   </div>
-                  <h3 className="font-sans text-xs md:text-[13px] font-semibold text-primary leading-snug">
+                  <h3 className="font-serif text-[15.5px] md:text-[16.5px] font-medium text-primary leading-snug">
                     {promise.label}
                   </h3>
                   <p className="font-sans text-[11px] text-mid leading-normal">
@@ -287,7 +287,7 @@ export default function AiDataPage({ onOpenPolicy }) {
                     {step.num}
                   </div>
                   <div className="p-5 flex flex-col items-start gap-1.5 flex-1">
-                    <h4 className="font-sans text-[13.5px] font-semibold text-primary">
+                    <h4 className="font-serif text-[15px] md:text-[16px] font-medium text-primary">
                       {step.title}
                     </h4>
                     <p className="font-sans text-[12.5px] font-light text-mid leading-relaxed">
@@ -319,7 +319,7 @@ export default function AiDataPage({ onOpenPolicy }) {
           <div className="space-y-4">
             {/* Callout 1 (Terra) */}
             <div className="bg-accent/7 border-l-3 border-accent rounded-premium p-6 md:p-7 space-y-2">
-              <h4 className="font-sans text-[13.5px] md:text-[14px] font-bold text-primary tracking-wide">
+              <h4 className="font-serif text-[15.5px] md:text-[17px] font-medium text-primary leading-snug">
                 Will my writing end up in an AI's training data?
               </h4>
               <p className="font-sans text-[13px] md:text-[13.5px] font-light text-mid leading-relaxed">
@@ -329,7 +329,7 @@ export default function AiDataPage({ onOpenPolicy }) {
 
             {/* Callout 2 (Sage) */}
             <div className="bg-secondary/7 border-l-3 border-secondary rounded-premium p-6 md:p-7 space-y-2">
-              <h4 className="font-sans text-[13.5px] md:text-[14px] font-bold text-primary tracking-wide">
+              <h4 className="font-serif text-[15.5px] md:text-[17px] font-medium text-primary leading-snug">
                 Does the AI "remember" what I wrote?
               </h4>
               <p className="font-sans text-[13px] md:text-[13.5px] font-light text-mid leading-relaxed">
@@ -339,7 +339,7 @@ export default function AiDataPage({ onOpenPolicy }) {
 
             {/* Callout 3 (Iris) */}
             <div className="bg-supporting/7 border-l-3 border-supporting rounded-premium p-6 md:p-7 space-y-2">
-              <h4 className="font-sans text-[13.5px] md:text-[14px] font-bold text-primary tracking-wide">
+              <h4 className="font-serif text-[15.5px] md:text-[17px] font-medium text-primary leading-snug">
                 What happens if I delete my account?
               </h4>
               <p className="font-sans text-[13px] md:text-[13.5px] font-light text-mid leading-relaxed">
@@ -349,7 +349,7 @@ export default function AiDataPage({ onOpenPolicy }) {
 
             {/* Callout 4 (Neutral Dark) */}
             <div className="bg-primary/4 border-l-3 border-primary/50 rounded-premium p-6 md:p-7 space-y-2">
-              <h4 className="font-sans text-[13.5px] md:text-[14px] font-bold text-primary tracking-wide">
+              <h4 className="font-serif text-[15.5px] md:text-[17px] font-medium text-primary leading-snug">
                 Can I delete individual entries while staying on the platform?
               </h4>
               <p className="font-sans text-[13px] md:text-[13.5px] font-light text-mid leading-relaxed">
