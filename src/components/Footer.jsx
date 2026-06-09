@@ -44,7 +44,7 @@ export default function Footer({ onOpenPolicy }) {
           </div>
           <ul className="list-none space-y-2.5 p-0">
             <li><a href="/about" className="font-sans text-[13.5px] font-light text-white/65 hover:text-white transition-colors no-underline">About</a></li>
-            <li><a href="/" className="font-sans text-[13.5px] font-light text-white/65 hover:text-white transition-colors no-underline">Blog</a></li>
+            <li><a href="/ai-data" className="font-sans text-[13.5px] font-light text-white/65 hover:text-white transition-colors no-underline">AI &amp; Data</a></li>
             <li><a href="/contact" className="font-sans text-[13.5px] font-light text-white/65 hover:text-white transition-colors no-underline">Contact us</a></li>
             <li><a href="/faq" className="font-sans text-[13.5px] font-light text-white/65 hover:text-white transition-colors no-underline">FAQ</a></li>
           </ul>

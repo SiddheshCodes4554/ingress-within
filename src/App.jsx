@@ -8,6 +8,7 @@ import PricingPage from './pages/PricingPage';
 import FaqPage from './pages/FaqPage';
 import ContactPage from './pages/ContactPage';
 import AuthPage from './pages/AuthPage';
+import AiDataPage from './pages/AiDataPage';
 import PolicyModal from './components/PolicyModal';
 
 export default function App() {
@@ -49,6 +50,9 @@ export default function App() {
         window.scrollTo(0, 0);
       } else if (path === '/auth' || path === '/auth/') {
         setCurrentRoute('auth');
+        window.scrollTo(0, 0);
+      } else if (path === '/ai-data' || path === '/ai-data/') {
+        setCurrentRoute('ai-data');
         window.scrollTo(0, 0);
       } else {
         setCurrentRoute('home');
@@ -121,6 +125,8 @@ export default function App() {
         return <ContactPage onOpenPolicy={handleOpenPolicy} />;
       case 'auth':
         return <AuthPage onOpenPolicy={handleOpenPolicy} />;
+      case 'ai-data':
+        return <AiDataPage onOpenPolicy={handleOpenPolicy} />;
       case 'home':
       default:
         return <LandingPage onOpenPolicy={handleOpenPolicy} />;
