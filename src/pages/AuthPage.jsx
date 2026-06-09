@@ -9,7 +9,7 @@ const quotes = [
   "A single entry is a moment. A thread is a picture."
 ];
 
-export default function AuthPage() {
+export default function AuthPage({ onOpenPolicy }) {
   // Navigation states: 'login', 'signup', 'otp', 'forgot', 'success'
   const [view, setView] = useState('signup');
   const [loginTab, setLoginTab] = useState('otp'); // 'otp' or 'email'
@@ -74,6 +74,13 @@ export default function AuthPage() {
 
   const getCopyrightYear = () => {
     return new Date().getFullYear();
+  };
+
+  const handlePolicyClick = (e, key) => {
+    e.preventDefault();
+    if (onOpenPolicy) {
+      onOpenPolicy(key);
+    }
   };
 
   // Form handlers
@@ -190,7 +197,7 @@ export default function AuthPage() {
 
         {/* Back Link to Landing Page */}
         <a 
-          href="#/" 
+          href="/" 
           className="self-start flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-[#D8ECEA]/65 hover:text-white transition-colors no-underline z-10"
         >
           <ArrowLeft size={14} /> Back to Ingress
@@ -855,9 +862,9 @@ export default function AuthPage() {
         <div className="w-full max-w-[420px] flex items-center justify-center gap-6 font-sans text-[11px] text-primary/45 border-t border-primary/5 pt-6 z-10">
           <span>&copy; {getCopyrightYear()} Ingress Within</span>
           <span>&middot;</span>
-          <a href="#/" className="hover:text-primary transition-colors no-underline">Privacy Policy</a>
+          <a href="/" onClick={(e) => handlePolicyClick(e, 'privacy')} className="hover:text-primary transition-colors no-underline">Privacy Policy</a>
           <span>&middot;</span>
-          <a href="#/" className="hover:text-primary transition-colors no-underline">Terms of Use</a>
+          <a href="/" onClick={(e) => handlePolicyClick(e, 'terms')} className="hover:text-primary transition-colors no-underline">Terms of Use</a>
         </div>
 
       </div>

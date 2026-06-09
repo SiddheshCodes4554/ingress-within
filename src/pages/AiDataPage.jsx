@@ -201,38 +201,38 @@ export default function AiDataPage({ onOpenPolicy }) {
     <div className="min-h-screen bg-mint-grey text-primary selection:bg-accent/30 font-sans">
       <Navbar />
 
-      {/* HERO (Dark Themed with Circles Overlay) */}
-      <section className="bg-primary text-mint-grey pt-[148px] pb-16 md:pt-[180px] md:pb-24 px-6 md:px-16 text-center border-b border-white/5 relative overflow-hidden">
+      {/* HERO (Light Themed with Circles Overlay) */}
+      <section className="bg-white text-primary pt-[148px] pb-20 md:pt-[180px] md:pb-28 px-6 md:px-16 text-center border-b border-primary/5 relative overflow-hidden">
         {/* Subtle Decorative Rings */}
-        <div className="absolute top-[-120px] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full border border-secondary/5 pointer-events-none" />
-        <div className="absolute top-[-60px] left-1/2 -translate-x-1/2 w-[360px] h-[360px] rounded-full border border-secondary/8 pointer-events-none" />
+        <div className="absolute top-[-120px] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full border border-secondary/20 pointer-events-none" />
+        <div className="absolute top-[-60px] left-1/2 -translate-x-1/2 w-[360px] h-[360px] rounded-full border border-secondary/35 pointer-events-none" />
 
         <div className="max-w-[700px] mx-auto relative z-10 space-y-6">
           <ScrollReveal className="space-y-4">
-            <span className="font-sans text-[11px] font-medium tracking-[0.16em] uppercase text-secondary block">
+            <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">
               Your data &amp; AI
             </span>
-            <h1 className="font-serif text-[40px] md:text-[54px] lg:text-[60px] leading-[1.15] font-normal text-light-mid">
+            <h1 className="font-serif text-[40px] md:text-[54px] lg:text-[60px] leading-[1.15] font-normal text-primary">
               Your writing stays <em className="italic text-accent font-normal">yours.</em><br />Full stop.
             </h1>
-            <div className="w-10 h-[1px] bg-accent/40 mx-auto my-6" />
-            <p className="font-sans text-sm md:text-base font-light text-light-mid/70 leading-relaxed max-w-[520px] mx-auto">
+            <div className="w-10 h-[1px] bg-accent mx-auto my-6" />
+            <p className="font-sans text-[17px] font-light text-mid leading-relaxed max-w-[580px] mx-auto">
               Three hard promises we make before anything else. Not buried in a policy document — right here, at the top.
             </p>
           </ScrollReveal>
 
           {/* Promises Grid */}
           <ScrollReveal delay={0.2} className="pt-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 border border-white/8 rounded-xl bg-white/[0.02] backdrop-blur-[4px] overflow-hidden divide-y md:divide-y-0 md:divide-x divide-white/8 max-w-[680px] mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 border border-primary/8 rounded-xl bg-white overflow-hidden divide-y md:divide-y-0 md:divide-x divide-primary/8 max-w-[680px] mx-auto shadow-[0_4px_20px_rgba(30,42,46,0.03)]">
               {PROMISES.map((promise, index) => (
                 <div key={index} className="p-6 flex flex-col items-center text-center justify-start space-y-2">
                   <div className={`font-serif text-3xl font-bold ${promise.colorClass}`}>
                     {promise.num}
                   </div>
-                  <h3 className="font-sans text-xs md:text-[13px] font-semibold text-light-mid leading-snug">
+                  <h3 className="font-sans text-xs md:text-[13px] font-semibold text-primary leading-snug">
                     {promise.label}
                   </h3>
-                  <p className="font-sans text-[11px] text-light-mid/40 leading-normal">
+                  <p className="font-sans text-[11px] text-mid leading-normal">
                     {promise.note}
                   </p>
                 </div>
@@ -244,7 +244,7 @@ export default function AiDataPage({ onOpenPolicy }) {
 
       {/* MAIN CONTENT */}
       <main className="max-w-[700px] mx-auto px-6 py-14 md:py-20 space-y-16">
-        
+
         {/* SECTION 1: The human question */}
         <ScrollReveal className="space-y-4">
           <span className="font-sans text-[10px] font-medium tracking-[0.14em] uppercase text-secondary-dark block">
@@ -387,8 +387,8 @@ export default function AiDataPage({ onOpenPolicy }) {
                       <span className="font-serif text-[15px] md:text-base font-medium text-primary group-hover:text-secondary-dark transition-colors duration-200 pr-4">
                         {item.q}
                       </span>
-                      <ChevronRight 
-                        size={16} 
+                      <ChevronRight
+                        size={16}
                         className={`text-primary/30 shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-90 text-accent' : ''}`}
                       />
                     </button>
@@ -409,9 +409,9 @@ export default function AiDataPage({ onOpenPolicy }) {
                               </div>
                             )}
                             {item.a.map((paragraph, pIdx) => (
-                              <p 
-                                key={pIdx} 
-                                dangerouslySetInnerHTML={{ __html: paragraph }} 
+                              <p
+                                key={pIdx}
+                                dangerouslySetInnerHTML={{ __html: paragraph }}
                                 className="last:mb-0"
                               />
                             ))}
@@ -431,22 +431,18 @@ export default function AiDataPage({ onOpenPolicy }) {
           <div className="bg-primary rounded-premium p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden shadow-[0_8px_30px_rgba(30,42,46,0.15)]">
             {/* Soft background glow */}
             <div className="absolute -top-12 -right-12 w-28 h-28 rounded-full bg-accent/10 filter blur-xl pointer-events-none" />
-            
+
             <div className="font-sans text-xs md:text-sm font-light text-light-mid leading-relaxed relative z-10 max-w-[380px]">
               <strong className="text-white font-semibold">Still not sure?</strong><br />
               Ask us anything. We'll answer plainly, in writing, without boilerplate.
             </div>
-            <a 
-              href="mailto:hello@ingresswithin.com" 
+            <a
+              href="mailto:hello@ingresswithin.com"
               className="font-serif text-[15px] md:text-base text-accent hover:text-accent/80 italic transition-colors whitespace-nowrap border-b border-accent/20 pb-0.5 relative z-10"
             >
               hello@ingresswithin.com
             </a>
           </div>
-
-          <p className="text-[11px] text-primary/30 text-center tracking-wider mt-12 uppercase font-medium">
-            Last updated January 2025 · Ingress Within
-          </p>
         </ScrollReveal>
       </main>
 

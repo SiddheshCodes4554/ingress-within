@@ -106,7 +106,7 @@ export default function LandingPage({ onOpenPolicy }) {
               Start writing free
             </a>
             <a
-              href="#/what-it-is"
+              href="/what-it-is"
               className="font-sans text-sm font-normal text-primary hover:gap-3 flex items-center gap-1.5 no-underline transition-all duration-200"
             >
               Read why it exists &rarr;
