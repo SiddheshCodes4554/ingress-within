@@ -1,6 +1,10 @@
 import React from 'react';
 
 export default function Footer({ onOpenPolicy }) {
+  const getCopyrightYear = () => {
+    return new Date().getFullYear();
+  };
+
   const handlePolicyClick = (e, key) => {
     e.preventDefault();
     if (onOpenPolicy) {
@@ -68,7 +72,7 @@ export default function Footer({ onOpenPolicy }) {
       {/* Bottom Bar */}
       <div className="max-w-[1060px] mx-auto border-t border-white/7 pt-7 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="footer-copy font-sans text-xs font-light text-white/50">
-          &copy; 2025 Ingress Within. All rights reserved.
+          &copy; {getCopyrightYear()} Ingress Within. All rights reserved.
         </div>
         <div className="footer-legal flex gap-6">
           <a href="/" onClick={(e) => handlePolicyClick(e, 'privacy')} className="font-sans text-xs font-light text-white/50 hover:text-white/75 no-underline transition-colors">Privacy policy</a>

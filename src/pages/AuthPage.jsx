@@ -65,28 +65,15 @@ export default function AuthPage() {
     }
   }, []);
 
-  // Back button handler
-  const handleGoBack = () => {
-    if (view === 'otp') {
-      setView('signup');
-      setErrorMsg('');
-    } else if (view === 'forgot') {
-      setView('login');
-      setErrorMsg('');
-    } else {
-      if (window.navigateTo) {
-        window.navigateTo('/');
-      } else {
-        window.location.pathname = '/';
-      }
-    }
-  };
-
   // Switch View Helper
   const navigateToView = (newView) => {
     setView(newView);
     setErrorMsg('');
     setSuccessMsg('');
+  };
+
+  const getCopyrightYear = () => {
+    return new Date().getFullYear();
   };
 
   // Form handlers
@@ -292,15 +279,8 @@ export default function AuthPage() {
       {/* RIGHT COLUMN: AUTHENTICATION FORMS */}
       <div className="relative flex flex-col justify-between items-center py-8 px-6 md:px-12 bg-mint-grey min-h-screen">
         
-        {/* Top Header bar with Logo mark for Mobile view, and Back triggers */}
-        <div className="w-full flex justify-between items-center max-w-[420px] z-10">
-          <button 
-            onClick={handleGoBack}
-            className="flex items-center gap-1.5 font-sans text-xs font-semibold uppercase tracking-wider text-primary/60 hover:text-primary transition-colors bg-transparent border-none cursor-pointer"
-          >
-            <ArrowLeft size={14} /> Back
-          </button>
-          
+        {/* Top Header bar with Logo mark for Mobile view */}
+        <div className="w-full flex justify-end items-center max-w-[420px] z-10">
           {/* Logo mark visible only on mobile */}
           <div className="flex items-center gap-1.5 lg:hidden">
             <svg className="w-6 h-6 text-primary" viewBox="0 0 32 32" fill="none">
@@ -873,7 +853,7 @@ export default function AuthPage() {
 
         {/* Bottom footer note */}
         <div className="w-full max-w-[420px] flex items-center justify-center gap-6 font-sans text-[11px] text-primary/45 border-t border-primary/5 pt-6 z-10">
-          <span>&copy; 2025 Ingress Within</span>
+          <span>&copy; {getCopyrightYear()} Ingress Within</span>
           <span>&middot;</span>
           <a href="#/" className="hover:text-primary transition-colors no-underline">Privacy Policy</a>
           <span>&middot;</span>
