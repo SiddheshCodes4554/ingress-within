@@ -3,9 +3,12 @@ import { Menu, X } from 'lucide-react';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activePath, setActivePath] = useState(window.location.pathname || '/');
+  const [activePath, setActivePath] = useState('/');
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setActivePath(window.location.pathname || '/');
+    }
     const handleLocation = () => {
       setActivePath(window.location.pathname || '/');
     };

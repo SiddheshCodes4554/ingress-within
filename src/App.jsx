@@ -48,7 +48,7 @@ export default function App() {
       } else if (path === '/contact' || path === '/contact/') {
         setCurrentRoute('contact');
         window.scrollTo(0, 0);
-      } else if (path === '/auth' || path === '/auth/') {
+      } else if (path.startsWith('/auth')) {
         setCurrentRoute('auth');
         window.scrollTo(0, 0);
       } else if (path === '/ai-data' || path === '/ai-data/') {
