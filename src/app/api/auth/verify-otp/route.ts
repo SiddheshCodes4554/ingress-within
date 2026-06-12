@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOtpProvider } from '../../../../providers/otpProvider';
 import { AuthService } from '../../../../services/authService';
+import { supabase } from '../../../../lib/db';
+import { COOKIE_ACCESS_NAME, COOKIE_REFRESH_NAME, getCookieOptions } from '../../../../utils/cookies';
 
 export async function POST(request: NextRequest) {
   try {
@@ -76,6 +78,13 @@ export async function POST(request: NextRequest) {
       result.userId
     );
 
+    // Fetch user profile and onboarding flags to determine next routing destination
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', sessionResult.user.id)
+      .maybeSingle();
+
     // 5. Assemble response
     const response = NextResponse.json({
       success: true,
@@ -86,6 +95,7 @@ export async function POST(request: NextRequest) {
         is_active: sessionResult.user.is_active,
         created_at: sessionResult.user.created_at
       },
+      profile: profile || null,
       session: {
         access_token: sessionResult.accessToken,
         expires_in: sessionResult.expiresIn
@@ -93,21 +103,8 @@ export async function POST(request: NextRequest) {
     });
 
     // Set secure cookies
-    response.cookies.set('__Host-iw-access', sessionResult.accessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: sessionResult.expiresIn
-    });
-
-    response.cookies.set('__Host-iw-refresh', sessionResult.refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 30 * 24 * 60 * 60
-    });
+    response.cookies.set(COOKIE_ACCESS_NAME, sessionResult.accessToken, getCookieOptions(sessionResult.expiresIn));
+    response.cookies.set(COOKIE_REFRESH_NAME, sessionResult.refreshToken, getCookieOptions(30 * 24 * 60 * 60));
 
     return response;
 

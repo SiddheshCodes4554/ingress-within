@@ -69,10 +69,17 @@ async function testConnection() {
       .select('*')
       .limit(1);
 
-    if (sessionsError) {
-      console.error('❌ user_sessions table check failed:', sessionsError.message, sessionsError.code);
+    console.log('\nQuerying public.profiles table...');
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('*')
+      .limit(5);
+
+    if (profilesError) {
+      console.error('❌ profiles table check failed:', profilesError.message, profilesError.code);
     } else {
-      console.log('✅ user_sessions table exists and is accessible. Rows found:', sessions.length);
+      console.log('✅ profiles table exists and is accessible. Rows found:', profiles.length);
+      console.log(JSON.stringify(profiles, null, 2));
     }
 
   } catch (err: any) {

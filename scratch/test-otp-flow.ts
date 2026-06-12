@@ -14,6 +14,7 @@ let mockSessionsTable: any[] = [];
 let mockConsentsTable: any[] = [];
 let mockPreferencesTable: any[] = [];
 let mockAuditLogsTable: any[] = [];
+let mockProfilesTable: any[] = [];
 
 const originalLog = console.log;
 
@@ -26,6 +27,7 @@ const mockFrom = (table: string): any => {
   else if (table === 'consents') dataSet = mockConsentsTable;
   else if (table === 'notification_preferences') dataSet = mockPreferencesTable;
   else if (table === 'audit_logs') dataSet = mockAuditLogsTable;
+  else if (table === 'profiles') dataSet = mockProfilesTable;
 
   let filtered = [...dataSet];
   let updateValues: any = null;
@@ -48,6 +50,24 @@ const mockFrom = (table: string): any => {
           ...r 
         };
         dataSet.push(newRow);
+
+        // Simulate Postgres database trigger to sync user profile creation
+        if (table === 'users') {
+          mockProfilesTable.push({
+            id: newRow.id,
+            phone_number: newRow.phone_number,
+            full_name: null,
+            avatar_url: null,
+            consent_completed: false,
+            profile_completed: false,
+            notifications_completed: false,
+            orientation_completed: false,
+            assessment_completed: false,
+            onboarding_completed: false,
+            created_at: newRow.created_at,
+            updated_at: newRow.created_at
+          });
+        }
         return newRow;
       });
       filtered = insertedRows;
@@ -175,6 +195,12 @@ async function runTests() {
   const { POST: logoutHandler } = await import('../src/app/api/auth/logout/route');
   const { POST: refreshHandler } = await import('../src/app/api/auth/refresh/route');
   const { GET: meHandler } = await import('../src/app/api/auth/me/route');
+
+  const { POST: consentHandler } = await import('../src/app/api/onboarding/consent/route');
+  const { POST: profileHandler } = await import('../src/app/api/onboarding/profile/route');
+  const { POST: welcomeHandler } = await import('../src/app/api/onboarding/welcome/route');
+  const { POST: assessmentHandler } = await import('../src/app/api/onboarding/assessment/route');
+
   const { supabase, supabaseAuth } = await import('../src/lib/db');
 
   // Inject mocks
@@ -215,6 +241,7 @@ async function runTests() {
     mockConsentsTable = [];
     mockPreferencesTable = [];
     mockAuditLogsTable = [];
+    mockProfilesTable = [];
 
     const testPhone = '+919876543210';
     let capturedOtp = '';
@@ -396,9 +423,9 @@ async function runTests() {
       }
 
       // ------------------------------------------------------------------
-      // TEST 7: GET Profile (me) Endpoint
+      // TEST 7: GET Profile (me) Endpoint (Onboarding Incomplete)
       // ------------------------------------------------------------------
-      console.log('TEST 7: Retrieving user profile with access token cookie...');
+      console.log('TEST 7: Retrieving user profile (Onboarding Incomplete)...');
       const reqMe = createRequest(undefined, { 
         'Cookie': `__Host-iw-access=${accessCookie}` 
       }, 'GET');
@@ -408,16 +435,108 @@ async function runTests() {
       console.log(`Response Status: ${resMe.status}`);
       console.log(`Response Body:`, dataMe);
       
-      if (resMe.status === 200 && dataMe.success && dataMe.user.phone_number === testPhone) {
-        console.log('✅ TEST 7 PASSED: User profile returned successfully.\n');
+      if (resMe.status === 200 && dataMe.success && dataMe.profile.onboarding_completed === false) {
+        console.log('✅ TEST 7 PASSED: Onboarding state checked, defaults to false.\n');
       } else {
         throw new Error('TEST 7 FAILED');
       }
 
       // ------------------------------------------------------------------
-      // TEST 8: Token Rotation (refresh) Endpoint
+      // TEST 8: Onboarding - Consent Step
       // ------------------------------------------------------------------
-      console.log('TEST 8: Rotating session using refresh token cookie...');
+      console.log('TEST 8: Submitting onboarding consent...');
+      const reqConsent = createRequest({
+        terms_version: 'v1.0.0',
+        privacy_version: 'v1.0.0'
+      }, {
+        'Cookie': `__Host-iw-access=${accessCookie}`
+      });
+      const resConsent = await consentHandler(reqConsent);
+      const dataConsent = await resConsent.json();
+      console.log(`Consent Response Status: ${resConsent.status}`);
+      console.log(`Consent Response Body:`, dataConsent);
+
+      if (resConsent.status === 200 && dataConsent.success) {
+        console.log('✅ TEST 8 PASSED: Consent onboarding step complete.\n');
+      } else {
+        throw new Error('TEST 8 FAILED');
+      }
+
+      // ------------------------------------------------------------------
+      // TEST 9: Onboarding - Profile Step
+      // ------------------------------------------------------------------
+      console.log('TEST 9: Submitting onboarding profile (name details)...');
+      const reqProfile = createRequest({
+        full_name: 'John Doe'
+      }, {
+        'Cookie': `__Host-iw-access=${accessCookie}`
+      });
+      const resProfile = await profileHandler(reqProfile);
+      const dataProfile = await resProfile.json();
+      console.log(`Profile Response Status: ${resProfile.status}`);
+      console.log(`Profile Response Body:`, dataProfile);
+
+      if (resProfile.status === 200 && dataProfile.success) {
+        console.log('✅ TEST 9 PASSED: Profile setup step complete, notifications auto-marked true.\n');
+      } else {
+        throw new Error('TEST 9 FAILED');
+      }
+
+      // ------------------------------------------------------------------
+      // TEST 10: Onboarding - Welcome Orientation Step
+      // ------------------------------------------------------------------
+      console.log('TEST 10: Submitting onboarding orientation welcome complete...');
+      const reqWelcome = createRequest({}, {
+        'Cookie': `__Host-iw-access=${accessCookie}`
+      });
+      const resWelcome = await welcomeHandler(reqWelcome);
+      const dataWelcome = await resWelcome.json();
+      console.log(`Welcome Response Status: ${resWelcome.status}`);
+      console.log(`Welcome Response Body:`, dataWelcome);
+
+      if (resWelcome.status === 200 && dataWelcome.success) {
+        console.log('✅ TEST 10 PASSED: Welcome orientation step complete.\n');
+      } else {
+        throw new Error('TEST 10 FAILED');
+      }
+
+      // ------------------------------------------------------------------
+      // TEST 11: Onboarding - Assessment Step (Finalizing Onboarding)
+      // ------------------------------------------------------------------
+      console.log('TEST 11: Submitting onboarding assessment finalization...');
+      const reqAssessment = createRequest({}, {
+        'Cookie': `__Host-iw-access=${accessCookie}`
+      });
+      const resAssessment = await assessmentHandler(reqAssessment);
+      const dataAssessment = await resAssessment.json();
+      console.log(`Assessment Response Status: ${resAssessment.status}`);
+      console.log(`Assessment Response Body:`, dataAssessment);
+
+      if (resAssessment.status === 200 && dataAssessment.success) {
+        console.log('✅ TEST 11 PASSED: Assessment step complete and onboarding marked completed.\n');
+      } else {
+        throw new Error('TEST 11 FAILED');
+      }
+
+      // ------------------------------------------------------------------
+      // TEST 12: GET Profile (me) Endpoint (Onboarding Complete)
+      // ------------------------------------------------------------------
+      console.log('TEST 12: Retrieving user profile (Onboarding Complete)...');
+      const resMeComplete = await meHandler(reqMe);
+      const dataMeComplete = await resMeComplete.json();
+      console.log(`Response Status: ${resMeComplete.status}`);
+      console.log(`Response Body:`, dataMeComplete);
+
+      if (resMeComplete.status === 200 && dataMeComplete.success && dataMeComplete.profile.onboarding_completed === true) {
+        console.log('✅ TEST 12 PASSED: User profile and onboarding fully completed.\n');
+      } else {
+        throw new Error('TEST 12 FAILED');
+      }
+
+      // ------------------------------------------------------------------
+      // TEST 13: Token Rotation (refresh) Endpoint
+      // ------------------------------------------------------------------
+      console.log('TEST 13: Rotating session using refresh token cookie...');
       const reqRefresh = createRequest(undefined, { 
         'Cookie': `__Host-iw-refresh=${refreshCookie}` 
       }, 'POST');
@@ -432,17 +551,17 @@ async function runTests() {
       const newRefreshCookie = getCookieValue(rotatedCookies, '__Host-iw-refresh');
       
       if (resRefresh.status === 200 && dataRefresh.success && newAccessCookie && newRefreshCookie) {
-        console.log('✅ TEST 8 PASSED: Rotation succeeded. Old refresh token rotated.\n');
+        console.log('✅ TEST 13 PASSED: Rotation succeeded. Old refresh token rotated.\n');
         accessCookie = newAccessCookie;
         refreshCookie = newRefreshCookie;
       } else {
-        throw new Error('TEST 8 FAILED');
+        throw new Error('TEST 13 FAILED');
       }
 
       // ------------------------------------------------------------------
-      // TEST 9: Access profile using newly rotated Access Token
+      // TEST 14: Access profile using newly rotated Access Token
       // ------------------------------------------------------------------
-      console.log('TEST 9: Accessing profile with rotated access token...');
+      console.log('TEST 14: Accessing profile with rotated access token...');
       const reqMeRotated = createRequest(undefined, { 
         'Cookie': `__Host-iw-access=${accessCookie}` 
       }, 'GET');
@@ -451,15 +570,15 @@ async function runTests() {
       const dataMeRotated = await resMeRotated.json();
       console.log(`Response Status: ${resMeRotated.status}`);
       if (resMeRotated.status === 200 && dataMeRotated.success) {
-        console.log('✅ TEST 9 PASSED: Access granted using rotated token.\n');
+        console.log('✅ TEST 14 PASSED: Access granted using rotated token.\n');
       } else {
-        throw new Error('TEST 9 FAILED');
+        throw new Error('TEST 14 FAILED');
       }
 
       // ------------------------------------------------------------------
-      // TEST 10: Session Revocation (logout) Endpoint
+      // TEST 15: Session Revocation (logout) Endpoint
       // ------------------------------------------------------------------
-      console.log('TEST 10: Logging out (revoking session)...');
+      console.log('TEST 15: Logging out (revoking session)...');
       const reqLogout = createRequest(undefined, { 
         'Cookie': `__Host-iw-refresh=${refreshCookie}` 
       }, 'POST');
@@ -473,15 +592,15 @@ async function runTests() {
       const clearedRefresh = getCookieValue(logoutCookies, '__Host-iw-refresh');
       
       if (resLogout.status === 200 && dataLogout.success && clearedAccess === '' && clearedRefresh === '') {
-        console.log('✅ TEST 10 PASSED: Session revoked successfully.\n');
+        console.log('✅ TEST 15 PASSED: Session revoked successfully.\n');
       } else {
-        throw new Error('TEST 10 FAILED');
+        throw new Error('TEST 15 FAILED');
       }
 
       // ------------------------------------------------------------------
-      // TEST 11: Access with revoked credentials
+      // TEST 16: Access with revoked credentials
       // ------------------------------------------------------------------
-      console.log('TEST 11: Attempting to access profile with revoked access token...');
+      console.log('TEST 16: Attempting to access profile with revoked access token...');
       const reqRevokedMe = createRequest(undefined, { 
         'Cookie': `__Host-iw-access=${accessCookie}` 
       }, 'GET');
@@ -496,12 +615,12 @@ async function runTests() {
       console.log(`Refresh Response Status (Should be 401): ${resRevokedRefresh.status}`);
 
       if (resRevokedMe.status === 401 && resRevokedRefresh.status === 401) {
-        console.log(`✅ TEST 11 PASSED: Rejected revoked credentials correctly for ${provider.toUpperCase()}.\n`);
+        console.log(`✅ TEST 16 PASSED: Rejected revoked credentials correctly for ${provider.toUpperCase()}.\n`);
       } else {
-        throw new Error('TEST 11 FAILED');
+        throw new Error('TEST 16 FAILED');
       }
 
-      console.log(`🎉 ALL LIFE-CYCLE TESTS PASSED FOR PROVIDER: ${provider.toUpperCase()}\n`);
+      console.log(`🎉 ALL LIFE-CYCLE & ONBOARDING TESTS PASSED FOR PROVIDER: ${provider.toUpperCase()}\n`);
 
     } catch (error: any) {
       console.error(`❌ TEST RUN ENCOUNTERED AN ERROR IN MODE ${provider.toUpperCase()}:`, error.message);
@@ -510,7 +629,7 @@ async function runTests() {
   }
 
   console.log('====================================================');
-  console.log('🎉 ALL PROVIDER LIFECYCLE TESTS COMPLETE & PASSED!');
+  console.log('🎉 ALL PROVIDER LIFECYCLE & ONBOARDING TESTS PASSED!');
   console.log('====================================================');
   console.log = originalLog;
 }

@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../../lib/db';
 import { hashOtp } from '../../../../utils/crypto';
+import { COOKIE_ACCESS_NAME, COOKIE_REFRESH_NAME, getCookieOptions } from '../../../../utils/cookies';
 
 export async function POST(request: NextRequest) {
   try {
-    let refreshToken = request.cookies?.get('__Host-iw-refresh')?.value;
+    let refreshToken = request.cookies?.get(COOKIE_REFRESH_NAME)?.value;
     
     if (!refreshToken) {
       const cookieHeader = request.headers.get('cookie') || '';
-      const match = cookieHeader.match(/__Host-iw-refresh=([^;]+)/);
+      const match = cookieHeader.match(new RegExp(`${COOKIE_REFRESH_NAME}=([^;]+)`));
       if (match) refreshToken = match[1];
     }
     const ipAddress = request.headers.get('x-forwarded-for') || '127.0.0.1';
@@ -49,21 +50,8 @@ export async function POST(request: NextRequest) {
       message: 'Logged out successfully.'
     });
 
-    response.cookies.set('__Host-iw-access', '', {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 0
-    });
-
-    response.cookies.set('__Host-iw-refresh', '', {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 0
-    });
+    response.cookies.set(COOKIE_ACCESS_NAME, '', getCookieOptions(0));
+    response.cookies.set(COOKIE_REFRESH_NAME, '', getCookieOptions(0));
 
     return response;
 

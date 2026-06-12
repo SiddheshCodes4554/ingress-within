@@ -12,6 +12,7 @@ const quotes = [
 export default function AuthPage({ onOpenPolicy }) {
   // Navigation views: 'entry', 'otp', 'success'
   const [view, setView] = useState('entry');
+  const [profile, setProfile] = useState(null);
   
   // Phone and OTP input values
   const [mobileNumber, setMobileNumber] = useState('');
@@ -166,6 +167,7 @@ export default function AuthPage({ onOpenPolicy }) {
       }
       
       // Success
+      setProfile(data.profile || null);
       navigateToView('success');
     } catch (err) {
       setErrorMsg(err.message);
@@ -594,25 +596,28 @@ export default function AuthPage({ onOpenPolicy }) {
                 {/* Success Copy */}
                 <div className="space-y-3">
                   <h1 className="font-serif text-[32px] md:text-[36px] leading-tight font-normal text-primary">
-                    You're Ready To Begin
+                    {profile && !profile.onboarding_completed ? "Welcome to Ingress" : "You're Ready To Begin"}
                   </h1>
                   <p className="font-sans text-sm font-light text-mid leading-relaxed max-w-[320px] mx-auto">
-                    Your first reflection cycle is waiting. Take a moment to settle in.
+                    {profile && !profile.onboarding_completed 
+                      ? "To begin, we need a few details to initialize your workspace." 
+                      : "Your first reflection cycle is waiting. Take a moment to settle in."}
                   </p>
                 </div>
-
+ 
                 {/* Continue CTA */}
                 <button 
                   onClick={() => {
+                    const destination = (profile && !profile.onboarding_completed) ? '/onboarding/consent' : '/dashboard';
                     if (window.navigateTo) {
-                      window.navigateTo('/');
+                      window.navigateTo(destination);
                     } else {
-                      window.location.pathname = '/';
+                      window.location.pathname = destination;
                     }
                   }}
                   className="w-full py-4 bg-primary hover:bg-[#2A3A3E] text-mint-grey border-none rounded-md font-sans text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-xs"
                 >
-                  Continue to dashboard &rarr;
+                  {profile && !profile.onboarding_completed ? "Continue to onboarding →" : "Continue to dashboard →"}
                 </button>
               </motion.div>
             )}

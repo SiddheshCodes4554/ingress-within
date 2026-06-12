@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../../lib/db';
 import { hashOtp, generateToken, signJwt } from '../../../../utils/crypto';
+import { COOKIE_ACCESS_NAME, COOKIE_REFRESH_NAME, getCookieOptions } from '../../../../utils/cookies';
 
 export async function POST(request: NextRequest) {
   try {
-    let refreshToken = request.cookies?.get('__Host-iw-refresh')?.value;
+    let refreshToken = request.cookies?.get(COOKIE_REFRESH_NAME)?.value;
     
     if (!refreshToken) {
       const cookieHeader = request.headers.get('cookie') || '';
-      const match = cookieHeader.match(/__Host-iw-refresh=([^;]+)/);
+      const match = cookieHeader.match(new RegExp(`${COOKIE_REFRESH_NAME}=([^;]+)`));
       if (match) refreshToken = match[1];
     }
     const ipAddress = request.headers.get('x-forwarded-for') || '127.0.0.1';
@@ -50,8 +51,8 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
       
-      response.cookies.set('__Host-iw-access', '', { maxAge: 0, path: '/' });
-      response.cookies.set('__Host-iw-refresh', '', { maxAge: 0, path: '/' });
+      response.cookies.set(COOKIE_ACCESS_NAME, '', { maxAge: 0, path: '/' });
+      response.cookies.set(COOKIE_REFRESH_NAME, '', { maxAge: 0, path: '/' });
       return response;
     }
 
@@ -74,8 +75,8 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
       
-      response.cookies.set('__Host-iw-access', '', { maxAge: 0, path: '/' });
-      response.cookies.set('__Host-iw-refresh', '', { maxAge: 0, path: '/' });
+      response.cookies.set(COOKIE_ACCESS_NAME, '', { maxAge: 0, path: '/' });
+      response.cookies.set(COOKIE_REFRESH_NAME, '', { maxAge: 0, path: '/' });
       return response;
     }
 
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
         did: session.device_id
       },
       jwtSecret,
-      15 * 60 // 15 minutes
+      30 * 24 * 60 * 60
     );
 
     // 6. Write Audit Log
@@ -135,25 +136,12 @@ export async function POST(request: NextRequest) {
       success: true,
       session: {
         access_token: accessToken,
-        expires_in: 15 * 60
+        expires_in: 30 * 24 * 60 * 60
       }
     });
 
-    response.cookies.set('__Host-iw-access', accessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 15 * 60
-    });
-
-    response.cookies.set('__Host-iw-refresh', newRawRefreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 30 * 24 * 60 * 60
-    });
+    response.cookies.set(COOKIE_ACCESS_NAME, accessToken, getCookieOptions(30 * 24 * 60 * 60));
+    response.cookies.set(COOKIE_REFRESH_NAME, newRawRefreshToken, getCookieOptions(30 * 24 * 60 * 60));
 
     return response;
 

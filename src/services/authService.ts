@@ -84,6 +84,18 @@ export class AuthService {
     const hashedRefreshToken = hashOtp(rawRefreshToken, 'session_salt_static_secret');
     const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
+    // Deactivate previous active sessions for this user + device combination
+    const { error: deactivateError } = await supabase
+      .from('user_sessions')
+      .update({ is_active: false })
+      .eq('user_id', userRecord.id)
+      .eq('device_id', deviceId)
+      .eq('is_active', true);
+
+    if (deactivateError) {
+      console.warn(`[AuthService] Failed to deactivate older sessions for user ${userRecord.id}: ${deactivateError.message}`);
+    }
+
     // Store Session
     const { error: sessionError } = await supabase
       .from('user_sessions')
@@ -102,7 +114,7 @@ export class AuthService {
       throw new Error(`Failed to establish session: ${sessionError.message}`);
     }
 
-    // 3. Generate access token (Expires in 15 minutes)
+    // 3. Generate access token (Expires in 30 days)
     const jwtSecret = process.env.JWT_SECRET || 'jwt_default_secret_dev';
     const accessToken = signJwt(
       {
@@ -111,7 +123,7 @@ export class AuthService {
         did: deviceId
       },
       jwtSecret,
-      15 * 60
+      30 * 24 * 60 * 60
     );
 
     // 4. Write Security Audit Logs
@@ -134,7 +146,7 @@ export class AuthService {
       },
       accessToken,
       refreshToken: rawRefreshToken,
-      expiresIn: 15 * 60
+      expiresIn: 30 * 24 * 60 * 60
     };
   }
 }
