@@ -10,45 +10,16 @@ import ContactPage from './pages/ContactPage';
 import AuthPage from './pages/AuthPage';
 import AiDataPage from './pages/AiDataPage';
 import OnboardingPage from './pages/OnboardingPage';
+import DashboardPage from './pages/DashboardPage';
+import SettingsPage from './pages/SettingsPage';
+import WritePage from './pages/WritePage';
+import ReportsPage from './pages/ReportsPage';
+import PatternsPage from './pages/PatternsPage';
+import VocabPage from './pages/VocabPage';
+import SupportPage from './pages/SupportPage';
 import PolicyModal from './components/PolicyModal';
 
-// Meditative, unified theme dashboard placeholder with log out support
-function DashboardPlaceholder() {
-  const handleSignOut = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      if (window.navigateTo) {
-        window.navigateTo('/auth');
-      } else {
-        window.location.href = '/auth';
-      }
-    } catch (err) {
-      console.error('Logout failed:', err);
-    }
-  };
 
-  return (
-    <div className="min-h-screen bg-mint-grey p-8 flex flex-col justify-center items-center font-sans space-y-4 text-center">
-      <div className="relative w-20 h-20 flex items-center justify-center pointer-events-none mb-2">
-        <svg className="w-12 h-12 text-primary" viewBox="0 0 32 32" fill="none">
-          <circle cx="16" cy="16" r="2" fill="currentColor"/>
-          <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-          <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary"/>
-        </svg>
-      </div>
-      <h1 className="font-serif text-3xl text-primary font-normal">Your Reflection Dashboard</h1>
-      <p className="text-mid font-light max-w-md leading-relaxed text-[15px]">
-        Welcome to your private workspace. Your onboarding has been successfully completed, and your guided journal entries and indices will appear here.
-      </p>
-      <button 
-        onClick={handleSignOut}
-        className="px-6 py-2.5 bg-primary hover:bg-[#2A3A3E] text-mint-grey rounded text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer shadow-xs"
-      >
-        Sign Out
-      </button>
-    </div>
-  );
-}
 
 function LoadingScreen() {
   return (
@@ -104,6 +75,18 @@ export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
+
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      setUser(null);
+      setProfile(null);
+      setAuthError(null);
+      window.navigateTo('/auth');
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
 
   const handleOpenPolicy = (key) => {
     setActivePolicyKey(key || 'privacy');
@@ -193,13 +176,13 @@ export default function App() {
       return;
     }
 
-    // If there is a transient database/network error on a protected route, prevent redirect loops to /auth
-    if (authError && (path.startsWith('/onboarding') || path.startsWith('/dashboard'))) {
+    // If there is a transient database/network error on a pointer/protected route, prevent redirect loops to /auth
+    if (authError && (path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support'))) {
       console.warn('[App.jsx] Redirect Engine: Database/Network error detected on protected path. Preventing redirect to /auth. Reason: TRANSIENT_ERROR_SHIELD');
       return;
     }
 
-    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard');
+    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support');
 
     if (isProtectedRoute) {
       if (!user) {
@@ -309,6 +292,24 @@ export default function App() {
       } else if (path === '/dashboard' || path === '/dashboard/') {
         setCurrentRoute('dashboard');
         window.scrollTo(0, 0);
+      } else if (path === '/settings' || path === '/settings/') {
+        setCurrentRoute('settings');
+        window.scrollTo(0, 0);
+      } else if (path === '/write' || path === '/write/') {
+        setCurrentRoute('write');
+        window.scrollTo(0, 0);
+      } else if (path === '/reports' || path === '/reports/') {
+        setCurrentRoute('reports');
+        window.scrollTo(0, 0);
+      } else if (path === '/patterns' || path === '/patterns/') {
+        setCurrentRoute('patterns');
+        window.scrollTo(0, 0);
+      } else if (path === '/vocab' || path === '/vocab/') {
+        setCurrentRoute('vocab');
+        window.scrollTo(0, 0);
+      } else if (path === '/support' || path === '/support/') {
+        setCurrentRoute('support');
+        window.scrollTo(0, 0);
       } else if (path === '/ai-data' || path === '/ai-data/') {
         setCurrentRoute('ai-data');
         window.scrollTo(0, 0);
@@ -369,7 +370,7 @@ export default function App() {
 
   const renderPage = () => {
     const path = window.location.pathname;
-    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard');
+    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support');
 
     if (isProtectedRoute && (!authChecked || isLoading)) {
       return <LoadingScreen />;
@@ -397,7 +398,19 @@ export default function App() {
       case 'onboarding':
         return <OnboardingPage onComplete={() => window.navigateTo('/dashboard')} />;
       case 'dashboard':
-        return <DashboardPlaceholder />;
+        return <DashboardPage user={user} profile={profile} onSignOut={handleSignOut} />;
+      case 'settings':
+        return <SettingsPage user={user} profile={profile} onSignOut={handleSignOut} />;
+      case 'write':
+        return <WritePage user={user} profile={profile} onSignOut={handleSignOut} />;
+      case 'reports':
+        return <ReportsPage user={user} profile={profile} onSignOut={handleSignOut} />;
+      case 'patterns':
+        return <PatternsPage user={user} profile={profile} onSignOut={handleSignOut} />;
+      case 'vocab':
+        return <VocabPage user={user} profile={profile} onSignOut={handleSignOut} />;
+      case 'support':
+        return <SupportPage />;
       case 'ai-data':
         return <AiDataPage onOpenPolicy={handleOpenPolicy} />;
       case 'home':

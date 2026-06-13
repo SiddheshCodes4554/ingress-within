@@ -150,6 +150,13 @@ const mockFrom = (table: string): any => {
         filtered.forEach(row => {
           const index = dataSet.findIndex(r => r.id === row.id);
           if (index > -1) dataSet.splice(index, 1);
+          
+          if (table === 'users') {
+            mockProfilesTable = mockProfilesTable.filter(p => p.id !== row.id);
+            mockSessionsTable = mockSessionsTable.filter(s => s.user_id !== row.id);
+            mockConsentsTable = mockConsentsTable.filter(c => c.user_id !== row.id);
+            mockPreferencesTable = mockPreferencesTable.filter(p => p.user_id !== row.id);
+          }
         });
       }
       resolve({ data: filtered, count: filtered.length, error: null });
@@ -200,6 +207,9 @@ async function runTests() {
   const { POST: profileHandler } = await import('../src/app/api/onboarding/profile/route');
   const { POST: welcomeHandler } = await import('../src/app/api/onboarding/welcome/route');
   const { POST: assessmentHandler } = await import('../src/app/api/onboarding/assessment/route');
+
+  const { POST: deleteSendOtpHandler } = await import('../src/app/api/auth/delete-account/send-otp/route');
+  const { POST: deleteConfirmHandler } = await import('../src/app/api/auth/delete-account/route');
 
   const { supabase, supabaseAuth } = await import('../src/lib/db');
 
@@ -620,7 +630,128 @@ async function runTests() {
         throw new Error('TEST 16 FAILED');
       }
 
-      console.log(`🎉 ALL LIFE-CYCLE & ONBOARDING TESTS PASSED FOR PROVIDER: ${provider.toUpperCase()}\n`);
+      // ------------------------------------------------------------------
+      // TEST 17: Requesting Deletion OTP
+      // ------------------------------------------------------------------
+      console.log('TEST 17: Setting up new user session for deletion test...');
+      const deletePhone = '+919999999999';
+      let deleteCapturedOtp = '';
+      
+      // Override console.log to capture this deletion user's OTP
+      console.log = (...args: any[]) => {
+        originalLog(...args);
+        const logStr = args.join(' ');
+        if (logStr.includes('code is')) {
+          const match = logStr.match(/code is (\d{6})/);
+          if (match) deleteCapturedOtp = match[1];
+        }
+      };
+
+      // 1. Send OTP to register the delete-test user
+      await sendOtpHandler(createRequest({ phone_number: deletePhone }));
+      
+      // 2. Verify OTP to log them in
+      const resVerifyDeleteUser = await verifyOtpHandler(createRequest({
+        phone_number: deletePhone,
+        otp_code: deleteCapturedOtp,
+        device_id: 'delete_test_device',
+        device_name: 'Test Browser'
+      }));
+      
+      const deleteUserAccessCookie = getCookieValue(resVerifyDeleteUser.headers.get('set-cookie'), '__Host-iw-access');
+      
+      console.log('Requesting Deletion OTP for authenticated user...');
+      const reqDeleteSendOtp = createRequest(undefined, {
+        'Cookie': `__Host-iw-access=${deleteUserAccessCookie}`
+      }, 'POST');
+      
+      deleteCapturedOtp = ''; // Clear it
+      const resDeleteSendOtp = await deleteSendOtpHandler(reqDeleteSendOtp);
+      const deleteSendOtpData = await resDeleteSendOtp.json();
+      console.log(`Response Status: ${resDeleteSendOtp.status}`);
+      console.log(`Response Body:`, deleteSendOtpData);
+
+      if (resDeleteSendOtp.status === 200 && deleteSendOtpData.success && deleteCapturedOtp) {
+        console.log(`✅ TEST 17 PASSED: Deletion OTP sent successfully. Code: ${deleteCapturedOtp}\n`);
+      } else {
+        throw new Error('TEST 17 FAILED');
+      }
+
+      // Restore logging
+      console.log = (...args: any[]) => {
+        originalLog(...args);
+        const logStr = args.join(' ');
+        if (logStr.includes('code is')) {
+          const match = logStr.match(/code is (\d{6})/);
+          if (match) capturedOtp = match[1];
+        }
+      };
+
+      // ------------------------------------------------------------------
+      // TEST 18: Confirming Deletion with Invalid OTP
+      // ------------------------------------------------------------------
+      console.log('TEST 18: Verifying deletion with incorrect OTP code (123456)...');
+      const reqWrongDelete = createRequest({
+        otp_code: '123456'
+      }, {
+        'Cookie': `__Host-iw-access=${deleteUserAccessCookie}`
+      }, 'POST');
+      
+      const resWrongDelete = await deleteConfirmHandler(reqWrongDelete);
+      const wrongDeleteData = await resWrongDelete.json();
+      console.log(`Response Status: ${resWrongDelete.status}`);
+      console.log(`Response Body:`, wrongDeleteData);
+      
+      if (resWrongDelete.status === 400 && wrongDeleteData.error.code === 'AUTH_OTP_MISMATCH') {
+        console.log('✅ TEST 18 PASSED: System rejected invalid deletion OTP.\n');
+      } else {
+        throw new Error('TEST 18 FAILED');
+      }
+
+      // ------------------------------------------------------------------
+      // TEST 19: Confirming Deletion with Valid OTP & Data Wiping Assertions
+      // ------------------------------------------------------------------
+      console.log('TEST 19: Confirming deletion with correct OTP...');
+      const reqConfirmDelete = createRequest({
+        otp_code: deleteCapturedOtp
+      }, {
+        'Cookie': `__Host-iw-access=${deleteUserAccessCookie}`
+      }, 'POST');
+      
+      const resConfirmDelete = await deleteConfirmHandler(reqConfirmDelete);
+      const confirmDeleteData = await resConfirmDelete.json();
+      console.log(`Response Status: ${resConfirmDelete.status}`);
+      console.log(`Response Body:`, confirmDeleteData);
+      
+      const deleteClearedCookies = resConfirmDelete.headers.get('set-cookie');
+      const clearedAccessVal = getCookieValue(deleteClearedCookies, '__Host-iw-access');
+      const clearedRefreshVal = getCookieValue(deleteClearedCookies, '__Host-iw-refresh');
+
+      // Assertions: check mock databases
+      const dbUserExist = mockUsersTable.some(u => u.phone_number === deletePhone);
+      const dbProfileExist = mockProfilesTable.some(p => p.phone_number === deletePhone);
+      const dbOtpExist = mockOtpTable.some(o => o.phone_number === deletePhone);
+      
+      console.log('Verifying records in in-memory tables:');
+      console.log(`- User record exists? ${dbUserExist}`);
+      console.log(`- Profile record exists? ${dbProfileExist}`);
+      console.log(`- Active OTP records exist? ${dbOtpExist}`);
+      
+      if (
+        resConfirmDelete.status === 200 &&
+        confirmDeleteData.success &&
+        clearedAccessVal === '' &&
+        clearedRefreshVal === '' &&
+        !dbUserExist &&
+        !dbProfileExist &&
+        !dbOtpExist
+      ) {
+        console.log('✅ TEST 19 PASSED: Account deleted, auth cookies revoked, and database tables cleaned.\n');
+      } else {
+        throw new Error('TEST 19 FAILED');
+      }
+
+      console.log(`🎉 ALL LIFE-CYCLE, ONBOARDING & DELETION TESTS PASSED FOR PROVIDER: ${provider.toUpperCase()}\n`);
 
     } catch (error: any) {
       console.error(`❌ TEST RUN ENCOUNTERED AN ERROR IN MODE ${provider.toUpperCase()}:`, error.message);
