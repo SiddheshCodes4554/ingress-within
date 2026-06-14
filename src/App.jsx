@@ -1,23 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import LandingPage from './pages/LandingPage';
-import WhatItIsPage from './pages/WhatItIsPage';
-import HowItWorksPage from './pages/HowItWorksPage';
-import AboutPage from './pages/AboutPage';
-import PricingPage from './pages/PricingPage';
-import FaqPage from './pages/FaqPage';
-import ContactPage from './pages/ContactPage';
-import AuthPage from './pages/AuthPage';
-import AiDataPage from './pages/AiDataPage';
-import OnboardingPage from './pages/OnboardingPage';
-import DashboardPage from './pages/DashboardPage';
-import SettingsPage from './pages/SettingsPage';
-import WritePage from './pages/WritePage';
-import ReportsPage from './pages/ReportsPage';
-import PatternsPage from './pages/PatternsPage';
-import VocabPage from './pages/VocabPage';
-import SupportPage from './pages/SupportPage';
 import PolicyModal from './components/PolicyModal';
+
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const WhatItIsPage = lazy(() => import('./pages/WhatItIsPage'));
+const HowItWorksPage = lazy(() => import('./pages/HowItWorksPage'));
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const PricingPage = lazy(() => import('./pages/PricingPage'));
+const FaqPage = lazy(() => import('./pages/FaqPage'));
+const ContactPage = lazy(() => import('./pages/ContactPage'));
+const AuthPage = lazy(() => import('./pages/AuthPage'));
+const AiDataPage = lazy(() => import('./pages/AiDataPage'));
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const WritePage = lazy(() => import('./pages/WritePage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const PatternsPage = lazy(() => import('./pages/PatternsPage'));
+const VocabPage = lazy(() => import('./pages/VocabPage'));
+const SupportPage = lazy(() => import('./pages/SupportPage'));
+const SessionFlowPage = lazy(() => import('./pages/SessionFlowPage'));
+const ThreadDetailPage = lazy(() => import('./pages/ThreadDetailPage'));
+
+
 
 
 
@@ -94,9 +99,11 @@ export default function App() {
   };
 
   // Check auth and profile status from the server
-  const checkUserStatus = async () => {
-    console.log('[App.jsx] checkUserStatus started...');
-    setIsLoading(true);
+  const checkUserStatus = async (silent = false) => {
+    console.log(`[App.jsx] checkUserStatus started... silent: ${silent}`);
+    if (!silent) {
+      setIsLoading(true);
+    }
     try {
       const res = await fetch('/api/auth/me');
       console.log(`[App.jsx] checkUserStatus API response status: ${res.status}`);
@@ -145,14 +152,18 @@ export default function App() {
       });
     } finally {
       console.log('[App.jsx] checkUserStatus complete. Setting isLoading(false) and authChecked(true)');
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
       setAuthChecked(true);
     }
   };
 
   useEffect(() => {
     // Check user state on initial load and route shifts
-    checkUserStatus();
+    // Run background checks silently to avoid visual layout flashing if auth is already checked
+    const silent = authChecked;
+    checkUserStatus(silent);
   }, [currentRoute]);
 
   // Protective Redirect Engine
@@ -177,12 +188,13 @@ export default function App() {
     }
 
     // If there is a transient database/network error on a pointer/protected route, prevent redirect loops to /auth
-    if (authError && (path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support'))) {
+    if (authError && (path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread'))) {
       console.warn('[App.jsx] Redirect Engine: Database/Network error detected on protected path. Preventing redirect to /auth. Reason: TRANSIENT_ERROR_SHIELD');
       return;
     }
 
-    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support');
+    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread');
+
 
     if (isProtectedRoute) {
       if (!user) {
@@ -264,7 +276,6 @@ export default function App() {
     const handleLocationChange = () => {
       const path = window.location.pathname;
       console.log('[App.jsx] handleLocationChange fired. Path:', path);
-      setAuthChecked(false); // Reset auth check state synchronously to avoid race condition redirecting to /auth
       if (path === '/what-it-is' || path === '/what-it-is/') {
         setCurrentRoute('what-it-is');
         window.scrollTo(0, 0);
@@ -310,9 +321,16 @@ export default function App() {
       } else if (path === '/support' || path === '/support/') {
         setCurrentRoute('support');
         window.scrollTo(0, 0);
+      } else if (path.startsWith('/session')) {
+        setCurrentRoute('session');
+        window.scrollTo(0, 0);
+      } else if (path.startsWith('/thread/')) {
+        setCurrentRoute('thread');
+        window.scrollTo(0, 0);
       } else if (path === '/ai-data' || path === '/ai-data/') {
         setCurrentRoute('ai-data');
         window.scrollTo(0, 0);
+
       } else {
         setCurrentRoute('home');
         // Handle section scroll deep link (e.g. /#auth -> scroll to auth section)
@@ -370,7 +388,7 @@ export default function App() {
 
   const renderPage = () => {
     const path = window.location.pathname;
-    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support');
+    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread');
 
     if (isProtectedRoute && (!authChecked || isLoading)) {
       return <LoadingScreen />;
@@ -381,6 +399,7 @@ export default function App() {
     }
 
     switch (currentRoute) {
+
       case 'what-it-is':
         return <WhatItIsPage onOpenPolicy={handleOpenPolicy} />;
       case 'how-it-works':
@@ -411,9 +430,16 @@ export default function App() {
         return <VocabPage user={user} profile={profile} onSignOut={handleSignOut} />;
       case 'support':
         return <SupportPage />;
+      case 'session':
+        return <SessionFlowPage user={user} profile={profile} onSignOut={handleSignOut} />;
+      case 'thread': {
+        const threadId = window.location.pathname.split('/thread/')[1]?.replace(/\/$/, '') || '';
+        return <ThreadDetailPage user={user} profile={profile} threadId={threadId} onSignOut={handleSignOut} />;
+      }
       case 'ai-data':
         return <AiDataPage onOpenPolicy={handleOpenPolicy} />;
       case 'home':
+
       default:
         return <LandingPage onOpenPolicy={handleOpenPolicy} />;
     }
@@ -429,7 +455,9 @@ export default function App() {
           exit={{ opacity: 0, y: -15 }}
           transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
         >
-          {renderPage()}
+          <Suspense fallback={<LoadingScreen />}>
+            {renderPage()}
+          </Suspense>
         </motion.div>
       </AnimatePresence>
       

@@ -15,7 +15,10 @@ import {
   User, 
   ArrowLeft,
   X,
-  Lock
+  Lock,
+  ArrowRight,
+  Sparkles,
+  PenLine
 } from 'lucide-react';
 import { DashboardService } from '../services/dashboardService';
 import DashboardNavbar from '../components/DashboardNavbar';
@@ -23,6 +26,7 @@ import DashboardNavbar from '../components/DashboardNavbar';
 export default function DashboardPage({ user, profile, onSignOut }) {
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
   
   // Interactive writing state
   const [isWritingSession, setIsWritingSession] = useState(false);
@@ -35,21 +39,44 @@ export default function DashboardPage({ user, profile, onSignOut }) {
   const [activeThread, setActiveThread] = useState(null);
   const [threadResponse, setThreadResponse] = useState('');
   const [isSavingThread, setIsSavingThread] = useState(false);
+  const [dailySessionState, setDailySessionState] = useState(null);
+  const [threadsList, setThreadsList] = useState([]);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await DashboardService.fetchDashboardData();
+      setData(result);
+      
+      try {
+        const sessionData = await DashboardService.fetchActiveSession();
+        setDailySessionState(sessionData);
+      } catch (sErr) {
+        console.warn('Could not fetch active daily session, falling back to none:', sErr);
+        setDailySessionState({ exists: false });
+      }
+
+      try {
+        const threads = await DashboardService.fetchActiveThreads();
+        setThreadsList(threads);
+      } catch (tErr) {
+        console.warn('Could not fetch active threads, falling back to mock:', tErr);
+        setThreadsList(result.threads);
+      }
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Load data on mount
   useEffect(() => {
-    async function loadData() {
-      try {
-        const result = await DashboardService.fetchDashboardData();
-        setData(result);
-      } catch (err) {
-        console.error('Failed to load dashboard data:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
     loadData();
   }, []);
+
 
   // Compute time-of-day greeting
   const getGreeting = () => {
@@ -102,14 +129,48 @@ export default function DashboardPage({ user, profile, onSignOut }) {
     }
   };
 
+  // Render error screen if load failed
+  if (error) {
+    return (
+      <div className="min-h-screen bg-mint-grey text-primary font-sans relative pb-20">
+        <DashboardNavbar activeTab="home" />
+        <main className="max-w-md mx-auto px-6 pt-20 text-center space-y-6">
+          <div className="flex justify-center">
+            <svg className="w-12 h-12 text-[#b45309]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+          </div>
+          <h2 className="font-serif text-2xl text-primary font-normal">Failed to Load Dashboard</h2>
+          <p className="text-mid font-light text-sm leading-relaxed">
+            We had trouble loading your entries and threads. Please check your connection and try again.
+          </p>
+          {error.message && (
+            <div className="bg-[#fef3c7] border border-[#f59e0b]/20 text-[#92400e] text-[11px] font-mono p-3 rounded break-all text-left max-w-xs mx-auto">
+              {error.message.includes('DATABASE_ERROR') || error.message.includes('PGRST') || error.message.includes('Failed to fetch')
+                ? 'We could not establish a connection to the server or database. Please check your network.' 
+                : error.message}
+            </div>
+          )}
+          <button 
+            onClick={loadData}
+            className="px-6 py-2.5 bg-primary hover:bg-[#2A3A3E] text-mint-grey rounded text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer shadow-xs inline-flex items-center space-x-2 border-none"
+          >
+            <RotateCw className="w-3.5 h-3.5" />
+            <span>Try Again</span>
+          </button>
+        </main>
+      </div>
+    );
+  }
+
   // Render skeleton loader
   if (isLoading || !data) {
     return <DashboardSkeleton />;
   }
 
   // Active open threads
-  const openThreads = data.threads.filter(t => t.status !== 'addressed');
-  const addressedThreads = data.threads.filter(t => t.status === 'addressed');
+  const openThreads = threadsList.filter(t => t.status !== 'CLOSED');
+  const addressedThreads = threadsList.filter(t => t.status === 'CLOSED');
   
   // Yesterday's entry preview (if exists)
   const yesterdayEntry = data.entries[0]?.text || '';
@@ -121,134 +182,226 @@ export default function DashboardPage({ user, profile, onSignOut }) {
       <DashboardNavbar activeTab="home" />
 
       {/* Main Page Layout */}
-      <main className="max-w-[1140px] mx-auto px-6 pt-8 space-y-8">
+      <main className="max-w-[1140px] mx-auto px-6 pt-6 space-y-6">
         
         {/* Welcome Section */}
-        <section className="space-y-1">
-          <div className="text-[11px] uppercase tracking-widest text-secondary font-semibold">{getGreeting()}</div>
-          <h1 className="font-serif text-3xl text-primary font-normal">Welcome back, {displayName}.</h1>
-          <p className="text-[13px] text-mid">
+        <section className="space-y-0.5">
+          <div className="text-[10px] uppercase tracking-widest text-secondary font-semibold">{getGreeting()}</div>
+          <h1 className="font-serif text-[26px] text-primary font-normal">Welcome back, {displayName}.</h1>
+          <p className="text-xs text-mid">
             Cycle {data.cycleInfo.cycleNumber} · Day {data.cycleInfo.currentDay} of {data.cycleInfo.totalDays} · {data.cycleInfo.hasWrittenToday ? 'You wrote today' : 'Ready for today\'s reflection'}
           </p>
         </section>
 
-        {/* Responsive Desktop 2-Column Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+        {/* Responsive Desktop 3-Column Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
           
-          {/* Main workspace activities (Left 2 Columns) */}
-          <div className="md:col-span-2 space-y-8">
+          {/* Main Workspace (Left 2 Columns) */}
+          <div className="md:col-span-2 space-y-6">
             
             {/* Today's Session Card */}
-            <section className="space-y-3">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-secondary">Today's Session</div>
+            <section className="space-y-2.5">
+              <div className="text-[9px] font-bold uppercase tracking-widest text-secondary">Today's Session</div>
               
               {data.cycleInfo.hasWrittenToday ? (
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white border border-secondary/15 rounded-xl p-6 flex flex-col items-center text-center space-y-3"
+                  className="bg-white border border-[#1E2A2E]/10 rounded-xl p-4.5 shadow-sm"
                 >
-                  <CheckCircle2 size={32} className="text-secondary" />
-                  <h3 className="font-serif text-xl text-primary">Session Completed</h3>
-                  <p className="text-xs text-mid max-w-sm">
-                    Your writing has been saved. The patterns in today's entry are being integrated into your cycle logs.
-                  </p>
-                  <button 
-                    onClick={() => handleStartWriting('fresh')}
-                    className="text-xs font-semibold text-secondary hover:underline cursor-pointer pt-1"
+                  {dailySessionState?.exists && dailySessionState?.isCompletedToday ? (
+                    <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 text-left items-center">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-[#8DBFB4]/15 flex items-center justify-center text-[#8DBFB4] shrink-0">
+                            <CheckCircle2 size={18} />
+                          </div>
+                          <h3 className="font-serif text-base text-primary">Day {dailySessionState.session.day_number} Complete</h3>
+                        </div>
+                        <p className="text-[11.5px] text-mid leading-relaxed">
+                          Your daily reframing and journal writing are locked. The patterns are integrated.
+                        </p>
+                        <div className="text-[10px] text-mid/60 italic font-medium">
+                          Resets at 12:00 AM (midnight) local time.
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 bg-secondary/5 rounded-xl p-3.5 border border-secondary/10">
+                        <div className="grid grid-cols-2 gap-2 border-b border-[#1E2A2E]/5 pb-2">
+                          <div>
+                            <div className="text-[8px] uppercase font-bold text-secondary">Stressor Reframed</div>
+                            <div className="text-[11px] font-semibold text-primary capitalize mt-0.5">
+                              {dailySessionState.exercise?.stressor_type || 'General'}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[8px] uppercase font-bold text-secondary">Clarity Score</div>
+                            <div className="text-[11px] font-semibold text-primary mt-0.5">
+                              {dailySessionState.exercise?.clarity_score || 85}%
+                            </div>
+                          </div>
+                        </div>
+                        {dailySessionState.exercise?.reframed_thought && (
+                          <div>
+                            <div className="text-[8px] uppercase font-bold text-secondary mb-0.5">Reframed Focus</div>
+                            <p className="font-serif italic text-[11px] leading-relaxed text-primary/80">
+                              "{dailySessionState.exercise.reframed_thought}"
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center text-center space-y-3">
+                      <div className="w-10 h-10 rounded-full bg-[#8DBFB4]/15 flex items-center justify-center text-[#8DBFB4]">
+                        <CheckCircle2 size={20} />
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="font-serif text-base text-primary">Daily Writing Complete</h3>
+                        <p className="text-[11.5px] text-mid max-w-sm leading-relaxed">
+                          You have already logged a journal entry today. The guided daily session is locked for today.
+                        </p>
+                      </div>
+                      <div className="text-[10px] text-mid/60 italic font-medium pt-0.5">
+                        Resets at 12:00 AM (midnight) local time.
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              ) : dailySessionState?.exists && !dailySessionState?.isCompletedToday ? (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white border border-[#8DBFB4]/35 bg-gradient-to-br from-[#8DBFB4]/3 to-transparent rounded-xl p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-[0_4px_16px_rgba(141,191,180,0.06)]"
+                >
+                  <div className="space-y-1">
+                    <div className="text-[8px] font-bold text-[#8DBFB4] uppercase tracking-widest">SESSION IN PROGRESS</div>
+                    <h3 className="font-serif text-base text-primary">Day {dailySessionState.session.day_number} Session</h3>
+                    <p className="text-[11px] text-mid leading-relaxed">
+                      You left off on the <span className="font-semibold capitalize">"{dailySessionState.session.status}"</span> step.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => window.navigateTo(`/session/${dailySessionState.session.status}`)}
+                    className="sm:w-auto px-5 py-2.5 bg-primary text-white hover:bg-[#2A3A3E] text-[11px] font-semibold uppercase tracking-wider rounded transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5 shrink-0"
                   >
-                    Write another entry
+                    <span>Resume Session</span>
+                    <ArrowRight size={12} />
                   </button>
                 </motion.div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Card 1: Start Fresh */}
+                  {/* Premium Start Card */}
                   <div 
-                    onClick={() => handleStartWriting('fresh')}
-                    className="bg-primary text-white p-5 rounded-xl flex flex-col justify-between h-[150px] cursor-pointer hover:bg-[#2A3A3E] transition-all group"
+                    onClick={() => window.navigateTo('/session/start')}
+                    className="bg-primary text-white p-4.5 rounded-xl flex flex-col justify-between h-[130px] cursor-pointer hover:bg-[#2A3A3E] transition-all group shadow-sm border border-primary/5"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-accent group-hover:scale-105 transition-transform">
-                      <Plus size={18} />
+                    <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center text-accent group-hover:scale-105 transition-transform">
+                      <Sparkles size={14} />
                     </div>
-                    <div className="space-y-1">
-                      <h3 className="text-[14px] font-bold">Start today's entry</h3>
-                      <p className="text-[12px] text-on-primary/60 font-light">Whatever is on your mind. No prompts.</p>
+                    <div className="space-y-0.5">
+                      <div className="text-[8px] font-bold text-accent uppercase tracking-widest">DAILY SESSION</div>
+                      <h3 className="text-[13.5px] font-bold">Begin today's session</h3>
+                      <p className="text-[11px] text-on-primary/60 font-light leading-snug">Guided breathing, cognitive reframing, and writing.</p>
                     </div>
                   </div>
 
-                  {/* Card 2: Continue Yesterday */}
+                  {/* Secondary Fresh Entry Card */}
                   <div 
-                    onClick={() => handleStartWriting('continue')}
-                    className="bg-white border border-[#1E2A2E]/8 p-5 rounded-xl flex flex-col justify-between h-[150px] cursor-pointer hover:shadow-md hover:border-[#1E2A2E]/15 transition-all group"
+                    onClick={() => handleStartWriting('fresh')}
+                    className="bg-white border border-[#1E2A2E]/8 p-4.5 rounded-xl flex flex-col justify-between h-[130px] cursor-pointer hover:shadow-md hover:border-[#1E2A2E]/15 transition-all group"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-[#1E2A2E]/5 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
-                      <BookOpen size={16} />
+                    <div className="w-7 h-7 rounded-lg bg-[#1E2A2E]/5 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                      <PenLine size={13} />
                     </div>
-                    <div className="space-y-1.5 overflow-hidden">
-                      <h3 className="text-[14px] font-bold text-primary">Continue yesterday</h3>
-                      <p className="text-[11px] text-mid italic line-clamp-2">"{yesterdayPreview}"</p>
+                    <div className="space-y-0.5">
+                      <div className="text-[8px] font-bold text-secondary uppercase tracking-widest">FREE WRITE</div>
+                      <h3 className="text-[13.5px] font-bold text-primary">Write a fresh entry</h3>
+                      <p className="text-[11px] text-mid font-light leading-snug">Direct journal entry workspace without prompts.</p>
                     </div>
                   </div>
                 </div>
               )}
             </section>
 
-            {/* Open Threads Section */}
-            {openThreads.length > 0 && (
-              <section className="space-y-3">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-secondary">Open Threads</div>
-                
-                <div className="space-y-3">
+            {/* Active Inquiries (Open Threads) */}
+            <section className="space-y-2.5">
+              <div className="text-[9px] font-bold uppercase tracking-widest text-secondary">Active Inquiries</div>
+              
+              {openThreads.length > 0 ? (
+                <div className={openThreads.length > 1 ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-3"}>
                   {openThreads.map((thread) => (
                     <div 
                       key={thread.id} 
-                      onClick={() => handleOpenThread(thread)}
-                      className="bg-white border border-[#1E2A2E]/8 rounded-xl p-5 cursor-pointer hover:shadow-xs hover:border-[#1E2A2E]/15 transition-all relative overflow-hidden pl-6 group"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => window.navigateTo('/thread/' + thread.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          window.navigateTo('/thread/' + thread.id);
+                        }
+                      }}
+                      className="bg-white border border-[#1E2A2E]/8 rounded-xl p-4.5 cursor-pointer hover:shadow-xs hover:border-[#1E2A2E]/15 transition-all relative overflow-hidden pl-5 group focus:outline-none focus:ring-1 focus:ring-secondary/40"
                     >
                       <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent" />
                       
-                      <div className="flex justify-between items-center text-[10px] uppercase font-bold text-secondary mb-2">
-                        <span>{thread.from}</span>
-                        <span className="text-mid font-normal font-sans lowercase">{thread.age}</span>
+                      <div className="flex justify-between items-center text-[9px] uppercase font-bold text-secondary mb-1.5">
+                        <span>{thread.origin}</span>
+                        <span className="text-mid font-normal font-sans lowercase">
+                          {new Date(thread.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                        </span>
                       </div>
                       
-                      <h3 className="font-serif italic text-[15px] text-primary leading-relaxed pr-6 mb-3">
+                      <h3 className="font-serif italic text-[14px] text-primary leading-normal pr-5 mb-2.5">
                         "{thread.question}"
                       </h3>
                       
                       <div className="flex items-center justify-between text-xs">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          thread.status === 'new' ? 'bg-[#b8a8d4]/15 text-[#5A4A8A]' : 'bg-[#e0a898]/12 text-[#8a3020]'
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                          thread.status === 'NEW' ? 'bg-[#b8a8d4]/15 text-[#5A4A8A]' : thread.status === 'RETURNED' ? 'bg-[#e0a898]/12 text-[#8a3020]' : 'bg-secondary/15 text-secondary-dark'
                         }`}>
-                          {thread.status === 'new' ? 'New' : thread.status === 'returned' ? 'Returned' : 'Active'}
+                          {thread.status}
                         </span>
-                        <span className="font-semibold text-[11px] text-primary flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                          Write into this <ChevronRight size={13} />
+                        <span className="font-semibold text-[10.5px] text-primary flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                          Write reflection <ChevronRight size={12} />
                         </span>
                       </div>
                     </div>
                   ))}
                 </div>
-              </section>
-            )}
+              ) : (
+                <div className="bg-white/40 border border-dashed border-[#1E2A2E]/10 rounded-xl p-4 flex flex-col items-center justify-center text-center h-[130px]">
+                  <div className="w-8 h-8 rounded-full bg-[#1E2A2E]/5 flex items-center justify-center text-[#8DBFB4] mb-1.5">
+                    <CheckCircle2 size={15} />
+                  </div>
+                  <h4 className="text-[12px] font-semibold text-primary">All inquiries integrated</h4>
+                  <p className="text-[10.5px] text-mid max-w-[190px] mt-1 leading-normal">
+                    New threads surface based on patterns in your daily sessions.
+                  </p>
+                </div>
+              )}
+            </section>
 
             {/* Recent Writings */}
-            <section className="space-y-3">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-secondary">Recent writing</div>
+            <section className="space-y-2.5">
+              <div className="text-[9px] font-bold uppercase tracking-widest text-secondary">Recent writing</div>
               
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {data.entries.slice(0, 3).map((entry) => (
                   <div 
                     key={entry.id}
-                    className="bg-white border border-[#1E2A2E]/8 rounded-xl p-5 hover:border-accent/30 transition-all space-y-2 group"
+                    className="bg-white border border-[#1E2A2E]/8 rounded-xl p-4 hover:border-accent/30 transition-all space-y-1.5 group flex flex-col justify-between"
                   >
-                    <div className="flex justify-between items-center text-[10px] uppercase font-bold text-secondary">
-                      <span>{entry.day} · {entry.date}</span>
-                      <span className="text-mid lowercase font-normal">{entry.words} words</span>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center text-[9px] uppercase font-bold text-secondary">
+                        <span>{entry.day} · {entry.date}</span>
+                        <span className="text-mid lowercase font-normal">{entry.words} w</span>
+                      </div>
+                      <p className="text-[12px] text-primary italic leading-relaxed font-serif pr-1 line-clamp-3">
+                        "{entry.text}"
+                      </p>
                     </div>
-                    <p className="text-[13px] text-primary italic leading-relaxed font-serif pr-2">
-                      "{entry.text}"
-                    </p>
                   </div>
                 ))}
               </div>
@@ -256,91 +409,107 @@ export default function DashboardPage({ user, profile, onSignOut }) {
 
           </div>
 
-          {/* Sidebar Insights & locked sections (Right 1 Column) */}
-          <div className="md:col-span-1 space-y-8">
+          {/* Sidebar (Right 1 Column) */}
+          <div className="md:col-span-1 space-y-4">
             
             {/* Sidebar Title */}
-            <div className="text-[10px] font-bold uppercase tracking-widest text-secondary">Practice Insights</div>
+            <div className="text-[9px] font-bold uppercase tracking-widest text-secondary pt-0.5">Practice Insights</div>
 
-            {/* Emotional Vocabulary */}
+            {/* Emotional Vocabulary Card */}
             <div 
+              role="button"
+              tabIndex={0}
               onClick={() => window.navigateTo('/vocab')}
-              className="bg-white border border-[#1E2A2E]/8 rounded-xl p-5 flex flex-col justify-between min-h-[200px] cursor-pointer hover:shadow-xs hover:border-[#1E2A2E]/15 transition-all animate-fade-in"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  window.navigateTo('/vocab');
+                }
+              }}
+              className="bg-white border border-[#1E2A2E]/8 rounded-xl p-4.5 cursor-pointer hover:shadow-xs hover:border-[#1E2A2E]/15 transition-all group focus:outline-none focus:ring-1 focus:ring-secondary/40 space-y-2.5"
             >
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#b8a8d4]/15 flex items-center justify-center text-[#5A4A8A]">
-                    <Smile size={16} />
-                  </div>
-                  <ChevronRight size={15} className="text-light-mid" />
+              <div className="flex items-center justify-between">
+                <div className="text-[9px] font-bold uppercase tracking-widest text-secondary flex items-center gap-1.5">
+                  <Smile size={13} className="text-[#5A4A8A]" />
+                  <span>Emotional Vocabulary</span>
                 </div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-2">Emotional Vocabulary</div>
-                <p className="text-[12px] text-mid italic leading-relaxed mb-4">
-                  "Most of your emotion words this cycle are about depletion, not feeling. Tired, drained, exhausted — but not sad, not angry."
-                </p>
+                <ChevronRight size={13} className="text-light-mid group-hover:translate-x-0.5 transition-transform" />
               </div>
-              <div className="flex gap-1.5 flex-wrap">
-                <span className="text-[10px] bg-mint-grey px-2 py-0.5 rounded font-medium">fine ×6</span>
-                <span className="text-[10px] bg-mint-grey px-2 py-0.5 rounded font-medium">tired ×4</span>
-                <span className="text-[10px] bg-mint-grey px-2 py-0.5 rounded font-medium">frustrated ×3</span>
+              <p className="text-[11.5px] text-mid italic leading-relaxed">
+                "Most emotion words this cycle are depletion, not feeling. Tired, drained, exhausted — but not sad, not angry."
+              </p>
+              <div className="flex gap-1 flex-wrap pt-0.5">
+                <span className="text-[9.5px] bg-mint-grey px-1.5 py-0.5 rounded font-medium text-primary">fine ×6</span>
+                <span className="text-[9.5px] bg-mint-grey px-1.5 py-0.5 rounded font-medium text-primary">tired ×4</span>
+                <span className="text-[9.5px] bg-mint-grey px-1.5 py-0.5 rounded font-medium text-primary">frustrated ×3</span>
               </div>
             </div>
 
-            {/* Patterns Card */}
+            {/* Active Patterns Card */}
             <div 
+              role="button"
+              tabIndex={0}
               onClick={() => window.navigateTo('/patterns')}
-              className="bg-white border border-[#1E2A2E]/8 rounded-xl p-5 flex flex-col justify-between min-h-[200px] cursor-pointer hover:shadow-xs hover:border-[#1E2A2E]/15 transition-all relative overflow-hidden"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  window.navigateTo('/patterns');
+                }
+              }}
+              className="bg-white border border-[#1E2A2E]/8 rounded-xl p-4.5 cursor-pointer hover:shadow-xs hover:border-[#1E2A2E]/15 transition-all group focus:outline-none focus:ring-1 focus:ring-secondary/40 space-y-2.5"
             >
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-8 h-8 rounded-lg bg-secondary/15 flex items-center justify-center text-secondary-dark">
-                    <TrendingUp size={16} />
-                  </div>
-                  <ChevronRight size={15} className="text-light-mid" />
+              <div className="flex items-center justify-between">
+                <div className="text-[9px] font-bold uppercase tracking-widest text-secondary flex items-center gap-1.5">
+                  <TrendingUp size={13} className="text-secondary-dark" />
+                  <span>Active Patterns</span>
                 </div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-2">Patterns</div>
-                <div className="space-y-2.5 mt-2">
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-accent mt-1 shrink-0" />
-                    <div>
-                      <div className="text-[13px] font-semibold text-primary">Saying "fine"</div>
-                      <div className="text-[11px] text-mid">Cycle 1–12 · Present</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-secondary mt-1 shrink-0" />
-                    <div>
-                      <div className="text-[13px] font-semibold text-primary">Avoidance</div>
-                      <div className="text-[11px] text-mid">Cycle 1–12 · Shifting</div>
-                    </div>
-                  </div>
+                <ChevronRight size={13} className="text-light-mid group-hover:translate-x-0.5 transition-transform" />
+              </div>
+              <div className="space-y-2 pt-0.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                  <div className="text-[12px] font-medium text-primary truncate">Saying "fine"</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-secondary shrink-0" />
+                  <div className="text-[12px] font-medium text-primary truncate">Avoidance</div>
                 </div>
               </div>
             </div>
 
             {/* Reports & Summaries Card */}
             <div 
+              role="button"
+              tabIndex={0}
               onClick={() => window.navigateTo('/reports')}
-              className="bg-white border border-[#1E2A2E]/8 rounded-xl p-5 flex flex-col justify-between min-h-[140px] cursor-pointer hover:shadow-xs hover:border-[#1E2A2E]/15 transition-all relative overflow-hidden"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  window.navigateTo('/reports');
+                }
+              }}
+              className="bg-white border border-[#1E2A2E]/8 rounded-xl p-4.5 cursor-pointer hover:shadow-xs hover:border-[#1E2A2E]/15 transition-all group focus:outline-none focus:ring-1 focus:ring-secondary/40 space-y-2.5"
             >
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-8 h-8 rounded bg-accent/15 flex items-center justify-center text-accent">
-                    <FileText size={14} />
-                  </div>
-                  <ChevronRight size={15} className="text-light-mid" />
+              <div className="flex items-center justify-between">
+                <div className="text-[9px] font-bold uppercase tracking-widest text-secondary flex items-center gap-1.5">
+                  <FileText size={13} className="text-[#8DBFB4]" />
+                  <span>Reports & Summaries</span>
                 </div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-1">Reports & Summaries</div>
-                <p className="text-[13px] text-primary font-serif italic">
-                  "Your Week 2 summary is ready. You have 3 open threads waiting."
-                </p>
+                <ChevronRight size={13} className="text-light-mid group-hover:translate-x-0.5 transition-transform" />
               </div>
-              <div className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#e0a898]/15 text-[#8a3020] w-fit mt-3">
-                New summary
+              <p className="text-[12.5px] text-primary font-serif italic leading-relaxed">
+                "Your Week 2 summary is ready. You have 3 open threads waiting."
+              </p>
+              <div className="flex items-center justify-between text-[10px] text-mid hover:text-primary transition-colors pt-2 border-t border-[#1E2A2E]/5">
+                <div className="flex items-center gap-1.5">
+                  <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-[#e0a898]/15 text-[#8a3020]">
+                    NEW SUMMARY
+                  </span>
+                  <span className="font-medium">Week 2 summary ready</span>
+                </div>
+                <ChevronRight size={12} />
               </div>
             </div>
-
-
 
           </div>
 

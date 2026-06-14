@@ -14,7 +14,7 @@ export interface ReflectionThread {
   from: string;
   question: string;
   context: string;
-  status: 'active' | 'new' | 'returned' | 'addressed';
+  status: 'active' | 'new' | 'returned' | 'addressed' | 'ACTIVE' | 'NEW' | 'RETURNED' | 'CLOSED' | string;
   age: string;
   response?: string;
   addressedAt?: string;
@@ -33,178 +33,310 @@ export interface DashboardData {
   threads: ReflectionThread[];
 }
 
-const STORAGE_KEY = 'iw_dashboard_data_v1';
-
-const defaultThreads: ReflectionThread[] = [
-  {
-    id: 'thread-0',
-    from: 'Week 2 summary · Cycle 2',
-    question: 'What would it look like to actually say the thing instead of absorbing it?',
-    context: 'Conflict came up four times this week. Each time you described your response as "handling it." The entries suggest something quieter — managing, not resolving.',
-    status: 'active',
-    age: '4 days ago'
-  },
-  {
-    id: 'thread-1',
-    from: 'Week 1 summary · Cycle 2',
-    question: 'Is avoiding the argument the same as keeping the peace — or just a different name for the same thing?',
-    context: 'You ranked Peace as your top value in the card sort. But your entries this week describe three situations where you avoided saying what you actually thought.',
-    status: 'new',
-    age: '11 days ago'
-  },
-  {
-    id: 'thread-2',
-    from: 'Week 3 summary · Cycle 1',
-    question: 'When did saying "fine" become easier than saying what\'s actually there?',
-    context: 'The word "fine" appeared six times this week — always about yourself, never about anyone else.',
-    status: 'returned',
-    age: '3 weeks ago'
-  }
-];
-
-const defaultEntries: JournalEntry[] = [
-  {
-    id: 'entry-0',
-    day: 'D20',
-    text: 'The same conversation keeps happening and I keep having it the same way — different person each time but the feeling at the end is identical.',
-    date: '24 Jun',
-    words: 184,
-    type: 'entry'
-  },
-  {
-    id: 'entry-1',
-    day: 'D19',
-    text: 'I noticed I apologised twice today for things that weren\'t my fault. Just to ease the tension in the room. I don\'t think they even noticed, but I felt it immediately.',
-    date: '23 Jun',
-    words: 211,
-    type: 'entry'
-  },
-  {
-    id: 'entry-2',
-    day: 'D17',
-    text: 'I keep framing it as them not understanding. Maybe I\'m not saying it clearly because I don\'t want them to hear it. It\'s safer to remain slightly misunderstood.',
-    date: '21 Jun',
-    words: 156,
-    type: 'entry'
-  }
-];
-
-const defaultCycleInfo = {
-  cycleNumber: 2,
-  currentDay: 20,
-  totalDays: 28,
-  startedAt: '4 Jun',
-  daysRemaining: 8,
-  hasWrittenToday: false
-};
-
-function getStoredData(): DashboardData {
-  if (typeof window === 'undefined') {
-    return {
-      cycleInfo: defaultCycleInfo,
-      entries: defaultEntries,
-      threads: defaultThreads
-    };
-  }
-
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      return JSON.parse(raw);
-    }
-  } catch (err) {
-    console.error('Failed to read localStorage dashboard data:', err);
-  }
-
-  const initialData: DashboardData = {
-    cycleInfo: defaultCycleInfo,
-    entries: defaultEntries,
-    threads: defaultThreads
-  };
-  setStoredData(initialData);
-  return initialData;
-}
-
-function setStoredData(data: DashboardData) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (err) {
-    console.error('Failed to write localStorage dashboard data:', err);
-  }
+function getAgeString(createdAt: string | null | undefined): string {
+  if (!createdAt) return 'recently';
+  const time = new Date(createdAt).getTime();
+  if (isNaN(time)) return 'recently';
+  const diffMs = Date.now() - time;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return 'today';
+  if (diffDays === 1) return 'yesterday';
+  return `${diffDays} days ago`;
 }
 
 export class DashboardService {
   /**
-   * Fetches dashboard data simulating network latency.
-   * Prepares the architecture for a future Supabase join query.
+   * Generates request headers, including client local midnight in UTC for daily limits.
+   */
+  static getHeaders(extraHeaders: Record<string, string> = {}): HeadersInit {
+    if (typeof window === 'undefined') {
+      return {
+        'Content-Type': 'application/json',
+        ...extraHeaders
+      };
+    }
+    const localMidnight = new Date();
+    localMidnight.setHours(0, 0, 0, 0);
+    return {
+      'Content-Type': 'application/json',
+      'x-client-today-start': localMidnight.toISOString(),
+      ...extraHeaders
+    };
+  }
+
+  /**
+   * Fetches dashboard data by combining parallel requests to entries, threads, and sessions endpoints.
    */
   static async fetchDashboardData(): Promise<DashboardData> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(getStoredData());
-      }, 750);
-    });
-  }
+    try {
+      // 1. Fetch entries
+      const entriesRes = await fetch('/api/entries', {
+        headers: DashboardService.getHeaders()
+      });
+      if (!entriesRes.ok) throw new Error('Failed to fetch journal entries.');
+      const entriesData = await entriesRes.json();
+      const dbEntries = entriesData.entries || [];
 
-  /**
-   * Saves a daily journal entry.
-   * Simulates insertion into a Supabase `user_entries` table.
-   */
-  static async saveJournalEntry(text: string): Promise<JournalEntry> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const data = getStoredData();
-        const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
-        const currentDayNum = data.cycleInfo.currentDay;
-        
-        const newEntry: JournalEntry = {
-          id: `entry-${Date.now()}`,
-          day: `D${currentDayNum}`,
-          text,
-          date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-          words: wordCount,
+      // Map entries
+      const mappedEntries: JournalEntry[] = dbEntries.map((entry: any) => {
+        const dayNum = entry.daily_sessions?.day_number;
+        return {
+          id: entry.id,
+          day: dayNum ? `D${dayNum}` : 'Free Write',
+          text: entry.content,
+          date: new Date(entry.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+          words: entry.word_count,
           type: 'entry'
         };
+      });
 
-        data.entries.unshift(newEntry);
-        data.cycleInfo.hasWrittenToday = true;
-        
-        setStoredData(data);
-        resolve(newEntry);
-      }, 500);
-    });
+      // 2. Fetch threads
+      const threadsRes = await fetch('/api/threads', {
+        headers: DashboardService.getHeaders()
+      });
+      if (!threadsRes.ok) throw new Error('Failed to fetch active threads.');
+      const threadsData = await threadsRes.json();
+      const dbThreads = threadsData.threads || [];
+
+      // Map threads
+      const mappedThreads: ReflectionThread[] = dbThreads.map((thread: any) => {
+        return {
+          id: thread.id,
+          from: thread.origin || 'Self-Reflection',
+          question: thread.question,
+          context: 'This thread has been opened based on your recurring patterns for ongoing self-reflection.',
+          status: thread.status,
+          age: getAgeString(thread.created_at)
+        };
+      });
+
+      // 3. Fetch active session state to compute cycleInfo
+      let hasWrittenToday = false;
+      let cycleNumber = 1;
+      let currentDay = 1;
+      let totalDays = 28;
+      let startedAt = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      let daysRemaining = 27;
+
+      try {
+        const sessionRes = await fetch('/api/session', {
+          headers: DashboardService.getHeaders()
+        });
+        if (sessionRes.ok) {
+          const sessionData = await sessionRes.json();
+          if (sessionData.exists && sessionData.session) {
+            const session = sessionData.session;
+            const isCompletedToday = sessionData.isCompletedToday || false;
+            
+            if (isCompletedToday) {
+              currentDay = session.day_number;
+              hasWrittenToday = true;
+            } else {
+              if (session.status !== 'complete') {
+                currentDay = session.day_number;
+              } else {
+                currentDay = session.day_number + 1;
+              }
+              hasWrittenToday = false;
+            }
+
+            cycleNumber = Math.floor((currentDay - 1) / 28) + 1;
+            const currentDayInCycle = ((currentDay - 1) % 28) + 1;
+            daysRemaining = 28 - currentDayInCycle;
+
+            const sessionDate = new Date(session.created_at);
+            const dayOffset = currentDayInCycle - 1;
+            const cycleStartDate = new Date(sessionDate.getTime() - dayOffset * 24 * 60 * 60 * 1000);
+            startedAt = cycleStartDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+          }
+        }
+      } catch (sessionErr) {
+        console.error('Error fetching session for cycleInfo:', sessionErr);
+      }
+
+      // If they wrote a free write today, set hasWrittenToday = true
+      const hasWrittenFreeWriteToday = dbEntries.some((entry: any) => {
+        const entryDate = new Date(entry.created_at);
+        const today = new Date();
+        return entryDate.getDate() === today.getDate() &&
+               entryDate.getMonth() === today.getMonth() &&
+               entryDate.getFullYear() === today.getFullYear();
+      });
+
+      if (hasWrittenFreeWriteToday) {
+        hasWrittenToday = true;
+      }
+
+      return {
+        cycleInfo: {
+          cycleNumber,
+          currentDay,
+          totalDays,
+          startedAt,
+          daysRemaining,
+          hasWrittenToday
+        },
+        entries: mappedEntries,
+        threads: mappedThreads
+      };
+
+    } catch (error) {
+      console.error('Error in fetchDashboardData:', error);
+      // Return fallback empty structures to prevent dashboard from breaking
+      return {
+        cycleInfo: {
+          cycleNumber: 1,
+          currentDay: 1,
+          totalDays: 28,
+          startedAt: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+          daysRemaining: 27,
+          hasWrittenToday: false
+        },
+        entries: [],
+        threads: []
+      };
+    }
   }
 
   /**
-   * Submits a thread response and marks it as addressed.
-   * Simulates updating a Supabase `user_threads` row.
+   * Saves a free-form journal entry in the database.
    */
-  static async submitThreadResponse(threadId: string, responseText: string): Promise<ReflectionThread> {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        const data = getStoredData();
-        const threadIndex = data.threads.findIndex(t => t.id === threadId);
-        
-        if (threadIndex === -1) {
-          reject(new Error('Thread not found'));
-          return;
-        }
-
-        const thread = data.threads[threadIndex];
-        const updatedThread: ReflectionThread = {
-          ...thread,
-          status: 'addressed',
-          response: responseText,
-          addressedAt: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-        };
-
-        data.threads[threadIndex] = updatedThread;
-        
-        setStoredData(data);
-        resolve(updatedThread);
-      }, 500);
+  static async saveJournalEntry(text: string): Promise<JournalEntry> {
+    const res = await fetch('/api/entries', {
+      method: 'POST',
+      headers: DashboardService.getHeaders(),
+      body: JSON.stringify({ content: text })
     });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to save journal entry.');
+    }
+    const entry = data.entry;
+    return {
+      id: entry.id,
+      day: entry.daily_sessions?.day_number ? `D${entry.daily_sessions.day_number}` : 'Free Write',
+      text: entry.content,
+      date: new Date(entry.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+      words: entry.word_count,
+      type: 'entry'
+    };
+  }
+
+  /**
+   * Fetches active threads for the user from Supabase.
+   */
+  static async fetchActiveThreads(): Promise<any> {
+    const res = await fetch('/api/threads', {
+      headers: DashboardService.getHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to fetch active threads.');
+    }
+    return data.threads;
+  }
+
+  /**
+   * Fetches specific thread details, including historical responses.
+   */
+  static async fetchThreadDetails(threadId: string): Promise<any> {
+    const res = await fetch(`/api/threads/${threadId}`, {
+      headers: DashboardService.getHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to fetch thread details.');
+    }
+    return data;
+  }
+
+  /**
+   * Submits a new response to a thread.
+   */
+  static async submitThreadResponse(threadId: string, response: string): Promise<any> {
+    const res = await fetch(`/api/threads/${threadId}`, {
+      method: 'POST',
+      headers: DashboardService.getHeaders(),
+      body: JSON.stringify({ response })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to submit thread response.');
+    }
+    return data.response;
+  }
+
+  /**
+   * Fetches the user's active or completed daily session for today.
+   */
+  static async fetchActiveSession(): Promise<any> {
+    const res = await fetch('/api/session', {
+      headers: DashboardService.getHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to fetch active session.');
+    }
+    return data;
+  }
+
+  /**
+   * Starts a new daily session.
+   */
+  static async startSession(): Promise<any> {
+    const res = await fetch('/api/session', {
+      method: 'POST',
+      headers: DashboardService.getHeaders(),
+      body: JSON.stringify({ action: 'start' })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to start session.');
+    }
+    return data;
+  }
+
+  /**
+   * Saves the state/draft of the active session step.
+   */
+  static async saveSessionStep(status: string, sessionData: any): Promise<any> {
+    const res = await fetch('/api/session', {
+      method: 'POST',
+      headers: DashboardService.getHeaders(),
+      body: JSON.stringify({ action: 'save-step', status, sessionData })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to save session step.');
+    }
+    return data;
+  }
+
+  /**
+   * Completes the daily session, creating exercises and journal entry.
+   */
+  static async completeSession(payload: {
+    exercise: {
+      stressor_type: string;
+      reactive_thought: string;
+      reframed_thought: string;
+      clarity_score: number;
+    };
+    journal: {
+      content: string;
+    };
+    closing_response: string;
+  }): Promise<any> {
+    const res = await fetch('/api/session', {
+      method: 'POST',
+      headers: DashboardService.getHeaders(),
+      body: JSON.stringify({ action: 'complete', ...payload })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to complete session.');
+    }
+    return data;
   }
 
   /**
@@ -212,7 +344,8 @@ export class DashboardService {
    */
   static resetState() {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('iw_dashboard_data_v1');
     }
   }
 }
+

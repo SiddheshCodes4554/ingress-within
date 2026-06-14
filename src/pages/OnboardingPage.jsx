@@ -9,8 +9,9 @@ const quotes = [
   "Each reflection is a step towards understanding."
 ];
 
-export default function OnboardingPage({ initialStep = 'consent', onComplete }) {
-  const [step, setStep] = useState(initialStep); // 'consent', 'profile', 'welcome', 'assessment', 'success'
+export default function OnboardingPage({ initialStep = 'loading', onComplete }) {
+  const [step, setStep] = useState(initialStep); // 'loading', 'consent', 'profile', 'welcome', 'assessment', 'success'
+  const [loadingError, setLoadingError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -56,31 +57,40 @@ export default function OnboardingPage({ initialStep = 'consent', onComplete }) 
     }
   ];
 
-  // Helper to fetch current onboarding state from backend
-  useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.profile) {
-            const p = data.profile;
-            if (!p.consent_completed) setStep('consent');
-            else if (!p.profile_completed) setStep('profile');
-            else if (!p.orientation_completed) setStep('welcome');
-            else if (!p.assessment_completed) setStep('assessment');
-            else if (p.onboarding_completed) {
-              if (onComplete) onComplete();
-              else {
-                window.navigateTo('/dashboard');
-              }
+  const fetchStatus = async () => {
+    setLoadingError(null);
+    setStep('loading');
+    try {
+      const res = await fetch('/api/auth/me');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.profile) {
+          const p = data.profile;
+          if (!p.consent_completed) setStep('consent');
+          else if (!p.profile_completed) setStep('profile');
+          else if (!p.orientation_completed) setStep('welcome');
+          else if (!p.assessment_completed) setStep('assessment');
+          else if (p.onboarding_completed) {
+            if (onComplete) onComplete();
+            else {
+              window.navigateTo('/dashboard');
             }
           }
+        } else {
+          setLoadingError(new Error('Profile details missing.'));
         }
-      } catch (err) {
-        console.error('Failed to resolve onboarding state:', err);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setLoadingError(new Error(errData.error?.message || `API error (${res.status})`));
       }
-    };
+    } catch (err) {
+      console.error('Failed to resolve onboarding state:', err);
+      setLoadingError(err);
+    }
+  };
+
+  // Helper to fetch current onboarding state from backend
+  useEffect(() => {
     fetchStatus();
   }, []);
 
@@ -296,7 +306,7 @@ export default function OnboardingPage({ initialStep = 'consent', onComplete }) 
         {/* Top Header bar with Logo mark for Mobile view */}
         <div className="w-full flex justify-between items-center max-w-[480px] z-10">
           <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark">
-            Step {step === 'consent' ? '1 of 5' : step === 'profile' ? '2 of 5' : step === 'welcome' ? '3 of 5' : step === 'assessment' ? '4 of 5' : '5 of 5'}
+            {step === 'loading' ? 'Checking status...' : `Step ${step === 'consent' ? '1 of 5' : step === 'profile' ? '2 of 5' : step === 'welcome' ? '3 of 5' : step === 'assessment' ? '4 of 5' : '5 of 5'}`}
           </span>
           <div className="flex items-center gap-1.5 lg:hidden">
             <svg className="w-6 h-6 text-primary" viewBox="0 0 32 32" fill="none">
@@ -312,6 +322,54 @@ export default function OnboardingPage({ initialStep = 'consent', onComplete }) 
         <div className="w-full max-w-[480px] flex-grow flex flex-col justify-center z-10 py-8">
           
           <AnimatePresence mode="wait">
+
+            {/* STEP 0: INITIAL LOADING / ERROR FLOW */}
+            {step === 'loading' && (
+              <motion.div
+                key="loading-view"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="space-y-6 text-center py-12"
+              >
+                {loadingError ? (
+                  <div className="space-y-6">
+                    <div className="relative w-20 h-20 mx-auto flex items-center justify-center pointer-events-none mb-2">
+                      <svg className="w-12 h-12 text-[#b45309]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                      </svg>
+                    </div>
+                    <h2 className="font-serif text-2xl text-primary font-normal">Connection Error</h2>
+                    <p className="text-mid font-light text-sm leading-relaxed max-w-xs mx-auto">
+                      We couldn't connect to retrieve your onboarding status. Please check your network and try again.
+                    </p>
+                    {loadingError.message && (
+                      <div className="bg-[#fef3c7] border border-[#f59e0b]/20 text-[#92400e] text-[11px] font-mono p-3 rounded max-w-xs mx-auto break-all text-left">
+                        {loadingError.message}
+                      </div>
+                    )}
+                    <button 
+                      onClick={fetchStatus}
+                      className="px-6 py-2.5 bg-primary hover:bg-[#2A3A3E] text-mint-grey rounded text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer shadow-xs inline-flex items-center space-x-2 border-none"
+                    >
+                      <span>Retry</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-6">
+                    <div className="relative w-20 h-20 flex items-center justify-center pointer-events-none mb-4">
+                      <div className="absolute w-16 h-16 rounded-full border border-secondary/20 animate-ping" />
+                      <div className="absolute w-12 h-12 rounded-full border border-accent/20 animate-pulse" />
+                      <svg className="w-8 h-8 text-primary animate-spin" style={{ animationDuration: '3s' }} viewBox="0 0 32 32" fill="none">
+                        <circle cx="16" cy="16" r="2" fill="currentColor"/>
+                        <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none"/>
+                      </svg>
+                    </div>
+                    <p className="text-mid font-serif italic text-sm animate-pulse">Initializing your onboarding...</p>
+                  </div>
+                )}
+              </motion.div>
+            )}
             
             {/* STEP 1: CONSENT FLOW */}
             {step === 'consent' && (

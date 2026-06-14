@@ -34,6 +34,11 @@ export default function WritePage({ user, profile, onSignOut }) {
   const [entryText, setEntryText] = useState('');
   const [isSavingEntry, setIsSavingEntry] = useState(false);
   
+  // Autosave status
+  const [autosaveStatus, setAutosaveStatus] = useState('Idle'); // 'Idle' | 'Saving' | 'Saved' | 'Error'
+  const [lastAutosavedAt, setLastAutosavedAt] = useState('');
+  const [showRecoveredMsg, setShowRecoveredMsg] = useState(false);
+  
   // UI screens: 'main' | 'reading' | 'reflection'
   const [screenState, setScreenState] = useState('main');
 
@@ -52,6 +57,27 @@ export default function WritePage({ user, profile, onSignOut }) {
       try {
         const result = await DashboardService.fetchDashboardData();
         setData(result);
+        if (result?.cycleInfo?.hasWrittenToday) {
+          setScreenState('locked');
+        } else {
+          // Check for draft recovery if allowed to write today
+          const savedDraft = localStorage.getItem('iw_free_write_draft');
+          if (savedDraft) {
+            try {
+              const parsed = JSON.parse(savedDraft);
+              if (parsed && parsed.text && parsed.text.trim()) {
+                setEntryText(parsed.text);
+                if (parsed.mode) {
+                  setWriteMode(parsed.mode);
+                }
+                setShowRecoveredMsg(true);
+                setTimeout(() => setShowRecoveredMsg(false), 5000);
+              }
+            } catch (pErr) {
+              console.warn('Could not parse saved draft:', pErr);
+            }
+          }
+        }
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
       } finally {
@@ -65,6 +91,46 @@ export default function WritePage({ user, profile, onSignOut }) {
     return entryText.trim().split(/\s+/).filter(Boolean).length;
   };
 
+  // Local cache auto-saver (Debounced for quick recovery if tab closed)
+  useEffect(() => {
+    if (isLoading || screenState !== 'main') return;
+
+    if (!entryText.trim()) {
+      localStorage.removeItem('iw_free_write_draft');
+      setAutosaveStatus('Idle');
+      return;
+    }
+
+    setAutosaveStatus('Saving');
+    const saveTimeout = setTimeout(() => {
+      try {
+        const draft = {
+          text: entryText,
+          mode: writeMode,
+          updatedAt: new Date().toISOString()
+        };
+        localStorage.setItem('iw_free_write_draft', JSON.stringify(draft));
+        setAutosaveStatus('Saved');
+        setLastAutosavedAt(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      } catch (err) {
+        console.error('Draft autosave failed:', err);
+        setAutosaveStatus('Error');
+      }
+    }, 1500); // 1.5 second debounce
+
+    return () => clearTimeout(saveTimeout);
+  }, [entryText, writeMode, isLoading, screenState]);
+
+  // Reset "Saved" message status to "Idle" after 3s
+  useEffect(() => {
+    if (autosaveStatus === 'Saved') {
+      const resetTimeout = setTimeout(() => {
+        setAutosaveStatus('Idle');
+      }, 3000);
+      return () => clearTimeout(resetTimeout);
+    }
+  }, [autosaveStatus]);
+
   const handleSaveEntry = async () => {
     if (getWordCount() < 5) return;
     setIsSavingEntry(true);
@@ -72,6 +138,7 @@ export default function WritePage({ user, profile, onSignOut }) {
     
     try {
       await DashboardService.saveJournalEntry(entryText);
+      localStorage.removeItem('iw_free_write_draft'); // Clear draft on successful save
       // Simulate reading patterns analytics delay
       setTimeout(() => {
         setScreenState('reflection');
@@ -87,6 +154,7 @@ export default function WritePage({ user, profile, onSignOut }) {
   const handleDiscardEntry = () => {
     if (entryText.trim() && confirm('Discard this entry?')) {
       setEntryText('');
+      localStorage.removeItem('iw_free_write_draft'); // Clear draft on discard
     }
   };
 
@@ -121,7 +189,7 @@ export default function WritePage({ user, profile, onSignOut }) {
 
   return (
     <div className="min-h-screen bg-white text-primary font-sans relative flex flex-col">
-      {screenState !== 'reading' && <DashboardNavbar activeTab="write" />}
+      {screenState !== 'reading' && screenState !== 'locked' && <DashboardNavbar activeTab="write" />}
 
       {screenState === 'main' && (
         <>
@@ -162,6 +230,20 @@ export default function WritePage({ user, profile, onSignOut }) {
 
           {/* Writing Area */}
           <div className="flex-1 max-w-[620px] mx-auto w-full px-6 pt-8 flex flex-col space-y-6">
+            <AnimatePresence>
+              {showRecoveredMsg && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="bg-[#8DBFB4]/10 border border-[#8DBFB4]/20 text-primary px-4 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-2 select-none overflow-hidden"
+                >
+                  <CheckCircle2 size={14} className="text-secondary shrink-0 animate-pulse" />
+                  <span>Your last draft has been automatically restored.</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div className="text-[10px] tracking-wider uppercase text-[#8DBFB4] font-semibold">
               {getFormattedDate()}
             </div>
@@ -199,7 +281,7 @@ export default function WritePage({ user, profile, onSignOut }) {
           </div>
 
           {/* Bottom Toolbar */}
-          <div className="border-t border-[#1E2A2E]/10 bg-white px-6 py-3.5 flex items-center justify-between shrink-0 sticky bottom-0 z-40">
+          <div className="border-t border-[#1E2A2E]/10 bg-white px-6 py-3.5 flex items-center justify-between shrink-0 sticky bottom-0 z-40 relative">
             <div className="flex items-center gap-5">
               <span className="text-[12px] text-[#8DBFB4]">
                 Cycle {data?.cycleInfo?.cycleNumber || 2} · Day {data?.cycleInfo?.currentDay || 20}
@@ -211,6 +293,48 @@ export default function WritePage({ user, profile, onSignOut }) {
               >
                 Discard
               </button>
+            </div>
+
+            {/* Absolute center container for autosave status */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1.5 font-sans text-[10.5px] h-[16px] pointer-events-none select-none">
+              <AnimatePresence mode="wait">
+                {autosaveStatus === 'Saving' && (
+                  <motion.div 
+                    key="saving"
+                    initial={{ opacity: 0, y: 3 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -3 }}
+                    className="flex items-center gap-1.5"
+                  >
+                    <div className="w-1.5 h-1.5 rounded-full bg-accent animate-ping" />
+                    <span className="text-accent italic font-semibold">Autosaving...</span>
+                  </motion.div>
+                )}
+                {autosaveStatus === 'Saved' && (
+                  <motion.div 
+                    key="saved"
+                    initial={{ opacity: 0, y: 3 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -3 }}
+                    className="flex items-center gap-1.5"
+                  >
+                    <div className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
+                    <span className="text-secondary font-semibold">Saved {lastAutosavedAt ? `at ${lastAutosavedAt}` : ''}</span>
+                  </motion.div>
+                )}
+                {autosaveStatus === 'Error' && (
+                  <motion.div 
+                    key="error"
+                    initial={{ opacity: 0, y: 3 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -3 }}
+                    className="flex items-center gap-1.5"
+                  >
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                    <span className="text-red-400 font-semibold">Autosave failed</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
             
             <div className="flex items-center gap-4">
@@ -293,6 +417,29 @@ export default function WritePage({ user, profile, onSignOut }) {
               <span>Saved · feeds directly into your Day 28 report.</span>
             </div>
           </div>
+        </div>
+      )}
+
+      {screenState === 'locked' && (
+        <div className="flex-1 bg-white flex flex-col justify-center items-center text-center p-6 space-y-6 animate-fade-in">
+          <div className="w-16 h-16 rounded-full bg-[#8DBFB4]/15 flex items-center justify-center text-[#8DBFB4]">
+            <CheckCircle2 size={32} />
+          </div>
+          <div className="space-y-2 max-w-md">
+            <h2 className="font-serif text-2xl text-primary">Daily Writing Complete</h2>
+            <p className="text-sm text-mid leading-relaxed">
+              You have already written today. To maintain a slow, intentional pace, the writing workspace is limited to one entry per day.
+            </p>
+          </div>
+          <div className="text-xs text-mid/60 italic">
+            Your daily writing limit has been reached. Resets at 12:00 AM (midnight) local time.
+          </div>
+          <button 
+            onClick={() => window.navigateTo('/dashboard')}
+            className="px-6 py-2.5 bg-primary text-white hover:bg-[#2A3A3E] rounded text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border-none"
+          >
+            Go to Dashboard
+          </button>
         </div>
       )}
     </div>

@@ -323,9 +323,9 @@ export default function PatternsPage({ user, profile, onSignOut }) {
     <div className="min-h-screen bg-mint-grey text-primary font-sans relative pb-20">
       <DashboardNavbar activeTab="patterns" />
 
-      <main className="max-w-[680px] mx-auto px-6 pt-8">
+      <main className="max-w-[680px] mx-auto px-6 pt-6">
         {viewState === 'list' && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <button 
               onClick={() => window.navigateTo('/dashboard')}
               className="flex items-center gap-2 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors cursor-pointer border-none bg-transparent"
@@ -334,63 +334,63 @@ export default function PatternsPage({ user, profile, onSignOut }) {
             </button>
 
             <div>
-              <h1 className="font-serif text-[24px] text-primary mb-1">Patterns</h1>
-              <p className="text-[13px] text-mid">Recurring themes the system has identified across your writing. Not diagnoses — observations about what keeps showing up.</p>
+              <h1 className="font-serif text-[22px] text-primary mb-0.5">Patterns</h1>
+              <p className="text-xs text-mid">Recurring themes the system has identified across your writing. Not diagnoses — observations about what keeps showing up.</p>
             </div>
 
-            <div className="text-[12.5px] italic text-[#8DBFB4] pb-1">
+            <div className="text-[12px] italic text-[#8DBFB4] pb-0.5">
               Patterns surface, shift, and go quiet based on what your entries show. The system doesn't declare anything finished.
             </div>
 
-            <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-xs space-y-3">
-              <p className="text-[13px] text-primary leading-relaxed">
+            <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-4 shadow-xs space-y-2.5">
+              <p className="text-[12.5px] text-primary leading-relaxed">
                 You have 6 patterns identified across 12 cycles. 2 are still present, 2 are shifting, and 2 have gone quiet. Having more patterns isn't worse — it means the writing has been honest enough to surface them.
               </p>
               <div className="flex gap-4 flex-wrap text-xs text-[#4A6A64]">
                 <span className="flex items-center gap-1.5 font-medium">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#E0A898]" /> 2 present
+                  <span className="w-2 h-2 rounded-full bg-[#E0A898]" /> 2 present
                 </span>
                 <span className="flex items-center gap-1.5 font-medium">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#8DBFB4]" /> 2 shifting
+                  <span className="w-2 h-2 rounded-full bg-[#8DBFB4]" /> 2 shifting
                 </span>
                 <span className="flex items-center gap-1.5 font-medium">
-                  <span className="w-2.5 h-2.5 rounded-full bg-primary/20 border border-primary/30" /> 2 gone quiet
+                  <span className="w-2.5 h-2.5 rounded bg-primary/20 border border-primary/30" /> 2 gone quiet
                 </span>
               </div>
             </div>
 
             {/* Pattern Lists */}
-            <div className="space-y-4">
-              <div className="text-[10.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">Present this cycle</div>
+            <div className="space-y-3.5">
+              <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">Present this cycle</div>
               {patternList.filter(p => p.badge.includes('Present') || p.badge.includes('New')).map(p => (
                 <div 
                   key={p.id}
                   onClick={() => handleOpenPattern(p.id)}
-                  className="bg-white border border-[#1E2A2E]/8 rounded-xl p-5 cursor-pointer hover:shadow-md hover:border-[#1E2A2E]/15 transition-all relative overflow-hidden pl-6 group"
+                  className="bg-white border border-[#1E2A2E]/8 rounded-xl p-4 cursor-pointer hover:shadow-md hover:border-[#1E2A2E]/15 transition-all relative overflow-hidden pl-5 group"
                 >
                   <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent" />
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-[15px] font-bold text-primary group-hover:text-[#E0A898] transition-colors">{p.name}</h3>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${p.badgeClass}`}>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <h3 className="text-[14px] font-bold text-primary group-hover:text-[#E0A898] transition-colors">{p.name}</h3>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-semibold ${p.badgeClass}`}>
                       {p.badge}
                     </span>
                   </div>
-                  <p className="text-[12.5px] text-[#4A6A64] leading-relaxed mb-4">{p.body}</p>
+                  <p className="text-[12px] text-[#4A6A64] leading-relaxed mb-3">{p.body}</p>
                   
                   {/* Across 12 cycles timeline preview */}
-                  <div className="space-y-1.5 mb-3">
-                    <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across 12 cycles</div>
+                  <div className="space-y-1 mb-2.5">
+                    <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across 12 cycles</div>
                     <div className="flex gap-2">
                       {p.timeline.map((s, idx) => (
                         <div key={idx} className="flex flex-col items-center">
-                          <div className={`w-3.5 h-3.5 rounded-full ${dotLabels[s]}`} />
+                          <div className={`w-3 h-3 rounded-full ${dotLabels[s]}`} />
                           <span className="text-[8px] font-mono text-mid/60 mt-0.5">{idx + 1}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center text-[11px] text-mid border-t border-[#1E2A2E]/5 pt-3 mt-3">
+                  <div className="flex justify-between items-center text-[10.5px] text-mid border-t border-[#1E2A2E]/5 pt-2.5 mt-2.5">
                     <span>{p.meta}</span>
                     <span className="font-semibold text-primary flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
                       See history <ArrowLeft size={11} className="rotate-180" />
@@ -399,36 +399,36 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                 </div>
               ))}
 
-              <div className="text-[10.5px] font-bold tracking-widest text-[#8DBFB4] uppercase pt-2">Shifting</div>
+              <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase pt-1">Shifting</div>
               {patternList.filter(p => p.badge === 'Shifting').map(p => (
                 <div 
                   key={p.id}
                   onClick={() => handleOpenPattern(p.id)}
-                  className="bg-white border border-[#1E2A2E]/8 rounded-xl p-5 cursor-pointer hover:shadow-md hover:border-[#1E2A2E]/15 transition-all relative overflow-hidden pl-6 group"
+                  className="bg-white border border-[#1E2A2E]/8 rounded-xl p-4 cursor-pointer hover:shadow-md hover:border-[#1E2A2E]/15 transition-all relative overflow-hidden pl-5 group"
                 >
                   <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-secondary" />
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-[15px] font-bold text-primary group-hover:text-[#2E7A70] transition-colors">{p.name}</h3>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${p.badgeClass}`}>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <h3 className="text-[14px] font-bold text-primary group-hover:text-[#2E7A70] transition-colors">{p.name}</h3>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-semibold ${p.badgeClass}`}>
                       {p.badge}
                     </span>
                   </div>
-                  <p className="text-[12.5px] text-[#4A6A64] leading-relaxed mb-4">{p.body}</p>
+                  <p className="text-[12px] text-[#4A6A64] leading-relaxed mb-3">{p.body}</p>
                   
                   {/* Timeline preview */}
-                  <div className="space-y-1.5 mb-3">
-                    <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across 12 cycles</div>
+                  <div className="space-y-1 mb-2.5">
+                    <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across 12 cycles</div>
                     <div className="flex gap-2">
                       {p.timeline.map((s, idx) => (
                         <div key={idx} className="flex flex-col items-center">
-                          <div className={`w-3.5 h-3.5 rounded-full ${dotLabels[s]}`} />
+                          <div className={`w-3 h-3 rounded-full ${dotLabels[s]}`} />
                           <span className="text-[8px] font-mono text-mid/60 mt-0.5">{idx + 1}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center text-[11px] text-mid border-t border-[#1E2A2E]/5 pt-3 mt-3">
+                  <div className="flex justify-between items-center text-[10.5px] text-mid border-t border-[#1E2A2E]/5 pt-2.5 mt-2.5">
                     <span>{p.meta}</span>
                     <span className="font-semibold text-primary flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
                       See history <ArrowLeft size={11} className="rotate-180" />
@@ -437,36 +437,36 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                 </div>
               ))}
 
-              <div className="text-[10.5px] font-bold tracking-widest text-[#8DBFB4] uppercase pt-2">Gone quiet</div>
+              <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase pt-1">Gone quiet</div>
               {patternList.filter(p => p.badge === 'Gone quiet').map(p => (
                 <div 
                   key={p.id}
                   onClick={() => handleOpenPattern(p.id)}
-                  className="bg-white border border-[#1E2A2E]/8 rounded-xl p-5 cursor-pointer hover:shadow-md hover:border-[#1E2A2E]/15 transition-all relative overflow-hidden pl-6 group opacity-85"
+                  className="bg-white border border-[#1E2A2E]/8 rounded-xl p-4 cursor-pointer hover:shadow-md hover:border-[#1E2A2E]/15 transition-all relative overflow-hidden pl-5 group opacity-85"
                 >
                   <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-primary/20" />
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-[15px] font-bold text-primary group-hover:text-primary transition-colors">{p.name}</h3>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${p.badgeClass}`}>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <h3 className="text-[14px] font-bold text-primary group-hover:text-primary transition-colors">{p.name}</h3>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-semibold ${p.badgeClass}`}>
                       {p.badge}
                     </span>
                   </div>
-                  <p className="text-[12.5px] text-[#4A6A64] leading-relaxed mb-4">{p.body}</p>
+                  <p className="text-[12px] text-[#4A6A64] leading-relaxed mb-3">{p.body}</p>
                   
                   {/* Timeline preview */}
-                  <div className="space-y-1.5 mb-3">
-                    <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across 12 cycles</div>
+                  <div className="space-y-1 mb-2.5">
+                    <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across 12 cycles</div>
                     <div className="flex gap-2">
                       {p.timeline.map((s, idx) => (
                         <div key={idx} className="flex flex-col items-center">
-                          <div className={`w-3.5 h-3.5 rounded-full ${dotLabels[s]}`} />
+                          <div className={`w-3 h-3 rounded-full ${dotLabels[s]}`} />
                           <span className="text-[8px] font-mono text-mid/60 mt-0.5">{idx + 1}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center text-[11px] text-mid border-t border-[#1E2A2E]/5 pt-3 mt-3">
+                  <div className="flex justify-between items-center text-[10.5px] text-mid border-t border-[#1E2A2E]/5 pt-2.5 mt-2.5">
                     <span>{p.meta}</span>
                     <span className="font-semibold text-primary flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
                       See history <ArrowLeft size={11} className="rotate-180" />
@@ -480,7 +480,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
 
         {/* Pattern Detail Screen */}
         {viewState === 'detail' && activePatternId && (
-          <div className="space-y-6 max-w-[620px] mx-auto page-fade-enter-active">
+          <div className="space-y-4 max-w-[620px] mx-auto page-fade-enter-active">
             <button 
               onClick={() => setViewState('list')}
               className="flex items-center gap-2 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors cursor-pointer border-none bg-transparent"
@@ -489,43 +489,43 @@ export default function PatternsPage({ user, profile, onSignOut }) {
             </button>
 
             {/* Pattern Card Header */}
-            <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-xs space-y-3">
+            <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-4 shadow-xs space-y-2.5">
               <div className="flex justify-between items-start">
-                <h2 className="font-serif text-[20px] text-primary">{patternList.find(p => p.id === activePatternId).name}</h2>
-                <span className={`px-2.5 py-0.5 rounded text-[10px] font-semibold ${patternList.find(p => p.id === activePatternId).badgeClass}`}>
+                <h2 className="font-serif text-lg text-primary">{patternList.find(p => p.id === activePatternId).name}</h2>
+                <span className={`px-2 py-0.5 rounded text-[9px] font-semibold ${patternList.find(p => p.id === activePatternId).badgeClass}`}>
                   {patternList.find(p => p.id === activePatternId).badge}
                 </span>
               </div>
-              <p className="text-[13px] text-mid leading-relaxed">
+              <p className="text-[12.5px] text-mid leading-relaxed">
                 {patternList.find(p => p.id === activePatternId).body}
               </p>
-              <div className="text-[11px] text-[#8DBFB4] border-t border-[#1E2A2E]/5 pt-3 font-medium">
+              <div className="text-[10.5px] text-[#8DBFB4] border-t border-[#1E2A2E]/5 pt-2.5 font-medium">
                 {patternList.find(p => p.id === activePatternId).meta}
               </div>
             </div>
 
             {/* Orientation */}
-            <div className="bg-white border border-[#1E2A2E]/5 p-5 rounded-xl border-l-[2.5px] border-l-[#E0A898] space-y-1 font-serif text-[14.5px] text-[#1E2A2E] italic leading-relaxed">
+            <div className="bg-white border border-[#1E2A2E]/5 p-4 rounded-xl border-l-[2.5px] border-l-[#E0A898] space-y-1 font-serif text-[14px] text-[#1E2A2E] italic leading-relaxed">
               {patternDetails[activePatternId].orientation}
             </div>
 
             {/* Connection panel */}
             {patternDetails[activePatternId].connected && (
-              <div className="bg-white border border-[#B8A8D4]/25 rounded-xl p-5 flex gap-3 shadow-xs">
-                <div className="w-8 h-8 rounded-lg bg-[#B8A8D4]/10 text-[#5A4A8A] flex items-center justify-center shrink-0 mt-0.5">
-                  <Link2 size={16} />
+              <div className="bg-white border border-[#B8A8D4]/25 rounded-xl p-4 flex gap-2.5 shadow-xs">
+                <div className="w-7 h-7 rounded-lg bg-[#B8A8D4]/10 text-[#5A4A8A] flex items-center justify-center shrink-0 mt-0.5">
+                  <Link2 size={14} />
                 </div>
-                <div className="space-y-2">
-                  <div className="text-[10px] tracking-wider uppercase text-[#7A6A9E] font-bold">May be connected</div>
-                  <p className="text-[12.5px] text-primary leading-relaxed">
+                <div className="space-y-1.5">
+                  <div className="text-[9px] tracking-wider uppercase text-[#7A6A9E] font-bold">May be connected</div>
+                  <p className="text-[12px] text-primary leading-relaxed">
                     {patternDetails[activePatternId].connectedBody}
                   </p>
-                  <div className="flex gap-2 flex-wrap pt-1">
+                  <div className="flex gap-2 flex-wrap pt-0.5">
                     {patternDetails[activePatternId].connectedLinks.map(link => (
                       <button 
                         key={link.id}
                         onClick={() => handleOpenPattern(link.id)}
-                        className="px-3 py-1 rounded-full bg-[#B8A8D4]/10 text-[#5A4A8A] border border-[#B8A8D4]/20 text-[11px] font-semibold hover:bg-[#B8A8D4]/20 transition-all cursor-pointer"
+                        className="px-2.5 py-0.5 rounded-full bg-[#B8A8D4]/10 text-[#5A4A8A] border border-[#B8A8D4]/20 text-[10.5px] font-semibold hover:bg-[#B8A8D4]/20 transition-all cursor-pointer"
                       >
                         {link.label} →
                       </button>
@@ -536,11 +536,11 @@ export default function PatternsPage({ user, profile, onSignOut }) {
             )}
 
             {/* Interactive timeline dots */}
-            <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-xs space-y-4">
-              <div className="text-[10px] tracking-wider uppercase text-[#8DBFB4] font-bold">
+            <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-4 shadow-xs space-y-3">
+              <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">
                 How it has moved — tap a cycle to jump to it
               </div>
-              <div className="overflow-x-auto pb-2 no-scrollbar">
+              <div className="overflow-x-auto pb-1.5 no-scrollbar">
                 <div className="flex min-w-max">
                   {dotDefs[activePatternId].map((s, idx) => {
                     const cycleNumber = idx + 1;
@@ -570,10 +570,10 @@ export default function PatternsPage({ user, profile, onSignOut }) {
               </div>
 
               {/* Legend */}
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[9.5px] text-[#4A6A64] border-t border-[#1E2A2E]/5 pt-3">
+              <div className="flex flex-wrap gap-x-3.5 gap-y-1.5 text-[9px] text-[#4A6A64] border-t border-[#1E2A2E]/5 pt-2.5">
                 {legendItems.map((item, idx) => (
                   <div key={idx} className="flex items-center gap-1.5">
-                    <div className={`w-2 h-2 rounded-full ${item.color} ${item.color.includes('border') ? '' : ''}`} />
+                    <div className={`w-2 h-2 rounded-full ${item.color}`} />
                     <span>{item.label}</span>
                   </div>
                 ))}
@@ -581,11 +581,11 @@ export default function PatternsPage({ user, profile, onSignOut }) {
             </div>
 
             {/* Cycle details list */}
-            <div className="space-y-4">
-              <div className="text-[10px] tracking-wider uppercase text-[#8DBFB4] font-bold">
+            <div className="space-y-3">
+              <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">
                 Cycle by cycle — all 12
               </div>
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {Object.keys(patternDetails[activePatternId].cycleData)
                   .map(Number)
                   .sort((a, b) => b - a)
@@ -604,36 +604,36 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                       >
                         <div 
                           onClick={() => !isAbsent && toggleCycleCard(idx)}
-                          className={`flex items-center justify-between p-4 transition-colors ${isAbsent ? 'cursor-default' : 'cursor-pointer hover:bg-[#F5F8F8]'}`}
+                          className={`flex items-center justify-between p-3.5 transition-colors ${isAbsent ? 'cursor-default' : 'cursor-pointer hover:bg-[#F5F8F8]'}`}
                         >
                           <div className="flex items-center gap-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${isCur ? 'bg-[#e0a898]/12 text-[#8a3020]' : 'bg-mint-grey text-primary'}`}>
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-semibold ${isCur ? 'bg-[#e0a898]/12 text-[#8a3020]' : 'bg-mint-grey text-primary'}`}>
                               {isCur ? 'Current' : 'Done'}
                             </span>
-                            <span className="text-[13.5px] font-bold text-primary">Cycle {cycleNum}</span>
+                            <span className="text-[13px] font-bold text-primary">Cycle {cycleNum}</span>
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${dotLabels[timelineStatus]}`}>
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-semibold uppercase ${dotLabels[timelineStatus]}`}>
                               {timelineStatus === 'newdot' ? 'New' : timelineStatus === 'strong' ? 'Strong' : timelineStatus === 'shifting' ? 'Shifting' : timelineStatus === 'returned' ? 'Returned' : timelineStatus === 'quiet' ? 'Quiet' : 'Not present'}
                             </span>
                             {!isAbsent && (
-                              <ChevronDown size={15} className={`text-mid transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                              <ChevronDown size={14} className={`text-mid transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                             )}
                           </div>
                         </div>
 
                         {isExpanded && !isAbsent && (
-                          <div className="border-t border-[#1E2A2E]/5 p-5 bg-[#FAFBFB] space-y-4">
-                            <div className="text-[13px] text-mid leading-relaxed italic">
+                          <div className="border-t border-[#1E2A2E]/5 p-4 bg-[#FAFBFB] space-y-3">
+                            <div className="text-[12.5px] text-mid leading-relaxed italic">
                               "{cd.obs}"
                             </div>
                             
                             {cd.entries.length > 0 && (
-                              <div className="space-y-3 border-t border-[#1E2A2E]/5 pt-4">
-                                <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">From the entries</div>
+                              <div className="space-y-2.5 border-t border-[#1E2A2E]/5 pt-3">
+                                <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">From the entries</div>
                                 {cd.entries.map((ent, entIdx) => (
-                                  <div key={entIdx} className="bg-white border border-[#1E2A2E]/5 p-4 rounded-lg space-y-1">
-                                    <p className="text-[13px] text-[#1E2A2E] italic leading-relaxed font-serif">
+                                  <div key={entIdx} className="bg-white border border-[#1E2A2E]/5 p-3.5 rounded-lg space-y-1">
+                                    <p className="text-[12.5px] text-[#1E2A2E] italic leading-relaxed font-serif">
                                       {ent.t}
                                     </p>
                                     <div className="text-[10px] text-[#C0D4CE]">{ent.m}</div>
@@ -645,7 +645,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                         )}
 
                         {isAbsent && (
-                          <div className="border-t border-[#1E2A2E]/5 px-5 py-3 bg-[#FAFBFB] text-xs text-[#8DBFB4] italic">
+                          <div className="border-t border-[#1E2A2E]/5 px-4 py-2.5 bg-[#FAFBFB] text-xs text-[#8DBFB4] italic">
                             {cd.obs}
                           </div>
                         )}

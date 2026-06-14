@@ -98,9 +98,9 @@ export default function ReportsPage({ user, profile, onSignOut }) {
     <div className="min-h-screen bg-mint-grey text-primary font-sans relative pb-20">
       <DashboardNavbar activeTab="reports" />
 
-      <main className="max-w-[680px] mx-auto px-6 pt-8">
+      <main className="max-w-[680px] mx-auto px-6 pt-6">
         {viewState === 'list' && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <button 
               onClick={() => window.navigateTo('/dashboard')}
               className="flex items-center gap-2 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors cursor-pointer border-none bg-transparent"
@@ -109,11 +109,11 @@ export default function ReportsPage({ user, profile, onSignOut }) {
             </button>
 
             <div>
-              <h1 className="font-serif text-[24px] text-primary mb-1">Reports</h1>
-              <p className="text-[13px] text-mid">Your reports and summaries — organised by cycle.</p>
+              <h1 className="font-serif text-[22px] text-primary mb-0.5">Reports</h1>
+              <p className="text-xs text-mid">Your reports and summaries — organised by cycle.</p>
             </div>
 
-            <div className="flex gap-3 text-[12.5px] text-[#4A6A64] pb-2 border-b border-[#1E2A2E]/5">
+            <div className="flex gap-3 text-[12px] text-[#4A6A64] pb-1.5 border-b border-[#1E2A2E]/5">
               <span><strong className="text-primary">2</strong> cycles</span>
               <span>·</span>
               <span><strong className="text-primary">1</strong> Day 28 report</span>
@@ -125,14 +125,14 @@ export default function ReportsPage({ user, profile, onSignOut }) {
             <div className="bg-white border border-[#1E2A2E]/10 rounded-xl overflow-hidden shadow-xs">
               <div 
                 onClick={() => setC2Open(!c2Open)}
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-[#F5F8F8] transition-colors"
+                className="flex items-center justify-between p-3.5 cursor-pointer hover:bg-[#F5F8F8] transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#e0a898]/15 text-[#8a3020]">
                     Current
                   </span>
                   <div>
-                    <div className="text-[14px] font-semibold">Cycle 2</div>
+                    <div className="text-[13.5px] font-semibold">Cycle 2</div>
                     <div className="text-[11px] text-[#8DBFB4] mt-0.5">4 Jun – 1 Jul 2026</div>
                   </div>
                 </div>
@@ -144,10 +144,10 @@ export default function ReportsPage({ user, profile, onSignOut }) {
 
               {c2Open && (
                 <div className="border-t border-[#1E2A2E]/5 bg-[#FAFBFB] divide-y divide-[#1E2A2E]/5">
-                  <div className="px-4 py-2 bg-[#F5F8F8] text-[10px] font-bold tracking-widest text-[#8DBFB4] uppercase">
+                  <div className="px-3.5 py-1.5 bg-[#F5F8F8] text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">
                     Day 28 report
                   </div>
-                  <div className="p-4 flex items-center justify-between bg-white text-mid">
+                  <div className="p-3.5 flex items-center justify-between bg-white text-mid">
                     <div className="flex items-center gap-3">
                       <span className="w-8 h-8 rounded-lg bg-mint-grey flex items-center justify-center text-[#8DBFB4]">
                         <Lock size={14} />
@@ -165,12 +165,12 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                     </div>
                   </div>
 
-                  <div className="px-4 py-2 bg-[#F5F8F8] text-[10px] font-bold tracking-widest text-[#8DBFB4] uppercase">
+                  <div className="px-3.5 py-1.5 bg-[#F5F8F8] text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">
                     Weekly summaries
                   </div>
                   <div 
                     onClick={() => handleOpenSummary('c2w2')}
-                    className="p-4 flex items-center justify-between hover:bg-[#F5F8F8]/60 cursor-pointer bg-white transition-colors group"
+                    className="p-3.5 flex items-center justify-between hover:bg-[#F5F8F8]/60 cursor-pointer bg-white transition-colors group"
                   >
                     <div className="flex items-center gap-3">
                       <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#e0a898]/15 text-[#8a3020]">
@@ -193,7 +193,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
 
                   <div 
                     onClick={() => handleOpenSummary('c2w1')}
-                    className="p-4 flex items-center justify-between hover:bg-[#F5F8F8]/60 cursor-pointer bg-white transition-colors group"
+                    className="p-3.5 flex items-center justify-between hover:bg-[#F5F8F8]/60 cursor-pointer bg-white transition-colors group"
                   >
                     <div className="flex items-center gap-3">
                       <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#8DBFB4]/12 text-[#1A5040]">
@@ -221,14 +221,14 @@ export default function ReportsPage({ user, profile, onSignOut }) {
             <div className="bg-white border border-[#1E2A2E]/10 rounded-xl overflow-hidden shadow-xs">
               <div 
                 onClick={() => setC1Open(!c1Open)}
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-[#F5F8F8] transition-colors"
+                className="flex items-center justify-between p-3.5 cursor-pointer hover:bg-[#F5F8F8] transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#8DBFB4]/12 text-[#1A5040]">
                     Completed
                   </span>
                   <div>
-                    <div className="text-[14px] font-semibold">Cycle 1</div>
+                    <div className="text-[13.5px] font-semibold">Cycle 1</div>
                     <div className="text-[11px] text-[#8DBFB4] mt-0.5">7 May – 3 Jun 2026</div>
                   </div>
                 </div>
@@ -240,12 +240,12 @@ export default function ReportsPage({ user, profile, onSignOut }) {
 
               {c1Open && (
                 <div className="border-t border-[#1E2A2E]/5 bg-[#FAFBFB] divide-y divide-[#1E2A2E]/5">
-                  <div className="px-4 py-2 bg-[#F5F8F8] text-[10px] font-bold tracking-widest text-[#8DBFB4] uppercase">
+                  <div className="px-3.5 py-1.5 bg-[#F5F8F8] text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">
                     Day 28 report
                   </div>
                   <div 
                     onClick={() => setViewState('report')}
-                    className="p-4 flex items-center justify-between hover:bg-[#F5F8F8]/60 cursor-pointer bg-white transition-colors group"
+                    className="p-3.5 flex items-center justify-between hover:bg-[#F5F8F8]/60 cursor-pointer bg-white transition-colors group"
                   >
                     <div className="flex items-center gap-3">
                       <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#e0a898]/15 text-[#8a3020]">
@@ -266,12 +266,12 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                     </div>
                   </div>
 
-                  <div className="px-4 py-2 bg-[#F5F8F8] text-[10px] font-bold tracking-widest text-[#8DBFB4] uppercase">
+                  <div className="px-3.5 py-1.5 bg-[#F5F8F8] text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">
                     Weekly summaries
                   </div>
                   <div 
                     onClick={() => handleOpenSummary('c1w3')}
-                    className="p-4 flex items-center justify-between hover:bg-[#F5F8F8]/60 cursor-pointer bg-white transition-colors group"
+                    className="p-3.5 flex items-center justify-between hover:bg-[#F5F8F8]/60 cursor-pointer bg-white transition-colors group"
                   >
                     <div className="flex items-center gap-3">
                       <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-mint-grey text-primary">
@@ -294,7 +294,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
 
                   <div 
                     onClick={() => handleOpenSummary('c1w2')}
-                    className="p-4 flex items-center justify-between hover:bg-[#F5F8F8]/60 cursor-pointer bg-white transition-colors group"
+                    className="p-3.5 flex items-center justify-between hover:bg-[#F5F8F8]/60 cursor-pointer bg-white transition-colors group"
                   >
                     <div className="flex items-center gap-3">
                       <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-mint-grey text-primary">
@@ -317,7 +317,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
 
                   <div 
                     onClick={() => handleOpenSummary('c1w1')}
-                    className="p-4 flex items-center justify-between hover:bg-[#F5F8F8]/60 cursor-pointer bg-white transition-colors group"
+                    className="p-3.5 flex items-center justify-between hover:bg-[#F5F8F8]/60 cursor-pointer bg-white transition-colors group"
                   >
                     <div className="flex items-center gap-3">
                       <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-mint-grey text-primary">
@@ -343,9 +343,10 @@ export default function ReportsPage({ user, profile, onSignOut }) {
           </div>
         )}
 
+
         {/* Weekly Summary Detail Screen */}
         {viewState === 'summary' && selectedSummaryId && (
-          <div className="space-y-6 max-w-[620px] mx-auto page-fade-enter-active">
+          <div className="space-y-4 max-w-[620px] mx-auto page-fade-enter-active">
             <button 
               onClick={() => setViewState('list')}
               className="flex items-center gap-2 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors cursor-pointer border-none bg-transparent"
@@ -353,41 +354,41 @@ export default function ReportsPage({ user, profile, onSignOut }) {
               <ArrowLeft size={14} /> Back to reports
             </button>
 
-            <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 flex flex-col justify-between shadow-xs">
-              <div className="space-y-2">
-                <div className="text-[10px] tracking-wider uppercase text-[#8DBFB4] font-bold">
+            <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-4 flex flex-col justify-between shadow-xs">
+              <div className="space-y-1.5">
+                <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">
                   {summaryData[selectedSummaryId].cycle}
                 </div>
-                <h2 className="font-serif text-[20px] text-primary">{summaryData[selectedSummaryId].title}</h2>
-                <p className="text-[12px] text-mid">{summaryData[selectedSummaryId].meta}</p>
+                <h2 className="font-serif text-lg text-primary">{summaryData[selectedSummaryId].title}</h2>
+                <p className="text-[11.5px] text-mid">{summaryData[selectedSummaryId].meta}</p>
               </div>
               <button 
                 onClick={downloadPdf}
-                className="mt-4 px-4 py-2 border border-[#1E2A2E]/12 rounded text-xs font-semibold hover:bg-mint-grey transition-all w-fit cursor-pointer flex items-center gap-1.5"
+                className="mt-3 px-3.5 py-1.5 border border-[#1E2A2E]/12 rounded text-xs font-semibold hover:bg-mint-grey transition-all w-fit cursor-pointer flex items-center gap-1.5"
               >
-                <Download size={14} /> Save PDF
+                <Download size={13} /> Save PDF
               </button>
             </div>
 
-            <div className="space-y-3">
-              <div className="text-[10px] tracking-wider uppercase text-[#8DBFB4] font-bold">What we saw</div>
-              <p className="text-[14px] text-primary leading-relaxed font-serif bg-white border border-[#1E2A2E]/5 p-5 rounded-xl">
+            <div className="space-y-2">
+              <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">What we saw</div>
+              <p className="text-[13.5px] text-primary leading-relaxed font-serif bg-white border border-[#1E2A2E]/5 p-4 rounded-xl">
                 {summaryData[selectedSummaryId].body}
               </p>
             </div>
 
-            <div className="space-y-3">
-              <div className="text-[10px] tracking-wider uppercase text-[#8DBFB4] font-bold">Why this matters</div>
-              <p className="text-[14px] text-primary leading-relaxed font-serif bg-white border border-[#1E2A2E]/5 p-5 rounded-xl">
+            <div className="space-y-2">
+              <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">Why this matters</div>
+              <p className="text-[13.5px] text-primary leading-relaxed font-serif bg-white border border-[#1E2A2E]/5 p-4 rounded-xl">
                 {summaryData[selectedSummaryId].why}
               </p>
             </div>
 
-            <div className="space-y-3">
-              <div className="text-[10px] tracking-wider uppercase text-[#8DBFB4] font-bold">Emotion language this week</div>
-              <div className="bg-white border border-[#1E2A2E]/5 p-5 rounded-xl space-y-3">
+            <div className="space-y-2">
+              <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">Emotion language this week</div>
+              <div className="bg-white border border-[#1E2A2E]/5 p-4 rounded-xl space-y-2.5">
                 {summaryData[selectedSummaryId].emos.map((e, index) => (
-                  <div key={index} className="flex items-center justify-between pb-3 border-b border-[#1E2A2E]/5 last:border-b-0 last:pb-0">
+                  <div key={index} className="flex items-center justify-between pb-2.5 border-b border-[#1E2A2E]/5 last:border-b-0 last:pb-0">
                     <div className="flex items-center gap-2">
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#e0a898]/12 text-[#8a3020] border border-[#e0a898]/20">
                         {e.w}
@@ -409,9 +410,9 @@ export default function ReportsPage({ user, profile, onSignOut }) {
               </div>
             </div>
 
-            <div className="bg-[#FAF4F2] border border-[#e0a898]/25 rounded-xl p-5 space-y-2">
-              <div className="text-[10px] tracking-wider uppercase text-[#E0A898] font-bold">Carry into next week</div>
-              <p className="text-[16.5px] text-[#B87060] italic font-serif leading-relaxed">
+            <div className="bg-[#FAF4F2] border border-[#e0a898]/25 rounded-xl p-4 space-y-1.5">
+              <div className="text-[9px] tracking-wider uppercase text-[#E0A898] font-bold">Carry into next week</div>
+              <p className="text-[15.5px] text-[#B87060] italic font-serif leading-relaxed">
                 "{summaryData[selectedSummaryId].q}"
               </p>
             </div>
@@ -420,7 +421,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
 
         {/* Day 28 Report Reading View */}
         {viewState === 'report' && (
-          <div className="space-y-6 max-w-[620px] mx-auto page-fade-enter-active">
+          <div className="space-y-4 max-w-[620px] mx-auto page-fade-enter-active">
             <button 
               onClick={() => setViewState('list')}
               className="flex items-center gap-2 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors cursor-pointer border-none bg-transparent"
@@ -428,97 +429,97 @@ export default function ReportsPage({ user, profile, onSignOut }) {
               <ArrowLeft size={14} /> Back to reports
             </button>
 
-            <div className="bg-[#1E2A2E] border-none text-white rounded-xl p-6 flex flex-col justify-between shadow-md">
-              <div className="space-y-2">
-                <div className="text-[10px] tracking-wider uppercase text-[#8DBFB4] font-bold">
+            <div className="bg-[#1E2A2E] border-none text-white rounded-xl p-4.5 flex flex-col justify-between shadow-md">
+              <div className="space-y-1.5">
+                <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">
                   Cycle 1 · Day 28 report · Generated 3 Jun 2026
                 </div>
-                <h2 className="font-serif text-[21px] text-white leading-snug">28 days of honest writing — here is what it showed.</h2>
-                <p className="text-[12px] text-[#5A8A84]">28 entries · 1 exercise · 3 weekly summaries</p>
+                <h2 className="font-serif text-lg text-white leading-snug">28 days of honest writing — here is what it showed.</h2>
+                <p className="text-[11.5px] text-[#5A8A84]">28 entries · 1 exercise · 3 weekly summaries</p>
               </div>
               <button 
                 onClick={downloadPdf}
-                className="mt-4 px-4 py-2 border border-white/15 rounded text-xs font-semibold bg-white/8 hover:bg-white/15 transition-all text-white w-fit cursor-pointer flex items-center gap-1.5"
+                className="mt-3 px-3.5 py-1.5 border border-white/15 rounded text-xs font-semibold bg-white/8 hover:bg-white/15 transition-all text-white w-fit cursor-pointer flex items-center gap-1.5"
               >
-                <Download size={14} /> Save PDF
+                <Download size={13} /> Save PDF
               </button>
             </div>
 
-            <div className="space-y-3">
-              <div className="text-[10px] tracking-wider uppercase text-[#8DBFB4] font-bold">What this cycle showed</div>
-              <p className="text-[15.5px] text-[#1E2A2E] leading-loose font-serif bg-white border border-[#1E2A2E]/5 p-6 rounded-xl">
+            <div className="space-y-2">
+              <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">What this cycle showed</div>
+              <p className="text-[14.5px] text-[#1E2A2E] leading-relaxed font-serif bg-white border border-[#1E2A2E]/5 p-4.5 rounded-xl">
                 You came into this cycle carrying something you had been describing as tiredness. By the end of it, the picture was more specific — it wasn't energy that was depleted, it was the ongoing effort of managing situations without naming them. The avoidance wasn't laziness. It was a well-worn adaptation that had outlasted its usefulness. The moment that mattered most came on Day 27, when you stopped describing the situation and started describing yourself in it.
               </p>
             </div>
 
-            <div className="space-y-4">
-              <div className="text-[10px] tracking-wider uppercase text-[#8DBFB4] font-bold">Patterns this cycle</div>
-              <div className="bg-white border border-[#1E2A2E]/5 rounded-xl divide-y divide-[#1E2A2E]/5 p-5 space-y-4">
-                <div className="space-y-1.5 pb-4 last:pb-0 first:pt-0">
+            <div className="space-y-3">
+              <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">Patterns this cycle</div>
+              <div className="bg-white border border-[#1E2A2E]/5 rounded-xl divide-y divide-[#1E2A2E]/5 p-4 space-y-3">
+                <div className="space-y-1 pb-3 last:pb-0 first:pt-0">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-accent" />
-                    <span className="text-[14px] font-semibold text-primary">Avoidance</span>
+                    <span className="text-[13px] font-semibold text-primary">Avoidance</span>
                     <span className="px-2 py-0.5 rounded text-[9px] font-semibold bg-[#e0a898]/12 text-[#8a3020] border border-[#e0a898]/20">
                       Strong · present throughout
                     </span>
                   </div>
-                  <p className="text-[12.5px] text-[#4A6A64] pl-4 leading-relaxed">
+                  <p className="text-[12px] text-[#4A6A64] pl-4 leading-relaxed">
                     Dominant pattern. Showed up in workplace situations, family interactions, recurring conversations — naming outcomes but not what you did while they were happening.
                   </p>
                 </div>
 
-                <div className="space-y-1.5 pt-4 pb-4 last:pb-0">
+                <div className="space-y-1 pt-3 pb-3 last:pb-0">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-[#B8A8D4]" />
-                    <span className="text-[14px] font-semibold text-primary">Self-agency</span>
+                    <span className="text-[13px] font-semibold text-primary">Self-agency</span>
                     <span className="px-2 py-0.5 rounded text-[9px] font-semibold bg-[#B8A8D4]/15 text-[#5A4A8A] border border-[#B8A8D4]/20">
                       Low · starting to shift
                     </span>
                   </div>
-                  <p className="text-[12.5px] text-[#4A6A64] pl-4 leading-relaxed">
+                  <p className="text-[12px] text-[#4A6A64] pl-4 leading-relaxed">
                     Most situations described as things happening to you. By Day 25 this started to change — three entries in the final week described your own response as something you could have done differently.
                   </p>
                 </div>
 
-                <div className="space-y-1.5 pt-4 last:pb-0 last:border-b-0">
+                <div className="space-y-1 pt-3 last:pb-0 last:border-b-0">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-[#8DBFB4]" />
-                    <span className="text-[14px] font-semibold text-primary">Emotional range</span>
+                    <span className="text-[13px] font-semibold text-primary">Emotional range</span>
                     <span className="px-2 py-0.5 rounded text-[9px] font-semibold bg-[#8DBFB4]/12 text-[#1A5040] border border-[#8DBFB4]/20">
                       Narrow
                     </span>
                   </div>
-                  <p className="text-[12.5px] text-[#4A6A64] pl-4 leading-relaxed">
+                  <p className="text-[12px] text-[#4A6A64] pl-4 leading-relaxed">
                     28 entries and the vocabulary stayed in a narrow band. Notably absent: anything in the anger family, anything in the grief family.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="text-[10px] tracking-wider uppercase text-[#8DBFB4] font-bold">How this cycle scored</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2.5">
+              <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">How this cycle scored</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 {dimensions.map((d, index) => (
-                  <div key={index} className="bg-white border border-[#1E2A2E]/8 p-5 rounded-xl space-y-3 flex flex-col justify-between">
-                    <div className="space-y-1.5">
-                      <div className="text-[9px] tracking-wider uppercase text-[#4A6A64] font-bold">{d.label}</div>
+                  <div key={index} className="bg-white border border-[#1E2A2E]/8 p-4 rounded-xl space-y-2 flex flex-col justify-between">
+                    <div className="space-y-1">
+                      <div className="text-[8px] tracking-wider uppercase text-[#4A6A64] font-bold">{d.label}</div>
                       <div className="w-full h-1 bg-mint-grey rounded overflow-hidden">
                         <div className={`h-full ${d.color}`} style={{ width: d.fill }} />
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <div className="text-[15px] font-bold text-primary font-mono">{d.val}</div>
-                      <div className="text-[11.5px] text-[#4A6A64] leading-relaxed">{d.desc}</div>
+                    <div className="space-y-0.5">
+                      <div className="text-[14px] font-bold text-primary font-mono">{d.val}</div>
+                      <div className="text-[11px] text-[#4A6A64] leading-relaxed">{d.desc}</div>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="text-[10px] tracking-wider uppercase text-[#8DBFB4] font-bold">Emotional vocabulary this cycle</div>
-              <div className="bg-white border border-[#1E2A2E]/5 rounded-xl p-5 space-y-3">
-                <div className="space-y-2">
+            <div className="space-y-2.5">
+              <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">Emotional vocabulary this cycle</div>
+              <div className="bg-white border border-[#1E2A2E]/5 rounded-xl p-4 space-y-2.5">
+                <div className="space-y-1.5">
                   <div className="flex justify-between text-xs text-primary font-medium">
                     <span>fine</span>
                     <span className="font-mono">12×</span>
@@ -528,7 +529,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <div className="flex justify-between text-xs text-primary font-medium">
                     <span>tired</span>
                     <span className="font-mono">10×</span>
@@ -538,7 +539,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <div className="flex justify-between text-xs text-primary font-medium">
                     <span>frustrated</span>
                     <span className="font-mono">8×</span>
@@ -548,7 +549,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <div className="flex justify-between text-xs text-primary font-medium">
                     <span>stressed</span>
                     <span className="font-mono">6×</span>
@@ -558,19 +559,19 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                   </div>
                 </div>
 
-                <div className="bg-[#B8A8D4]/5 border-l-[2.5px] border-[#B8A8D4] p-4 text-[13px] text-[#1E2A2E] italic font-serif leading-relaxed mt-4 rounded-r-lg">
+                <div className="bg-[#B8A8D4]/5 border-l-[2.5px] border-[#B8A8D4] p-3 text-[12.5px] text-[#1E2A2E] italic font-serif leading-relaxed mt-3 rounded-r-lg">
                   The absence of words in the anger family across 28 entries is notable. Not because the anger isn't there — the entries suggest it is — but because you don't appear to have language for it yet.
                 </div>
               </div>
             </div>
 
-            <div className="bg-primary text-[#E0EEEC] rounded-xl p-6 space-y-4">
-              <div className="text-[10px] tracking-wider uppercase text-[#8DBFB4] font-bold">Carry into Cycle 2</div>
-              <p className="text-[13.5px] leading-relaxed">
+            <div className="bg-primary text-[#E0EEEC] rounded-xl p-4.5 space-y-3">
+              <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">Carry into Cycle 2</div>
+              <p className="text-[13px] leading-relaxed">
                 The avoidance pattern is visible to you now — that's the most important thing this cycle produced. Visibility is the first condition for change. What Cycle 2 is for is not fixing it but understanding what it's protecting.
               </p>
               <div className="border-l-[2.5px] border-[#E0A898]/40 pl-4 space-y-1">
-                <p className="text-[15px] text-[#E0A898] italic font-serif leading-relaxed">
+                <p className="text-[14px] text-[#E0A898] italic font-serif leading-relaxed">
                   "What would it cost you to stop managing and start naming?"
                 </p>
               </div>
