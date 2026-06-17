@@ -6,6 +6,8 @@ import { getAuthenticatedUser } from '../../../lib/auth-helper';
 import { processEntryScoring } from '../../../lib/queue/workers/entryScoringWorker';
 import { processCrisisDetection } from '../../../lib/queue/workers/crisisDetectionWorker';
 import { processReflectionGeneration } from '../../../lib/queue/workers/reflectionWorker';
+import { connection } from '../../../lib/queue/config';
+
 
 
 export async function POST(request: NextRequest) {
@@ -255,7 +257,7 @@ export async function POST(request: NextRequest) {
         crisis: `crisis_${entryId}`
       };
 
-      let runInline = process.env.BYPASS_REDIS === 'true';
+      let runInline = process.env.BYPASS_REDIS === 'true' || connection.status !== 'ready';
 
       if (!runInline) {
         try {
