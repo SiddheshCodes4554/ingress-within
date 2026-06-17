@@ -71,6 +71,8 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
   const [session, setSession] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentStage, setCurrentStage] = useState('start');
+  const [targetStageAfterSustained, setTargetStageAfterSustained] = useState('start');
+  const [crisisType, setCrisisType] = useState(null);
 
   // Dashboard context data (for yesterday's entry and open threads)
   const [dashboardData, setDashboardData] = useState(null);
@@ -120,20 +122,17 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
         console.warn('Could not load dashboard context:', dErr);
       }
       
+      let initialStage = 'start';
       if (data.exists) {
         if (data.isCompletedToday) {
           setSession(data.session);
           setExerciseRecap(data.exercise);
           setJournalRecap(data.journal);
-          setCurrentStage('complete');
-          // Update URL pathname if not already correct
-          if (window.location.pathname !== '/session/complete') {
-            window.history.replaceState({}, '', '/session/complete');
-          }
+          initialStage = 'complete';
         } else {
           const activeSession = data.session;
           setSession(activeSession);
-          setCurrentStage(activeSession.status);
+          initialStage = activeSession.status;
           
           // Load draft values, merging DB session_data and localStorage backup
           let draft = activeSession.session_data || {};
@@ -156,19 +155,28 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
           setJournalText(draft.journalText || '');
           setClosingResponse(draft.closingResponse || '');
           setClarityScore(draft.clarityScore || 30);
-          
-          // Synchronize URL pathname based on DB status
-          const expectedPath = `/session/${activeSession.status}`;
+        }
+      }
+
+      setTargetStageAfterSustained(initialStage);
+
+      if (user?.sustained_distress_flag && sessionStorage.getItem('iw_sustained_acknowledged') !== 'true') {
+        setCurrentStage('sustained_distress');
+      } else {
+        setCurrentStage(initialStage);
+        if (initialStage === 'complete') {
+          if (window.location.pathname !== '/session/complete') {
+            window.history.replaceState({}, '', '/session/complete');
+          }
+        } else if (data.exists) {
+          const expectedPath = `/session/${initialStage}`;
           if (window.location.pathname !== expectedPath) {
-            console.log(`[SessionFlow] URL mismatch. Redirecting from ${window.location.pathname} to ${expectedPath}`);
             window.history.replaceState({}, '', expectedPath);
           }
-        }
-      } else {
-        // No session exists
-        setCurrentStage('start');
-        if (window.location.pathname !== '/session/start') {
-          window.history.replaceState({}, '', '/session/start');
+        } else {
+          if (window.location.pathname !== '/session/start') {
+            window.history.replaceState({}, '', '/session/start');
+          }
         }
       }
     } catch (err) {
@@ -444,6 +452,7 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
 
   const handleCompleteSession = async () => {
     setIsSaving(true);
+    setCurrentStage('polling_patterns');
     try {
       const payload = {
         exercise: {
@@ -466,12 +475,45 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
       // Clear local storage cache
       localStorage.removeItem(`iw_session_draft_${session?.id}`);
 
-      window.history.pushState({}, '', '/session/complete');
-      setCurrentStage('complete');
+      // If a journal entry exists, poll its status to check for crisis
+      if (data.journal?.id) {
+        const startTime = Date.now();
+        const pollInterval = setInterval(async () => {
+          try {
+            const entryStatus = await DashboardService.checkEntryStatus(data.journal.id);
+            const elapsed = Date.now() - startTime;
+            
+            if ((entryStatus.scoring_status === 'scored' && entryStatus.crisis_checked) || elapsed > 12000) {
+              clearInterval(pollInterval);
+              setIsSaving(false);
+              
+              if (entryStatus.crisis_flag) {
+                setCrisisType(entryStatus.crisis_type);
+                setCurrentStage('crisis');
+              } else {
+                window.history.pushState({}, '', '/session/complete');
+                setCurrentStage('complete');
+              }
+            }
+          } catch (pollErr) {
+            console.warn('Error polling daily entry status:', pollErr);
+            if (Date.now() - startTime > 12000) {
+              clearInterval(pollInterval);
+              setIsSaving(false);
+              window.history.pushState({}, '', '/session/complete');
+              setCurrentStage('complete');
+            }
+          }
+        }, 800);
+      } else {
+        setIsSaving(false);
+        window.history.pushState({}, '', '/session/complete');
+        setCurrentStage('complete');
+      }
     } catch (err) {
       console.error(err);
       alert('Failed to lock session. Please try again.');
-    } finally {
+      setCurrentStage('closing');
       setIsSaving(false);
     }
   };
@@ -1068,6 +1110,139 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
                 </motion.div>
               )}
 
+              {/* --- VIEW: POLLING PATTERNS (Loading) --- */}
+              {currentStage === 'polling_patterns' && (
+                <motion.div
+                  key="polling"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="text-center py-12 space-y-4"
+                >
+                  <div className="flex gap-1.5 justify-center mb-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#C8D8D4] animate-[pulse_1.4s_ease-in-out_infinite]" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#C8D8D4] animate-[pulse_1.4s_ease-in-out_infinite_0.2s]" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#C8D8D4] animate-[pulse_1.4s_ease-in-out_infinite_0.4s]" />
+                  </div>
+                  <p className="text-sm text-[#8DBFB4] italic font-serif">Reading patterns...</p>
+                </motion.div>
+              )}
+
+              {/* --- VIEW: CRISIS (Immediate Crisis Support Screen) --- */}
+              {currentStage === 'crisis' && (
+                <motion.div
+                  key="crisis"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="max-w-md mx-auto space-y-6 text-left"
+                >
+                  <div className="flex justify-center">
+                    <div className="w-12 h-12 rounded-full bg-accent/15 flex items-center justify-center text-accent">
+                      <HeartHandshake size={24} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h2 className="font-serif text-2xl text-primary font-normal text-center">Please take a moment</h2>
+                    <p className="text-sm text-primary leading-relaxed font-serif text-center">
+                      {crisisType === 'Risk_Language'
+                        ? "What you wrote suggests you may be thinking about hurting yourself or ending your life. Please don’t go through this alone — reach out to someone who can help."
+                        : "We noticed today’s entry carries a lot of weight. Before we continue — you don’t have to hold this alone. If things feel overwhelming right now, please reach out to someone who can help."
+                      }
+                    </p>
+                  </div>
+
+                  <div className="border-t border-b border-[#1E2A2E]/10 py-5 space-y-3">
+                    <span className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold block">Confidential Support Resources</span>
+                    
+                    <div className="grid gap-2.5">
+                      <a href="tel:9152987821" className="flex items-center justify-between p-3.5 bg-mint-grey rounded-xl border border-transparent hover:border-[#8DBFB4]/25 transition-all text-left decoration-none">
+                        <div>
+                          <div className="font-semibold text-xs text-primary">iCall (India)</div>
+                          <div className="text-[10px] text-mid">Counselling Helpline · Mon–Sat · 8am–10pm</div>
+                        </div>
+                        <span className="px-2 py-0.5 bg-primary/5 text-primary text-[9px] uppercase font-bold rounded-full">Call</span>
+                      </a>
+
+                      <a href="tel:18602662345" className="flex items-center justify-between p-3.5 bg-mint-grey rounded-xl border border-transparent hover:border-[#8DBFB4]/25 transition-all text-left decoration-none">
+                        <div>
+                          <div className="font-semibold text-xs text-primary">Vandrevala Foundation</div>
+                          <div className="text-[10px] text-mid">Mental health support · 24/7 · Free & Confidential</div>
+                        </div>
+                        <span className="px-2 py-0.5 bg-[#8DBFB4]/15 text-[#1A5040] text-[9px] uppercase font-bold rounded-full">24 / 7</span>
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 text-center">
+                    <button 
+                      onClick={() => window.navigateTo('/dashboard')}
+                      className="w-full py-3 bg-primary hover:bg-[#2A3A3E] text-white font-semibold text-xs tracking-wider uppercase rounded-xl transition-all cursor-pointer border-none"
+                    >
+                      I am okay to continue
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* --- VIEW: SUSTAINED DISTRESS (Sustained Distress Support Screen) --- */}
+              {currentStage === 'sustained_distress' && (
+                <motion.div
+                  key="sustained_distress"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="max-w-md mx-auto space-y-6 text-left"
+                >
+                  <div className="flex justify-center">
+                    <div className="w-12 h-12 rounded-full bg-accent/15 flex items-center justify-center text-accent">
+                      <HeartHandshake size={24} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h2 className="font-serif text-2xl text-primary font-normal text-center">A gentle note</h2>
+                    <p className="text-sm text-primary leading-relaxed font-serif text-center">
+                      Over the past week your entries have been carrying something heavy. That’s okay — this is what the platform is here for. If it ever feels like too much, there are people who can help beyond what we can offer here.
+                    </p>
+                  </div>
+
+                  <div className="border-t border-b border-[#1E2A2E]/10 py-5 space-y-3">
+                    <span className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold block">Confidential Support Resources</span>
+                    
+                    <div className="grid gap-2.5">
+                      <a href="tel:9152987821" className="flex items-center justify-between p-3.5 bg-mint-grey rounded-xl border border-transparent hover:border-[#8DBFB4]/25 transition-all text-left decoration-none">
+                        <div>
+                          <div className="font-semibold text-xs text-primary">iCall (India)</div>
+                          <div className="text-[10px] text-mid">Counselling Helpline · Mon–Sat · 8am–10pm</div>
+                        </div>
+                        <span className="px-2 py-0.5 bg-primary/5 text-primary text-[9px] uppercase font-bold rounded-full">Call</span>
+                      </a>
+
+                      <a href="tel:18602662345" className="flex items-center justify-between p-3.5 bg-mint-grey rounded-xl border border-transparent hover:border-[#8DBFB4]/25 transition-all text-left decoration-none">
+                        <div>
+                          <div className="font-semibold text-xs text-primary">Vandrevala Foundation</div>
+                          <div className="text-[10px] text-mid">Mental health support · 24/7 · Free & Confidential</div>
+                        </div>
+                        <span className="px-2 py-0.5 bg-[#8DBFB4]/15 text-[#1A5040] text-[9px] uppercase font-bold rounded-full">24 / 7</span>
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 text-center">
+                    <button 
+                      onClick={() => {
+                        sessionStorage.setItem('iw_sustained_acknowledged', 'true');
+                        setCurrentStage(targetStageAfterSustained);
+                      }}
+                      className="w-full py-3 bg-primary hover:bg-[#2A3A3E] text-white font-semibold text-xs tracking-wider uppercase rounded-xl transition-all cursor-pointer border-none"
+                    >
+                      I'm okay to continue
+                    </button>
+                  </div>
+                </motion.div>
+              )}
             </AnimatePresence>
           </div>
 

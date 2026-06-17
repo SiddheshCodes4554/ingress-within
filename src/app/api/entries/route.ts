@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../lib/db';
 import { getAuthenticatedUser } from '../../../lib/auth-helper';
+import { triggerAIProcessing, checkWeeklyAndMonthlySummary } from '../../../lib/queue/triggers';
 
 /**
  * GET /api/entries: Fetches all journal entries for the user from Supabase.
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
     }
 
     let { data: entries, error } = await supabase
-      .from('journal_entries')
+      .from('entries')
       .select('*, daily_sessions(day_number)')
       .eq('user_id', authUser.userId)
       .order('created_at', { ascending: false });
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
     if (error && (error.code === 'PGRST201' || error.code === 'PGRST200' || error.message.includes('relationship') || error.message.includes('column'))) {
       console.warn('[api/entries] Join query failed, falling back to simple select (schema may need migration):', error.message);
       const { data: simpleEntries, error: simpleError } = await supabase
-        .from('journal_entries')
+        .from('entries')
         .select('*')
         .eq('user_id', authUser.userId)
         .order('created_at', { ascending: false });
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
     const startRange = clientTodayStart || fallbackStart.toISOString();
 
     const { data: existingEntries, error: checkError } = await supabase
-      .from('journal_entries')
+      .from('entries')
       .select('id')
       .eq('user_id', authUser.userId)
       .gte('created_at', startRange)
@@ -107,26 +108,54 @@ export async function POST(request: NextRequest) {
 
     const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
 
+    // Fetch the active cycle for the user to populate cycle_id and cycle_day
+    const { data: activeCycle } = await supabase
+      .from('cycles')
+      .select('id, started_at')
+      .eq('user_id', authUser.userId)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    const cycleId = activeCycle?.id || null;
+    let cycleDay = 1;
+    if (activeCycle) {
+      const started = new Date(activeCycle.started_at);
+      const today = new Date();
+      const diffTime = Math.abs(today.getTime() - started.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      cycleDay = Math.min(30, Math.max(1, diffDays));
+    }
+
     const insertPayload: any = {
       user_id: authUser.userId,
       content: content.trim(),
+      new_entry_text_encrypted: content.trim(), // for future AI workflow compatibility
+      entry_type: 'new_only',
       word_count: wordCount,
-      session_id: null
+      session_id: null,
+      cycle_id: cycleId,
+      cycle_day: cycleDay,
+      written_at: new Date().toISOString()
     };
 
     let { data: newEntry, error } = await supabase
-      .from('journal_entries')
+      .from('entries')
       .insert(insertPayload)
       .select()
       .single();
 
-    // Fallback if the database schema is not fully migrated (missing session_id column)
+    // Fallback if the database schema is not fully migrated (missing new columns)
     if (error && (error.message.includes('column') || error.code === 'PGRST200' || error.code === '42703')) {
-      console.warn('[api/entries] Insert failed with session_id, retrying without session_id column (schema may need migration)...');
-      delete insertPayload.session_id;
+      console.warn('[api/entries] Insert failed with cycle/encryption columns, retrying with basic columns...');
+      const fallbackPayload = {
+        user_id: authUser.userId,
+        content: content.trim(),
+        word_count: wordCount,
+        session_id: null
+      };
       const { data: fallbackEntry, error: fallbackError } = await supabase
-        .from('journal_entries')
-        .insert(insertPayload)
+        .from('entries')
+        .insert(fallbackPayload)
         .select()
         .single();
         
@@ -144,6 +173,12 @@ export async function POST(request: NextRequest) {
         { error: { code: 'DATABASE_ERROR', message: 'Failed to save journal entry.' } },
         { status: 500 }
       );
+    }
+
+    if (newEntry) {
+      // Trigger background AI tasks and check weekly/monthly milestones
+      triggerAIProcessing(newEntry.id, authUser.userId);
+      checkWeeklyAndMonthlySummary(authUser.userId, newEntry.cycle_id, newEntry.cycle_day);
     }
 
     return NextResponse.json({

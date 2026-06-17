@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
     console.log('[me/route.ts] Querying users table for id:', payload.uid);
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('id, phone_number, name, is_active, created_at')
+      .select('id, phone_number, name, is_active, created_at, sustained_distress_flag, crisis_flag_active')
       .eq('id', payload.uid)
       .eq('is_active', true)
       .maybeSingle();

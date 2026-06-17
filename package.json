@@ -5,13 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "worker": "tsx src/lib/queue/run-worker.ts",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",
+    "bullmq": "^5.78.1",
     "framer-motion": "^12.40.0",
+    "ioredis": "^5.11.1",
     "lucide-react": "^1.17.0",
     "next": "^16.2.9",
     "react": "^19.2.6",

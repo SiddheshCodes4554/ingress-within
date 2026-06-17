@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, CheckCircle2, BookOpen, AlertCircle, Smile } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, BookOpen, AlertCircle, Smile, HeartHandshake } from 'lucide-react';
 import { DashboardService } from '../services/dashboardService';
 import DashboardNavbar from '../components/DashboardNavbar';
 
@@ -33,17 +33,23 @@ export default function WritePage({ user, profile, onSignOut }) {
   const [writeMode, setWriteMode] = useState('fresh');
   const [entryText, setEntryText] = useState('');
   const [isSavingEntry, setIsSavingEntry] = useState(false);
+  const [crisisType, setCrisisType] = useState(null);
   
   // Autosave status
   const [autosaveStatus, setAutosaveStatus] = useState('Idle'); // 'Idle' | 'Saving' | 'Saved' | 'Error'
   const [lastAutosavedAt, setLastAutosavedAt] = useState('');
   const [showRecoveredMsg, setShowRecoveredMsg] = useState(false);
   
-  // UI screens: 'main' | 'reading' | 'reflection'
+  // UI screens: 'main' | 'reading' | 'reflection' | 'crisis' | 'sustained_distress'
   const [screenState, setScreenState] = useState('main');
 
   // Load data on mount
   useEffect(() => {
+    // Check sustained distress flag at session open
+    if (user?.sustained_distress_flag && sessionStorage.getItem('iw_sustained_acknowledged') !== 'true') {
+      setScreenState('sustained_distress');
+    }
+
     // Read mode from query params
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -58,7 +64,10 @@ export default function WritePage({ user, profile, onSignOut }) {
         const result = await DashboardService.fetchDashboardData();
         setData(result);
         if (result?.cycleInfo?.hasWrittenToday) {
-          setScreenState('locked');
+          // Only lock if we are not currently displaying a distress screen
+          if (!user?.sustained_distress_flag || sessionStorage.getItem('iw_sustained_acknowledged') === 'true') {
+            setScreenState('locked');
+          }
         } else {
           // Check for draft recovery if allowed to write today
           const savedDraft = localStorage.getItem('iw_free_write_draft');
@@ -85,7 +94,7 @@ export default function WritePage({ user, profile, onSignOut }) {
       }
     }
     loadData();
-  }, []);
+  }, [user]);
 
   const getWordCount = () => {
     return entryText.trim().split(/\s+/).filter(Boolean).length;
@@ -93,7 +102,7 @@ export default function WritePage({ user, profile, onSignOut }) {
 
   // Local cache auto-saver (Debounced for quick recovery if tab closed)
   useEffect(() => {
-    if (isLoading || screenState !== 'main') return;
+    if (isLoading || (screenState !== 'main' && screenState !== 'sustained_distress')) return;
 
     if (!entryText.trim()) {
       localStorage.removeItem('iw_free_write_draft');
@@ -137,13 +146,37 @@ export default function WritePage({ user, profile, onSignOut }) {
     setScreenState('reading');
     
     try {
-      await DashboardService.saveJournalEntry(entryText);
+      const entryObj = await DashboardService.saveJournalEntry(entryText);
       localStorage.removeItem('iw_free_write_draft'); // Clear draft on successful save
-      // Simulate reading patterns analytics delay
-      setTimeout(() => {
-        setScreenState('reflection');
-        setIsSavingEntry(false);
-      }, 2800);
+      
+      const startTime = Date.now();
+      const pollInterval = setInterval(async () => {
+        try {
+          const entryStatus = await DashboardService.checkEntryStatus(entryObj.id);
+          const elapsed = Date.now() - startTime;
+          
+          if ((entryStatus.scoring_status === 'scored' && entryStatus.crisis_checked) || elapsed > 12000) {
+            clearInterval(pollInterval);
+            setIsSavingEntry(false);
+            
+            if (entryStatus.crisis_flag) {
+              setCrisisType(entryStatus.crisis_type);
+              setScreenState('crisis');
+            } else {
+              setScreenState('reflection');
+            }
+          }
+        } catch (pollErr) {
+          console.warn('Error polling entry status:', pollErr);
+          // Standard fallback
+          if (Date.now() - startTime > 12000) {
+            clearInterval(pollInterval);
+            setIsSavingEntry(false);
+            setScreenState('reflection');
+          }
+        }
+      }, 800);
+
     } catch (err) {
       console.error('Failed to save entry:', err);
       setScreenState('main');
@@ -440,6 +473,118 @@ export default function WritePage({ user, profile, onSignOut }) {
           >
             Go to Dashboard
           </button>
+        </div>
+      )}
+
+      {/* Immediate Crisis Screen */}
+      {screenState === 'crisis' && (
+        <div className="flex-1 bg-white overflow-y-auto page-fade-enter-active">
+          <div className="max-w-[580px] mx-auto px-6 py-12 flex flex-col space-y-8">
+            <div className="w-12 h-12 rounded-full bg-accent/15 flex items-center justify-center text-accent">
+              <HeartHandshake size={24} />
+            </div>
+
+            <div className="space-y-4">
+              <h2 className="font-serif text-2xl text-primary font-normal">Please take a moment</h2>
+              <p className="text-[16px] text-primary leading-relaxed font-serif">
+                {crisisType === 'Risk_Language'
+                  ? "What you wrote suggests you may be thinking about hurting yourself or ending your life. Please don’t go through this alone — reach out to someone who can help."
+                  : "We noticed today’s entry carries a lot of weight. Before we continue — you don’t have to hold this alone. If things feel overwhelming right now, please reach out to someone who can help."
+                }
+              </p>
+            </div>
+
+            <div className="border-t border-b border-[#1E2A2E]/10 py-6 space-y-4">
+              <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">Confidential Support Resources</div>
+              
+              <div className="grid gap-3">
+                <a href="tel:9152987821" className="flex items-center justify-between p-4 bg-mint-grey rounded-xl border border-transparent hover:border-[#8DBFB4]/25 transition-all text-left">
+                  <div>
+                    <div className="font-semibold text-xs text-primary">iCall (India)</div>
+                    <div className="text-[11px] text-mid">Psychological counselling helpline · Mon–Sat · 8am–10pm</div>
+                  </div>
+                  <span className="px-2.5 py-1 bg-primary/5 text-primary text-[10px] uppercase font-bold rounded-full">Call</span>
+                </a>
+
+                <a href="tel:18602662345" className="flex items-center justify-between p-4 bg-mint-grey rounded-xl border border-transparent hover:border-[#8DBFB4]/25 transition-all text-left">
+                  <div>
+                    <div className="font-semibold text-xs text-primary">Vandrevala Foundation</div>
+                    <div className="text-[11px] text-mid">Mental health support · 24/7 · Free & Confidential</div>
+                  </div>
+                  <span className="px-2.5 py-1 bg-[#8DBFB4]/15 text-[#1A5040] text-[10px] uppercase font-bold rounded-full">24 / 7</span>
+                </a>
+
+                <a href="https://wa.me/919152987821" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-4 bg-mint-grey rounded-xl border border-transparent hover:border-[#8DBFB4]/25 transition-all text-left">
+                  <div>
+                    <div className="font-semibold text-xs text-primary">iCall — WhatsApp Text Line</div>
+                    <div className="text-[11px] text-mid">Text support if calling feels like too much</div>
+                  </div>
+                  <span className="px-2.5 py-1 bg-[#B8A8D4]/15 text-[#5A4A8A] text-[10px] uppercase font-bold rounded-full">WhatsApp</span>
+                </a>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button 
+                onClick={() => window.navigateTo('/dashboard')}
+                className="w-full py-3.5 bg-primary text-white hover:bg-[#2A3A3E] rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer text-center border-none"
+              >
+                I am okay to continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sustained Distress Screen */}
+      {screenState === 'sustained_distress' && (
+        <div className="flex-1 bg-white overflow-y-auto page-fade-enter-active">
+          <div className="max-w-[580px] mx-auto px-6 py-12 flex flex-col space-y-8">
+            <div className="w-12 h-12 rounded-full bg-accent/15 flex items-center justify-center text-accent">
+              <HeartHandshake size={24} />
+            </div>
+
+            <div className="space-y-4">
+              <h2 className="font-serif text-2xl text-primary font-normal">A gentle note</h2>
+              <p className="text-[16px] text-primary leading-relaxed font-serif">
+                Over the past week your entries have been carrying something heavy. That’s okay — this is what the platform is here for. If it ever feels like too much, there are people who can help beyond what we can offer here.
+              </p>
+            </div>
+
+            <div className="border-t border-b border-[#1E2A2E]/10 py-6 space-y-4">
+              <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">Confidential Support Resources</div>
+              
+              <div className="grid gap-3">
+                <a href="tel:9152987821" className="flex items-center justify-between p-4 bg-mint-grey rounded-xl border border-transparent hover:border-[#8DBFB4]/25 transition-all text-left">
+                  <div>
+                    <div className="font-semibold text-xs text-primary">iCall (India)</div>
+                    <div className="text-[11px] text-mid">Psychological counselling helpline · Mon–Sat · 8am–10pm</div>
+                  </div>
+                  <span className="px-2.5 py-1 bg-primary/5 text-primary text-[10px] uppercase font-bold rounded-full">Call</span>
+                </a>
+
+                <a href="tel:18602662345" className="flex items-center justify-between p-4 bg-mint-grey rounded-xl border border-transparent hover:border-[#8DBFB4]/25 transition-all text-left">
+                  <div>
+                    <div className="font-semibold text-xs text-primary">Vandrevala Foundation</div>
+                    <div className="text-[11px] text-mid">Mental health support · 24/7 · Free & Confidential</div>
+                  </div>
+                  <span className="px-2.5 py-1 bg-[#8DBFB4]/15 text-[#1A5040] text-[10px] uppercase font-bold rounded-full">24 / 7</span>
+                </a>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button 
+                onClick={() => {
+                  sessionStorage.setItem('iw_sustained_acknowledged', 'true');
+                  setScreenState('main');
+                }}
+                className="w-full py-3.5 bg-primary text-white hover:bg-[#2A3A3E] rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer text-center border-none"
+              >
+                I'm okay to continue
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -21,6 +21,9 @@ const VocabPage = lazy(() => import('./pages/VocabPage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
 const SessionFlowPage = lazy(() => import('./pages/SessionFlowPage'));
 const ThreadDetailPage = lazy(() => import('./pages/ThreadDetailPage'));
+const TestPage = process.env.NODE_ENV === 'development'
+  ? lazy(() => import('./pages/TestPage'))
+  : () => null;
 
 
 
@@ -330,6 +333,13 @@ export default function App() {
       } else if (path === '/ai-data' || path === '/ai-data/') {
         setCurrentRoute('ai-data');
         window.scrollTo(0, 0);
+      } else if (path === '/test' || path === '/test/') {
+        if (process.env.NODE_ENV === 'development') {
+          setCurrentRoute('test');
+          window.scrollTo(0, 0);
+        } else {
+          setCurrentRoute('home');
+        }
 
       } else {
         setCurrentRoute('home');
@@ -438,6 +448,11 @@ export default function App() {
       }
       case 'ai-data':
         return <AiDataPage onOpenPolicy={handleOpenPolicy} />;
+      case 'test':
+        if (process.env.NODE_ENV === 'development') {
+          return <TestPage />;
+        }
+        return <LandingPage onOpenPolicy={handleOpenPolicy} />;
       case 'home':
 
       default:

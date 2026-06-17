@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../lib/db';
 import { getAuthenticatedUser } from '../../../lib/auth-helper';
+import { queueRegistry } from '../../../lib/queue/registry';
+import { triggerAIProcessing, checkWeeklyAndMonthlySummary } from '../../../lib/queue/triggers';
 
 /**
  * GET: Fetches the active daily session or check if today's session is complete.
@@ -76,15 +78,28 @@ export async function GET(request: NextRequest) {
       if (isCompletedToday) {
         if (latest.exercise_id) {
           const { data: exData } = await supabase
-            .from('user_exercises')
+            .from('exercises')
             .select('*')
             .eq('id', latest.exercise_id)
             .maybeSingle();
-          exercise = exData;
+          if (exData) {
+            try {
+              const parsed = JSON.parse(exData.response_encrypted || '{}');
+              exercise = {
+                ...exData,
+                stressor_type: parsed.stressor_type || '',
+                reactive_thought: parsed.reactive_thought || '',
+                reframed_thought: parsed.reframed_thought || '',
+                clarity_score: parsed.clarity_score || 0
+              };
+            } catch {
+              exercise = exData;
+            }
+          }
         }
         if (latest.journal_entry_id) {
           const { data: jData } = await supabase
-            .from('journal_entries')
+            .from('entries')
             .select('*')
             .eq('id', latest.journal_entry_id)
             .maybeSingle();
@@ -167,7 +182,7 @@ export async function POST(request: NextRequest) {
 
       // Check journal_entries
       const { data: existingEntries } = await supabase
-        .from('journal_entries')
+        .from('entries')
         .select('id')
         .eq('user_id', authUser.userId)
         .gte('created_at', startRange)
@@ -291,7 +306,7 @@ export async function POST(request: NextRequest) {
       const startRange = clientTodayStart || fallbackStart.toISOString();
 
       const { data: todayEntries } = await supabase
-        .from('journal_entries')
+        .from('entries')
         .select('id, session_id')
         .eq('user_id', authUser.userId)
         .gte('created_at', startRange);
@@ -320,15 +335,34 @@ export async function POST(request: NextRequest) {
       }
       const activeSession = activeSessions[0];
 
+      // Fetch active cycle to populate exercises and entries
+      const { data: activeCycle } = await supabase
+        .from('cycles')
+        .select('id, started_at')
+        .eq('user_id', authUser.userId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      const cycleId = activeCycle?.id || null;
+      const cycleDay = activeSession.day_number || 1;
+
       // 1. Create exercise record
       const { data: exerciseRecord, error: exerciseError } = await supabase
-        .from('user_exercises')
+        .from('exercises')
         .insert({
           user_id: authUser.userId,
-          stressor_type: exercise.stressor_type,
-          reactive_thought: exercise.reactive_thought,
-          reframed_thought: exercise.reframed_thought,
-          clarity_score: exercise.clarity_score
+          cycle_id: cycleId,
+          cycle_day: cycleDay,
+          template_id: 'cbt_reframing',
+          surfaced_at: activeSession.created_at,
+          completed_at: new Date().toISOString(),
+          response_encrypted: JSON.stringify({
+            stressor_type: exercise.stressor_type,
+            reactive_thought: exercise.reactive_thought,
+            reframed_thought: exercise.reframed_thought,
+            clarity_score: exercise.clarity_score
+          }),
+          status: 'completed'
         })
         .select()
         .single();
@@ -341,15 +375,31 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      let formattedExercise = null;
+      if (exerciseRecord) {
+        formattedExercise = {
+          ...exerciseRecord,
+          stressor_type: exercise.stressor_type,
+          reactive_thought: exercise.reactive_thought,
+          reframed_thought: exercise.reframed_thought,
+          clarity_score: exercise.clarity_score
+        };
+      }
+
       // 2. Create journal entry record
       const wordCount = journal.content.trim().split(/\s+/).filter(Boolean).length;
       const { data: journalRecord, error: journalError } = await supabase
-        .from('journal_entries')
+        .from('entries')
         .insert({
           user_id: authUser.userId,
           session_id: activeSession.id,
           content: journal.content,
-          word_count: wordCount
+          new_entry_text_encrypted: journal.content, // future compatibility
+          entry_type: 'new_only',
+          word_count: wordCount,
+          cycle_id: cycleId,
+          cycle_day: cycleDay,
+          written_at: new Date().toISOString()
         })
         .select()
         .single();
@@ -357,7 +407,7 @@ export async function POST(request: NextRequest) {
       if (journalError) {
         console.error('Failed to log session journal:', journalError);
         // Attempt cleanup of the exercise
-        await supabase.from('user_exercises').delete().eq('id', exerciseRecord.id);
+        await supabase.from('exercises').delete().eq('id', exerciseRecord.id);
         
         return NextResponse.json(
           { error: { code: 'DATABASE_ERROR', message: 'Failed to save session journal entry.' } },
@@ -387,8 +437,8 @@ export async function POST(request: NextRequest) {
       if (completeError) {
         console.error('Failed to update session to complete:', completeError);
         // Attempt cleanup of created items
-        await supabase.from('user_exercises').delete().eq('id', exerciseRecord.id);
-        await supabase.from('journal_entries').delete().eq('id', journalRecord.id);
+        await supabase.from('exercises').delete().eq('id', exerciseRecord.id);
+        await supabase.from('entries').delete().eq('id', journalRecord.id);
 
         return NextResponse.json(
           { error: { code: 'DATABASE_ERROR', message: 'Failed to finalize session completion.' } },
@@ -396,10 +446,23 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // 4. Trigger asynchronous background processing for AI pipeline
+      if (exerciseRecord) {
+        queueRegistry.addJob('exercise_insight_generation', `exercise_${exerciseRecord.id}`, {
+          exercise_id: exerciseRecord.id,
+          user_id: authUser.userId
+        }).catch(err => console.error('[Queue Trigger] Failed to queue exercise insight:', err.message));
+      }
+
+      if (journalRecord) {
+        triggerAIProcessing(journalRecord.id, authUser.userId);
+        checkWeeklyAndMonthlySummary(authUser.userId, journalRecord.cycle_id, journalRecord.cycle_day);
+      }
+
       return NextResponse.json({
         success: true,
         session: completedSession,
-        exercise: exerciseRecord,
+        exercise: formattedExercise,
         journal: journalRecord
       });
     }

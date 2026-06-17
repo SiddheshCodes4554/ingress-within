@@ -223,6 +223,20 @@ export class DashboardService {
   }
 
   /**
+   * Fetches status of a specific entry (for checking scoring/crisis).
+   */
+  static async checkEntryStatus(entryId: string): Promise<any> {
+    const res = await fetch(`/api/entries/${entryId}`, {
+      headers: DashboardService.getHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to check entry status.');
+    }
+    return data.entry;
+  }
+
+  /**
    * Fetches active threads for the user from Supabase.
    */
   static async fetchActiveThreads(): Promise<any> {
