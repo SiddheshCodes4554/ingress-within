@@ -3,6 +3,10 @@ import { supabase } from '../../../lib/db';
 import { getAIProvider } from '../../../lib/ai/factory';
 import { queueRegistry } from '../../../lib/queue/registry';
 import { getAuthenticatedUser } from '../../../lib/auth-helper';
+import { processEntryScoring } from '../../../lib/queue/workers/entryScoringWorker';
+import { processCrisisDetection } from '../../../lib/queue/workers/crisisDetectionWorker';
+import { processReflectionGeneration } from '../../../lib/queue/workers/reflectionWorker';
+
 
 export async function POST(request: NextRequest) {
   // 1. Guard route: Dev only (unless bypassed via env variables)
@@ -243,7 +247,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: { code: 'DATABASE_ERROR', message: `DB insert failed: ${insertError.message}` } }, { status: 500 });
       }
 
-      // Enqueue BullMQ background jobs
+      // Enqueue BullMQ background jobs (or run inline as fallback)
       const entryId = entry.id;
       const jobIds = {
         scoring: `score_${entryId}`,
@@ -251,39 +255,93 @@ export async function POST(request: NextRequest) {
         crisis: `crisis_${entryId}`
       };
 
-      await Promise.all([
-        queueRegistry.addJob('entry_scoring', jobIds.scoring, {
-          entry_id: entryId,
-          user_id: activeUserId
-        }),
-        queueRegistry.addJob('reflection_generation', jobIds.reflection, {
-          entry_id: entryId,
-          user_id: activeUserId
-        }),
-        queueRegistry.addJob('crisis_detection', jobIds.crisis, {
-          entry_id: entryId,
-          user_id: activeUserId
-        })
-      ]);
+      let runInline = process.env.BYPASS_REDIS === 'true';
+
+      if (!runInline) {
+        try {
+          await Promise.all([
+            queueRegistry.addJob('entry_scoring', jobIds.scoring, {
+              entry_id: entryId,
+              user_id: activeUserId
+            }),
+            queueRegistry.addJob('reflection_generation', jobIds.reflection, {
+              entry_id: entryId,
+              user_id: activeUserId
+            }),
+            queueRegistry.addJob('crisis_detection', jobIds.crisis, {
+              entry_id: entryId,
+              user_id: activeUserId
+            })
+          ]);
+          console.log('[Test API] Enqueued BullMQ jobs successfully.');
+        } catch (err) {
+          console.warn('[Test API] Redis/BullMQ connection failed. Running pipeline inline instead.', err);
+          runInline = true;
+        }
+      }
+
+      if (runInline) {
+        console.log('[Test API] Running workers synchronously inline...');
+        try {
+          // Execute sequential workers (Reflection depends on Scoring & Crisis being done first)
+          await processEntryScoring({ entry_id: entryId, user_id: activeUserId });
+          await processCrisisDetection({ entry_id: entryId, user_id: activeUserId });
+          await processReflectionGeneration({ entry_id: entryId, user_id: activeUserId });
+          console.log('[Test API] Synchronous worker execution completed successfully.');
+        } catch (inlineErr: any) {
+          console.error('[Test API] Error running workers inline:', inlineErr);
+          // Return the error to the client if inline worker run failed
+          return NextResponse.json({ 
+            error: { 
+              code: 'PIPELINE_INLINE_FAILURE', 
+              message: `Synchronous pipeline run failed: ${inlineErr.message || inlineErr}` 
+            } 
+          }, { status: 500 });
+        }
+      }
 
       return NextResponse.json({
         success: true,
-        message: 'Successfully inserted entry to Supabase and enqueued BullMQ jobs.',
+        message: runInline 
+          ? 'Successfully executed pipeline synchronously (Redis bypassed/unavailable).'
+          : 'Successfully inserted entry to Supabase and enqueued BullMQ jobs.',
         entryId,
         userId: activeUserId,
         jobIds
       });
     }
 
-    // ==========================================
-    // ACTION: TRACK JOB STATUS
-    // ==========================================
     if (action === 'job-status') {
       if (!entryId) {
         return NextResponse.json({ error: { code: 'BAD_REQUEST', message: 'Missing entryId for job tracking.' } }, { status: 400 });
       }
 
+      // 1. Fetch updated states from DB first to support synchronous / offline fallback
+      const [entryRes, reflectionRes] = await Promise.all([
+        supabase.from('entries').select('*').eq('id', entryId).maybeSingle(),
+        supabase.from('reflections').select('id, status').eq('entry_id', entryId).maybeSingle()
+      ]);
+
+      const updatedEntry = entryRes.data;
+      const reflection = reflectionRes.data;
+
       const getJobStats = async (queueName: any, jobId: string) => {
+        // If DB indicates the processing has completed, return COMPLETED status immediately
+        if (updatedEntry) {
+          if (queueName === 'entry_scoring' && updatedEntry.scoring_status === 'scored') {
+            return { id: jobId, status: 'COMPLETED', executionTime: 0, attemptsMade: 1 };
+          }
+          if (queueName === 'crisis_detection' && updatedEntry.crisis_checked) {
+            return { id: jobId, status: 'COMPLETED', executionTime: 0, attemptsMade: 1 };
+          }
+          if (queueName === 'reflection_generation') {
+            if (reflection || updatedEntry.crisis_flag || updatedEntry.reflection_suppressed) {
+              return { id: jobId, status: 'COMPLETED', executionTime: 0, attemptsMade: 1 };
+            }
+          }
+        }
+
+        // Otherwise query Redis queue
         try {
           const queue = queueRegistry.getQueue(queueName);
           const job = await queue.getJob(jobId);
@@ -305,6 +363,7 @@ export async function POST(request: NextRequest) {
             attemptsMade: job.attemptsMade
           };
         } catch (err) {
+          // If Redis is offline/unavailable, return UNKNOWN
           return { id: jobId, status: 'UNKNOWN', executionTime: null, error: String(err) };
         }
       };
@@ -314,13 +373,6 @@ export async function POST(request: NextRequest) {
         getJobStats('reflection_generation', `refl_${entryId}`),
         getJobStats('crisis_detection', `crisis_${entryId}`)
       ]);
-
-      // Fetch the updated entry from Supabase to show written scores/flags
-      const { data: updatedEntry } = await supabase
-        .from('entries')
-        .select('*')
-        .eq('id', entryId)
-        .maybeSingle();
 
       return NextResponse.json({
         success: true,
