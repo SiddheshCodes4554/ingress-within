@@ -9,7 +9,6 @@ let isDisconnectedReported = false;
 
 export const connection = new IORedis(redisUrl, {
   maxRetriesPerRequest: null, // Critical requirement for BullMQ
-  enableOfflineQueue: false,  // Fail fast instead of buffering commands offline
   retryStrategy(times) {
     // Reconnect delay increases with attempts, up to 10 seconds max
     return Math.min(times * 500, 10000);
