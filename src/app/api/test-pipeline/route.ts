@@ -5,8 +5,12 @@ import { queueRegistry } from '../../../lib/queue/registry';
 import { getAuthenticatedUser } from '../../../lib/auth-helper';
 
 export async function POST(request: NextRequest) {
-  // 1. Guard route: Dev only
-  if (process.env.NODE_ENV !== 'development') {
+  // 1. Guard route: Dev only (unless bypassed via env variables)
+  if (
+    process.env.NODE_ENV !== 'development' && 
+    process.env.NEXT_PUBLIC_ENABLE_TEST_PAGE !== 'true' && 
+    process.env.ENABLE_TEST_PAGE !== 'true'
+  ) {
     return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'This endpoint is only available in development mode.' } }, { status: 404 });
   }
 
