@@ -1,6 +1,6 @@
 import { supabase } from '../../db';
-import { aiProvider } from '../../ai/factory';
 import { decrypt } from '../../encryption';
+import { evaluateCrisisLayers } from '../../crisis-detector';
 
 export async function processCrisisDetection(jobData: {
   entry_id: string;
@@ -30,28 +30,38 @@ export async function processCrisisDetection(jobData: {
   }
 
   try {
-    // 3. Call AI Provider
-    const result = await aiProvider.detectCrisis(entryText);
+    // 3. Call Layered Crisis Detection
+    const activeProvider = process.env.AI_PROVIDER || 'groq';
+    const result = await evaluateCrisisLayers(
+      entryText,
+      activeProvider,
+      {
+        day_ei: entry.day_ei,
+        day_sa: entry.day_sa,
+        riskLanguageDetected: entry.risk_language_quote ? true : false,
+        riskLanguageQuote: entry.risk_language_quote
+      }
+    );
 
     const updatePayload: any = {
       crisis_checked: true
     };
 
-    if (result.isCrisis) {
-      console.warn(`[Crisis Detection Worker] CRITICAL: Crisis signal detected for user ${user_id}! Reason: ${result.reason}`);
+    if (result.crisisFlag && result.crisisType) {
+      console.warn(`[Crisis Detection Worker] CRITICAL: Crisis signal detected for user ${user_id}! Reason: ${result.explanation}`);
       
       updatePayload.crisis_flag = true;
-      updatePayload.crisis_type = 'Risk_Language';
+      updatePayload.crisis_type = result.crisisType;
       updatePayload.crisis_flagged_at = new Date().toISOString();
       updatePayload.reflection_suppressed = true;
-      updatePayload.risk_language_quote = result.reason || 'AI crisis detection engine match';
+      updatePayload.risk_language_quote = result.riskQuote || 'AI crisis detection engine match';
 
       // 4. Log to crisis_log table
       const { error: logError } = await supabase
         .from('crisis_log')
         .insert({
           user_id,
-          crisis_type: 'Risk_Language',
+          crisis_type: result.crisisType,
           timestamp: new Date().toISOString()
         });
       if (logError) {
@@ -82,7 +92,7 @@ export async function processCrisisDetection(jobData: {
       throw new Error(`Failed to update entry ${entry_id}: ${entryUpdateError.message}`);
     }
 
-    console.log(`[Crisis Detection Worker] Scan completed for entry ${entry_id}. isCrisis: ${result.isCrisis}`);
+    console.log(`[Crisis Detection Worker] Scan completed for entry ${entry_id}. isCrisis: ${result.crisisFlag}`);
   } catch (err: any) {
     console.error(`[Crisis Detection Worker] Error during crisis detection:`, err);
     throw err;

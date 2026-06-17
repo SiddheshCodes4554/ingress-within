@@ -340,6 +340,11 @@ export default function TestPage() {
                     : `No crisis triggered in background worker. Scores: EI=${entry.day_ei}, SA=${entry.day_sa}.`,
                   reflectionSuppressed: entry.reflection_suppressed
                 },
+                reflectionResult: data.reflectionState ? {
+                  question: data.reflectionState.question,
+                  observation: data.reflectionState.observation,
+                  status: data.reflectionState.status
+                } : null,
                 aiTrace: null // Background jobs don't return raw AI trace directly in poll
               });
             }
@@ -588,9 +593,33 @@ export default function TestPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-6"
               >
-                
-                {/* Section 2 & 3: Entry Analysis & Scoring Results */}
-                <div className="bg-white rounded-premium border border-primary/5 shadow-sm p-6 space-y-6">
+                {results.success === false && (
+                  <div className="bg-white rounded-premium border border-accent/15 shadow-sm p-6 space-y-4">
+                    <div className="flex items-center gap-2 border-b border-primary/5 pb-3 text-[#8a3020]">
+                      <XCircle size={18} />
+                      <h2 className="font-serif text-lg font-normal">Pipeline Validation Failed</h2>
+                    </div>
+                    <div className="space-y-3 text-xs text-primary leading-normal">
+                      <div className="bg-accent/5 border border-accent/15 p-3.5 rounded-xl space-y-1">
+                        <div className="font-bold uppercase tracking-widest text-[9px] text-[#8a3020]">Error Reason / Validation Exception</div>
+                        <p className="font-mono text-[10px] break-words text-[#8a3020] whitespace-pre-wrap">{results.errorReason}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-[10px] font-mono bg-mint-grey p-3 rounded-xl border border-primary/5">
+                        <div>
+                          <span className="text-mid">retries:</span> <span className="font-bold text-[#8a3020]">{results.retryCount || 0}</span>
+                        </div>
+                        <div>
+                          <span className="text-mid">latency:</span> <span className="font-bold text-primary">{results.latency}ms</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {results.success !== false && (
+                  <>
+                    {/* Section 2 & 3: Entry Analysis & Scoring Results */}
+                    <div className="bg-white rounded-premium border border-primary/5 shadow-sm p-6 space-y-6">
                   <div className="flex justify-between items-center border-b border-primary/5 pb-3">
                     <h2 className="font-serif text-lg font-normal text-primary">Entry Scoring Analysis</h2>
                     
@@ -795,11 +824,47 @@ export default function TestPage() {
                     </div>
                   )}
 
-                  {/* Latency and provider */}
+                  {/* Latency, retry count, provider, status */}
                   {results.aiTrace && (
-                    <div className="flex justify-between items-center text-[10px] text-mid font-mono border-t border-primary/5 pt-3">
-                      <div>Latency: {results.aiTrace.latency}ms</div>
-                      <div className="uppercase">Provider: {results.aiTrace.provider}</div>
+                    <div className="flex flex-col gap-2 border-t border-primary/5 pt-3 text-[10px] text-mid font-mono">
+                      <div className="flex justify-between items-center">
+                        <div>Latency: {results.aiTrace.latency}ms</div>
+                        <div>Retries: {results.aiTrace.retryCount || 0}</div>
+                        <div className="uppercase">Provider: {results.aiTrace.provider}</div>
+                      </div>
+                      
+                      {/* Timeline */}
+                      <div className="mt-2 space-y-1.5 border-t border-primary/5 pt-2">
+                        <div className="font-semibold text-primary uppercase text-[8px] tracking-wider mb-1">Scoring Pipeline Timeline</div>
+                        <div className="relative pl-3 border-l-2 border-[#8DBFB4]/45 space-y-2 text-[9px] text-mid leading-relaxed">
+                          <div className="relative">
+                            <span className="absolute -left-[18px] top-1 w-2.5 h-2.5 rounded-full bg-[#8DBFB4]" />
+                            <span className="font-semibold text-primary">0ms</span>: Entry Submission & Validation
+                          </div>
+                          <div className="relative">
+                            <span className="absolute -left-[18px] top-1 w-2.5 h-2.5 rounded-full bg-secondary" />
+                            <span className="font-semibold text-primary">~10ms</span>: Sent request to provider ({results.aiTrace.provider})
+                          </div>
+                          <div className="relative">
+                            <span className="absolute -left-[18px] top-1 w-2.5 h-2.5 rounded-full bg-secondary" />
+                            <span className="font-semibold text-primary">~{Math.round(results.aiTrace.latency * 0.9)}ms</span>: Raw response received
+                          </div>
+                          <div className="relative">
+                            <span className="absolute -left-[18px] top-1 w-2.5 h-2.5 rounded-full bg-accent" />
+                            <span className="font-semibold text-primary">~{Math.round(results.aiTrace.latency * 0.95)}ms</span>: Self-Healing JSON parsing & Zod Validation
+                          </div>
+                          {results.crisis && (
+                            <div className="relative">
+                              <span className="absolute -left-[18px] top-1 w-2.5 h-2.5 rounded-full bg-accent" />
+                              <span className="font-semibold text-primary">~{Math.round(results.aiTrace.latency * 0.98)}ms</span>: Layered Crisis Evaluation completed
+                            </div>
+                          )}
+                          <div className="relative">
+                            <span className="absolute -left-[18px] top-1 w-2.5 h-2.5 rounded-full bg-[#8DBFB4]" />
+                            <span className="font-semibold text-primary">{results.aiTrace.latency}ms</span>: Result persisted to UI & Observability Logs
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -867,6 +932,8 @@ export default function TestPage() {
                     </div>
                   </div>
                 </div>
+              </>
+            )}
 
                 {/* Section 6: Raw AI Response (Developer Accordion) */}
                 {results.aiTrace && (

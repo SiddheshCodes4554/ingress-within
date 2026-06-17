@@ -1,6 +1,7 @@
 import { supabase } from '../../db';
-import { aiProvider } from '../../ai/factory';
 import { decrypt } from '../../encryption';
+import { executeScoringPipeline } from '../../ai/pipeline';
+import { evaluateCrisisLayers } from '../../crisis-detector';
 
 export async function processEntryScoring(jobData: { entry_id: string; user_id: string }) {
   const { entry_id, user_id } = jobData;
@@ -98,13 +99,54 @@ export async function processEntryScoring(jobData: { entry_id: string; user_id: 
   }
 
   // STEP 2 — AI scores each part present (see Scoring Rubric for AI instructions)
-  // Score each part independently before applying weighting
-  const scoreResult = await aiProvider.scoreEntryDimensions(
+  // Hardened with Zod validation, self-healing, retries, and failures logging.
+  const activeProvider = process.env.AI_PROVIDER || 'groq';
+  const pipelineResult = await executeScoringPipeline(
     hasReflection ? reflectionText : null,
     hasNewEntry ? newEntryText : null,
-    personalityContext
+    personalityContext,
+    activeProvider,
+    entry_id
   );
 
+  if (!pipelineResult.success || !pipelineResult.scoreResult) {
+    const errorMsg = pipelineResult.errorReason || 'AI scoring pipeline failed validation/parsing';
+    
+    // Update entry status to failed
+    await supabase
+      .from('entries')
+      .update({ 
+        scoring_status: 'failed', 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', entry_id);
+
+    // Sync to entry_scores with failed status
+    const { data: existingScore } = await supabase
+      .from('entry_scores')
+      .select('id')
+      .eq('entry_id', entry_id)
+      .maybeSingle();
+
+    const failedPayload = {
+      entry_id,
+      user_id,
+      cycle_id: entry.cycle_id,
+      scoring_status: 'failed' as const,
+      confidence_reason: errorMsg,
+      updated_at: new Date().toISOString()
+    };
+
+    if (existingScore) {
+      await supabase.from('entry_scores').update(failedPayload).eq('id', existingScore.id);
+    } else {
+      await supabase.from('entry_scores').insert(failedPayload);
+    }
+
+    throw new Error(`[Entry Scoring Worker] Hardened pipeline failed: ${errorMsg}`);
+  }
+
+  const scoreResult = pipelineResult.scoreResult;
   const { reflection, newEntry, confidenceFlag, confidenceReason, arcScoringApplied } = scoreResult;
 
   let day_ei: number | null = null;
@@ -137,14 +179,23 @@ export async function processEntryScoring(jobData: { entry_id: string; user_id: 
     confidence_flag = true; // Processed content — lower confidence expected
   }
 
-  // STEP 4 — Immediate Crisis Check (Crisis Protocol v1)
-  const isImmediateDistress = day_ei !== null && day_sa !== null && day_ei >= 9 && day_sa <= 2;
-  const isRiskLanguage = !!scoreResult.riskLanguageDetected;
-  const isCrisis = isImmediateDistress || isRiskLanguage;
-  const crisis_type = isRiskLanguage ? 'Risk_Language' : (isImmediateDistress ? 'Immediate' : null);
+  // STEP 4 — Immediate Layered Crisis Check (Crisis Protocol v2)
+  const crisisResult = await evaluateCrisisLayers(
+    newEntryText || entry.content,
+    activeProvider,
+    {
+      day_ei,
+      day_sa,
+      riskLanguageDetected: scoreResult.riskLanguageDetected,
+      riskLanguageQuote: scoreResult.riskLanguageQuote
+    }
+  );
+
+  const isCrisis = crisisResult.crisisFlag;
+  const crisis_type = crisisResult.crisisType;
 
   if (isCrisis && crisis_type) {
-    console.warn(`[Entry Scoring Worker] CRITICAL: Immediate crisis detected! Type: ${crisis_type}`);
+    console.warn(`[Entry Scoring Worker] CRITICAL: Immediate crisis detected via layered protocol! Type: ${crisis_type}. Explanation: ${crisisResult.explanation}`);
     
     // Log to crisis_log table
     const { error: logError } = await supabase
@@ -191,13 +242,12 @@ export async function processEntryScoring(jobData: { entry_id: string; user_id: 
   };
 
   // Only include crisis-related fields if this scoring run detected a crisis.
-  // This prevents the scoring worker from overwriting a true crisis flag set by a concurrent crisis worker.
   if (isCrisis) {
     scoreData.crisis_flag = true;
     scoreData.crisis_type = crisis_type;
     scoreData.crisis_flagged_at = new Date().toISOString();
     scoreData.reflection_suppressed = true;
-    scoreData.risk_language_quote = isRiskLanguage ? (scoreResult.riskLanguageQuote || null) : null;
+    scoreData.risk_language_quote = crisisResult.riskQuote || scoreResult.riskLanguageQuote || null;
   }
 
   const { error: entryUpdateError } = await supabase

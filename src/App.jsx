@@ -25,6 +25,10 @@ const TestPage = (process.env.NODE_ENV === 'development' || process.env.NEXT_PUB
   ? lazy(() => import('./pages/TestPage'))
   : () => null;
 
+const FounderTestPage = (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_TEST_PAGE === 'true')
+  ? lazy(() => import('./pages/FounderTestPage'))
+  : () => null;
+
 
 
 
@@ -340,7 +344,13 @@ export default function App() {
         } else {
           setCurrentRoute('home');
         }
-
+      } else if (path === '/test/founder' || path === '/test/founder/') {
+        if (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_TEST_PAGE === 'true') {
+          setCurrentRoute('test-founder');
+          window.scrollTo(0, 0);
+        } else {
+          setCurrentRoute('home');
+        }
       } else {
         setCurrentRoute('home');
         // Handle section scroll deep link (e.g. /#auth -> scroll to auth section)
@@ -451,6 +461,11 @@ export default function App() {
       case 'test':
         if (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_TEST_PAGE === 'true') {
           return <TestPage />;
+        }
+        return <LandingPage onOpenPolicy={handleOpenPolicy} />;
+      case 'test-founder':
+        if (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_TEST_PAGE === 'true') {
+          return <FounderTestPage />;
         }
         return <LandingPage onOpenPolicy={handleOpenPolicy} />;
       case 'home':

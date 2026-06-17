@@ -275,7 +275,10 @@ export class GroqProvider implements AIProvider {
   }
 
   async detectCrisis(content: string): Promise<CrisisDetectionResponse> {
-    const systemPrompt = `You are a psychiatric crisis detection engine. Analyze the provided journal entry and evaluate if the client shows signs of active, imminent crisis, self-harm intentions, or suicide risk. Return a JSON object with:
+    const systemPrompt = `You are a psychiatric crisis detection engine. Analyze the provided journal entry and evaluate if the client shows signs of active, imminent crisis, self-harm intentions, or suicide risk.
+Return ONLY a valid JSON object matching the requested schema. Do NOT wrap the JSON response in any markdown code block formatting (do not use \`\`\`). Do not include any conversational preambles, explanations, or trailing commentary. Your output must start with '{' and end with '}'.
+
+Schema:
 {
   "isCrisis": boolean,
   "reason": string (if isCrisis is true, explain briefly; otherwise leave empty)
@@ -347,7 +350,9 @@ Personality context for this user: "${personalityContext || 'None'}"
 - Score reflection and new entry INDEPENDENTLY. Do not blend them.
 
 ### RESPONSE FORMAT
-Return ONLY a valid JSON object matching this schema:
+Return ONLY a valid JSON object matching this schema. Do NOT wrap the JSON response in any markdown code block formatting (do not use \`\`\`json or \`\`\`). Do not include any conversational preambles, explanations, or trailing commentary. Your output must start with '{' and end with '}'.
+
+Schema:
 {
   "reflection": {
     "ei": number (1.0 to 10.0),

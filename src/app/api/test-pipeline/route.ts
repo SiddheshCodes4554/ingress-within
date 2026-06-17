@@ -7,6 +7,8 @@ import { processEntryScoring } from '../../../lib/queue/workers/entryScoringWork
 import { processCrisisDetection } from '../../../lib/queue/workers/crisisDetectionWorker';
 import { processReflectionGeneration } from '../../../lib/queue/workers/reflectionWorker';
 import { connection } from '../../../lib/queue/config';
+import { executeScoringPipeline } from '../../../lib/ai/pipeline';
+import { evaluateCrisisLayers } from '../../../lib/crisis-detector';
 
 
 
@@ -44,14 +46,35 @@ export async function POST(request: NextRequest) {
     if (action === 'run-scoring') {
       const startTime = Date.now();
       
-      const scoreResult = await aiProvider.scoreEntryDimensions(
+      const pipelineResult = await executeScoringPipeline(
         reflectionText || null,
         newEntryText || null,
-        'Developer testing context'
+        'Developer testing context',
+        provider,
+        entryId || null
       );
       
-      const latency = Date.now() - startTime;
+      const latency = pipelineResult.latency;
       const tracing = aiProvider as any;
+
+      if (!pipelineResult.success || !pipelineResult.scoreResult) {
+        return NextResponse.json({
+          success: false,
+          errorReason: pipelineResult.errorReason || 'AI scoring pipeline failed validation or parsing.',
+          retryCount: pipelineResult.retryCount,
+          latency: pipelineResult.latency,
+          aiTrace: {
+            systemPrompt: tracing.lastSystemPrompt || '',
+            userContent: tracing.lastUserContent || '',
+            rawResponse: pipelineResult.rawResponse || tracing.lastRawResponse || '',
+            usage: tracing.lastUsage || null,
+            provider: provider,
+            latency
+          }
+        });
+      }
+
+      const scoreResult = pipelineResult.scoreResult;
 
       // Compute entry type
       const hasReflection = !!(reflectionText && reflectionText.trim());
@@ -84,39 +107,24 @@ export async function POST(request: NextRequest) {
         day_sa = scoreResult.reflection.sa;
       }
 
-      // Evaluate crisis triggers
-      const isImmediateDistress = day_ei !== null && day_sa !== null && day_ei >= 9 && day_sa <= 2;
-      const isRiskLanguage = !!scoreResult.riskLanguageDetected;
-      const crisisFlag = isImmediateDistress || isRiskLanguage;
-      const crisisType = isRiskLanguage ? 'Risk_Language' : (isImmediateDistress ? 'Immediate' : null);
+      // Evaluate crisis triggers using the 4-layered framework
+      const crisisResult = await evaluateCrisisLayers(
+        newEntryText || null,
+        provider,
+        {
+          day_ei,
+          day_sa,
+          riskLanguageDetected: scoreResult.riskLanguageDetected,
+          riskLanguageQuote: scoreResult.riskLanguageQuote
+        }
+      );
 
-      // Construct explanation for crisis trigger
-      let explanation = '';
-      if (crisisFlag) {
-        explanation += `Crisis triggered. Reason: `;
-        if (isRiskLanguage) {
-          explanation += `Risk language detected with quote: "${scoreResult.riskLanguageQuote}". `;
-        }
-        if (isImmediateDistress) {
-          explanation += `EI (${day_ei}) >= 9 and SA (${day_sa}) <= 2. `;
-        }
-      } else {
-        explanation = `No crisis triggered. `;
-        if (day_ei !== null && day_sa !== null) {
-          if (day_ei < 9 && day_sa > 2) {
-            explanation += `Both thresholds were clean: EI (${day_ei}) < 9 and SA (${day_sa}) > 2. `;
-          } else if (day_ei >= 9 && day_sa > 2) {
-            explanation += `EI (${day_ei}) is high but SA (${day_sa}) > 2 represents agency (hard day, not crisis). `;
-          } else if (day_ei < 9 && day_sa <= 2) {
-            explanation += `SA (${day_sa}) is low but EI (${day_ei}) < 9 shows no acute distress. `;
-          }
-        } else {
-          explanation += `Insufficient text scores to evaluate thresholds. `;
-        }
-        if (!isRiskLanguage) {
-          explanation += `No explicit risk language was identified.`;
-        }
-      }
+      const crisisFlag = crisisResult.crisisFlag;
+      const crisisType = crisisResult.crisisType;
+      const isImmediateDistress = crisisResult.triggeredLayers.includes('Layer 3 (Score Threshold)');
+      const isRiskLanguage = crisisResult.triggeredLayers.includes('Layer 1 (Keyword Match)') || 
+                           crisisResult.triggeredLayers.includes('Layer 2 (Semantic AI Check)') ||
+                           crisisResult.triggeredLayers.includes('Layer 4 (Combined Logic)');
 
       return NextResponse.json({
         success: true,
@@ -132,16 +140,17 @@ export async function POST(request: NextRequest) {
           crisisType,
           isImmediateDistress,
           isRiskLanguage,
-          explanation,
+          explanation: crisisResult.explanation,
           reflectionSuppressed: crisisFlag
         },
         aiTrace: {
           systemPrompt: tracing.lastSystemPrompt || '',
           userContent: tracing.lastUserContent || '',
-          rawResponse: tracing.lastRawResponse || '',
+          rawResponse: pipelineResult.rawResponse || tracing.lastRawResponse || '',
           usage: tracing.lastUsage || null,
           provider: provider,
-          latency
+          latency,
+          retryCount: pipelineResult.retryCount
         }
       });
     }
@@ -153,27 +162,25 @@ export async function POST(request: NextRequest) {
       const startTime = Date.now();
       const content = newEntryText || '';
       
-      const crisisResult = await aiProvider.detectCrisis(content);
+      const crisisResult = await evaluateCrisisLayers(content, provider, null);
       
       const latency = Date.now() - startTime;
       const tracing = aiProvider as any;
 
-      let explanation = '';
-      if (crisisResult.isCrisis) {
-        explanation = `Risk language detected: ${crisisResult.reason}`;
-      } else {
-        explanation = `No explicit risk language detected in entry text.`;
-      }
+      const isImmediateDistress = crisisResult.triggeredLayers.includes('Layer 3 (Score Threshold)');
+      const isRiskLanguage = crisisResult.triggeredLayers.includes('Layer 1 (Keyword Match)') || 
+                           crisisResult.triggeredLayers.includes('Layer 2 (Semantic AI Check)') ||
+                           crisisResult.triggeredLayers.includes('Layer 4 (Combined Logic)');
 
       return NextResponse.json({
         success: true,
         crisis: {
-          crisisFlag: crisisResult.isCrisis,
-          crisisType: crisisResult.isCrisis ? 'Risk_Language' : null,
-          isImmediateDistress: false,
-          isRiskLanguage: crisisResult.isCrisis,
-          explanation,
-          reflectionSuppressed: crisisResult.isCrisis
+          crisisFlag: crisisResult.crisisFlag,
+          crisisType: crisisResult.crisisType,
+          isImmediateDistress,
+          isRiskLanguage,
+          explanation: crisisResult.explanation,
+          reflectionSuppressed: crisisResult.crisisFlag
         },
         aiTrace: {
           systemPrompt: tracing.lastSystemPrompt || '',
@@ -321,7 +328,7 @@ export async function POST(request: NextRequest) {
       // 1. Fetch updated states from DB first to support synchronous / offline fallback
       const [entryRes, reflectionRes] = await Promise.all([
         supabase.from('entries').select('*').eq('id', entryId).maybeSingle(),
-        supabase.from('reflections').select('id, status').eq('entry_id', entryId).maybeSingle()
+        supabase.from('reflections').select('id, status, question, observation').eq('entry_id', entryId).maybeSingle()
       ]);
 
       const updatedEntry = entryRes.data;
@@ -383,7 +390,8 @@ export async function POST(request: NextRequest) {
           reflection: reflectionJob,
           crisis: crisisJob
         },
-        entryState: updatedEntry || null
+        entryState: updatedEntry || null,
+        reflectionState: reflection || null
       });
     }
 

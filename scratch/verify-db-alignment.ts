@@ -49,7 +49,9 @@ const requiredTables = [
   'vocab_clusters',
   'assessments',
   'monthly_scores',
-  'ai_jobs'
+  'ai_jobs',
+  'ai_failures',
+  'ai_observability'
 ];
 
 async function verifyDatabase() {
