@@ -46,9 +46,22 @@ export async function GET(
       );
     }
 
+    // Fetch associated reflection
+    const { data: reflection, error: reflectionError } = await supabase
+      .from('reflections')
+      .select('*')
+      .eq('entry_id', entryId)
+      .maybeSingle();
+
+    if (reflectionError) {
+      console.error(`[api/entries/[id]] Database error fetching reflection for entry ${entryId}:`, reflectionError);
+      // We do not fail the request entirely if reflection fails to fetch, but log it and return null
+    }
+
     return NextResponse.json({
       success: true,
-      entry
+      entry,
+      reflection: reflection || null
     });
 
   } catch (error) {

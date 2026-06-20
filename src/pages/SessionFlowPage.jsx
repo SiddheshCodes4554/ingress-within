@@ -129,7 +129,7 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
           setExerciseRecap(data.exercise);
           setJournalRecap(data.journal);
           initialStage = 'complete';
-        } else {
+        } else if (data.session && data.session.status !== 'complete') {
           const activeSession = data.session;
           setSession(activeSession);
           initialStage = activeSession.status;

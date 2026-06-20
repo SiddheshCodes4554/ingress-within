@@ -16,12 +16,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 1. Query threads
+    // 1. Query threads from open_threads table
     let { data: threads, error } = await supabase
-      .from('threads')
+      .from('open_threads')
       .select('*')
       .eq('user_id', authUser.userId)
-      .neq('status', 'CLOSED')
+      .neq('status', 'closed')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -32,11 +32,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-
+    // Map fields for frontend compatibility
+    const mappedThreads = (threads || []).map((t: any) => ({
+      id: t.id,
+      user_id: t.user_id,
+      cycle_id: t.cycle_id,
+      source_summary_id: t.source_summary_id,
+      question: t.question,
+      origin: t.origin_context || 'Self-Reflection',
+      status: t.status === 'open' ? 'NEW' : t.status.toUpperCase(),
+      created_at: t.created_at,
+      addressed_at: t.addressed_at,
+      addressed_entry_id: t.addressed_entry_id
+    }));
 
     return NextResponse.json({
       success: true,
-      threads: threads || []
+      threads: mappedThreads
     });
 
   } catch (error) {

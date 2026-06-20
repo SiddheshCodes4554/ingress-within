@@ -1,6 +1,7 @@
 import { supabase } from '../../db';
 import { decrypt } from '../../encryption';
 import { evaluateCrisisLayers } from '../../crisis-detector';
+import { queueRegistry } from '../registry';
 
 export async function processCrisisDetection(jobData: {
   entry_id: string;
@@ -93,6 +94,45 @@ export async function processCrisisDetection(jobData: {
     }
 
     console.log(`[Crisis Detection Worker] Scan completed for entry ${entry_id}. isCrisis: ${result.crisisFlag}`);
+
+    // Sequential Chaining based on Crisis Gating
+    if (result.crisisFlag) {
+      console.log(`[Crisis Detection Worker] Suppression due to crisis. Setting reflection status to 'failed'.`);
+      const { data: existingReflection } = await supabase
+        .from('reflections')
+        .select('id')
+        .eq('entry_id', entry_id)
+        .maybeSingle();
+
+      const reflectionPayload = {
+        entry_id,
+        user_id,
+        cycle_id: entry.cycle_id,
+        reflection_text: 'Reflection suppressed due to crisis protocol.',
+        provider: 'system',
+        confidence: 'low',
+        themes: ['Crisis'],
+        status: 'failed',
+        generated_at: new Date().toISOString()
+      };
+
+      if (existingReflection) {
+        await supabase.from('reflections').update(reflectionPayload).eq('id', existingReflection.id);
+      } else {
+        await supabase.from('reflections').insert(reflectionPayload);
+      }
+    } else {
+      // If no crisis, trigger the reflection generation job in queue
+      try {
+        await queueRegistry.addJob('reflection_generation', `refl_${entry_id}`, {
+          entry_id,
+          user_id
+        });
+        console.log(`[Crisis Detection Worker] Chained reflection generation job for entry ${entry_id}`);
+      } catch (chainErr: any) {
+        console.error(`[Crisis Detection Worker] Error queueing reflection generation:`, chainErr.message);
+      }
+    }
   } catch (err: any) {
     console.error(`[Crisis Detection Worker] Error during crisis detection:`, err);
     throw err;

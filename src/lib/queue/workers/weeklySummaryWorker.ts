@@ -173,7 +173,16 @@ export async function processWeeklySummary(jobData: {
     console.error(`[Weekly Summary Worker] Error evaluating sustained distress:`, distressErr.message);
   }
 
-  // 3. Decrypt and format entries
+  // 3. Fetch user context (OCEAN personality summary text)
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('personality_summary_text')
+    .eq('id', user_id)
+    .single();
+
+  const personalityContext = user?.personality_summary_text || undefined;
+
+  // 4. Decrypt and format entries
   const formattedEntries = (entries || [])
     .map(e => {
       const text = decrypt(e.new_entry_text_encrypted, e.new_entry_text_iv) || e.content;
@@ -198,8 +207,8 @@ export async function processWeeklySummary(jobData: {
   }
 
   try {
-    // 4. Call AI Provider
-    const result = await aiProvider.generateWeeklySummary(formattedEntries);
+    // 5. Call AI Provider with personality context
+    const result = await aiProvider.generateWeeklySummary(formattedEntries, personalityContext);
 
     // 5. Update weekly_summaries table
     const { error: updateError } = await supabase
@@ -236,21 +245,7 @@ export async function processWeeklySummary(jobData: {
       console.warn(`[Weekly Summary Worker] Failed to insert into open_threads:`, openThreadError.message);
     }
 
-    // Also insert to legacy threads table for API endpoint route compatibility
-    const { error: legacyThreadError } = await supabase
-      .from('threads')
-      .insert({
-        id: threadId,
-        user_id,
-        question: result.q,
-        origin: result.title || `Week ${week_number} Summary`,
-        status: 'NEW',
-        created_at: new Date().toISOString()
-      });
 
-    if (legacyThreadError) {
-      console.warn(`[Weekly Summary Worker] Failed to insert into legacy threads:`, legacyThreadError.message);
-    }
 
     console.log(`[Weekly Summary Worker] Successfully generated weekly summary and open thread for week ${week_number}`);
   } catch (err: any) {

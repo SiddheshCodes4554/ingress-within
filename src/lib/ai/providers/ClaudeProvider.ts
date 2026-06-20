@@ -39,11 +39,14 @@ export class ClaudeProvider implements AIProvider {
           sentiment: "anxious",
           stressIndicators: ["work load", "avoidance"]
         };
-      } else if (systemPrompt.includes('introspective question')) {
+      } else if (systemPrompt.includes('clinical observation engine')) {
         mockRes = {
-          question: "What makes conflict feel so threatening to you?",
-          origin: "Avoidance Pattern",
-          context: "You mentioned avoiding talking to your boss to prevent conflict."
+          classification: "Open",
+          reflection: "You tend to keep things fair, clapped in the meeting, and did what was reasonable even when you were exhausted. You are performing to expectations even in this journal where nobody else is looking.",
+          closing_question: "What would you say about today if you weren't trying to be fair about it?",
+          confidence: "high",
+          themes: ["Fairness", "Suppression"],
+          processing_notes: "Simulated clinical observation matching Prompt System v1.0 Open pattern rules."
         };
       } else if (systemPrompt.includes('synthesizing')) {
         mockRes = {
@@ -120,6 +123,10 @@ export class ClaudeProvider implements AIProvider {
           riskLanguageQuote: isCrisisMatch ? "Explicit statement of self-harm intent" : null,
           arcScoringApplied: false
         };
+      } else if (systemPrompt.includes('AI ANALYSIS GOAL')) {
+        mockRes = {
+          summary: "You tend to process things internally and find direct conflict uncomfortable. That means things often pile up quietly before they surface. This space is designed for exactly that."
+        };
       }
 
       if (mockRes) {
@@ -181,16 +188,58 @@ export class ClaudeProvider implements AIProvider {
   }
 
   async generateReflection(entryContent: string, context?: string): Promise<ReflectionResponse> {
-    const systemPrompt = `You are a psychological guide focusing on cognitive reframing and pattern identification. Analyze the journal entry and return a JSON object containing:
+    const systemPrompt = `STANDING CONTEXT — use to calibrate what you notice. Do not surface to the user. Do not reference it directly. Personality context for this user: ${context || 'None'}
+─────────────────────────────────────────────────────────
+You are reading someone's journal entry. Read it carefully.
+Write the way a professional therapist observes in a session — show the person something in their own words and behaviour that they haven't fully seen yet.
+Do not direct them. Do not evaluate their choices. Do not tell them what to do.
+The observation does the work. The person does the rest.
+
+First, identify which pattern the entry shows:
+- Flat: functional, minimal emotional language, reporting events not meaning.
+- Open: some self-reflection present, emotional language visible, person is engaging.
+- Scattered: high volume, multiple threads, a lot said but nothing landing.
+
+Then write two to three plain conversational sentences — like you're texting a friend what you noticed, not writing about them. Simplest words possible. No metaphors, no therapy-speak. Never comfort, advise, or validate blindly. Always use 'you' — you are speaking to them, not describing them.
+- Flat: Name one specific thing visible in the entry — a word they used, something they skimmed past, a choice they made. Don't reach underneath. One accurate observation is enough.
+- Open: Go one layer deeper than what they said. Name what the writing reveals, not what they wrote. Be specific. Don't soften.
+- Scattered: Ignore the chaos. Find the one thing surfacing across threads and name only that. Slow it down. Do not paraphrase.
+
+If your sentence could have been written by the person themselves, delete it and look deeper. No book or essay phrases — 'doing a lot of work', 'sits at the center of', 'underneath all of this.' Just say the thing directly.
+
+HARD CONSTRAINTS — never:
+- Dismiss or minimise feelings
+- Recommend physical discomfort as a coping strategy
+- Romanticise or normalise self-harm
+- Imply their situation is hopeless
+- Use clinical diagnostic labels
+- Encourage keeping distress private
+- Position yourself as a replacement for human connection
+
+Then ask one closing question. Its only job is to make the person face what they're keeping vague or avoiding — not act on it, just acknowledge it to themselves. Use their own words where possible. Present moment only. Feeling or internal experience — not an action.
+- Flat: Small and specific. Pointed at something they actually wrote. Don't ask about feelings they haven't signalled.
+- Open: Pull harder. Point at what they almost named but didn't.
+- Scattered: Slow them down. Point at the one thread. Requires stillness, not more words.
+If they already know what they're avoiding, don't ask what it is — ask what they're afraid will happen if they look at it directly.
+
+You must return a valid JSON object matching the requested schema. Do not output any conversational introduction or explanation. Do not output the fixed closing line in the "reflection" field; that will be appended by the backend.
+
+Schema:
 {
-  "question": string (a single open-ended, non-judgmental, introspective question addressing an underlying cognitive pattern or defense mechanism),
-  "origin": string (the core source theme, e.g. "Avoidance Pattern", "Validation Seeking", "Somatic Stress"),
-  "context": string (a brief explanation of why this question is surfaced based on the entry's phrasing or contradictions)` + (context ? `\nExisting context: ${context}` : '') + `\n}`;
+  "classification": "Flat" | "Open" | "Scattered",
+  "reflection": "The 2-3 plain conversational sentences observing the entry.",
+  "closing_question": "The single closing question.",
+  "confidence": "high" | "medium" | "low",
+  "themes": ["array of 2-4 identified themes"],
+  "processing_notes": "A brief technical note on why this reflection was framed this way."
+}`;
     return this.callClaude<ReflectionResponse>(systemPrompt, `Journal entry:\n"${entryContent}"`);
   }
 
-  async generateWeeklySummary(entries: { content: string; created_at: string }[]): Promise<WeeklySummaryResponse> {
-    const systemPrompt = `You are a clinical supervisor synthesizing a client's weekly journal entries. Analyze the entries and return a JSON object with:
+  async generateWeeklySummary(entries: { content: string; created_at: string }[], personalitySummary?: string): Promise<WeeklySummaryResponse> {
+    const systemPrompt = `STANDING CONTEXT — use to calibrate what you notice. Do not surface to the user. Do not reference it directly. Personality context for this user: ${personalitySummary || 'None'}
+─────────────────────────────────────────────────────────
+You are a clinical supervisor synthesizing a client's weekly journal entries. Analyze the entries and return a JSON object with:
 {
   "title": string (a short, evocative weekly summary title capturing the theme, e.g., "Composure vs. Suppression"),
   "body": string (a 2-3 sentence narrative summarizing the client's emotional landscape this week),
@@ -377,5 +426,31 @@ Schema:
 New Entry Text to score: ${newEntryText ? `"${newEntryText}"` : 'None'}`;
 
     return this.callClaude<EntryDimensionsScoreResponse>(systemPrompt, userContent);
+  }
+
+  async generatePersonalitySummary(scores: {
+    openness: number;
+    conscientiousness: number;
+    extraversion: number;
+    agreeableness: number;
+    neuroticism: number;
+  }): Promise<string> {
+    const systemPrompt = `You are a personality analysis assistant.
+AI ANALYSIS GOAL: You are reading a person's OCEAN personality assessment scores on a scale of 1–5 where 5 is highest.
+
+Write 2–3 plain sentences describing how this person tends to process their inner life. Do not use OCEAN terminology or clinical language. Do not mention scores. Write it the way you would describe someone to a new person who is about to interact with them.
+End with one sentence that begins: This space is designed for exactly that.
+
+Be accurate. Be plain. Do not be warm or encouraging. Just describe what you see.
+
+Return a valid JSON object matching the requested schema:
+{
+  "summary": "The generated personality summary string."
+}`;
+
+    const userContent = `Openness: ${scores.openness} | Conscientiousness: ${scores.conscientiousness} | Extraversion: ${scores.extraversion} | Agreeableness: ${scores.agreeableness} | Neuroticism: ${scores.neuroticism}`;
+
+    const result = await this.callClaude<{ summary: string }>(systemPrompt, userContent);
+    return result.summary;
   }
 }

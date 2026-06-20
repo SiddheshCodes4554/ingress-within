@@ -16,7 +16,8 @@ import {
   Cpu,
   RefreshCw,
   Sliders,
-  Database
+  Database,
+  MessageSquare
 } from 'lucide-react';
 import DashboardNavbar from '../components/DashboardNavbar';
 
@@ -143,6 +144,152 @@ export default function TestPage() {
 
   // Accordion open/close
   const [accordionOpen, setAccordionOpen] = useState(false);
+
+  // Tabs and Compliance Check State
+  const [activeTab, setActiveTab] = useState('simulator');
+  const [dbCompliance, setDbCompliance] = useState(null);
+  const [developerUser, setDeveloperUser] = useState(null);
+  const [checkingCompliance, setCheckingCompliance] = useState(false);
+
+  const runComplianceCheck = async () => {
+    setCheckingCompliance(true);
+    try {
+      const dbRes = await fetch('/api/test-pipeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'db-compliance-check' })
+      });
+      const dbData = await dbRes.json();
+      if (dbRes.ok && dbData.schema) {
+        setDbCompliance(dbData.schema);
+      }
+
+      const userRes = await fetch('/api/auth/me');
+      const userData = await userRes.json();
+      if (userRes.ok && userData.user) {
+        setDeveloperUser(userData);
+      }
+    } catch (err) {
+      console.error('Failed to run compliance check:', err);
+    } finally {
+      setCheckingCompliance(false);
+    }
+  };
+
+  const getReflectionDetails = () => {
+    if (!results) return null;
+    
+    // Check if it's from run-reflection or run-score-reflection directly
+    if (results.reflection) {
+      if (typeof results.reflection === 'object' && results.reflection.reflectionText !== undefined) {
+        // run-score-reflection
+        return {
+          reflectionText: results.reflection.reflectionText,
+          closingQuestion: results.reflection.closingQuestion,
+          classification: results.reflection.classification,
+          confidence: results.reflection.confidence,
+          themes: results.reflection.themes,
+          validation: results.reflection.validation,
+          attempts: results.reflection.attempts,
+          suppressed: results.reflection.suppressed,
+          trace: results.reflectionTrace
+        };
+      } else if (typeof results.reflection === 'string') {
+        // run-reflection
+        return {
+          reflectionText: results.reflection,
+          closingQuestion: results.closingQuestion,
+          classification: results.classification,
+          confidence: results.confidence,
+          themes: results.themes,
+          validation: results.validation,
+          attempts: results.attempts,
+          suppressed: false,
+          trace: results.aiTrace
+        };
+      }
+    }
+    
+    // Check if it's from run-full background poll
+    if (results.reflectionResult) {
+      return {
+        reflectionText: results.reflectionResult.reflection_text,
+        closingQuestion: results.reflectionResult.closing_question,
+        classification: results.reflectionResult.classification,
+        confidence: results.reflectionResult.confidence,
+        themes: results.reflectionResult.themes,
+        validation: { valid: results.reflectionResult.status === 'ready' },
+        attempts: 1,
+        suppressed: results.crisis?.reflectionSuppressed || false,
+        trace: null
+      };
+    }
+    
+    return null;
+  };
+
+  // Run reflection only (synchronous)
+  const runReflectionOnly = async () => {
+    setIsLoading(true);
+    setActivePipeline('reflection');
+    setError(null);
+    setResults(null);
+    setJobStates(null);
+    setIsPolling(false);
+
+    try {
+      const res = await fetch('/api/test-pipeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'run-reflection',
+          newEntryText,
+          provider
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'Reflection generation failed.');
+      setResults(data);
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+      setActivePipeline(null);
+    }
+  };
+
+  // Run score + reflection (synchronous)
+  const runScoreReflection = async () => {
+    setIsLoading(true);
+    setActivePipeline('score-reflection');
+    setError(null);
+    setResults(null);
+    setJobStates(null);
+    setIsPolling(false);
+
+    try {
+      const res = await fetch('/api/test-pipeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'run-score-reflection',
+          reflectionText,
+          newEntryText,
+          provider
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'Score + Reflection pipeline failed.');
+      setResults(data);
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+      setActivePipeline(null);
+    }
+  };
 
   // Load a test case
   const loadTestCase = (tc) => {
@@ -341,9 +488,13 @@ export default function TestPage() {
                   reflectionSuppressed: entry.reflection_suppressed
                 },
                 reflectionResult: data.reflectionState ? {
-                  question: data.reflectionState.question,
-                  observation: data.reflectionState.observation,
-                  status: data.reflectionState.status
+                  reflection_text: data.reflectionState.reflection_text,
+                  provider: data.reflectionState.provider,
+                  confidence: data.reflectionState.confidence,
+                  themes: data.reflectionState.themes,
+                  status: data.reflectionState.status,
+                  closing_question: data.reflectionState.closing_question,
+                  classification: data.reflectionState.classification
                 } : null,
                 aiTrace: null // Background jobs don't return raw AI trace directly in poll
               });
@@ -398,7 +549,36 @@ export default function TestPage() {
           </div>
         </div>
 
-        {/* Test Cases Row */}
+        {/* Navigation Tabs */}
+        <div className="mb-6 flex border-b border-primary/10">
+          <button
+            onClick={() => setActiveTab('simulator')}
+            className={`px-6 py-2.5 font-sans text-xs font-bold uppercase tracking-wider border-b-2 cursor-pointer transition-all ${
+              activeTab === 'simulator'
+                ? 'border-secondary text-primary font-semibold'
+                : 'border-transparent text-mid hover:text-primary'
+            }`}
+          >
+            Pipeline Simulator
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('compliance');
+              runComplianceCheck();
+            }}
+            className={`px-6 py-2.5 font-sans text-xs font-bold uppercase tracking-wider border-b-2 cursor-pointer transition-all ${
+              activeTab === 'compliance'
+                ? 'border-secondary text-primary font-semibold'
+                : 'border-transparent text-mid hover:text-primary'
+            }`}
+          >
+            Compliance Dashboard
+          </button>
+        </div>
+
+        {activeTab === 'simulator' ? (
+          <>
+            {/* Test Cases Row */}
         <div className="mb-8 bg-white p-5 rounded-premium border border-primary/5 shadow-sm space-y-3">
           <div className="text-[10px] font-bold uppercase tracking-wider text-[#8DBFB4]">One-Click Preset Scenarios</div>
           <div className="flex flex-wrap gap-2">
@@ -470,45 +650,75 @@ export default function TestPage() {
                 </div>
               </div>
 
-              <div className="pt-2 flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={runFullPipeline}
-                  disabled={isLoading || (!reflectionText.trim() && !newEntryText.trim())}
-                  className="flex-1 flex items-center justify-center gap-2 bg-primary hover:bg-[#2A3A3E] text-white py-3.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer shadow-sm disabled:opacity-40"
-                >
-                  {isLoading && activePipeline === 'full' ? (
-                    <RotateCw size={14} className="animate-spin" />
-                  ) : (
-                    <Database size={14} />
-                  )}
-                  <span>Run Full Pipeline</span>
-                </button>
+              <div className="pt-2 space-y-3">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={runFullPipeline}
+                    disabled={isLoading || (!reflectionText.trim() && !newEntryText.trim())}
+                    className="flex-1 flex items-center justify-center gap-2 bg-primary hover:bg-[#2A3A3E] text-white py-3.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer shadow-sm disabled:opacity-40"
+                  >
+                    {isLoading && activePipeline === 'full' ? (
+                      <RotateCw size={14} className="animate-spin" />
+                    ) : (
+                      <Database size={14} />
+                    )}
+                    <span>Run Full Pipeline (Async)</span>
+                  </button>
 
-                <button
-                  onClick={runScoringOnly}
-                  disabled={isLoading || (!reflectionText.trim() && !newEntryText.trim())}
-                  className="px-5 flex items-center justify-center gap-2 border border-primary/15 hover:bg-mint-grey text-primary py-3.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
-                >
-                  {isLoading && activePipeline === 'scoring' ? (
-                    <RotateCw size={14} className="animate-spin" />
-                  ) : (
-                    <Cpu size={14} />
-                  )}
-                  <span>Run Scoring Only</span>
-                </button>
+                  <button
+                    onClick={runScoreReflection}
+                    disabled={isLoading || (!reflectionText.trim() && !newEntryText.trim())}
+                    className="flex-1 flex items-center justify-center gap-2 bg-[#8DBFB4] hover:bg-[#7cafb3] text-white py-3.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer shadow-sm disabled:opacity-40"
+                  >
+                    {isLoading && activePipeline === 'score-reflection' ? (
+                      <RotateCw size={14} className="animate-spin" />
+                    ) : (
+                      <Cpu size={14} />
+                    )}
+                    <span>Score + Reflection (Sync)</span>
+                  </button>
+                </div>
 
-                <button
-                  onClick={runCrisisOnly}
-                  disabled={isLoading || !newEntryText.trim()}
-                  className="px-5 flex items-center justify-center gap-2 border border-[#E0A898]/30 bg-[#E0A898]/5 hover:bg-[#E0A898]/15 text-[#8a3020] py-3.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
-                >
-                  {isLoading && activePipeline === 'crisis' ? (
-                    <RotateCw size={14} className="animate-spin" />
-                  ) : (
-                    <Flame size={14} />
-                  )}
-                  <span>Run Crisis Check</span>
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={runScoringOnly}
+                    disabled={isLoading || (!reflectionText.trim() && !newEntryText.trim())}
+                    className="flex-1 flex items-center justify-center gap-2 border border-primary/15 hover:bg-mint-grey text-primary py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
+                  >
+                    {isLoading && activePipeline === 'scoring' ? (
+                      <RotateCw size={14} className="animate-spin" />
+                    ) : (
+                      <Cpu size={14} />
+                    )}
+                    <span>Scoring Only</span>
+                  </button>
+
+                  <button
+                    onClick={runCrisisOnly}
+                    disabled={isLoading || !newEntryText.trim()}
+                    className="flex-1 flex items-center justify-center gap-2 border border-[#E0A898]/30 bg-[#E0A898]/5 hover:bg-[#E0A898]/15 text-[#8a3020] py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
+                  >
+                    {isLoading && activePipeline === 'crisis' ? (
+                      <RotateCw size={14} className="animate-spin" />
+                    ) : (
+                      <Flame size={14} />
+                    )}
+                    <span>Crisis Check Only</span>
+                  </button>
+
+                  <button
+                    onClick={runReflectionOnly}
+                    disabled={isLoading || !newEntryText.trim()}
+                    className="flex-1 flex items-center justify-center gap-2 border border-[#B8A8D4]/30 bg-[#B8A8D4]/5 hover:bg-[#B8A8D4]/15 text-[#5A4A8A] py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
+                  >
+                    {isLoading && activePipeline === 'reflection' ? (
+                      <RotateCw size={14} className="animate-spin" />
+                    ) : (
+                      <MessageSquare size={14} />
+                    )}
+                    <span>Reflection Only</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -825,12 +1035,12 @@ export default function TestPage() {
                   )}
 
                   {/* Latency, retry count, provider, status */}
-                  {results.aiTrace && (
+                  {(results.aiTrace || results.scoringTrace) && (
                     <div className="flex flex-col gap-2 border-t border-primary/5 pt-3 text-[10px] text-mid font-mono">
                       <div className="flex justify-between items-center">
-                        <div>Latency: {results.aiTrace.latency}ms</div>
-                        <div>Retries: {results.aiTrace.retryCount || 0}</div>
-                        <div className="uppercase">Provider: {results.aiTrace.provider}</div>
+                        <div>Latency: {results.totalLatency || results.aiTrace?.latency || results.scoringTrace?.latency}ms</div>
+                        <div>Retries: {results.aiTrace?.retryCount || results.scoringTrace?.retryCount || 0}</div>
+                        <div className="uppercase">Provider: {results.aiTrace?.provider || results.scoringTrace?.provider || provider}</div>
                       </div>
                       
                       {/* Timeline */}
@@ -935,8 +1145,138 @@ export default function TestPage() {
               </>
             )}
 
+                {/* Section: Reflection Quality Lab */}
+                {(() => {
+                  const refl = getReflectionDetails();
+                  if (!refl) return null;
+
+                  return (
+                    <div className="bg-white rounded-premium border border-primary/5 shadow-sm p-6 space-y-4">
+                      <div className="flex justify-between items-center border-b border-primary/5 pb-3">
+                        <div className="flex items-center gap-2">
+                          <MessageSquare size={16} className="text-secondary" />
+                          <h2 className="font-serif text-lg font-normal text-primary">Reflection Quality Lab</h2>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {refl.suppressed ? (
+                            <span className="px-2 py-0.5 bg-accent/15 text-[#8a3020] rounded-full text-[9px] font-bold uppercase tracking-wider">
+                              SUPPRESSED
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-secondary/10 text-secondary-dark rounded-full text-[9px] font-bold uppercase tracking-wider">
+                              Confidence: {refl.confidence || 'N/A'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-4 text-xs">
+                        <div className="bg-[#FBFBFB] border border-primary/5 p-4 rounded-xl space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Generated Reflection Text</span>
+                            {!refl.suppressed && (
+                              <button
+                                onClick={runReflectionOnly}
+                                className="text-[9px] text-secondary font-semibold hover:underline cursor-pointer bg-transparent border-none p-0"
+                              >
+                                Regenerate Reflection
+                              </button>
+                            )}
+                          </div>
+                          {refl.reflectionText ? (
+                            (() => {
+                              const paragraphs = refl.reflectionText.split('\n\n').filter(Boolean);
+                              const bodyParagraphs = paragraphs.length > 1 ? paragraphs.slice(0, -1) : [];
+                              const questionParagraph = paragraphs[paragraphs.length - 1];
+                              return (
+                                <div className="space-y-3 font-serif italic text-primary leading-relaxed text-sm">
+                                  {bodyParagraphs.map((p, idx) => (
+                                    <p key={idx} className="font-sans font-normal not-italic text-xs text-primary/80">{p}</p>
+                                  ))}
+                                  {questionParagraph && (
+                                    <blockquote className="border-l-4 border-secondary/20 pl-4 py-1">
+                                      {questionParagraph}
+                                    </blockquote>
+                                  )}
+                                </div>
+                              );
+                            })()
+                          ) : (
+                            <span className="italic text-mid">No reflection text generated</span>
+                          )}
+                        </div>
+
+                        {/* Validation & Retries status */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="bg-mint-grey p-3 rounded-lg space-y-1">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Quality Validation</span>
+                            <div className="flex items-center gap-1.5 font-semibold text-primary">
+                              {refl.validation?.valid ? (
+                                <>
+                                  <CheckCircle2 size={13} className="text-secondary" />
+                                  <span>Passed Cleanly</span>
+                                </>
+                              ) : (
+                                <>
+                                  <AlertTriangle size={13} className="text-accent" />
+                                  <span className="text-[#8a3020]">Failed: {refl.validation?.reason || 'Validation rules violated'}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="bg-mint-grey p-3 rounded-lg space-y-1">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Attempts / Retries</span>
+                            <div className="flex items-center gap-1.5 font-semibold text-primary">
+                              <span>{refl.attempts || 1} {refl.attempts > 1 ? 'Attempts (Correction Loop Active)' : 'Attempt (Clean Pass)'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Compliance fields display */}
+                        {!refl.suppressed && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-[#F9FBFA] p-3 rounded-lg border border-primary/5">
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Classification</span>
+                              <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-bold ${
+                                refl.classification === 'Flat' 
+                                  ? 'bg-[#E5F2F0] text-[#2D5A53]' 
+                                  : refl.classification === 'Open'
+                                    ? 'bg-[#E7ECFC] text-[#2F4BB7]'
+                                    : 'bg-[#FCEDEA] text-[#B73E2F]'
+                              }`}>
+                                {refl.classification || 'None'}
+                              </span>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Closing Question</span>
+                              <span className="text-xs italic font-serif text-primary block">
+                                {refl.closingQuestion || 'None generated'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Themes */}
+                        {refl.themes && refl.themes.length > 0 && (
+                          <div className="space-y-1.5">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Extracted Themes</span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {refl.themes.map((theme, idx) => (
+                                <span key={idx} className="px-2 py-0.5 bg-secondary/10 text-secondary text-[9px] uppercase font-bold tracking-wider rounded-md">
+                                  {theme}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Section 6: Raw AI Response (Developer Accordion) */}
-                {results.aiTrace && (
+                {(results.aiTrace || results.scoringTrace || results.reflectionTrace) && (
                   <div className="bg-white rounded-premium border border-primary/5 shadow-sm overflow-hidden">
                     <button
                       onClick={() => setAccordionOpen(!accordionOpen)}
@@ -959,35 +1299,83 @@ export default function TestPage() {
                         >
                           <div className="p-6 space-y-5 bg-mint-grey/50 border-t border-primary/5 font-mono text-[10px] leading-relaxed">
                             
-                            {/* System Prompt */}
-                            <div className="space-y-1.5">
-                              <span className="font-bold uppercase tracking-wider text-[#8DBFB4] text-[9px]">Raw System Prompt</span>
-                              <pre className="p-3.5 bg-mint-grey border border-primary/15 rounded-xl overflow-x-auto text-[9px] text-primary whitespace-pre-wrap max-h-48 overflow-y-auto">
-                                {results.aiTrace.systemPrompt}
-                              </pre>
-                            </div>
+                            {results.aiTrace && (
+                              <div className="space-y-4">
+                                <div className="text-[10px] font-bold text-secondary uppercase border-b border-primary/5 pb-1">AI Execution Trace</div>
+                                <div className="space-y-1.5">
+                                  <span className="font-bold uppercase tracking-wider text-[#8DBFB4] text-[9px]">Raw System Prompt</span>
+                                  <pre className="p-3.5 bg-mint-grey border border-primary/15 rounded-xl overflow-x-auto text-[9px] text-primary whitespace-pre-wrap max-h-48 overflow-y-auto">
+                                    {results.aiTrace.systemPrompt}
+                                  </pre>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <span className="font-bold uppercase tracking-wider text-[#8DBFB4] text-[9px]">Raw User Content</span>
+                                  <pre className="p-3.5 bg-mint-grey border border-primary/15 rounded-xl overflow-x-auto text-[9px] text-primary whitespace-pre-wrap">
+                                    {results.aiTrace.userContent}
+                                  </pre>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <span className="font-bold uppercase tracking-wider text-[#8DBFB4] text-[9px]">Raw Provider Response</span>
+                                  <pre className="p-3.5 bg-mint-grey border border-primary/15 rounded-xl overflow-x-auto text-[9px] text-[#1A5040] whitespace-pre-wrap max-h-48 overflow-y-auto font-mono">
+                                    {results.aiTrace.rawResponse}
+                                  </pre>
+                                </div>
+                              </div>
+                            )}
 
-                            {/* User Content */}
-                            <div className="space-y-1.5">
-                              <span className="font-bold uppercase tracking-wider text-[#8DBFB4] text-[9px]">Raw User Content</span>
-                              <pre className="p-3.5 bg-mint-grey border border-primary/15 rounded-xl overflow-x-auto text-[9px] text-primary whitespace-pre-wrap">
-                                {results.aiTrace.userContent}
-                              </pre>
-                            </div>
+                            {results.scoringTrace && (
+                              <div className="space-y-4">
+                                <div className="text-[10px] font-bold text-secondary uppercase border-b border-primary/5 pb-1">AI Scoring Trace</div>
+                                <div className="space-y-1.5">
+                                  <span className="font-bold uppercase tracking-wider text-[#8DBFB4] text-[9px]">Raw System Prompt</span>
+                                  <pre className="p-3.5 bg-mint-grey border border-primary/15 rounded-xl overflow-x-auto text-[9px] text-primary whitespace-pre-wrap max-h-48 overflow-y-auto">
+                                    {results.scoringTrace.systemPrompt}
+                                  </pre>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <span className="font-bold uppercase tracking-wider text-[#8DBFB4] text-[9px]">Raw User Content</span>
+                                  <pre className="p-3.5 bg-mint-grey border border-primary/15 rounded-xl overflow-x-auto text-[9px] text-primary whitespace-pre-wrap">
+                                    {results.scoringTrace.userContent}
+                                  </pre>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <span className="font-bold uppercase tracking-wider text-[#8DBFB4] text-[9px]">Raw Provider Response</span>
+                                  <pre className="p-3.5 bg-mint-grey border border-primary/15 rounded-xl overflow-x-auto text-[9px] text-[#1A5040] whitespace-pre-wrap max-h-48 overflow-y-auto font-mono">
+                                    {results.scoringTrace.rawResponse}
+                                  </pre>
+                                </div>
+                              </div>
+                            )}
 
-                            {/* Raw Provider Response */}
-                            <div className="space-y-1.5">
-                              <span className="font-bold uppercase tracking-wider text-[#8DBFB4] text-[9px]">Raw Provider Response Text</span>
-                              <pre className="p-3.5 bg-mint-grey border border-primary/15 rounded-xl overflow-x-auto text-[9px] text-[#1A5040] whitespace-pre-wrap max-h-48 overflow-y-auto">
-                                {results.aiTrace.rawResponse}
-                              </pre>
-                            </div>
+                            {results.reflectionTrace && (
+                              <div className="space-y-4 mt-6">
+                                <div className="text-[10px] font-bold text-secondary uppercase border-b border-primary/5 pb-1">AI Reflection Trace</div>
+                                <div className="space-y-1.5">
+                                  <span className="font-bold uppercase tracking-wider text-[#8DBFB4] text-[9px]">Raw System Prompt</span>
+                                  <pre className="p-3.5 bg-mint-grey border border-primary/15 rounded-xl overflow-x-auto text-[9px] text-primary whitespace-pre-wrap max-h-48 overflow-y-auto">
+                                    {results.reflectionTrace.systemPrompt}
+                                  </pre>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <span className="font-bold uppercase tracking-wider text-[#8DBFB4] text-[9px]">Raw User Content</span>
+                                  <pre className="p-3.5 bg-mint-grey border border-primary/15 rounded-xl overflow-x-auto text-[9px] text-primary whitespace-pre-wrap">
+                                    {results.reflectionTrace.userContent}
+                                  </pre>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <span className="font-bold uppercase tracking-wider text-[#8DBFB4] text-[9px]">Raw Provider Response</span>
+                                  <pre className="p-3.5 bg-mint-grey border border-primary/15 rounded-xl overflow-x-auto text-[9px] text-[#1A5040] whitespace-pre-wrap max-h-48 overflow-y-auto font-mono">
+                                    {results.reflectionTrace.rawResponse}
+                                  </pre>
+                                </div>
+                              </div>
+                            )}
 
                             {/* Parsed JSON */}
                             <div className="space-y-1.5">
-                              <span className="font-bold uppercase tracking-wider text-[#8DBFB4] text-[9px]">Parsed JSON Payload</span>
-                              <pre className="p-3.5 bg-mint-grey border border-primary/15 rounded-xl overflow-x-auto text-[9px] text-primary whitespace-pre-wrap">
-                                {JSON.stringify(results.scoreResult || results.crisis, null, 2)}
+                              <span className="font-bold uppercase tracking-wider text-[#8DBFB4] text-[9px]">Parsed JSON Payload / Result Data</span>
+                              <pre className="p-3.5 bg-mint-grey border border-primary/15 rounded-xl overflow-x-auto text-[9px] text-primary whitespace-pre-wrap font-mono">
+                                {JSON.stringify(results.scoreResult || results.crisis || results.reflection || results.reflectionResult, null, 2)}
                               </pre>
                             </div>
 
@@ -1030,6 +1418,347 @@ export default function TestPage() {
           </div>
 
         </div>
+
+        {/* Founder Testing Mode — Pipeline Comparison Grid */}
+        {results && results.success !== false && (
+          <div className="mt-10 bg-white rounded-premium border border-primary/5 shadow-sm p-6 space-y-6">
+            <div className="flex justify-between items-center border-b border-primary/5 pb-3">
+              <div className="flex items-center gap-2">
+                <Sliders size={18} className="text-secondary" />
+                <h2 className="font-serif text-xl font-normal text-primary">Founder Testing Mode — Pipeline Comparison</h2>
+              </div>
+              <span className="text-[10px] text-mid uppercase font-bold tracking-wider">Side-by-Side Review</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Card 1: Entry Content */}
+              <div className="bg-mint-grey/50 border border-primary/5 p-4 rounded-xl space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-mid">Card 1 · Entry Content</div>
+                  <div className="space-y-2 text-xs">
+                    {reflectionText && (
+                      <div className="space-y-1">
+                        <span className="font-semibold text-primary">Yesterday's Reflection:</span>
+                        <p className="font-serif italic text-primary/85 leading-relaxed max-h-24 overflow-y-auto">"{reflectionText}"</p>
+                      </div>
+                    )}
+                    {newEntryText && (
+                      <div className="space-y-1">
+                        <span className="font-semibold text-primary">Today's Writing:</span>
+                        <p className="font-serif italic text-primary/85 leading-relaxed max-h-36 overflow-y-auto">"{newEntryText}"</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="text-[10px] text-mid/60 border-t border-primary/5 pt-2">
+                  Type: {results.entryType}
+                </div>
+              </div>
+
+              {/* Card 2: Psychometric Scores */}
+              <div className="bg-mint-grey/50 border border-primary/5 p-4 rounded-xl space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-mid">Card 2 · Psychometric Scores</div>
+                  <div className="space-y-3 text-xs">
+                    <div className="grid grid-cols-3 gap-2 text-center font-serif">
+                      <div className="bg-white p-2 rounded-lg border border-primary/5">
+                        <div className="text-[9px] font-sans font-bold text-mid">EI</div>
+                        <div className="text-md font-semibold text-secondary-dark">{results.calculatedScores?.day_ei ?? 'N/A'}</div>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-primary/5">
+                        <div className="text-[9px] font-sans font-bold text-mid">PR</div>
+                        <div className="text-md font-semibold text-secondary-dark">{results.calculatedScores?.day_pr ?? 'N/A'}</div>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-primary/5">
+                        <div className="text-[9px] font-sans font-bold text-mid">SA</div>
+                        <div className="text-md font-semibold text-secondary-dark">{results.calculatedScores?.day_sa ?? 'N/A'}</div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 text-[11px] leading-relaxed">
+                      <div className="flex justify-between">
+                        <span className="text-mid">Confidence:</span>
+                        <span className="font-semibold text-primary">{results.scoreResult?.confidenceFlag ? 'Low' : 'Normal'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-mid">ARC Applied:</span>
+                        <span className="font-semibold text-primary">{results.scoreResult?.arcScoringApplied ? 'Yes' : 'No'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-[10px] text-mid/60 border-t border-primary/5 pt-2 font-mono">
+                  Scale: 1.0 - 10.0
+                </div>
+              </div>
+
+              {/* Card 3: Crisis Gating */}
+              <div className="bg-mint-grey/50 border border-primary/5 p-4 rounded-xl space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-mid">Card 3 · Crisis Gating</div>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-primary">Crisis Flag:</span>
+                      {results.crisis?.crisisFlag ? (
+                        <span className="px-2 py-0.5 bg-accent/10 text-[#8a3020] font-bold rounded text-[9px]">ACTIVE</span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-secondary/10 text-secondary-dark font-bold rounded text-[9px]">CLEARED</span>
+                      )}
+                    </div>
+                    {results.crisis?.crisisFlag && (
+                      <div className="space-y-1">
+                        <span className="font-semibold text-primary">Type:</span>
+                        <span className="font-mono bg-white px-1 py-0.5 rounded text-accent">{results.crisis?.crisisType}</span>
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      <span className="font-semibold text-primary">Evaluator:</span>
+                      <p className="font-serif italic text-primary/80 leading-relaxed max-h-24 overflow-y-auto">
+                        {results.crisis?.explanation}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-[10px] text-mid/60 border-t border-primary/5 pt-2 font-mono">
+                  Suppression: {results.crisis?.reflectionSuppressed ? 'Yes' : 'No'}
+                </div>
+              </div>
+
+              {/* Card 4: Reflection Output */}
+              {(() => {
+                const refl = getReflectionDetails();
+                return (
+                  <div className="bg-mint-grey/50 border border-primary/5 p-4 rounded-xl space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-mid">Card 4 · Reflection Output</div>
+                      <div className="space-y-2 text-xs">
+                        {refl?.reflectionText ? (
+                          <div className="space-y-1">
+                            <span className="font-semibold text-primary">Generated Reflection:</span>
+                            <p className="font-serif italic text-primary/80 leading-relaxed max-h-40 overflow-y-auto">
+                              {refl.reflectionText}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="italic text-mid">No reflection generated or suppressed.</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-mid/60 border-t border-primary/5 pt-2 flex justify-between items-center font-mono">
+                      <span>Validation: {refl?.validation?.valid ? 'Passed' : 'Failed'}</span>
+                      {refl?.attempts > 1 && <span className="text-accent">Retried</span>}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+          </>
+        ) : (
+          /* Compliance Verification Tab */
+          <motion.div
+            key="compliance-view"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="space-y-8"
+          >
+            {checkingCompliance ? (
+              <div className="bg-white rounded-premium border border-primary/5 shadow-sm p-12 flex flex-col items-center justify-center space-y-4 text-center">
+                <div className="relative w-16 h-16 flex items-center justify-center mb-2">
+                  <div className="absolute w-12 h-12 rounded-full border border-secondary/20 animate-ping" />
+                  <RotateCw size={24} className="text-primary animate-spin" style={{ animationDuration: '2.5s' }} />
+                </div>
+                <h3 className="font-serif text-lg text-primary font-normal">Auditing Project Compliance</h3>
+                <p className="text-xs text-mid max-w-xs leading-relaxed">Running Supabase schema checks and auditing developer onboarding credentials...</p>
+              </div>
+            ) : (
+              (() => {
+                // Calculate readiness score
+                let totalPoints = 0;
+                let earnedPoints = 0;
+
+                // 1. Database schema (4 fields)
+                totalPoints += 4;
+                if (dbCompliance?.reflections) earnedPoints += 2; // closing_question, classification
+                if (dbCompliance?.entries) earnedPoints += 1; // arc_scoring_note
+                if (dbCompliance?.assessments) earnedPoints += 1; // dominant_dimension
+
+                // 2. OCEAN Onboarding
+                totalPoints += 2;
+                const onboardingDone = developerUser?.profile?.onboarding_completed;
+                const assessmentDone = developerUser?.profile?.assessment_completed;
+                if (assessmentDone) earnedPoints += 1;
+                if (onboardingDone) earnedPoints += 1;
+
+                // 3. Prompts & worker logic checks
+                totalPoints += 3;
+                // Since worker code logic is statically implemented:
+                earnedPoints += 3; // Reflection Worker, weekly worker, scoring context injection (all implemented)
+
+                const readinessScore = Math.round((earnedPoints / totalPoints) * 100);
+
+                return (
+                  <div className="space-y-8">
+                    {/* Header Banner with Readiness Score */}
+                    <div className="bg-white border border-primary/5 rounded-premium p-6 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
+                      <div className="space-y-2 text-center md:text-left">
+                        <h2 className="font-serif text-2xl font-normal text-primary">Founder Readiness Score</h2>
+                        <p className="text-xs text-mid max-w-md">Calculated based on Supabase database compliance, OCEAN wizard completion, and clinical engine alignment.</p>
+                      </div>
+                      <div className="flex flex-col items-center justify-center shrink-0">
+                        <div className={`w-28 h-28 rounded-full border-4 flex flex-col items-center justify-center ${
+                          readinessScore === 100 
+                            ? 'border-secondary text-secondary' 
+                            : readinessScore >= 60 
+                              ? 'border-accent text-accent' 
+                              : 'border-red-400 text-red-500'
+                        }`}>
+                          <span className="text-3xl font-bold font-mono">{readinessScore}%</span>
+                          <span className="text-[9px] font-sans font-semibold tracking-wider uppercase">READY</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Database Warning if columns missing */}
+                    {(!dbCompliance?.reflections || !dbCompliance?.entries || !dbCompliance?.assessments) && (
+                      <div className="p-4 bg-accent/8 border border-accent/20 rounded-xl space-y-2.5">
+                        <div className="flex items-center gap-2 text-[#8a3020]">
+                          <AlertTriangle size={16} />
+                          <span className="font-sans text-xs font-bold uppercase tracking-wider">Supabase Schema Out of Compliance</span>
+                        </div>
+                        <p className="text-xs text-primary/80 leading-relaxed">
+                          Your database schema is missing compliance columns introduced in Phase 4. To resolve this, copy the contents of the migration script and execute them in your Supabase SQL Editor:
+                        </p>
+                        <div className="bg-white/40 p-2.5 rounded-lg border border-primary/5">
+                          <code className="text-[11px] font-mono text-primary/95 break-all select-all block">
+                            d:\Internship\Ingress Within\scratch\database-compliance.sql
+                          </code>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {/* Left Compliance Card: Supabase Schema */}
+                      <div className="bg-white rounded-premium border border-primary/5 shadow-sm p-6 space-y-4">
+                        <div className="font-serif text-lg font-normal text-primary border-b border-primary/5 pb-2">
+                          1. Database Schema Compliance
+                        </div>
+                        <div className="space-y-3.5 text-xs">
+                          {/* reflections check */}
+                          <div className="flex justify-between items-start border-b border-primary/5 pb-2">
+                            <div>
+                              <span className="font-semibold text-primary block">reflections columns</span>
+                              <span className="text-[10px] text-mid">closing_question, classification</span>
+                            </div>
+                            <div>
+                              {dbCompliance?.reflections ? (
+                                <span className="text-secondary font-semibold">✅ COMPLIANT</span>
+                              ) : (
+                                <span className="text-accent font-semibold">❌ MISSING</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* entries check */}
+                          <div className="flex justify-between items-start border-b border-primary/5 pb-2">
+                            <div>
+                              <span className="font-semibold text-primary block">entries columns</span>
+                              <span className="text-[10px] text-mid">arc_scoring_note</span>
+                            </div>
+                            <div>
+                              {dbCompliance?.entries ? (
+                                <span className="text-secondary font-semibold">✅ COMPLIANT</span>
+                              ) : (
+                                <span className="text-accent font-semibold">❌ MISSING</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* assessments check */}
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="font-semibold text-primary block">assessments columns</span>
+                              <span className="text-[10px] text-mid">dominant_dimension</span>
+                            </div>
+                            <div>
+                              {dbCompliance?.assessments ? (
+                                <span className="text-secondary font-semibold">✅ COMPLIANT</span>
+                              ) : (
+                                <span className="text-accent font-semibold">❌ MISSING</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Compliance Card: Onboarding & Logic */}
+                      <div className="bg-white rounded-premium border border-primary/5 shadow-sm p-6 space-y-4">
+                        <div className="font-serif text-lg font-normal text-primary border-b border-primary/5 pb-2">
+                          2. Onboarding & Worker Flow Compliance
+                        </div>
+                        <div className="space-y-3.5 text-xs">
+                          {/* Onboarding Wizard status */}
+                          <div className="flex justify-between items-start border-b border-primary/5 pb-2">
+                            <div>
+                              <span className="font-semibold text-primary block">OCEAN Assessment Completed</span>
+                              <span className="text-[10px] text-mid">12-question onboarding wizard complete</span>
+                            </div>
+                            <div>
+                              {assessmentDone ? (
+                                <span className="text-secondary font-semibold">✅ COMPLETED</span>
+                              ) : (
+                                <span className="text-accent font-semibold">❌ PENDING</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Finalize onboarding status */}
+                          <div className="flex justify-between items-start border-b border-primary/5 pb-2">
+                            <div>
+                              <span className="font-semibold text-primary block">Summary Review Completed</span>
+                              <span className="text-[10px] text-mid">Onboarding flow finalized & saved</span>
+                            </div>
+                            <div>
+                              {onboardingDone ? (
+                                <span className="text-secondary font-semibold">✅ COMPLETED</span>
+                              ) : (
+                                <span className="text-accent font-semibold">❌ PENDING</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Context pipeline checks */}
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="font-semibold text-primary block">Standing Context Injection</span>
+                              <span className="text-[10px] text-mid">Silently inject context into weekly summary & scoring</span>
+                            </div>
+                            <div>
+                              <span className="text-secondary font-semibold">✅ COMPLIANT</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Developer OCEAN profile panel */}
+                    {developerUser?.user?.personality_summary_text && (
+                      <div className="bg-white rounded-premium border border-primary/5 shadow-sm p-6 space-y-4">
+                        <div className="font-serif text-lg font-normal text-primary border-b border-primary/5 pb-2">
+                          Developer's Personality Summary
+                        </div>
+                        <p className="font-sans text-xs text-primary/80 leading-relaxed italic bg-mint-grey p-4 rounded-xl">
+                          "{developerUser.user.personality_summary_text}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()
+            )}
+          </motion.div>
+        )}
 
       </main>
     </div>

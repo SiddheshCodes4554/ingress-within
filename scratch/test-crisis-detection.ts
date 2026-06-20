@@ -41,11 +41,26 @@ async function runCrisisTests() {
   console.log(`Using test user: ${user.name || user.id}`);
 
   // Fetch a cycle for this user
-  const { data: cycles } = await supabase.from('cycles').select('*').eq('user_id', user.id).limit(1);
-  const cycle = cycles?.[0];
+  let { data: cycles } = await supabase.from('cycles').select('*').eq('user_id', user.id).limit(1);
+  let cycle = cycles?.[0];
   if (!cycle) {
-    console.error('❌ Error: No cycle found.');
-    process.exit(1);
+    console.log(`No cycle found for user ${user.name}. Creating one...`);
+    const { data: newCycle, error: cycleErr } = await supabase
+      .from('cycles')
+      .insert({
+        user_id: user.id,
+        number: 1,
+        status: 'active',
+        started_at: new Date().toISOString().split('T')[0],
+        total_days: 30
+      })
+      .select()
+      .single();
+    if (cycleErr) {
+      console.error('❌ Error creating cycle:', cycleErr.message);
+      process.exit(1);
+    }
+    cycle = newCycle;
   }
 
   // Import workers dynamically
@@ -119,8 +134,8 @@ async function runCrisisTests() {
 
   // Verify reflection row
   const { data: refl1 } = await supabase.from('reflections').select('*').eq('entry_id', entry1.id).maybeSingle();
-  console.log(`Reflection generated status: ${refl1?.status}, question: ${refl1?.question}`);
-  if (refl1?.status === 'failed' && refl1?.question === null) {
+  console.log(`Reflection generated status: ${refl1?.status}, question: ${refl1?.closing_question}`);
+  if (refl1?.status === 'failed' && refl1?.closing_question === null) {
     console.log('✅ Reflection successfully suppressed!');
   } else {
     console.error('❌ Reflection was NOT suppressed.');

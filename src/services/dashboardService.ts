@@ -124,7 +124,7 @@ export class DashboardService {
         });
         if (sessionRes.ok) {
           const sessionData = await sessionRes.json();
-          if (sessionData.exists && sessionData.session) {
+          if (sessionData.session) {
             const session = sessionData.session;
             const isCompletedToday = sessionData.isCompletedToday || false;
             
@@ -233,7 +233,10 @@ export class DashboardService {
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Failed to check entry status.');
     }
-    return data.entry;
+    return {
+      ...data.entry,
+      reflection: data.reflection || null
+    };
   }
 
   /**

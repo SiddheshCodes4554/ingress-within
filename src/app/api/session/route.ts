@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        exists: true,
+        exists: isCompletedToday,
         isCompletedToday,
         session: latest,
         exercise,

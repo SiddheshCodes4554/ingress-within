@@ -21,6 +21,10 @@ class QueueRegistry {
   }
 
   private initializeQueues() {
+    if (process.env.BYPASS_REDIS === 'true') {
+      console.log('[Queue Registry] BYPASS_REDIS is enabled. Skipping BullMQ queue instantiation.');
+      return;
+    }
     Object.values(QUEUE_NAMES).forEach((queueName) => {
       this.queues.set(
         queueName,
@@ -44,6 +48,37 @@ class QueueRegistry {
     data: any,
     jobId?: string
   ) {
+    if (process.env.BYPASS_REDIS === 'true') {
+      console.log(`[Queue Registry] [BYPASS_REDIS] Running job "${jobName}" on queue "${queueName}" inline.`);
+      try {
+        if (queueName === 'entry_scoring') {
+          const { processEntryScoring } = await import('./workers/entryScoringWorker');
+          await processEntryScoring(data);
+        } else if (queueName === 'crisis_detection') {
+          const { processCrisisDetection } = await import('./workers/crisisDetectionWorker');
+          await processCrisisDetection(data);
+        } else if (queueName === 'reflection_generation') {
+          const { processReflectionGeneration } = await import('./workers/reflectionWorker');
+          await processReflectionGeneration(data);
+        } else if (queueName === 'weekly_summary_generation') {
+          const { processWeeklySummary } = await import('./workers/weeklySummaryWorker');
+          await processWeeklySummary(data);
+        } else if (queueName === 'monthly_report_generation') {
+          const { processMonthlyReport } = await import('./workers/monthlyReportWorker');
+          await processMonthlyReport(data);
+        } else if (queueName === 'ocean_summary_generation') {
+          const { processOceanSummary } = await import('./workers/oceanSummaryWorker');
+          await processOceanSummary(data);
+        } else if (queueName === 'exercise_insight_generation') {
+          const { processExerciseInsight } = await import('./workers/exerciseInsightWorker');
+          await processExerciseInsight(data);
+        }
+      } catch (err: any) {
+        console.error(`[Queue Registry] Inline job execution error for ${queueName}:`, err.message || err);
+      }
+      return { id: jobId || `mock_${Date.now()}` } as any;
+    }
+
     const queue = this.getQueue(queueName);
     const options = jobId ? { jobId } : {};
     return queue.add(jobName, data, options);

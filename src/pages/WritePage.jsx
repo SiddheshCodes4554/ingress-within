@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, CheckCircle2, BookOpen, AlertCircle, Smile, HeartHandshake } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, BookOpen, AlertCircle, Smile, HeartHandshake, X } from 'lucide-react';
 import { DashboardService } from '../services/dashboardService';
 import DashboardNavbar from '../components/DashboardNavbar';
 
@@ -34,6 +34,8 @@ export default function WritePage({ user, profile, onSignOut }) {
   const [entryText, setEntryText] = useState('');
   const [isSavingEntry, setIsSavingEntry] = useState(false);
   const [crisisType, setCrisisType] = useState(null);
+  const [generatedReflection, setGeneratedReflection] = useState(null);
+  const [saveError, setSaveError] = useState(null);
   
   // Autosave status
   const [autosaveStatus, setAutosaveStatus] = useState('Idle'); // 'Idle' | 'Saving' | 'Saved' | 'Error'
@@ -155,21 +157,25 @@ export default function WritePage({ user, profile, onSignOut }) {
           const entryStatus = await DashboardService.checkEntryStatus(entryObj.id);
           const elapsed = Date.now() - startTime;
           
-          if ((entryStatus.scoring_status === 'scored' && entryStatus.crisis_checked) || elapsed > 12000) {
+          const reflectionReady = entryStatus.reflection && (entryStatus.reflection.status === 'ready' || entryStatus.reflection.status === 'failed');
+          const isCrisis = entryStatus.crisis_flag === true;
+          
+          if (isCrisis || reflectionReady || elapsed > 15000) {
             clearInterval(pollInterval);
             setIsSavingEntry(false);
             
-            if (entryStatus.crisis_flag) {
+            if (isCrisis) {
               setCrisisType(entryStatus.crisis_type);
               setScreenState('crisis');
             } else {
+              setGeneratedReflection(entryStatus.reflection);
               setScreenState('reflection');
             }
           }
         } catch (pollErr) {
           console.warn('Error polling entry status:', pollErr);
           // Standard fallback
-          if (Date.now() - startTime > 12000) {
+          if (Date.now() - startTime > 15000) {
             clearInterval(pollInterval);
             setIsSavingEntry(false);
             setScreenState('reflection');
@@ -181,6 +187,7 @@ export default function WritePage({ user, profile, onSignOut }) {
       console.error('Failed to save entry:', err);
       setScreenState('main');
       setIsSavingEntry(false);
+      setSaveError(err.message || String(err));
     }
   };
 
@@ -407,16 +414,34 @@ export default function WritePage({ user, profile, onSignOut }) {
             </div>
             
             <div className="space-y-4">
-              <p className="text-[17px] text-[#1E2A2E] leading-relaxed font-serif">
-                {reflections[writeMode]?.obs}
-              </p>
-              
-              <div className="border-l-[2.5px] border-[#E0A898] pl-4 space-y-1.5">
-                <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">Carry into today's reflection</div>
-                <p className="text-[16px] text-[#E0A898] italic font-serif leading-relaxed">
-                  "{reflections[writeMode]?.q}"
-                </p>
-              </div>
+              {(() => {
+                const text = generatedReflection?.reflection_text || (reflections[writeMode] ? (reflections[writeMode].obs + "\n\n" + reflections[writeMode].q) : "");
+                const paragraphs = text.split('\n\n').filter(Boolean);
+                if (paragraphs.length === 0) return null;
+                
+                // If there is only one paragraph, treat it as the question block
+                const bodyParagraphs = paragraphs.length > 1 ? paragraphs.slice(0, -1) : [];
+                const questionParagraph = paragraphs[paragraphs.length - 1];
+
+                return (
+                  <>
+                    {bodyParagraphs.map((para, idx) => (
+                      <p key={idx} className="text-[17px] text-[#1E2A2E] leading-relaxed font-serif">
+                        {para}
+                      </p>
+                    ))}
+                    
+                    {questionParagraph && (
+                      <div className="border-l-[2.5px] border-[#E0A898] pl-4 space-y-1.5 mt-6">
+                        <div className="text-[9px] tracking-wider uppercase text-[#E0A898] font-bold">Carry into today's reflection</div>
+                        <p className="text-[16px] text-[#E0A898] italic font-serif leading-relaxed">
+                          {questionParagraph.startsWith('"') || questionParagraph.startsWith('“') ? questionParagraph : `"${questionParagraph}"`}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
 
             <div className="bg-[#F5F8F8] border border-[#1E2A2E]/5 rounded-xl p-5 space-y-2">
@@ -587,6 +612,52 @@ export default function WritePage({ user, profile, onSignOut }) {
           </div>
         </div>
       )}
+
+      {/* Save Error Warning Popup Modal */}
+      <AnimatePresence>
+        {saveError && (
+          <div className="fixed inset-0 bg-[#1E2A2E]/40 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl max-w-[420px] w-full p-6 space-y-4 relative overflow-hidden shadow-lg border border-[#1E2A2E]/5"
+            >
+              <button 
+                onClick={() => setSaveError(null)}
+                className="absolute top-4 right-4 text-mid hover:text-primary cursor-pointer border-none bg-transparent"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-3 text-red-500">
+                <AlertCircle size={24} className="shrink-0" />
+                <h3 className="font-serif text-lg text-primary font-normal">
+                  {saveError.includes('limit') || saveError.includes('already completed') ? 'Daily Limit Reached' : 'Unable to Save'}
+                </h3>
+              </div>
+
+              <p className="text-xs text-mid leading-relaxed font-sans">
+                {saveError}
+              </p>
+
+              <div className="pt-2">
+                <button 
+                  onClick={() => {
+                    setSaveError(null);
+                    if (saveError.includes('limit') || saveError.includes('already completed')) {
+                      setScreenState('locked');
+                    }
+                  }}
+                  className="w-full py-2.5 bg-primary text-white hover:bg-[#2A3A3E] rounded text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border-none"
+                >
+                  Acknowledge
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

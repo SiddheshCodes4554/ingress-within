@@ -4,20 +4,10 @@ import { queueRegistry } from './registry';
 export async function triggerAIProcessing(entryId: string, userId: string) {
   console.log(`[Queue Trigger] Enqueueing background jobs for entry ${entryId}`);
   try {
-    await Promise.all([
-      queueRegistry.addJob('entry_scoring', `score_${entryId}`, {
-        entry_id: entryId,
-        user_id: userId
-      }),
-      queueRegistry.addJob('reflection_generation', `refl_${entryId}`, {
-        entry_id: entryId,
-        user_id: userId
-      }),
-      queueRegistry.addJob('crisis_detection', `crisis_${entryId}`, {
-        entry_id: entryId,
-        user_id: userId
-      })
-    ]);
+    await queueRegistry.addJob('entry_scoring', `score_${entryId}`, {
+      entry_id: entryId,
+      user_id: userId
+    });
   } catch (err: any) {
     console.error(`[Queue Trigger] Error queueing AI processing jobs for entry ${entryId}:`, err.message);
   }

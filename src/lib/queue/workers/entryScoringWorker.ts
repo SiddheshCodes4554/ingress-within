@@ -2,6 +2,7 @@ import { supabase } from '../../db';
 import { decrypt } from '../../encryption';
 import { executeScoringPipeline } from '../../ai/pipeline';
 import { evaluateCrisisLayers } from '../../crisis-detector';
+import { queueRegistry } from '../registry';
 
 export async function processEntryScoring(jobData: { entry_id: string; user_id: string }) {
   const { entry_id, user_id } = jobData;
@@ -237,6 +238,7 @@ export async function processEntryScoring(jobData: { entry_id: string; user_id: 
     confidence_flag,
     confidence_reason: confidenceReason || null,
     arc_scoring_applied: !!arcScoringApplied,
+    arc_scoring_note: arcScoringApplied ? 'Arc scoring was applied. Halves of the text were scored independently and their values averaged.' : null,
     scoring_status: 'scored' as const,
     updated_at: new Date().toISOString()
   };
@@ -274,6 +276,7 @@ export async function processEntryScoring(jobData: { entry_id: string; user_id: 
     crisis_flagged_at: ____,
     reflection_suppressed: _____,
     risk_language_quote: ______,
+    arc_scoring_note: _______,
     ...scorePayloadWithoutType
   } = scoreData;
 
@@ -304,5 +307,16 @@ export async function processEntryScoring(jobData: { entry_id: string; user_id: 
   }
 
   console.log(`[Entry Scoring Worker] Successfully scored entry ${entry_id}. Type: ${entry_type}, Day Scores: EI=${day_ei}, PR=${day_pr}, SA=${day_sa}`);
+
+  // Chained sequential pipeline: trigger crisis detection next
+  try {
+    await queueRegistry.addJob('crisis_detection', `crisis_${entry_id}`, {
+      entry_id,
+      user_id
+    });
+    console.log(`[Entry Scoring Worker] Chained crisis detection job for entry ${entry_id}`);
+  } catch (chainErr: any) {
+    console.error(`[Entry Scoring Worker] Error queueing crisis detection:`, chainErr.message);
+  }
 }
 

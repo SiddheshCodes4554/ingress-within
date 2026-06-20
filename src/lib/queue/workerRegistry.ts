@@ -13,6 +13,10 @@ class WorkerRegistry {
   private workers: Map<string, Worker> = new Map();
 
   public startAll() {
+    if (process.env.BYPASS_REDIS === 'true') {
+      console.log('[Worker Registry] BYPASS_REDIS is enabled. Skipping background worker instantiation.');
+      return;
+    }
     if (this.workers.size > 0) {
       console.warn('[Worker Registry] Workers are already running.');
       return;

@@ -5,7 +5,7 @@ import { queueRegistry } from '../../../lib/queue/registry';
 import { getAuthenticatedUser } from '../../../lib/auth-helper';
 import { processEntryScoring } from '../../../lib/queue/workers/entryScoringWorker';
 import { processCrisisDetection } from '../../../lib/queue/workers/crisisDetectionWorker';
-import { processReflectionGeneration } from '../../../lib/queue/workers/reflectionWorker';
+import { processReflectionGeneration, validateReflection } from '../../../lib/queue/workers/reflectionWorker';
 import { connection } from '../../../lib/queue/config';
 import { executeScoringPipeline } from '../../../lib/ai/pipeline';
 import { evaluateCrisisLayers } from '../../../lib/crisis-detector';
@@ -194,6 +194,267 @@ export async function POST(request: NextRequest) {
     }
 
     // ==========================================
+    // ACTION: RUN REFLECTION ONLY (Synchronous)
+    // ==========================================
+    if (action === 'run-reflection') {
+      const startTime = Date.now();
+      const content = newEntryText || '';
+      
+      // Fetch user context if available
+      let personalityContext: string | undefined = undefined;
+      if (activeUserId) {
+        const { data: user } = await supabase
+          .from('users')
+          .select('personality_summary_text')
+          .eq('id', activeUserId)
+          .maybeSingle();
+        personalityContext = user?.personality_summary_text || undefined;
+      }
+
+      // Generation/validation loop (up to 3 attempts, synchronous for developer debugging)
+      let attempts = 0;
+      let success = false;
+      let result: any = null;
+      let validation: any = null;
+      let validationErrorMsg = '';
+
+      while (attempts < 3 && !success) {
+        attempts++;
+        try {
+          const contextWithRetryFeedback = attempts > 1
+            ? `${personalityContext || ''}\n(Correction note: The previous output failed validation. Reason: ${validationErrorMsg}. Please strictly ensure there is no advice, suggestion, or therapeutic label in your response.)`
+            : personalityContext;
+
+          result = await aiProvider.generateReflection(content, contextWithRetryFeedback);
+          validation = validateReflection(result.reflection || '');
+          if (validation.valid) {
+            success = true;
+          } else {
+            validationErrorMsg = validation.reason || 'Failed validation rules';
+          }
+        } catch (err: any) {
+          validationErrorMsg = err.message || 'AI generation failed';
+        }
+      }
+
+      const latency = Date.now() - startTime;
+      const tracing = aiProvider as any;
+
+      const fullReflection = result?.reflection 
+        ? `${result.reflection.trim()}\n\nSit with that tonight.\nCome back tomorrow and tell me what came up.` 
+        : null;
+
+      return NextResponse.json({
+        success,
+        reflection: fullReflection,
+        closingQuestion: result?.closing_question || null,
+        classification: result?.classification || null,
+        confidence: result?.confidence || 'low',
+        themes: result?.themes || [],
+        processingNotes: result?.processing_notes || '',
+        validation: validation || { valid: false, reason: validationErrorMsg },
+        attempts,
+        aiTrace: {
+          systemPrompt: tracing.lastSystemPrompt || '',
+          userContent: tracing.lastUserContent || '',
+          rawResponse: tracing.lastRawResponse || '',
+          usage: tracing.lastUsage || null,
+          provider: provider,
+          latency
+        }
+      });
+    }
+
+    // ==========================================
+    // ACTION: RUN SCORE + REFLECTION (Synchronous)
+    // ==========================================
+    if (action === 'run-score-reflection') {
+      const startTime = Date.now();
+      
+      // 1. Run Scoring Pipeline
+      const scoringResult = await executeScoringPipeline(
+        reflectionText || null,
+        newEntryText || null,
+        'Developer testing context',
+        provider,
+        entryId || null
+      );
+
+      const tracing = aiProvider as any;
+      let scoringLatency = scoringResult.latency;
+
+      if (!scoringResult.success || !scoringResult.scoreResult) {
+        return NextResponse.json({
+          success: false,
+          stage: 'scoring',
+          errorReason: scoringResult.errorReason || 'AI scoring pipeline failed validation or parsing.',
+          aiTrace: {
+            systemPrompt: tracing.lastSystemPrompt || '',
+            userContent: tracing.lastUserContent || '',
+            rawResponse: scoringResult.rawResponse || tracing.lastRawResponse || '',
+            usage: tracing.lastUsage || null,
+            provider: provider,
+            latency: scoringLatency
+          }
+        });
+      }
+
+      const scoreResult = scoringResult.scoreResult;
+      
+      // Compute entry type
+      const hasReflection = !!(reflectionText && reflectionText.trim());
+      const hasNewEntry = !!(newEntryText && newEntryText.trim());
+      let entryType = 'Empty';
+      if (hasReflection && hasNewEntry) {
+        entryType = 'Both';
+      } else if (hasNewEntry) {
+        entryType = 'New Only';
+      } else if (hasReflection) {
+        entryType = 'Reflection Only';
+      }
+
+      // Compute weighted scores
+      let day_ei: number | null = null;
+      let day_pr: number | null = null;
+      let day_sa: number | null = null;
+
+      if (entryType === 'Both' && scoreResult.reflection && scoreResult.newEntry) {
+        day_ei = parseFloat((scoreResult.reflection.ei * 0.25 + scoreResult.newEntry.ei * 0.75).toFixed(2));
+        day_pr = parseFloat((scoreResult.reflection.pr * 0.25 + scoreResult.newEntry.pr * 0.75).toFixed(2));
+        day_sa = parseFloat((scoreResult.reflection.sa * 0.25 + scoreResult.newEntry.sa * 0.75).toFixed(2));
+      } else if (entryType === 'New Only' && scoreResult.newEntry) {
+        day_ei = scoreResult.newEntry.ei;
+        day_pr = scoreResult.newEntry.pr;
+        day_sa = scoreResult.newEntry.sa;
+      } else if (entryType === 'Reflection Only' && scoreResult.reflection) {
+        day_ei = scoreResult.reflection.ei;
+        day_pr = scoreResult.reflection.pr;
+        day_sa = scoreResult.reflection.sa;
+      }
+
+      // Evaluate Crisis
+      const crisisResult = await evaluateCrisisLayers(
+        newEntryText || null,
+        provider,
+        {
+          day_ei,
+          day_sa,
+          riskLanguageDetected: scoreResult.riskLanguageDetected,
+          riskLanguageQuote: scoreResult.riskLanguageQuote
+        }
+      );
+
+      let reflectionTextOutput = '';
+      let reflectionConfidence = 'low';
+      let reflectionThemes: string[] = [];
+      let reflectionValidation: any = null;
+      let reflectionAttempts = 0;
+      let reflectionTrace: any = null;
+      let reflectionSuppressed = crisisResult.crisisFlag;
+      let result: any = null;
+
+      if (reflectionSuppressed) {
+        reflectionTextOutput = 'Reflection suppressed due to crisis protocol.';
+      } else {
+        // Run Reflection Generation
+        const reflStart = Date.now();
+        let personalityContext: string | undefined = undefined;
+        if (activeUserId) {
+          const { data: user } = await supabase
+            .from('users')
+            .select('personality_summary_text')
+            .eq('id', activeUserId)
+            .maybeSingle();
+          personalityContext = user?.personality_summary_text || undefined;
+        }
+
+        let attempts = 0;
+        let success = false;
+        result = null;
+        let validationErrorMsg = '';
+
+        while (attempts < 3 && !success) {
+          attempts++;
+          try {
+            const contextWithRetryFeedback = attempts > 1
+              ? `${personalityContext || ''}\n(Correction note: The previous output failed validation. Reason: ${validationErrorMsg}. Please strictly ensure there is no advice, suggestion, or therapeutic label in your response.)`
+              : personalityContext;
+
+            result = await aiProvider.generateReflection(newEntryText || '', contextWithRetryFeedback);
+            reflectionValidation = validateReflection(result.reflection || '');
+            if (reflectionValidation.valid) {
+              success = true;
+            } else {
+              validationErrorMsg = reflectionValidation.reason || 'Failed validation rules';
+            }
+          } catch (err: any) {
+            validationErrorMsg = err.message || 'AI generation failed';
+          }
+        }
+
+        const reflLatency = Date.now() - reflStart;
+        reflectionTextOutput = result?.reflection 
+          ? `${result.reflection.trim()}\n\nSit with that tonight.\nCome back tomorrow and tell me what came up.` 
+          : '';
+        reflectionConfidence = result?.confidence || 'low';
+        reflectionThemes = result?.themes || [];
+        reflectionAttempts = attempts;
+        if (!reflectionValidation) {
+          reflectionValidation = { valid: false, reason: validationErrorMsg };
+        }
+
+        reflectionTrace = {
+          systemPrompt: tracing.lastSystemPrompt || '',
+          userContent: tracing.lastUserContent || '',
+          rawResponse: tracing.lastRawResponse || '',
+          usage: tracing.lastUsage || null,
+          provider: provider,
+          latency: reflLatency
+        };
+      }
+
+      const totalLatency = Date.now() - startTime;
+
+      return NextResponse.json({
+        success: true,
+        entryType,
+        scoreResult,
+        calculatedScores: {
+          day_ei,
+          day_pr,
+          day_sa
+        },
+        crisis: {
+          crisisFlag: crisisResult.crisisFlag,
+          crisisType: crisisResult.crisisType,
+          explanation: crisisResult.explanation,
+          reflectionSuppressed
+        },
+        reflection: {
+          reflectionText: reflectionTextOutput,
+          closingQuestion: result?.closing_question || null,
+          classification: result?.classification || null,
+          confidence: reflectionConfidence,
+          themes: reflectionThemes,
+          validation: reflectionValidation,
+          attempts: reflectionAttempts,
+          suppressed: reflectionSuppressed
+        },
+        scoringTrace: {
+          systemPrompt: scoringResult.scoreResult ? (aiProvider as any).lastSystemPrompt : '',
+          userContent: (aiProvider as any).lastUserContent || '',
+          rawResponse: scoringResult.rawResponse || (aiProvider as any).lastRawResponse || '',
+          usage: (aiProvider as any).lastUsage || null,
+          provider: provider,
+          latency: scoringLatency,
+          retryCount: scoringResult.retryCount
+        },
+        reflectionTrace,
+        totalLatency
+      });
+    }
+
+    // ==========================================
     // ACTION: RUN FULL PIPELINE (Asynchronous)
     // ==========================================
     if (action === 'run-full') {
@@ -268,21 +529,12 @@ export async function POST(request: NextRequest) {
 
       if (!runInline) {
         try {
-          await Promise.all([
-            queueRegistry.addJob('entry_scoring', jobIds.scoring, {
-              entry_id: entryId,
-              user_id: activeUserId
-            }),
-            queueRegistry.addJob('reflection_generation', jobIds.reflection, {
-              entry_id: entryId,
-              user_id: activeUserId
-            }),
-            queueRegistry.addJob('crisis_detection', jobIds.crisis, {
-              entry_id: entryId,
-              user_id: activeUserId
-            })
-          ]);
-          console.log('[Test API] Enqueued BullMQ jobs successfully.');
+          // Sequential queue chaining: only enqueue the entry_scoring job initially
+          await queueRegistry.addJob('entry_scoring', jobIds.scoring, {
+            entry_id: entryId,
+            user_id: activeUserId
+          });
+          console.log('[Test API] Enqueued BullMQ entry_scoring job successfully.');
         } catch (err) {
           console.warn('[Test API] Redis/BullMQ connection failed. Running pipeline inline instead.', err);
           runInline = true;
@@ -294,8 +546,12 @@ export async function POST(request: NextRequest) {
         try {
           // Execute sequential workers (Reflection depends on Scoring & Crisis being done first)
           await processEntryScoring({ entry_id: entryId, user_id: activeUserId });
-          await processCrisisDetection({ entry_id: entryId, user_id: activeUserId });
-          await processReflectionGeneration({ entry_id: entryId, user_id: activeUserId });
+          // If BYPASS_REDIS is enabled, the worker chain is automatically executed inline synchronously via queueRegistry.
+          // We only call the subsequent workers manually here if BYPASS_REDIS is disabled.
+          if (process.env.BYPASS_REDIS !== 'true') {
+            await processCrisisDetection({ entry_id: entryId, user_id: activeUserId });
+            await processReflectionGeneration({ entry_id: entryId, user_id: activeUserId });
+          }
           console.log('[Test API] Synchronous worker execution completed successfully.');
         } catch (inlineErr: any) {
           console.error('[Test API] Error running workers inline:', inlineErr);
@@ -328,7 +584,7 @@ export async function POST(request: NextRequest) {
       // 1. Fetch updated states from DB first to support synchronous / offline fallback
       const [entryRes, reflectionRes] = await Promise.all([
         supabase.from('entries').select('*').eq('id', entryId).maybeSingle(),
-        supabase.from('reflections').select('id, status, question, observation').eq('entry_id', entryId).maybeSingle()
+        supabase.from('reflections').select('id, status, reflection_text, provider, confidence, themes, closing_question, classification').eq('entry_id', entryId).maybeSingle()
       ]);
 
       const updatedEntry = entryRes.data;
@@ -392,6 +648,26 @@ export async function POST(request: NextRequest) {
         },
         entryState: updatedEntry || null,
         reflectionState: reflection || null
+      });
+    }
+
+    if (action === 'db-compliance-check') {
+      const [reflectionsCheck, entriesCheck, assessmentsCheck] = await Promise.all([
+        supabase.from('reflections').select('closing_question, classification').limit(1),
+        supabase.from('entries').select('arc_scoring_note').limit(1),
+        supabase.from('assessments').select('dominant_dimension').limit(1)
+      ]);
+
+      return NextResponse.json({
+        success: true,
+        schema: {
+          reflections: !reflectionsCheck.error,
+          reflectionsError: reflectionsCheck.error?.message || null,
+          entries: !entriesCheck.error,
+          entriesError: entriesCheck.error?.message || null,
+          assessments: !assessmentsCheck.error,
+          assessmentsError: assessmentsCheck.error?.message || null
+        }
       });
     }
 

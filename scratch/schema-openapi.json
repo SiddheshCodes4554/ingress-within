@@ -228,6 +228,158 @@
         ]
       }
     },
+    "/ai_failures": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.entry_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.prompt"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.raw_response"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.parsing_error"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.timestamp"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/ai_failures"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "ai_failures"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.ai_failures"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "ai_failures"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.entry_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.prompt"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.raw_response"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.parsing_error"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.timestamp"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "ai_failures"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.entry_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.prompt"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.raw_response"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.parsing_error"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_failures.timestamp"
+          },
+          {
+            "$ref": "#/parameters/body.ai_failures"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "ai_failures"
+        ]
+      }
+    },
     "/cycles": {
       "get": {
         "parameters": [
@@ -971,6 +1123,140 @@
         ]
       }
     },
+    "/crisis_log": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.crisis_log.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.crisis_log.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.crisis_log.crisis_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.crisis_log.timestamp"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/crisis_log"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "crisis_log"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.crisis_log"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "crisis_log"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.crisis_log.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.crisis_log.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.crisis_log.crisis_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.crisis_log.timestamp"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "crisis_log"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.crisis_log.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.crisis_log.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.crisis_log.crisis_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.crisis_log.timestamp"
+          },
+          {
+            "$ref": "#/parameters/body.crisis_log"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "crisis_log"
+        ]
+      }
+    },
     "/vocab_words": {
       "get": {
         "parameters": [
@@ -1405,6 +1691,9 @@
             "$ref": "#/parameters/rowFilter.entry_scores.updated_at"
           },
           {
+            "$ref": "#/parameters/rowFilter.entry_scores.arc_scoring_applied"
+          },
+          {
             "$ref": "#/parameters/select"
           },
           {
@@ -1522,6 +1811,9 @@
             "$ref": "#/parameters/rowFilter.entry_scores.updated_at"
           },
           {
+            "$ref": "#/parameters/rowFilter.entry_scores.arc_scoring_applied"
+          },
+          {
             "$ref": "#/parameters/preferReturn"
           }
         ],
@@ -1589,6 +1881,9 @@
           },
           {
             "$ref": "#/parameters/rowFilter.entry_scores.updated_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entry_scores.arc_scoring_applied"
           },
           {
             "$ref": "#/parameters/body.entry_scores"
@@ -1907,6 +2202,27 @@
             "$ref": "#/parameters/rowFilter.entries.scoring_status"
           },
           {
+            "$ref": "#/parameters/rowFilter.entries.crisis_flag"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.crisis_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.crisis_flagged_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.reflection_suppressed"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.risk_language_quote"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.crisis_checked"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.arc_scoring_applied"
+          },
+          {
             "$ref": "#/parameters/select"
           },
           {
@@ -2069,6 +2385,27 @@
             "$ref": "#/parameters/rowFilter.entries.scoring_status"
           },
           {
+            "$ref": "#/parameters/rowFilter.entries.crisis_flag"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.crisis_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.crisis_flagged_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.reflection_suppressed"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.risk_language_quote"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.crisis_checked"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.arc_scoring_applied"
+          },
+          {
             "$ref": "#/parameters/preferReturn"
           }
         ],
@@ -2181,6 +2518,27 @@
           },
           {
             "$ref": "#/parameters/rowFilter.entries.scoring_status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.crisis_flag"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.crisis_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.crisis_flagged_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.reflection_suppressed"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.risk_language_quote"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.crisis_checked"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.arc_scoring_applied"
           },
           {
             "$ref": "#/parameters/body.entries"
@@ -3031,6 +3389,194 @@
         ]
       }
     },
+    "/ai_observability": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.entry_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.provider"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.raw_provider_response"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.parsed_response"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.validation_result"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.processing_time"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.retry_count"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.error_reason"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/ai_observability"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "ai_observability"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.ai_observability"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "ai_observability"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.entry_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.provider"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.raw_provider_response"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.parsed_response"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.validation_result"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.processing_time"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.retry_count"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.error_reason"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "ai_observability"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.entry_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.provider"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.raw_provider_response"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.parsed_response"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.validation_result"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.processing_time"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.retry_count"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.error_reason"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_observability.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.ai_observability"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "ai_observability"
+        ]
+      }
+    },
     "/vocab_clusters": {
       "get": {
         "parameters": [
@@ -3220,13 +3766,22 @@
             "$ref": "#/parameters/rowFilter.reflections.entry_id"
           },
           {
+            "$ref": "#/parameters/rowFilter.reflections.user_id"
+          },
+          {
             "$ref": "#/parameters/rowFilter.reflections.cycle_id"
           },
           {
-            "$ref": "#/parameters/rowFilter.reflections.observation"
+            "$ref": "#/parameters/rowFilter.reflections.reflection_text"
           },
           {
-            "$ref": "#/parameters/rowFilter.reflections.question"
+            "$ref": "#/parameters/rowFilter.reflections.provider"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.confidence"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.themes"
           },
           {
             "$ref": "#/parameters/rowFilter.reflections.status"
@@ -3307,13 +3862,22 @@
             "$ref": "#/parameters/rowFilter.reflections.entry_id"
           },
           {
+            "$ref": "#/parameters/rowFilter.reflections.user_id"
+          },
+          {
             "$ref": "#/parameters/rowFilter.reflections.cycle_id"
           },
           {
-            "$ref": "#/parameters/rowFilter.reflections.observation"
+            "$ref": "#/parameters/rowFilter.reflections.reflection_text"
           },
           {
-            "$ref": "#/parameters/rowFilter.reflections.question"
+            "$ref": "#/parameters/rowFilter.reflections.provider"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.confidence"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.themes"
           },
           {
             "$ref": "#/parameters/rowFilter.reflections.status"
@@ -3346,13 +3910,22 @@
             "$ref": "#/parameters/rowFilter.reflections.entry_id"
           },
           {
+            "$ref": "#/parameters/rowFilter.reflections.user_id"
+          },
+          {
             "$ref": "#/parameters/rowFilter.reflections.cycle_id"
           },
           {
-            "$ref": "#/parameters/rowFilter.reflections.observation"
+            "$ref": "#/parameters/rowFilter.reflections.reflection_text"
           },
           {
-            "$ref": "#/parameters/rowFilter.reflections.question"
+            "$ref": "#/parameters/rowFilter.reflections.provider"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.confidence"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.themes"
           },
           {
             "$ref": "#/parameters/rowFilter.reflections.status"
@@ -3907,6 +4480,15 @@
             "$ref": "#/parameters/rowFilter.users.reports_last_viewed_at"
           },
           {
+            "$ref": "#/parameters/rowFilter.users.sustained_distress_flag"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.sustained_distress_since"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.sustained_distress_cleared_at"
+          },
+          {
             "$ref": "#/parameters/select"
           },
           {
@@ -4027,6 +4609,15 @@
             "$ref": "#/parameters/rowFilter.users.reports_last_viewed_at"
           },
           {
+            "$ref": "#/parameters/rowFilter.users.sustained_distress_flag"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.sustained_distress_since"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.sustained_distress_cleared_at"
+          },
+          {
             "$ref": "#/parameters/preferReturn"
           }
         ],
@@ -4097,6 +4688,15 @@
           },
           {
             "$ref": "#/parameters/rowFilter.users.reports_last_viewed_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.sustained_distress_flag"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.sustained_distress_since"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.sustained_distress_cleared_at"
           },
           {
             "$ref": "#/parameters/body.users"
@@ -5015,6 +5615,44 @@
       },
       "type": "object"
     },
+    "ai_failures": {
+      "required": [
+        "id",
+        "prompt",
+        "timestamp"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "entry_id": {
+          "description": "Note:\nThis is a Foreign Key to `entries.id`.<fk table='entries' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "prompt": {
+          "format": "text",
+          "type": "string"
+        },
+        "raw_response": {
+          "format": "text",
+          "type": "string"
+        },
+        "parsing_error": {
+          "format": "text",
+          "type": "string"
+        },
+        "timestamp": {
+          "default": "CURRENT_TIMESTAMP",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "cycles": {
       "required": [
         "id",
@@ -5262,6 +5900,37 @@
       },
       "type": "object"
     },
+    "crisis_log": {
+      "required": [
+        "id",
+        "user_id",
+        "crisis_type",
+        "timestamp"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "user_id": {
+          "description": "Note:\nThis is a Foreign Key to `users.id`.<fk table='users' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "crisis_type": {
+          "format": "text",
+          "type": "string"
+        },
+        "timestamp": {
+          "default": "CURRENT_TIMESTAMP",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "vocab_words": {
       "required": [
         "id",
@@ -5479,6 +6148,11 @@
           "default": "CURRENT_TIMESTAMP",
           "format": "timestamp with time zone",
           "type": "string"
+        },
+        "arc_scoring_applied": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
         }
       },
       "type": "object"
@@ -5708,6 +6382,38 @@
           "default": "pending",
           "format": "text",
           "type": "string"
+        },
+        "crisis_flag": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "crisis_type": {
+          "format": "text",
+          "type": "string"
+        },
+        "crisis_flagged_at": {
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "reflection_suppressed": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "risk_language_quote": {
+          "format": "text",
+          "type": "string"
+        },
+        "crisis_checked": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "arc_scoring_applied": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
         }
       },
       "type": "object"
@@ -5963,6 +6669,62 @@
       },
       "type": "object"
     },
+    "ai_observability": {
+      "required": [
+        "id",
+        "provider",
+        "processing_time",
+        "retry_count",
+        "created_at"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "entry_id": {
+          "description": "Note:\nThis is a Foreign Key to `entries.id`.<fk table='entries' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "provider": {
+          "format": "character varying",
+          "maxLength": 50,
+          "type": "string"
+        },
+        "raw_provider_response": {
+          "format": "text",
+          "type": "string"
+        },
+        "parsed_response": {
+          "format": "jsonb"
+        },
+        "validation_result": {
+          "format": "jsonb"
+        },
+        "processing_time": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "retry_count": {
+          "default": 0,
+          "format": "integer",
+          "type": "integer"
+        },
+        "error_reason": {
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "CURRENT_TIMESTAMP",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "vocab_clusters": {
       "required": [
         "id",
@@ -6028,8 +6790,14 @@
       "required": [
         "id",
         "entry_id",
+        "user_id",
         "cycle_id",
+        "reflection_text",
+        "provider",
+        "confidence",
+        "themes",
         "status",
+        "generated_at",
         "created_at"
       ],
       "properties": {
@@ -6044,25 +6812,42 @@
           "format": "uuid",
           "type": "string"
         },
+        "user_id": {
+          "description": "Note:\nThis is a Foreign Key to `users.id`.<fk table='users' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
         "cycle_id": {
           "description": "Note:\nThis is a Foreign Key to `cycles.id`.<fk table='cycles' column='id'/>",
           "format": "uuid",
           "type": "string"
         },
-        "observation": {
+        "reflection_text": {
           "format": "text",
           "type": "string"
         },
-        "question": {
+        "provider": {
           "format": "text",
           "type": "string"
+        },
+        "confidence": {
+          "format": "text",
+          "type": "string"
+        },
+        "themes": {
+          "format": "text[]",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "status": {
-          "default": "pending",
+          "default": "ready",
           "format": "text",
           "type": "string"
         },
         "generated_at": {
+          "default": "CURRENT_TIMESTAMP",
           "format": "timestamp with time zone",
           "type": "string"
         },
@@ -6341,6 +7126,19 @@
         },
         "reports_last_viewed_at": {
           "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "sustained_distress_flag": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "sustained_distress_since": {
+          "format": "date",
+          "type": "string"
+        },
+        "sustained_distress_cleared_at": {
+          "format": "date",
           "type": "string"
         }
       },
@@ -6801,6 +7599,51 @@
       "in": "query",
       "type": "string"
     },
+    "body.ai_failures": {
+      "name": "ai_failures",
+      "description": "ai_failures",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/ai_failures"
+      }
+    },
+    "rowFilter.ai_failures.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_failures.entry_id": {
+      "name": "entry_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_failures.prompt": {
+      "name": "prompt",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_failures.raw_response": {
+      "name": "raw_response",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_failures.parsing_error": {
+      "name": "parsing_error",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_failures.timestamp": {
+      "name": "timestamp",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
     "body.cycles": {
       "name": "cycles",
       "description": "cycles",
@@ -7071,6 +7914,39 @@
       "in": "query",
       "type": "string"
     },
+    "body.crisis_log": {
+      "name": "crisis_log",
+      "description": "crisis_log",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/crisis_log"
+      }
+    },
+    "rowFilter.crisis_log.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.crisis_log.user_id": {
+      "name": "user_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.crisis_log.crisis_type": {
+      "name": "crisis_type",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.crisis_log.timestamp": {
+      "name": "timestamp",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
     "body.vocab_words": {
       "name": "vocab_words",
       "description": "vocab_words",
@@ -7322,6 +8198,12 @@
     },
     "rowFilter.entry_scores.updated_at": {
       "name": "updated_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.entry_scores.arc_scoring_applied": {
+      "name": "arc_scoring_applied",
       "required": false,
       "in": "query",
       "type": "string"
@@ -7608,6 +8490,48 @@
       "in": "query",
       "type": "string"
     },
+    "rowFilter.entries.crisis_flag": {
+      "name": "crisis_flag",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.entries.crisis_type": {
+      "name": "crisis_type",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.entries.crisis_flagged_at": {
+      "name": "crisis_flagged_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.entries.reflection_suppressed": {
+      "name": "reflection_suppressed",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.entries.risk_language_quote": {
+      "name": "risk_language_quote",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.entries.crisis_checked": {
+      "name": "crisis_checked",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.entries.arc_scoring_applied": {
+      "name": "arc_scoring_applied",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
     "body.patterns": {
       "name": "patterns",
       "description": "patterns",
@@ -7881,6 +8805,75 @@
       "in": "query",
       "type": "string"
     },
+    "body.ai_observability": {
+      "name": "ai_observability",
+      "description": "ai_observability",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/ai_observability"
+      }
+    },
+    "rowFilter.ai_observability.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_observability.entry_id": {
+      "name": "entry_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_observability.provider": {
+      "name": "provider",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_observability.raw_provider_response": {
+      "name": "raw_provider_response",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_observability.parsed_response": {
+      "name": "parsed_response",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_observability.validation_result": {
+      "name": "validation_result",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_observability.processing_time": {
+      "name": "processing_time",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_observability.retry_count": {
+      "name": "retry_count",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_observability.error_reason": {
+      "name": "error_reason",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_observability.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
     "body.vocab_clusters": {
       "name": "vocab_clusters",
       "description": "vocab_clusters",
@@ -7965,20 +8958,38 @@
       "in": "query",
       "type": "string"
     },
+    "rowFilter.reflections.user_id": {
+      "name": "user_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
     "rowFilter.reflections.cycle_id": {
       "name": "cycle_id",
       "required": false,
       "in": "query",
       "type": "string"
     },
-    "rowFilter.reflections.observation": {
-      "name": "observation",
+    "rowFilter.reflections.reflection_text": {
+      "name": "reflection_text",
       "required": false,
       "in": "query",
       "type": "string"
     },
-    "rowFilter.reflections.question": {
-      "name": "question",
+    "rowFilter.reflections.provider": {
+      "name": "provider",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reflections.confidence": {
+      "name": "confidence",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reflections.themes": {
+      "name": "themes",
       "required": false,
       "in": "query",
       "type": "string"
@@ -8318,6 +9329,24 @@
     },
     "rowFilter.users.reports_last_viewed_at": {
       "name": "reports_last_viewed_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.users.sustained_distress_flag": {
+      "name": "sustained_distress_flag",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.users.sustained_distress_since": {
+      "name": "sustained_distress_since",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.users.sustained_distress_cleared_at": {
+      "name": "sustained_distress_cleared_at",
       "required": false,
       "in": "query",
       "type": "string"

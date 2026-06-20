@@ -5,9 +5,14 @@ export interface ClarityScoreResponse {
 }
 
 export interface ReflectionResponse {
-  question: string;
-  origin: string;
-  context: string;
+  reflection: string;
+  closing_question: string;
+  classification: 'Flat' | 'Open' | 'Scattered';
+  confidence: 'high' | 'medium' | 'low';
+  themes: string[];
+  processing_notes: string;
+  rawPrompt?: string;
+  rawResponse?: string;
 }
 
 export interface WeeklyEmotion {
@@ -59,9 +64,16 @@ export interface CrisisDetectionResponse {
 export interface AIProvider {
   scoreEntry(content: string): Promise<ClarityScoreResponse>;
   generateReflection(entryContent: string, context?: string): Promise<ReflectionResponse>;
-  generateWeeklySummary(entries: { content: string; created_at: string }[]): Promise<WeeklySummaryResponse>;
+  generateWeeklySummary(entries: { content: string; created_at: string }[], personalitySummary?: string): Promise<WeeklySummaryResponse>;
   generateMonthlyReport(entries: { content: string; created_at: string }[]): Promise<MonthlyReportResponse>;
   generateOceanSummary(entries: { content: string; created_at: string }[]): Promise<OceanSummaryResponse>;
+  generatePersonalitySummary(scores: {
+    openness: number;
+    conscientiousness: number;
+    extraversion: number;
+    agreeableness: number;
+    neuroticism: number;
+  }): Promise<string>;
   generateExerciseInsight(
     stressorType: string,
     reactiveThought: string,

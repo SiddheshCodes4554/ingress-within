@@ -21,9 +21,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const { id: threadId } = await context.params;
 
-    // 1. Fetch thread details
+    // 1. Fetch thread details from open_threads table
     const { data: thread, error: threadError } = await supabase
-      .from('threads')
+      .from('open_threads')
       .select('*')
       .eq('id', threadId)
       .eq('user_id', authUser.userId)
@@ -44,6 +44,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
       );
     }
 
+    // Map fields for frontend compatibility
+    const mappedThread = {
+      id: thread.id,
+      user_id: thread.user_id,
+      cycle_id: thread.cycle_id,
+      source_summary_id: thread.source_summary_id,
+      question: thread.question,
+      origin: thread.origin_context || 'Self-Reflection',
+      status: thread.status === 'open' ? 'NEW' : thread.status.toUpperCase(),
+      created_at: thread.created_at,
+      addressed_at: thread.addressed_at,
+      addressed_entry_id: thread.addressed_entry_id
+    };
+
     // 2. Fetch previous responses for this thread
     const { data: responses, error: responsesError } = await supabase
       .from('thread_responses')
@@ -62,7 +76,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({
       success: true,
-      thread,
+      thread: mappedThread,
       responses: responses || []
     });
 
@@ -102,7 +116,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // 1. Confirm thread exists and belongs to user
     const { data: thread, error: threadError } = await supabase
-      .from('threads')
+      .from('open_threads')
       .select('*')
       .eq('id', threadId)
       .eq('user_id', authUser.userId)
@@ -134,15 +148,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    // 3. Update thread status (transition NEW or RETURNED to ACTIVE)
-    if (thread.status === 'NEW' || thread.status === 'RETURNED') {
+    // 3. Update thread status (transition open/NEW or RETURNED to active/ACTIVE)
+    if (thread.status === 'open' || thread.status === 'NEW' || thread.status === 'RETURNED') {
       const { error: updateError } = await supabase
-        .from('threads')
-        .update({ status: 'ACTIVE' })
+        .from('open_threads')
+        .update({ status: 'active' })
         .eq('id', threadId);
 
       if (updateError) {
-        console.warn('Failed to transition thread status to ACTIVE:', updateError);
+        console.warn('Failed to transition thread status to active:', updateError);
       }
     }
 

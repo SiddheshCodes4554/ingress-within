@@ -10,6 +10,9 @@ export interface QueueMetric {
 }
 
 export async function getQueueMetrics(): Promise<QueueMetric[]> {
+  if (process.env.BYPASS_REDIS === 'true') {
+    return [];
+  }
   const metrics: QueueMetric[] = [];
 
   for (const queueName of Object.values(QUEUE_NAMES)) {
@@ -40,6 +43,12 @@ export async function getQueueMetrics(): Promise<QueueMetric[]> {
 }
 
 export async function printQueueStatus() {
+  if (process.env.BYPASS_REDIS === 'true') {
+    console.log('\n--- 📊 BULLMQ QUEUES STATUS REPORT ---');
+    console.log('Redis/BullMQ is bypassed. Running inline instead.');
+    console.log('---------------------------------------\n');
+    return;
+  }
   const metrics = await getQueueMetrics();
   console.log('\n--- 📊 BULLMQ QUEUES STATUS REPORT ---');
   console.table(metrics);

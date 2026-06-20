@@ -18,7 +18,8 @@ import {
   Lock,
   ArrowRight,
   Sparkles,
-  PenLine
+  PenLine,
+  AlertCircle
 } from 'lucide-react';
 import { DashboardService } from '../services/dashboardService';
 import DashboardNavbar from '../components/DashboardNavbar';
@@ -34,6 +35,7 @@ export default function DashboardPage({ user, profile, onSignOut }) {
   const [entryText, setEntryText] = useState('');
   const [isSavingEntry, setIsSavingEntry] = useState(false);
   const [entrySavedSuccess, setEntrySavedSuccess] = useState(false);
+  const [saveError, setSaveError] = useState(null);
   
   // Interactive thread responding state
   const [activeThread, setActiveThread] = useState(null);
@@ -103,6 +105,7 @@ export default function DashboardPage({ user, profile, onSignOut }) {
       setEntrySavedSuccess(true);
     } catch (err) {
       console.error('Failed to save entry:', err);
+      setSaveError(err.message || String(err));
     } finally {
       setIsSavingEntry(false);
     }
@@ -268,7 +271,7 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                     </div>
                   )}
                 </motion.div>
-              ) : dailySessionState?.exists && !dailySessionState?.isCompletedToday ? (
+              ) : dailySessionState?.exists && !dailySessionState?.isCompletedToday && dailySessionState?.session?.status !== 'complete' ? (
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -677,6 +680,53 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                     Cancel
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Save Error Warning Popup Modal */}
+      <AnimatePresence>
+        {saveError && (
+          <div className="fixed inset-0 bg-[#1E2A2E]/40 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl max-w-[420px] w-full p-6 space-y-4 relative overflow-hidden shadow-lg border border-[#1E2A2E]/5"
+            >
+              <button 
+                onClick={() => setSaveError(null)}
+                className="absolute top-4 right-4 text-mid hover:text-primary cursor-pointer border-none bg-transparent"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-3 text-red-500">
+                <AlertCircle size={24} className="shrink-0" />
+                <h3 className="font-serif text-lg text-primary font-normal">
+                  {saveError.includes('limit') || saveError.includes('already completed') ? 'Daily Limit Reached' : 'Unable to Save'}
+                </h3>
+              </div>
+
+              <p className="text-xs text-mid leading-relaxed font-sans">
+                {saveError}
+              </p>
+
+              <div className="pt-2">
+                <button 
+                  onClick={() => {
+                    setSaveError(null);
+                    if (saveError.includes('limit') || saveError.includes('already completed')) {
+                      setIsWritingSession(false);
+                      loadData();
+                    }
+                  }}
+                  className="w-full py-2.5 bg-primary text-white hover:bg-[#2A3A3E] rounded text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border-none"
+                >
+                  Acknowledge
+                </button>
               </div>
             </motion.div>
           </div>

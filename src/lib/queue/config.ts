@@ -9,6 +9,7 @@ let isDisconnectedReported = false;
 
 export const connection = new IORedis(redisUrl, {
   maxRetriesPerRequest: null, // Critical requirement for BullMQ
+  lazyConnect: process.env.BYPASS_REDIS === 'true',
   retryStrategy(times) {
     // Reconnect delay increases with attempts, up to 10 seconds max
     return Math.min(times * 500, 10000);

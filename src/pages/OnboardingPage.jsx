@@ -9,6 +9,21 @@ const quotes = [
   "Each reflection is a step towards understanding."
 ];
 
+const oceanQuestions = [
+  { id: 1, text: "When something in my life isn't working, I'm usually open to looking at my own role in it." },
+  { id: 2, text: "I find it easier to sit with uncertainty than to force a quick answer." },
+  { id: 3, text: "I tend to follow through on things I set for myself even when motivation drops." },
+  { id: 4, text: "When things feel out of control externally, I usually try to control what I can internally." },
+  { id: 5, text: "When I'm stressed, being around people usually helps me feel better." },
+  { id: 6, text: "I process things better by talking them through than sitting with them alone." },
+  { id: 7, text: "I find it hard to express frustration or disagreement directly to someone I care about." },
+  { id: 8, text: "I often say I'm fine when I'm not because I don't want to make it a thing." },
+  { id: 9, text: "I tend to take on other people's emotions as if they were my own." },
+  { id: 10, text: "Small things can throw off my whole day if they hit at the wrong time." },
+  { id: 11, text: "I often replay conversations or situations in my head long after they've happened." },
+  { id: 12, text: "When I'm anxious I find it hard to identify exactly what I'm anxious about." }
+];
+
 export default function OnboardingPage({ initialStep = 'loading', onComplete }) {
   const [step, setStep] = useState(initialStep); // 'loading', 'consent', 'profile', 'welcome', 'assessment', 'success'
   const [loadingError, setLoadingError] = useState(null);
@@ -17,6 +32,12 @@ export default function OnboardingPage({ initialStep = 'loading', onComplete }) 
   const [successMsg, setSuccessMsg] = useState('');
   const [shake, setShake] = useState(false);
   const [activeQuoteIndex, setActiveQuoteIndex] = useState(0);
+
+  // OCEAN Wizard State
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [assessmentAnswers, setAssessmentAnswers] = useState({});
+  const [assessmentSubStep, setAssessmentSubStep] = useState('questions'); // 'questions' | 'summary'
+  const [personalitySummaryText, setPersonalitySummaryText] = useState('');
 
   // Quote rotation on Left panel
   useEffect(() => {
@@ -69,8 +90,16 @@ export default function OnboardingPage({ initialStep = 'loading', onComplete }) 
           if (!p.consent_completed) setStep('consent');
           else if (!p.profile_completed) setStep('profile');
           else if (!p.orientation_completed) setStep('welcome');
-          else if (!p.assessment_completed) setStep('assessment');
-          else if (p.onboarding_completed) {
+          else if (!p.assessment_completed) {
+            setStep('assessment');
+            setAssessmentSubStep('questions');
+          } else if (!p.onboarding_completed) {
+            setStep('assessment');
+            setAssessmentSubStep('summary');
+            if (data.user && data.user.personality_summary_text) {
+              setPersonalitySummaryText(data.user.personality_summary_text);
+            }
+          } else {
             if (onComplete) onComplete();
             else {
               window.navigateTo('/dashboard');
@@ -201,20 +230,63 @@ export default function OnboardingPage({ initialStep = 'loading', onComplete }) 
     }
   };
 
-  // Submit Step 4: Assessment Placeholder Complete
-  const handleAssessmentComplete = async () => {
+  // Submit Step 4: OCEAN Assessment Methods
+  const handleRatingSelect = (rating) => {
+    setAssessmentAnswers(prev => ({
+      ...prev,
+      [`q${oceanQuestions[currentQuestionIndex].id}`]: rating
+    }));
+  };
+
+  const handleNextQuestion = async () => {
+    if (currentQuestionIndex < oceanQuestions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+    } else {
+      setIsSubmitting(true);
+      setErrorMsg('');
+      try {
+        const res = await fetch('/api/onboarding/assessment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answers: assessmentAnswers })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data?.error?.message || 'Failed to complete assessment.');
+        }
+
+        setPersonalitySummaryText(data.personality_summary_text);
+        setAssessmentSubStep('summary');
+      } catch (err) {
+        setErrorMsg(err.message);
+        setShake(true);
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+  };
+
+  const handlePrevQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(prev => prev - 1);
+    }
+  };
+
+  const handleFinalizeOnboarding = async () => {
     setIsSubmitting(true);
     setErrorMsg('');
 
     try {
       const res = await fetch('/api/onboarding/assessment', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ finalize: true })
       });
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data?.error?.message || 'Failed to complete assessment.');
+        throw new Error(data?.error?.message || 'Failed to finalize onboarding.');
       }
 
       navigateToStep('success');
@@ -716,50 +788,136 @@ export default function OnboardingPage({ initialStep = 'loading', onComplete }) 
               </motion.div>
             )}
 
-            {/* STEP 4: ASSESSMENT PLACEHOLDER */}
+            {/* STEP 4: OCEAN ASSESSMENT */}
             {step === 'assessment' && (
-              <motion.div
-                key="assessment-view"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.4 }}
-                className="space-y-10 text-center"
-              >
-                {/* Visual Icon */}
-                <div className="relative w-28 h-28 mx-auto flex items-center justify-center">
-                  <div className="absolute inset-0 rounded-full bg-accent/8 border border-accent/20" />
-                  <div className="absolute w-20 h-20 rounded-full bg-white flex items-center justify-center shadow-xs border border-primary/5" />
-                  <HelpCircle size={36} className="text-accent relative z-10" />
-                </div>
+              <div className="w-full">
+                {assessmentSubStep === 'questions' ? (
+                  <motion.div
+                    key="assessment-questions"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.4 }}
+                    className="space-y-8"
+                  >
+                    {/* Back button */}
+                    <div className="min-h-[20px] flex items-center">
+                      {currentQuestionIndex > 0 && (
+                        <button
+                          onClick={handlePrevQuestion}
+                          className="flex items-center gap-1.5 text-mid hover:text-primary transition-colors text-[11px] font-sans font-semibold uppercase tracking-wider bg-transparent border-none cursor-pointer"
+                        >
+                          <ArrowLeft size={12} /> Back
+                        </button>
+                      )}
+                    </div>
 
-                <div className="space-y-3 max-w-[380px] mx-auto">
-                  <span className="font-sans text-[11px] font-semibold tracking-[0.15em] uppercase text-accent">
-                    Initial Baseline
-                  </span>
-                  <h1 className="font-serif text-[32px] font-normal text-primary">
-                    Assessment Coming Soon
-                  </h1>
-                  <p className="font-sans text-sm font-light text-mid leading-relaxed">
-                    We are constructing your mental wellness diagnostic baseline. For now, you can skip directly to your journal dashboard.
-                  </p>
-                </div>
+                    <div className="space-y-4 text-center">
+                      <span className="font-sans text-[11px] font-semibold tracking-[0.15em] uppercase text-accent">
+                        Question {currentQuestionIndex + 1} of 12
+                      </span>
+                      <h1 className="font-serif text-[24px] md:text-[28px] leading-snug font-normal text-primary px-2">
+                        {oceanQuestions[currentQuestionIndex].text}
+                      </h1>
+                    </div>
 
-                {errorMsg && (
-                  <p className="font-sans text-[13px] text-[#b37361] leading-relaxed">
-                    {errorMsg}
-                  </p>
+                    {/* 1-5 circular scale buttons */}
+                    <div className="flex flex-col items-center gap-6 max-w-[400px] mx-auto py-4">
+                      <div className="flex items-center justify-between w-full px-2">
+                        {[1, 2, 3, 4, 5].map((rating) => {
+                          const isSelected = assessmentAnswers[`q${oceanQuestions[currentQuestionIndex].id}`] === rating;
+                          return (
+                            <button
+                              key={rating}
+                              type="button"
+                              onClick={() => handleRatingSelect(rating)}
+                              className={`w-12 h-12 rounded-full flex items-center justify-center font-sans text-sm font-semibold transition-all duration-200 border cursor-pointer ${
+                                isSelected
+                                  ? 'bg-primary text-white border-primary shadow-md scale-105'
+                                  : 'bg-white text-primary border-primary/10 hover:border-primary/30 hover:bg-mint-grey'
+                              }`}
+                            >
+                              {rating}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Rating labels */}
+                      <div className="flex justify-between w-full text-[10px] md:text-[11px] font-sans font-light text-mid uppercase tracking-wider px-2">
+                        <span>Not like me at all</span>
+                        <span>Very much like me</span>
+                      </div>
+                    </div>
+
+                    {errorMsg && (
+                      <p className="font-sans text-[13px] text-[#b37361] text-center leading-relaxed">
+                        {errorMsg}
+                      </p>
+                    )}
+
+                    {/* Next Button */}
+                    <div className="pt-2 text-center">
+                      <button 
+                        onClick={handleNextQuestion}
+                        disabled={isSubmitting || assessmentAnswers[`q${oceanQuestions[currentQuestionIndex].id}`] === undefined}
+                        className="w-full max-w-[360px] mx-auto py-3.5 bg-primary hover:bg-[#2A3A3E] text-mint-grey border-none rounded-md font-sans text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer disabled:opacity-50 shadow-xs"
+                      >
+                        {isSubmitting ? "Submitting..." : currentQuestionIndex === oceanQuestions.length - 1 ? "Finish Assessment" : "Next Question"}
+                      </button>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="assessment-summary"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.4 }}
+                    className="space-y-6 text-left max-w-[480px] mx-auto"
+                  >
+                    <div className="space-y-1">
+                      <span className="font-sans text-[11px] font-semibold tracking-[0.12em] uppercase text-accent">
+                        Here's what we noticed.
+                      </span>
+                    </div>
+
+                    {/* Generous whitespace above and below */}
+                    <div className="py-6 my-2">
+                      <p className="font-sans text-base md:text-lg font-light text-primary leading-relaxed">
+                        {personalitySummaryText}
+                      </p>
+                    </div>
+
+                    {/* Muted divider */}
+                    <hr className="border-0 border-t border-primary/10 w-full" />
+
+                    {/* Transition note */}
+                    <div className="py-2">
+                      <p className="font-sans text-xs font-light text-mid leading-relaxed">
+                        This shapes how we respond to you. You won't see it again — but it's working in the background.
+                      </p>
+                    </div>
+
+                    {errorMsg && (
+                      <p className="font-sans text-[13px] text-[#b37361] text-center leading-relaxed">
+                        {errorMsg}
+                      </p>
+                    )}
+
+                    {/* Continue Button */}
+                    <div className="pt-4">
+                      <button 
+                        onClick={handleFinalizeOnboarding}
+                        disabled={isSubmitting}
+                        className="w-full py-3.5 bg-primary hover:bg-[#2A3A3E] text-mint-grey border-none rounded-md font-sans text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer disabled:opacity-50 shadow-xs"
+                      >
+                        {isSubmitting ? "Saving..." : "Continue"}
+                      </button>
+                    </div>
+                  </motion.div>
                 )}
-
-                {/* Continue to Finalize */}
-                <button 
-                  onClick={handleAssessmentComplete}
-                  disabled={isSubmitting}
-                  className="w-full max-w-[360px] mx-auto py-3.5 bg-primary hover:bg-[#2A3A3E] text-mint-grey border-none rounded-md font-sans text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer disabled:opacity-50 shadow-xs"
-                >
-                  {isSubmitting ? "Saving..." : "Continue To Dashboard"}
-                </button>
-              </motion.div>
+              </div>
             )}
 
             {/* STEP 5: SUCCESS SCREEN */}

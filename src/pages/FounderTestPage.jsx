@@ -160,9 +160,13 @@ export default function FounderTestPage() {
                   reflectionSuppressed: entry.reflection_suppressed
                 },
                 reflection: data.reflectionState ? {
-                  question: data.reflectionState.question,
-                  observation: data.reflectionState.observation,
-                  status: data.reflectionState.status
+                  reflection_text: data.reflectionState.reflection_text,
+                  provider: data.reflectionState.provider,
+                  confidence: data.reflectionState.confidence,
+                  themes: data.reflectionState.themes,
+                  status: data.reflectionState.status,
+                  closing_question: data.reflectionState.closing_question,
+                  classification: data.reflectionState.classification
                 } : null,
                 latency: data.jobs.scoring.executionTime ? data.jobs.scoring.executionTime + (data.jobs.reflection.executionTime || 0) : 1200
               });
@@ -437,21 +441,70 @@ export default function FounderTestPage() {
                     </div>
 
                     {/* Reflection Card (if not suppressed) */}
-                    {!results.crisis.crisisFlag && results.reflection && results.reflection.question && (
+                    {!results.crisis.crisisFlag && results.reflection && results.reflection.reflection_text && (
                       <div className="bg-white rounded-premium border border-primary/5 shadow-sm p-6 space-y-4">
-                        <div className="flex items-center gap-2 border-b border-primary/5 pb-3">
-                          <MessageSquare size={16} className="text-secondary" />
-                          <h2 className="font-serif text-lg font-normal text-primary">AI Reflection Output</h2>
+                        <div className="flex justify-between items-center border-b border-primary/5 pb-3">
+                          <div className="flex items-center gap-2">
+                            <MessageSquare size={16} className="text-secondary" />
+                            <h2 className="font-serif text-lg font-normal text-primary">AI Reflection Output</h2>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 bg-[#F4F6F5] border border-primary/5 rounded-md text-[9px] font-bold uppercase tracking-wider text-mid">
+                              Confidence: {results.reflection.confidence || 'N/A'}
+                            </span>
+                          </div>
                         </div>
-                        <div className="space-y-3">
-                          <div className="text-xs text-mid uppercase font-bold tracking-widest text-[9px]">Introspective Reflection Question</div>
-                          <blockquote className="border-l-4 border-secondary/20 pl-4 py-1 text-md font-serif italic text-primary leading-relaxed">
-                            "{results.reflection.question}"
-                          </blockquote>
-                          
-                          {results.reflection.observation && (
-                            <div className="mt-2 text-[10px] text-mid bg-[#F4F6F5] p-3 rounded-lg border border-primary/5">
-                              <strong>Theme context:</strong> {results.reflection.observation}
+                        <div className="space-y-4">
+                          {(() => {
+                            const paragraphs = (results.reflection.reflection_text || '').split('\n\n').filter(Boolean);
+                            const bodyParagraphs = paragraphs.length > 1 ? paragraphs.slice(0, -1) : paragraphs;
+                            const footerParagraph = paragraphs.length > 1 ? paragraphs[paragraphs.length - 1] : null;
+
+                            return (
+                              <div className="space-y-3">
+                                {bodyParagraphs.map((para, idx) => (
+                                  <p key={idx} className="text-xs text-primary leading-relaxed font-sans">
+                                    {para}
+                                  </p>
+                                ))}
+                                {footerParagraph && (
+                                  <p className="text-xs text-primary/70 font-semibold leading-relaxed font-sans border-t border-primary/5 pt-2.5">
+                                    {footerParagraph}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })()}
+
+                          {/* Classification & Closing Question */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-[#F4F6F5] p-3.5 rounded-xl border border-primary/5">
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Classification</span>
+                              <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-bold ${
+                                results.reflection.classification === 'Flat' 
+                                  ? 'bg-[#E5F2F0] text-[#2D5A53]' 
+                                  : results.reflection.classification === 'Open'
+                                    ? 'bg-[#E7ECFC] text-[#2F4BB7]'
+                                    : 'bg-[#FCEDEA] text-[#B73E2F]'
+                              }`}>
+                                {results.reflection.classification || 'N/A'}
+                              </span>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Closing Question</span>
+                              <span className="text-xs italic font-serif text-primary block">
+                                {results.reflection.closing_question ? `"${results.reflection.closing_question}"` : 'N/A'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {results.reflection.themes && results.reflection.themes.length > 0 && (
+                            <div className="pt-2 flex flex-wrap gap-1.5">
+                              {results.reflection.themes.map((theme, idx) => (
+                                <span key={idx} className="px-2 py-0.5 bg-secondary/10 text-secondary text-[9px] uppercase font-bold tracking-wider rounded-md">
+                                  {theme}
+                                </span>
+                              ))}
                             </div>
                           )}
                         </div>
