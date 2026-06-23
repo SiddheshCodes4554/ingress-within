@@ -46,6 +46,7 @@ export class ClaudeProvider implements AIProvider {
           closing_question: "What would you say about today if you weren't trying to be fair about it?",
           confidence: "high",
           themes: ["Fairness", "Suppression"],
+          vocabulary: ["fair", "exhausted", "reasonable"],
           processing_notes: "Simulated clinical observation matching Prompt System v1.0 Open pattern rules."
         };
       } else if (systemPrompt.includes('synthesizing')) {
@@ -126,6 +127,30 @@ export class ClaudeProvider implements AIProvider {
       } else if (systemPrompt.includes('AI ANALYSIS GOAL')) {
         mockRes = {
           summary: "You tend to process things internally and find direct conflict uncomfortable. That means things often pile up quietly before they surface. This space is designed for exactly that."
+        };
+      } else if (systemPrompt.includes('extract emotional, stress, relationship, and self-descriptive vocabulary')) {
+        mockRes = {
+          words: [
+            { word: "tired", normalized_word: "tired" },
+            { word: "exhausted", normalized_word: "exhausted" },
+            { word: "fine", normalized_word: "fine" },
+            { word: "managing", normalized_word: "managing" }
+          ]
+        };
+      } else if (systemPrompt.includes('group the following vocabulary words into thematic clusters')) {
+        mockRes = {
+          clusters: [
+            {
+              cluster_name: "depletion",
+              cluster_type: "stress",
+              words: ["tired", "exhausted"]
+            },
+            {
+              cluster_name: "avoidance",
+              cluster_type: "emotional",
+              words: ["fine", "managing"]
+            }
+          ]
         };
       }
 
@@ -231,6 +256,7 @@ Schema:
   "closing_question": "The single closing question.",
   "confidence": "high" | "medium" | "low",
   "themes": ["array of 2-4 identified themes"],
+  "vocabulary": ["array of 2-5 key emotion or cognitive vocabulary words extracted from the entry"],
   "processing_notes": "A brief technical note on why this reflection was framed this way."
 }`;
     return this.callClaude<ReflectionResponse>(systemPrompt, `Journal entry:\n"${entryContent}"`);
@@ -452,5 +478,46 @@ Return a valid JSON object matching the requested schema:
 
     const result = await this.callClaude<{ summary: string }>(systemPrompt, userContent);
     return result.summary;
+  }
+
+  async extractVocabulary(entryContent: string): Promise<{ words: { word: string; normalized_word: string }[] }> {
+    const systemPrompt = `You are an AI assistant designed to extract emotional, stress, relationship, and self-descriptive vocabulary from a journal entry.
+    
+QUALITY RULES:
+- Ignore: filler words, stop words, generic verbs, common pronouns.
+- Prioritize: emotional language, recurring themes, self-descriptive language, relationship language, stress language.
+- Extract words exactly as written in the text, and also provide their normalized/lemma base form (e.g., "exhausted" for both "exhausted" and "exhaustion").
+- Limit output to 2-6 key emotional vocabulary words.
+
+Return a valid JSON object matching the requested schema:
+{
+  "words": [
+    { "word": "word as written", "normalized_word": "normalized lowercase base form" }
+  ]
+}`;
+    return this.callClaude<{ words: { word: string; normalized_word: string }[] }>(systemPrompt, `Journal entry:\n"${entryContent}"`);
+  }
+
+  async groupClusters(words: { word: string; normalized_word: string; frequency: number }[]): Promise<{ clusters: { cluster_name: string; cluster_type: string; words: string[] }[] }> {
+    const systemPrompt = `You are an AI assistant designed to group the following vocabulary words into thematic clusters.
+    
+AI REQUIREMENTS:
+- Group the input words into 1-4 meaningful themed clusters based on common emotional themes, stressors, or self-descriptions.
+- Name each cluster with a short, clear thematic label (e.g., "pressure", "uncertainty", "avoidance", "depletion").
+- Categorize each cluster into a type. The cluster type must be one of: "emotional", "stress", "relationship", "self-descriptive".
+- Do not include any words in a cluster that are not present in the input list.
+
+Return a valid JSON object matching the requested schema:
+{
+  "clusters": [
+    {
+      "cluster_name": "pressure",
+      "cluster_type": "stress",
+      "words": ["array of normalized words in this cluster"]
+    }
+  ]
+}`;
+    const userContent = JSON.stringify(words);
+    return this.callClaude<{ clusters: { cluster_name: string; cluster_type: string; words: string[] }[] }>(systemPrompt, `Input words:\n${userContent}`);
   }
 }

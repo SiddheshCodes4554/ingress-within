@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../../lib/db';
 import { getAuthenticatedUser } from '../../../../lib/auth-helper';
+import { decrypt } from '../../../../lib/encryption';
 
 export async function GET(
   request: NextRequest,
@@ -55,13 +56,87 @@ export async function GET(
 
     if (reflectionError) {
       console.error(`[api/entries/[id]] Database error fetching reflection for entry ${entryId}:`, reflectionError);
-      // We do not fail the request entirely if reflection fails to fetch, but log it and return null
     }
+
+    // Fetch previous entry chronologically (created_at preceding current entry)
+    const { data: previousEntry } = await supabase
+      .from('entries')
+      .select('*')
+      .eq('user_id', authUser.userId)
+      .lt('created_at', entry.created_at)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    // Fetch previous reflection
+    let previousReflection: any = null;
+    if (previousEntry) {
+      const { data: prevRef, error: prevRefError } = await supabase
+        .from('reflections')
+        .select('*')
+        .eq('entry_id', previousEntry.id)
+        .maybeSingle();
+      if (!prevRefError) {
+        previousReflection = prevRef;
+      }
+    }
+
+    // Fetch cycle vocabulary words to attach to reflections
+    let vocabWords: string[] = [];
+    if (entry.cycle_id) {
+      const { data: vocabRes } = await supabase
+        .from('vocab_words')
+        .select('word')
+        .eq('user_id', authUser.userId)
+        .eq('cycle_id', entry.cycle_id);
+      vocabWords = vocabRes ? vocabRes.map((v: any) => v.word) : [];
+    }
+
+    let prevVocabWords: string[] = [];
+    if (previousEntry && previousEntry.cycle_id) {
+      if (previousEntry.cycle_id === entry.cycle_id) {
+        prevVocabWords = vocabWords;
+      } else {
+        const { data: prevVocabRes } = await supabase
+          .from('vocab_words')
+          .select('word')
+          .eq('user_id', authUser.userId)
+          .eq('cycle_id', previousEntry.cycle_id);
+        prevVocabWords = prevVocabRes ? prevVocabRes.map((v: any) => v.word) : [];
+      }
+    }
+
+    const reflectionState = reflection ? {
+      ...reflection,
+      vocabulary: vocabWords
+    } : null;
+
+    const previousReflectionState = previousReflection ? {
+      ...previousReflection,
+      vocabulary: prevVocabWords
+    } : null;
+
+    // Decrypt reflection response text (the answer to yesterday's question)
+    const decryptedReflectionText = entry.reflection_text_encrypted 
+      ? decrypt(entry.reflection_text_encrypted, entry.reflection_text_iv) 
+      : null;
+
+    const decryptedPrevReflectionText = previousEntry && previousEntry.reflection_text_encrypted
+      ? decrypt(previousEntry.reflection_text_encrypted, previousEntry.reflection_text_iv)
+      : null;
 
     return NextResponse.json({
       success: true,
-      entry,
-      reflection: reflection || null
+      entry: {
+        ...entry,
+        decrypted_reflection_text: decryptedReflectionText
+      },
+      reflection: reflectionState,
+      previousEntry: previousEntry ? {
+        ...previousEntry,
+        decrypted_reflection_text: decryptedPrevReflectionText
+      } : null,
+      previousReflection: previousReflectionState
     });
 
   } catch (error) {

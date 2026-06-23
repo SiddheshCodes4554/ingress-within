@@ -8,6 +8,7 @@ import { processMonthlyReport } from './workers/monthlyReportWorker';
 import { processOceanSummary } from './workers/oceanSummaryWorker';
 import { processExerciseInsight } from './workers/exerciseInsightWorker';
 import { processCrisisDetection } from './workers/crisisDetectionWorker';
+import { processVocabularyExtraction } from './workers/vocabWorker';
 
 class WorkerRegistry {
   private workers: Map<string, Worker> = new Map();
@@ -75,6 +76,14 @@ class WorkerRegistry {
       QUEUE_NAMES.CRISIS_DETECTION,
       new Worker(QUEUE_NAMES.CRISIS_DETECTION, async (job) => {
         await processCrisisDetection(job.data);
+      }, defaultWorkerOptions)
+    );
+
+    // 8. Vocabulary Processing Worker
+    this.workers.set(
+      QUEUE_NAMES.VOCAB_PROCESSING || 'vocab_processing',
+      new Worker(QUEUE_NAMES.VOCAB_PROCESSING || 'vocab_processing', async (job) => {
+        await processVocabularyExtraction(job.data);
       }, defaultWorkerOptions)
     );
 

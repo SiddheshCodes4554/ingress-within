@@ -1270,19 +1270,22 @@
             "$ref": "#/parameters/rowFilter.vocab_words.cycle_id"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_words.entry_id"
+            "$ref": "#/parameters/rowFilter.vocab_words.cluster_id"
           },
           {
             "$ref": "#/parameters/rowFilter.vocab_words.word"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_words.count"
+            "$ref": "#/parameters/rowFilter.vocab_words.normalized_word"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_words.written_at"
+            "$ref": "#/parameters/rowFilter.vocab_words.frequency"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_words.created_at"
+            "$ref": "#/parameters/rowFilter.vocab_words.first_seen"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.vocab_words.last_seen"
           },
           {
             "$ref": "#/parameters/select"
@@ -1357,19 +1360,22 @@
             "$ref": "#/parameters/rowFilter.vocab_words.cycle_id"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_words.entry_id"
+            "$ref": "#/parameters/rowFilter.vocab_words.cluster_id"
           },
           {
             "$ref": "#/parameters/rowFilter.vocab_words.word"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_words.count"
+            "$ref": "#/parameters/rowFilter.vocab_words.normalized_word"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_words.written_at"
+            "$ref": "#/parameters/rowFilter.vocab_words.frequency"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_words.created_at"
+            "$ref": "#/parameters/rowFilter.vocab_words.first_seen"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.vocab_words.last_seen"
           },
           {
             "$ref": "#/parameters/preferReturn"
@@ -1396,19 +1402,22 @@
             "$ref": "#/parameters/rowFilter.vocab_words.cycle_id"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_words.entry_id"
+            "$ref": "#/parameters/rowFilter.vocab_words.cluster_id"
           },
           {
             "$ref": "#/parameters/rowFilter.vocab_words.word"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_words.count"
+            "$ref": "#/parameters/rowFilter.vocab_words.normalized_word"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_words.written_at"
+            "$ref": "#/parameters/rowFilter.vocab_words.frequency"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_words.created_at"
+            "$ref": "#/parameters/rowFilter.vocab_words.first_seen"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.vocab_words.last_seen"
           },
           {
             "$ref": "#/parameters/body.vocab_words"
@@ -2223,6 +2232,9 @@
             "$ref": "#/parameters/rowFilter.entries.arc_scoring_applied"
           },
           {
+            "$ref": "#/parameters/rowFilter.entries.arc_scoring_note"
+          },
+          {
             "$ref": "#/parameters/select"
           },
           {
@@ -2406,6 +2418,9 @@
             "$ref": "#/parameters/rowFilter.entries.arc_scoring_applied"
           },
           {
+            "$ref": "#/parameters/rowFilter.entries.arc_scoring_note"
+          },
+          {
             "$ref": "#/parameters/preferReturn"
           }
         ],
@@ -2539,6 +2554,9 @@
           },
           {
             "$ref": "#/parameters/rowFilter.entries.arc_scoring_applied"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.entries.arc_scoring_note"
           },
           {
             "$ref": "#/parameters/body.entries"
@@ -3590,22 +3608,16 @@
             "$ref": "#/parameters/rowFilter.vocab_clusters.cycle_id"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_clusters.anchor_word"
+            "$ref": "#/parameters/rowFilter.vocab_clusters.cluster_name"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_clusters.related_words"
+            "$ref": "#/parameters/rowFilter.vocab_clusters.cluster_type"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_clusters.insight"
-          },
-          {
-            "$ref": "#/parameters/rowFilter.vocab_clusters.total_count"
+            "$ref": "#/parameters/rowFilter.vocab_clusters.word_count"
           },
           {
             "$ref": "#/parameters/rowFilter.vocab_clusters.created_at"
-          },
-          {
-            "$ref": "#/parameters/rowFilter.vocab_clusters.updated_at"
           },
           {
             "$ref": "#/parameters/select"
@@ -3680,22 +3692,16 @@
             "$ref": "#/parameters/rowFilter.vocab_clusters.cycle_id"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_clusters.anchor_word"
+            "$ref": "#/parameters/rowFilter.vocab_clusters.cluster_name"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_clusters.related_words"
+            "$ref": "#/parameters/rowFilter.vocab_clusters.cluster_type"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_clusters.insight"
-          },
-          {
-            "$ref": "#/parameters/rowFilter.vocab_clusters.total_count"
+            "$ref": "#/parameters/rowFilter.vocab_clusters.word_count"
           },
           {
             "$ref": "#/parameters/rowFilter.vocab_clusters.created_at"
-          },
-          {
-            "$ref": "#/parameters/rowFilter.vocab_clusters.updated_at"
           },
           {
             "$ref": "#/parameters/preferReturn"
@@ -3722,22 +3728,16 @@
             "$ref": "#/parameters/rowFilter.vocab_clusters.cycle_id"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_clusters.anchor_word"
+            "$ref": "#/parameters/rowFilter.vocab_clusters.cluster_name"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_clusters.related_words"
+            "$ref": "#/parameters/rowFilter.vocab_clusters.cluster_type"
           },
           {
-            "$ref": "#/parameters/rowFilter.vocab_clusters.insight"
-          },
-          {
-            "$ref": "#/parameters/rowFilter.vocab_clusters.total_count"
+            "$ref": "#/parameters/rowFilter.vocab_clusters.word_count"
           },
           {
             "$ref": "#/parameters/rowFilter.vocab_clusters.created_at"
-          },
-          {
-            "$ref": "#/parameters/rowFilter.vocab_clusters.updated_at"
           },
           {
             "$ref": "#/parameters/body.vocab_clusters"
@@ -3791,6 +3791,18 @@
           },
           {
             "$ref": "#/parameters/rowFilter.reflections.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.closing_question"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.classification"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.reflection_answer"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.answered_at"
           },
           {
             "$ref": "#/parameters/select"
@@ -3889,6 +3901,18 @@
             "$ref": "#/parameters/rowFilter.reflections.created_at"
           },
           {
+            "$ref": "#/parameters/rowFilter.reflections.closing_question"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.classification"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.reflection_answer"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.answered_at"
+          },
+          {
             "$ref": "#/parameters/preferReturn"
           }
         ],
@@ -3935,6 +3959,18 @@
           },
           {
             "$ref": "#/parameters/rowFilter.reflections.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.closing_question"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.classification"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.reflection_answer"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reflections.answered_at"
           },
           {
             "$ref": "#/parameters/body.reflections"
@@ -4979,6 +5015,9 @@
             "$ref": "#/parameters/rowFilter.assessments.generated_at"
           },
           {
+            "$ref": "#/parameters/rowFilter.assessments.dominant_dimension"
+          },
+          {
             "$ref": "#/parameters/select"
           },
           {
@@ -5096,6 +5135,9 @@
             "$ref": "#/parameters/rowFilter.assessments.generated_at"
           },
           {
+            "$ref": "#/parameters/rowFilter.assessments.dominant_dimension"
+          },
+          {
             "$ref": "#/parameters/preferReturn"
           }
         ],
@@ -5163,6 +5205,9 @@
           },
           {
             "$ref": "#/parameters/rowFilter.assessments.generated_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.assessments.dominant_dimension"
           },
           {
             "$ref": "#/parameters/body.assessments"
@@ -5936,11 +5981,11 @@
         "id",
         "user_id",
         "cycle_id",
-        "entry_id",
         "word",
-        "count",
-        "written_at",
-        "created_at"
+        "normalized_word",
+        "frequency",
+        "first_seen",
+        "last_seen"
       ],
       "properties": {
         "id": {
@@ -5959,8 +6004,8 @@
           "format": "uuid",
           "type": "string"
         },
-        "entry_id": {
-          "description": "Note:\nThis is a Foreign Key to `entries.id`.<fk table='entries' column='id'/>",
+        "cluster_id": {
+          "description": "Note:\nThis is a Foreign Key to `vocab_clusters.id`.<fk table='vocab_clusters' column='id'/>",
           "format": "uuid",
           "type": "string"
         },
@@ -5968,16 +6013,21 @@
           "format": "text",
           "type": "string"
         },
-        "count": {
+        "normalized_word": {
+          "format": "text",
+          "type": "string"
+        },
+        "frequency": {
           "default": 1,
           "format": "integer",
           "type": "integer"
         },
-        "written_at": {
+        "first_seen": {
+          "default": "CURRENT_TIMESTAMP",
           "format": "timestamp with time zone",
           "type": "string"
         },
-        "created_at": {
+        "last_seen": {
           "default": "CURRENT_TIMESTAMP",
           "format": "timestamp with time zone",
           "type": "string"
@@ -6414,6 +6464,11 @@
           "default": false,
           "format": "boolean",
           "type": "boolean"
+        },
+        "arc_scoring_note": {
+          "description": "Details of arc scoring values when applied",
+          "format": "text",
+          "type": "string"
         }
       },
       "type": "object"
@@ -6730,11 +6785,10 @@
         "id",
         "user_id",
         "cycle_id",
-        "anchor_word",
-        "related_words",
-        "total_count",
-        "created_at",
-        "updated_at"
+        "cluster_name",
+        "cluster_type",
+        "word_count",
+        "created_at"
       ],
       "properties": {
         "id": {
@@ -6753,32 +6807,20 @@
           "format": "uuid",
           "type": "string"
         },
-        "anchor_word": {
+        "cluster_name": {
           "format": "text",
           "type": "string"
         },
-        "related_words": {
-          "format": "text[]",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "insight": {
+        "cluster_type": {
           "format": "text",
           "type": "string"
         },
-        "total_count": {
+        "word_count": {
           "default": 0,
           "format": "integer",
           "type": "integer"
         },
         "created_at": {
-          "default": "CURRENT_TIMESTAMP",
-          "format": "timestamp with time zone",
-          "type": "string"
-        },
-        "updated_at": {
           "default": "CURRENT_TIMESTAMP",
           "format": "timestamp with time zone",
           "type": "string"
@@ -6853,6 +6895,26 @@
         },
         "created_at": {
           "default": "CURRENT_TIMESTAMP",
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "closing_question": {
+          "description": "The single closing question generated by the AI",
+          "format": "text",
+          "type": "string"
+        },
+        "classification": {
+          "description": "The Flat, Open, or Scattered pattern classification of the entry",
+          "format": "text",
+          "type": "string"
+        },
+        "reflection_answer": {
+          "description": "The decrypted text of the user response to the reflection question",
+          "format": "text",
+          "type": "string"
+        },
+        "answered_at": {
+          "description": "The timestamp when the user submitted their reflection response",
           "format": "timestamp with time zone",
           "type": "string"
         }
@@ -7314,6 +7376,11 @@
         },
         "generated_at": {
           "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "dominant_dimension": {
+          "description": "Set to whichever single dimension contributes the largest share of Risk Total (Mixed if none > 40%)",
+          "format": "text",
           "type": "string"
         }
       },
@@ -7974,8 +8041,8 @@
       "in": "query",
       "type": "string"
     },
-    "rowFilter.vocab_words.entry_id": {
-      "name": "entry_id",
+    "rowFilter.vocab_words.cluster_id": {
+      "name": "cluster_id",
       "required": false,
       "in": "query",
       "type": "string"
@@ -7986,20 +8053,26 @@
       "in": "query",
       "type": "string"
     },
-    "rowFilter.vocab_words.count": {
-      "name": "count",
+    "rowFilter.vocab_words.normalized_word": {
+      "name": "normalized_word",
       "required": false,
       "in": "query",
       "type": "string"
     },
-    "rowFilter.vocab_words.written_at": {
-      "name": "written_at",
+    "rowFilter.vocab_words.frequency": {
+      "name": "frequency",
       "required": false,
       "in": "query",
       "type": "string"
     },
-    "rowFilter.vocab_words.created_at": {
-      "name": "created_at",
+    "rowFilter.vocab_words.first_seen": {
+      "name": "first_seen",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.vocab_words.last_seen": {
+      "name": "last_seen",
       "required": false,
       "in": "query",
       "type": "string"
@@ -8532,6 +8605,13 @@
       "in": "query",
       "type": "string"
     },
+    "rowFilter.entries.arc_scoring_note": {
+      "name": "arc_scoring_note",
+      "description": "Details of arc scoring values when applied",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
     "body.patterns": {
       "name": "patterns",
       "description": "patterns",
@@ -8901,38 +8981,26 @@
       "in": "query",
       "type": "string"
     },
-    "rowFilter.vocab_clusters.anchor_word": {
-      "name": "anchor_word",
+    "rowFilter.vocab_clusters.cluster_name": {
+      "name": "cluster_name",
       "required": false,
       "in": "query",
       "type": "string"
     },
-    "rowFilter.vocab_clusters.related_words": {
-      "name": "related_words",
+    "rowFilter.vocab_clusters.cluster_type": {
+      "name": "cluster_type",
       "required": false,
       "in": "query",
       "type": "string"
     },
-    "rowFilter.vocab_clusters.insight": {
-      "name": "insight",
-      "required": false,
-      "in": "query",
-      "type": "string"
-    },
-    "rowFilter.vocab_clusters.total_count": {
-      "name": "total_count",
+    "rowFilter.vocab_clusters.word_count": {
+      "name": "word_count",
       "required": false,
       "in": "query",
       "type": "string"
     },
     "rowFilter.vocab_clusters.created_at": {
       "name": "created_at",
-      "required": false,
-      "in": "query",
-      "type": "string"
-    },
-    "rowFilter.vocab_clusters.updated_at": {
-      "name": "updated_at",
       "required": false,
       "in": "query",
       "type": "string"
@@ -9008,6 +9076,34 @@
     },
     "rowFilter.reflections.created_at": {
       "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reflections.closing_question": {
+      "name": "closing_question",
+      "description": "The single closing question generated by the AI",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reflections.classification": {
+      "name": "classification",
+      "description": "The Flat, Open, or Scattered pattern classification of the entry",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reflections.reflection_answer": {
+      "name": "reflection_answer",
+      "description": "The decrypted text of the user response to the reflection question",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reflections.answered_at": {
+      "name": "answered_at",
+      "description": "The timestamp when the user submitted their reflection response",
       "required": false,
       "in": "query",
       "type": "string"
@@ -9545,6 +9641,13 @@
     },
     "rowFilter.assessments.generated_at": {
       "name": "generated_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.assessments.dominant_dimension": {
+      "name": "dominant_dimension",
+      "description": "Set to whichever single dimension contributes the largest share of Risk Total (Mixed if none > 40%)",
       "required": false,
       "in": "query",
       "type": "string"

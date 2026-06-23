@@ -35,6 +35,37 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Automatically create Cycle 1 for the user if it doesn't already exist
+      const { data: existingCycle } = await supabase
+        .from('cycles')
+        .select('id')
+        .eq('user_id', user.userId)
+        .limit(1)
+        .maybeSingle();
+
+      if (!existingCycle) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const { error: cycleError } = await supabase
+          .from('cycles')
+          .insert({
+            user_id: user.userId,
+            cycle_number: 1,
+            status: 'ACTIVE',
+            start_date: todayStr,
+            total_days: 30,
+            current_day: 1,
+            days_completed: 0,
+            entries_count: 0,
+            assessment_completed: false,
+            assessment_available: false
+          });
+        if (cycleError) {
+          console.error('[API Onboarding Finalize] Failed to create Cycle 1 automatically:', cycleError);
+        } else {
+          console.log('[API Onboarding Finalize] Cycle 1 automatically created for user', user.userId);
+        }
+      }
+
       return NextResponse.json({
         success: true,
         message: 'Onboarding finalized successfully.'

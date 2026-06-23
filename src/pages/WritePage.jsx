@@ -45,6 +45,14 @@ export default function WritePage({ user, profile, onSignOut }) {
   // UI screens: 'main' | 'reading' | 'reflection' | 'crisis' | 'sustained_distress'
   const [screenState, setScreenState] = useState('main');
 
+  // Reflection response states
+  const [reflectionToAnswer, setReflectionToAnswer] = useState(null);
+  const [reflectionAnswer, setReflectionAnswer] = useState('');
+  const [isSavingReflection, setIsSavingReflection] = useState(false);
+  const [reflectionAutosaveStatus, setReflectionAutosaveStatus] = useState('Idle');
+  const [lastReflectionAutosavedAt, setLastReflectionAutosavedAt] = useState('');
+  const [reflectionSaveError, setReflectionSaveError] = useState(null);
+
   // Load data on mount
   useEffect(() => {
     // Check sustained distress flag at session open
@@ -65,6 +73,17 @@ export default function WritePage({ user, profile, onSignOut }) {
       try {
         const result = await DashboardService.fetchDashboardData();
         setData(result);
+        
+        // Check for unanswered reflection on the most recent entry
+        if (result && result.entries && result.entries.length > 0) {
+          const latestEntry = result.entries[0];
+          const reflection = latestEntry.reflection;
+          if (reflection && reflection.status === 'ready' && reflection.closing_question) {
+            setReflectionToAnswer(reflection);
+            setReflectionAnswer(reflection.reflection_answer || '');
+          }
+        }
+
         if (result?.cycleInfo?.hasWrittenToday) {
           // Only lock if we are not currently displaying a distress screen
           if (!user?.sustained_distress_flag || sessionStorage.getItem('iw_sustained_acknowledged') === 'true') {
@@ -97,6 +116,59 @@ export default function WritePage({ user, profile, onSignOut }) {
     }
     loadData();
   }, [user]);
+
+  const handleSaveReflection = async () => {
+    if (!reflectionAnswer.trim() || !reflectionToAnswer) return;
+    setIsSavingReflection(true);
+    setReflectionSaveError(null);
+    try {
+      await DashboardService.submitReflectionAnswer(reflectionToAnswer.id, reflectionAnswer, 'completed');
+      setReflectionToAnswer(null);
+      setReflectionAnswer('');
+      const result = await DashboardService.fetchDashboardData();
+      setData(result);
+    } catch (err) {
+      console.error('Failed to save reflection response:', err);
+      setReflectionSaveError(err.message || String(err));
+    } finally {
+      setIsSavingReflection(false);
+    }
+  };
+
+  // Autosave reflection answer draft
+  useEffect(() => {
+    if (!reflectionToAnswer || isLoading || isSavingReflection) return;
+    
+    const currentStoredValue = reflectionToAnswer.reflection_answer || '';
+    if (reflectionAnswer === currentStoredValue) {
+      return;
+    }
+
+    setReflectionAutosaveStatus('Saving');
+    const saveTimeout = setTimeout(async () => {
+      try {
+        await DashboardService.submitReflectionAnswer(reflectionToAnswer.id, reflectionAnswer, 'ready');
+        setReflectionAutosaveStatus('Saved');
+        setLastReflectionAutosavedAt(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        setReflectionToAnswer(prev => prev ? { ...prev, reflection_answer: reflectionAnswer } : null);
+      } catch (err) {
+        console.error('Failed to autosave reflection draft:', err);
+        setReflectionAutosaveStatus('Error');
+      }
+    }, 1500);
+
+    return () => clearTimeout(saveTimeout);
+  }, [reflectionAnswer, reflectionToAnswer, isLoading, isSavingReflection]);
+
+  // Reset reflection autosave status to Idle after 3s
+  useEffect(() => {
+    if (reflectionAutosaveStatus === 'Saved') {
+      const resetTimeout = setTimeout(() => {
+        setReflectionAutosaveStatus('Idle');
+      }, 3000);
+      return () => clearTimeout(resetTimeout);
+    }
+  }, [reflectionAutosaveStatus]);
 
   const getWordCount = () => {
     return entryText.trim().split(/\s+/).filter(Boolean).length;
@@ -283,6 +355,71 @@ export default function WritePage({ user, profile, onSignOut }) {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {reflectionToAnswer && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white border border-[#E0A898]/40 rounded-xl p-5 shadow-sm space-y-4 relative overflow-hidden text-left"
+              >
+                <div className="absolute left-0 top-0 bottom-0 w-[4px] bg-[#E0A898]" />
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-[#E0A898]">Continue Your Reflection</span>
+                  <div className="flex items-center gap-1.5 text-[10px] text-mid">
+                    <span>From {new Date(data?.entries?.[0]?.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}</span>
+                  </div>
+                </div>
+
+                <p className="font-serif italic text-[14.5px] leading-relaxed text-primary">
+                  "{reflectionToAnswer.closing_question}"
+                </p>
+
+                <div className="space-y-2">
+                  <textarea
+                    value={reflectionAnswer}
+                    onChange={(e) => setReflectionAnswer(e.target.value)}
+                    placeholder="Reflect on this question before you write a new entry..."
+                    className="w-full min-h-[110px] border border-[#1E2A2E]/10 rounded-lg p-3 text-xs leading-relaxed outline-none focus:border-primary font-sans text-primary placeholder-mid/30 bg-mint-grey/5 resize-y"
+                  />
+                  
+                  {reflectionSaveError && (
+                    <p className="text-[11px] text-[#8a3020] font-medium">{reflectionSaveError}</p>
+                  )}
+
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-center gap-1.5 font-sans text-[10px] h-[16px] text-mid/70 select-none">
+                      {reflectionAutosaveStatus === 'Saving' && (
+                        <>
+                          <div className="w-1.5 h-1.5 rounded-full bg-accent animate-ping" />
+                          <span className="italic">Autosaving...</span>
+                        </>
+                      )}
+                      {reflectionAutosaveStatus === 'Saved' && (
+                        <>
+                          <div className="w-1.5 h-1.5 rounded-full bg-secondary" />
+                          <span>Saved draft {lastReflectionAutosavedAt ? `at ${lastReflectionAutosavedAt}` : ''}</span>
+                        </>
+                      )}
+                      {reflectionAutosaveStatus === 'Error' && (
+                        <>
+                          <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                          <span className="text-red-400">Autosave failed</span>
+                        </>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={handleSaveReflection}
+                      disabled={!reflectionAnswer.trim() || isSavingReflection}
+                      className="px-4 py-1.5 bg-primary text-white hover:bg-[#2A3A3E] disabled:bg-primary/25 disabled:cursor-not-allowed text-[11px] font-semibold uppercase tracking-wider rounded transition-all cursor-pointer border-none"
+                    >
+                      {isSavingReflection ? 'Saving...' : 'Save Reflection'}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
             <div className="text-[10px] tracking-wider uppercase text-[#8DBFB4] font-semibold">
               {getFormattedDate()}

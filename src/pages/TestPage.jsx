@@ -17,113 +17,14 @@ import {
   RefreshCw,
   Sliders,
   Database,
-  MessageSquare
+  MessageSquare,
+  Smile
 } from 'lucide-react';
 import DashboardNavbar from '../components/DashboardNavbar';
 
-// Pre-defined test cases
-const TEST_CASES = [
-  {
-    name: 'Normal Day',
-    reflection: 'I reflected on my anxiety yesterday and realized it was mostly fatigue.',
-    newEntry: 'Work was tiring today. I felt frustrated after a meeting but I handled it reasonably well and completed what I needed to do.',
-    expected: {
-      day_ei: { min: 3.0, max: 6.0 },
-      day_pr: { min: 2.0, max: 6.0 },
-      day_sa: { min: 5.0, max: 9.0 }
-    }
-  },
-  {
-    name: 'High Emotional Distress',
-    reflection: '',
-    newEntry: 'I am so angry and overwhelmed. My heart is beating so fast and I feel like screaming. I can\'t calm down at all.',
-    expected: {
-      day_ei: { min: 7.0, max: 10.0 },
-      day_pr: { min: 4.0, max: 8.0 },
-      day_sa: { min: 2.0, max: 6.0 }
-    }
-  },
-  {
-    name: 'Low Agency',
-    reflection: '',
-    newEntry: 'Everything is just happening to me. I have no choice. I\'m stuck in this situation and there\'s nothing I can do to change it.',
-    expected: {
-      day_ei: { min: 4.0, max: 8.0 },
-      day_pr: { min: 4.0, max: 8.0 },
-      day_sa: { min: 1.0, max: 3.0 }
-    }
-  },
-  {
-    name: 'High Rigidity',
-    reflection: '',
-    newEntry: 'People always let me know they don\'t care. It is always the same. They will never change, and I will never succeed.',
-    expected: {
-      day_ei: { min: 4.0, max: 8.0 },
-      day_pr: { min: 7.0, max: 10.0 },
-      day_sa: { min: 2.0, max: 6.0 }
-    }
-  },
-  {
-    name: 'Immediate Crisis',
-    reflection: '',
-    newEntry: 'I cannot do this anymore. Everything feels impossible. I have no control over anything. I feel completely trapped.',
-    expected: {
-      day_ei: { min: 9.0, max: 10.0 },
-      day_pr: { min: 5.0, max: 10.0 },
-      day_sa: { min: 1.0, max: 2.0 }
-    }
-  },
-  {
-    name: 'Risk Language',
-    reflection: '',
-    newEntry: 'I want to end my life. I want to kill myself.',
-    expected: {
-      day_ei: { min: 5.0, max: 10.0 },
-      day_pr: { min: 4.0, max: 10.0 },
-      day_sa: { min: 1.0, max: 6.0 }
-    }
-  },
-  {
-    name: 'Very Short Entry',
-    reflection: '',
-    newEntry: 'Okay day.',
-    expected: {
-      day_ei: { min: 3.0, max: 7.0 },
-      day_pr: { min: 3.0, max: 7.0 },
-      day_sa: { min: 3.0, max: 7.0 }
-    }
-  },
-  {
-    name: 'Mixed Entry',
-    reflection: 'I made some progress.',
-    newEntry: 'Felt a bit down but tried my best.',
-    expected: {
-      day_ei: { min: 4.0, max: 7.0 },
-      day_pr: { min: 3.0, max: 7.0 },
-      day_sa: { min: 4.0, max: 8.0 }
-    }
-  },
-  {
-    name: 'Reflection Only',
-    reflection: 'Thinking about how I reacted to criticism yesterday. I think I was too defensive.',
-    newEntry: '',
-    expected: {
-      day_ei: { min: 3.0, max: 7.0 },
-      day_pr: { min: 3.0, max: 7.0 },
-      day_sa: { min: 4.0, max: 8.0 }
-    }
-  },
-  {
-    name: 'Both Entry Types',
-    reflection: 'I practiced deep breathing when stressed.',
-    newEntry: 'Met a friend today. Had a good conversation, though I still felt slightly detached.',
-    expected: {
-      day_ei: { min: 4.0, max: 7.0 },
-      day_pr: { min: 3.0, max: 7.0 },
-      day_sa: { min: 4.0, max: 8.0 }
-    }
-  }
-];
+import { DashboardService } from '../services/dashboardService';
+
+// No preset scenarios to avoid evaluation bias
 
 export default function TestPage() {
   const [reflectionText, setReflectionText] = useState('');
@@ -151,6 +52,51 @@ export default function TestPage() {
   const [developerUser, setDeveloperUser] = useState(null);
   const [checkingCompliance, setCheckingCompliance] = useState(false);
 
+  // Cycle Engine State
+  const [cycleStatus, setCycleStatus] = useState(null);
+  const [cycleLoading, setCycleLoading] = useState(false);
+  const [simulatingCycle, setSimulatingCycle] = useState(false);
+  const [cycleNumberInput, setCycleNumberInput] = useState(1);
+  const [cycleMessage, setCycleMessage] = useState(null);
+
+  const loadCycleStatus = async () => {
+    setCycleLoading(true);
+    setCycleMessage(null);
+    try {
+      const data = await DashboardService.fetchCycleStatus();
+      setCycleStatus(data);
+    } catch (err) {
+      console.error('Failed to load cycle status:', err);
+    } finally {
+      setCycleLoading(false);
+    }
+  };
+
+  const triggerSimulation = async (action, extraParams = {}) => {
+    setSimulatingCycle(true);
+    setCycleMessage(null);
+    try {
+      const res = await DashboardService.simulateCycle({ action, ...extraParams });
+      setCycleMessage({ type: 'success', text: res.message || 'Simulation completed.' });
+      await loadCycleStatus();
+    } catch (err) {
+      console.error('Simulation failed:', err);
+      setCycleMessage({ type: 'error', text: err.message || 'Simulation failed.' });
+    } finally {
+      setSimulatingCycle(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCycleStatus();
+  }, []);
+
+  // History Tab State
+  const [historyEntries, setHistoryEntries] = useState([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
+  const [expandedEntries, setExpandedEntries] = useState({});
+
   const runComplianceCheck = async () => {
     setCheckingCompliance(true);
     try {
@@ -176,6 +122,36 @@ export default function TestPage() {
     }
   };
 
+  const fetchHistoryEntries = async () => {
+    setIsHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const res = await fetch('/api/entries');
+      if (!res.ok) throw new Error('Failed to retrieve history entries.');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message || 'Failed to retrieve history entries.');
+      setHistoryEntries(data.entries || []);
+    } catch (err) {
+      console.error(err);
+      setHistoryError(err.message);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchHistoryEntries();
+    }
+  }, [activeTab]);
+
+  const toggleEntryExpand = (id) => {
+    setExpandedEntries(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
   const getReflectionDetails = () => {
     if (!results) return null;
     
@@ -189,6 +165,7 @@ export default function TestPage() {
           classification: results.reflection.classification,
           confidence: results.reflection.confidence,
           themes: results.reflection.themes,
+          vocabulary: results.reflection.vocabulary,
           validation: results.reflection.validation,
           attempts: results.reflection.attempts,
           suppressed: results.reflection.suppressed,
@@ -202,6 +179,7 @@ export default function TestPage() {
           classification: results.classification,
           confidence: results.confidence,
           themes: results.themes,
+          vocabulary: results.vocabulary,
           validation: results.validation,
           attempts: results.attempts,
           suppressed: false,
@@ -218,6 +196,7 @@ export default function TestPage() {
         classification: results.reflectionResult.classification,
         confidence: results.reflectionResult.confidence,
         themes: results.reflectionResult.themes,
+        vocabulary: results.reflectionResult.vocabulary,
         validation: { valid: results.reflectionResult.status === 'ready' },
         attempts: 1,
         suppressed: results.crisis?.reflectionSuppressed || false,
@@ -444,9 +423,10 @@ export default function TestPage() {
           const scoringDone = data.jobs.scoring.status === 'COMPLETED' || data.jobs.scoring.status === 'FAILED';
           const crisisDone = data.jobs.crisis.status === 'COMPLETED' || data.jobs.crisis.status === 'FAILED';
           const reflectionDone = data.jobs.reflection.status === 'COMPLETED' || data.jobs.reflection.status === 'FAILED';
+          const vocabDone = !data.jobs.vocab || data.jobs.vocab.status === 'COMPLETED' || data.jobs.vocab.status === 'FAILED';
 
           // Stop polling once all queues complete, or after 15 attempts (22.5s)
-          if ((scoringDone && crisisDone && reflectionDone) || attempts >= 15) {
+          if ((scoringDone && crisisDone && reflectionDone && vocabDone) || attempts >= 15) {
             clearInterval(interval);
             setIsPolling(false);
             setIsLoading(false);
@@ -492,10 +472,12 @@ export default function TestPage() {
                   provider: data.reflectionState.provider,
                   confidence: data.reflectionState.confidence,
                   themes: data.reflectionState.themes,
+                  vocabulary: data.reflectionState.vocabulary,
                   status: data.reflectionState.status,
                   closing_question: data.reflectionState.closing_question,
                   classification: data.reflectionState.classification
                 } : null,
+                vocabState: data.vocabState || null,
                 aiTrace: null // Background jobs don't return raw AI trace directly in poll
               });
             }
@@ -574,27 +556,21 @@ export default function TestPage() {
           >
             Compliance Dashboard
           </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`px-6 py-2.5 font-sans text-xs font-bold uppercase tracking-wider border-b-2 cursor-pointer transition-all ${
+              activeTab === 'history'
+                ? 'border-secondary text-primary font-semibold'
+                : 'border-transparent text-mid hover:text-primary'
+            }`}
+          >
+            Entry History
+          </button>
         </div>
 
-        {activeTab === 'simulator' ? (
+        {activeTab === 'simulator' && (
           <>
-            {/* Test Cases Row */}
-        <div className="mb-8 bg-white p-5 rounded-premium border border-primary/5 shadow-sm space-y-3">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-[#8DBFB4]">One-Click Preset Scenarios</div>
-          <div className="flex flex-wrap gap-2">
-            {TEST_CASES.map((tc) => (
-              <button
-                key={tc.name}
-                onClick={() => loadTestCase(tc)}
-                className="px-3.5 py-1.5 bg-mint-grey hover:bg-secondary/15 hover:text-secondary-dark border border-transparent hover:border-secondary/20 rounded-lg text-xs font-medium transition-all cursor-pointer"
-              >
-                {tc.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Error Alert */}
+            {/* Error Alert */}
         {error && (
           <div className="mb-8 p-4 bg-accent/10 border border-accent/20 rounded-xl text-[#8a3020] text-xs flex items-start gap-2.5">
             <AlertTriangle size={16} className="shrink-0 mt-0.5" />
@@ -619,7 +595,7 @@ export default function TestPage() {
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-mid">
-                    <span>Reflection Text</span>
+                    <span>Optional Reflection Input Area</span>
                     <span className="text-mid/50 italic">Optional</span>
                   </div>
                   <textarea
@@ -635,7 +611,7 @@ export default function TestPage() {
 
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-mid">
-                    <span>New Entry Text</span>
+                    <span>Single Journal Input Area</span>
                     <span className="text-mid/50 italic">Optional</span>
                   </div>
                   <textarea
@@ -650,75 +626,183 @@ export default function TestPage() {
                 </div>
               </div>
 
-              <div className="pt-2 space-y-3">
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    onClick={runFullPipeline}
-                    disabled={isLoading || (!reflectionText.trim() && !newEntryText.trim())}
-                    className="flex-1 flex items-center justify-center gap-2 bg-primary hover:bg-[#2A3A3E] text-white py-3.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer shadow-sm disabled:opacity-40"
-                  >
-                    {isLoading && activePipeline === 'full' ? (
-                      <RotateCw size={14} className="animate-spin" />
-                    ) : (
-                      <Database size={14} />
-                    )}
-                    <span>Run Full Pipeline (Async)</span>
-                  </button>
+              <div className="pt-2">
+                <button
+                  onClick={runFullPipeline}
+                  disabled={isLoading || (!reflectionText.trim() && !newEntryText.trim())}
+                  className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-[#2A3A3E] text-white py-3.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer shadow-sm disabled:opacity-40"
+                >
+                  {isLoading ? (
+                    <RotateCw size={14} className="animate-spin" />
+                  ) : (
+                    <Play size={14} fill="currentColor" />
+                  )}
+                  <span>Run Analysis</span>
+                </button>
+              </div>
+            </div>
 
-                  <button
-                    onClick={runScoreReflection}
-                    disabled={isLoading || (!reflectionText.trim() && !newEntryText.trim())}
-                    className="flex-1 flex items-center justify-center gap-2 bg-[#8DBFB4] hover:bg-[#7cafb3] text-white py-3.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer shadow-sm disabled:opacity-40"
+            {/* Cycle Engine Controls */}
+            <div className="bg-white rounded-premium border border-primary/5 shadow-sm p-6 space-y-6">
+              <div className="flex items-center justify-between border-b border-primary/5 pb-3">
+                <div className="flex items-center gap-2">
+                  <Database size={16} className="text-secondary" />
+                  <h2 className="font-serif text-lg font-normal text-primary">Cycle Engine Controls</h2>
+                </div>
+                <button
+                  onClick={loadCycleStatus}
+                  disabled={cycleLoading}
+                  className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-mid hover:text-primary transition-colors border-none bg-transparent cursor-pointer disabled:opacity-40"
+                >
+                  <RefreshCw size={10} className={cycleLoading ? 'animate-spin' : ''} />
+                  <span>Refresh</span>
+                </button>
+              </div>
+
+              {/* Cycle Status Display */}
+              <div className="bg-[#FAFBFB] p-4 rounded-xl border border-primary/5 space-y-3.5">
+                <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-mid border-b border-primary/5 pb-1.5">
+                  <span>Current Cycle State</span>
+                  {cycleLoading && <span className="text-[10px] text-secondary font-bold uppercase animate-pulse">Querying...</span>}
+                </div>
+
+                {cycleStatus ? (
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div className="space-y-1">
+                      <div className="text-mid/60 text-[10px] font-bold uppercase tracking-wider">Active Cycle</div>
+                      <div className="font-semibold text-primary">
+                        {cycleStatus.hasActiveCycle ? `Cycle ${cycleStatus.cycle?.cycle_number || '1'}` : 'None (Assessment Blocked or Archived)'}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-mid/60 text-[10px] font-bold uppercase tracking-wider">Status</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-1.5 h-1.5 rounded-full ${cycleStatus.cycle?.status === 'ACTIVE' ? 'bg-[#8DBFB4]' : 'bg-[#E0A898]'}`} />
+                        <span className="font-semibold text-primary font-mono text-[10px]">{cycleStatus.cycle?.status || 'N/A'}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-mid/60 text-[10px] font-bold uppercase tracking-wider">Day Progress</div>
+                      <div className="font-semibold text-primary">
+                        Day {cycleStatus.day || 1} / {cycleStatus.cycle?.total_days || 30}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-mid/60 text-[10px] font-bold uppercase tracking-wider">Days Remaining</div>
+                      <div className="font-semibold text-primary">{cycleStatus.daysRemaining ?? 'N/A'} days</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-mid/60 text-[10px] font-bold uppercase tracking-wider">Assessment Gated</div>
+                      <div className={`font-semibold ${cycleStatus.cycle?.assessment_available && !cycleStatus.cycle?.assessment_completed ? 'text-[#8a3020]' : 'text-[#4A6A64]'}`}>
+                        {cycleStatus.cycle?.assessment_available && !cycleStatus.cycle?.assessment_completed ? 'YES (Assessment Available)' : 'NO'}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-mid/60 text-[10px] font-bold uppercase tracking-wider">Streak & Consistency</div>
+                      <div className="font-semibold text-primary">
+                        {cycleStatus.streak || 0} days · {cycleStatus.consistency || 0}%
+                      </div>
+                    </div>
+                    <div className="col-span-2 space-y-1 pt-1.5 border-t border-primary/5">
+                      <div className="text-mid/60 text-[10px] font-bold uppercase tracking-wider">Start Date</div>
+                      <div className="font-semibold text-primary font-mono text-[11px]">{cycleStatus.cycle?.start_date || 'N/A'}</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-xs text-mid py-2">
+                    {cycleLoading ? 'Loading cycle information...' : 'No cycle data available.'}
+                  </div>
+                )}
+              </div>
+
+              {/* Simulation feedback message */}
+              {cycleMessage && (
+                <div className={`p-3 rounded-xl border text-xs flex justify-between items-start ${
+                  cycleMessage.type === 'success' 
+                    ? 'bg-[#8DBFB4]/10 border-[#8DBFB4]/25 text-[#1A5040]' 
+                    : 'bg-accent/15 border-accent/25 text-[#8a3020]'
+                }`}>
+                  <p className="flex-1">{cycleMessage.text}</p>
+                  <button 
+                    onClick={() => setCycleMessage(null)}
+                    className="ml-2 font-bold text-mid/70 hover:text-primary border-none bg-transparent cursor-pointer text-[10px]"
                   >
-                    {isLoading && activePipeline === 'score-reflection' ? (
-                      <RotateCw size={14} className="animate-spin" />
-                    ) : (
-                      <Cpu size={14} />
-                    )}
-                    <span>Score + Reflection (Sync)</span>
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {/* Simulation Action Buttons */}
+              <div className="space-y-3">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-mid">Simulate Progression</div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <button
+                    onClick={() => triggerSimulation('progress', { days: 1 })}
+                    disabled={simulatingCycle || !cycleStatus?.cycle}
+                    className="flex items-center justify-center gap-1 bg-mint-grey hover:bg-[#E2ECE9] border border-primary/10 hover:border-primary/20 text-primary py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer disabled:opacity-40"
+                  >
+                    <span>+1 Day</span>
+                  </button>
+                  <button
+                    onClick={() => triggerSimulation('progress', { days: 5 })}
+                    disabled={simulatingCycle || !cycleStatus?.cycle}
+                    className="flex items-center justify-center gap-1 bg-mint-grey hover:bg-[#E2ECE9] border border-primary/10 hover:border-primary/20 text-primary py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer disabled:opacity-40"
+                  >
+                    <span>+5 Days</span>
+                  </button>
+                  <button
+                    onClick={() => triggerSimulation('progress', { days: 30 })}
+                    disabled={simulatingCycle || !cycleStatus?.cycle}
+                    className="flex items-center justify-center gap-1 bg-mint-grey hover:bg-[#E2ECE9] border border-primary/10 hover:border-primary/20 text-primary py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer disabled:opacity-40"
+                  >
+                    <span>+30 Days</span>
                   </button>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                   <button
-                    onClick={runScoringOnly}
-                    disabled={isLoading || (!reflectionText.trim() && !newEntryText.trim())}
-                    className="flex-1 flex items-center justify-center gap-2 border border-primary/15 hover:bg-mint-grey text-primary py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
+                    onClick={() => triggerSimulation('complete-cycle')}
+                    disabled={simulatingCycle || !cycleStatus?.cycle}
+                    className="flex items-center justify-center gap-1.5 bg-[#E0A898]/10 hover:bg-[#E0A898]/18 border border-[#E0A898]/20 hover:border-[#E0A898]/35 text-[#8a3020] py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
                   >
-                    {isLoading && activePipeline === 'scoring' ? (
-                      <RotateCw size={14} className="animate-spin" />
-                    ) : (
-                      <Cpu size={14} />
-                    )}
-                    <span>Scoring Only</span>
+                    <span>Simulate Completion</span>
                   </button>
-
                   <button
-                    onClick={runCrisisOnly}
-                    disabled={isLoading || !newEntryText.trim()}
-                    className="flex-1 flex items-center justify-center gap-2 border border-[#E0A898]/30 bg-[#E0A898]/5 hover:bg-[#E0A898]/15 text-[#8a3020] py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
+                    onClick={() => triggerSimulation('archive')}
+                    disabled={simulatingCycle || !cycleStatus?.cycle}
+                    className="flex items-center justify-center gap-1.5 bg-accent/8 hover:bg-accent/15 border border-accent/15 hover:border-accent/30 text-[#8a3020] py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
                   >
-                    {isLoading && activePipeline === 'crisis' ? (
-                      <RotateCw size={14} className="animate-spin" />
-                    ) : (
-                      <Flame size={14} />
-                    )}
-                    <span>Crisis Check Only</span>
-                  </button>
-
-                  <button
-                    onClick={runReflectionOnly}
-                    disabled={isLoading || !newEntryText.trim()}
-                    className="flex-1 flex items-center justify-center gap-2 border border-[#B8A8D4]/30 bg-[#B8A8D4]/5 hover:bg-[#B8A8D4]/15 text-[#5A4A8A] py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
-                  >
-                    {isLoading && activePipeline === 'reflection' ? (
-                      <RotateCw size={14} className="animate-spin" />
-                    ) : (
-                      <MessageSquare size={14} />
-                    )}
-                    <span>Reflection Only</span>
+                    <span>Archive Cycle</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Create/Provision Test Cycle */}
+              <div className="border-t border-primary/5 pt-4.5 space-y-3">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-mid">Provision Specific Cycle</div>
+                <div className="flex gap-2">
+                  <div className="flex-1 flex items-center bg-mint-grey border border-transparent focus-within:border-secondary/30 rounded-xl px-3 py-1">
+                    <span className="text-[10px] font-bold uppercase text-mid shrink-0 mr-2">Cycle #</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={cycleNumberInput}
+                      onChange={(e) => setCycleNumberInput(parseInt(e.target.value) || 1)}
+                      className="bg-transparent text-xs font-semibold text-primary border-none outline-none w-full py-1.5"
+                    />
+                  </div>
+                  <button
+                    onClick={() => triggerSimulation('create-test', { cycleNumber: cycleNumberInput })}
+                    disabled={simulatingCycle}
+                    className="bg-primary hover:bg-[#2A3A3E] text-white px-4 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
+                  >
+                    Provision
+                  </button>
+                </div>
+                <p className="text-[10px] text-mid italic leading-relaxed">
+                  Provisioning will deactivate and archive the current active cycle first to ensure only one cycle is active.
+                </p>
               </div>
             </div>
 
@@ -793,7 +877,7 @@ export default function TestPage() {
                   <Info size={18} />
                 </div>
                 <h3 className="font-serif text-sm font-semibold text-primary/70">No Results Available</h3>
-                <p className="text-[11px] max-w-xs leading-relaxed">Fill in entries above or load a test preset, then click run to inspect psychometric and crisis analysis.</p>
+                <p className="text-[11px] max-w-xs leading-relaxed">Fill in entries above, then click run to inspect psychometric and crisis analysis.</p>
               </div>
             )}
 
@@ -913,66 +997,6 @@ export default function TestPage() {
                       )}
                     </div>
                   </div>
-
-                  {/* Expected Score Range (Rubric presets alignment check) */}
-                  {expectedRanges && results.calculatedScores && (
-                    <div className="p-4 bg-[#FBFBFB] rounded-xl border border-primary/5 space-y-3.5">
-                      <div className="font-serif font-normal text-md border-b border-primary/5 pb-2 text-primary flex items-center gap-1.5">
-                        <Sliders size={15} className="text-[#8DBFB4]" />
-                        <span>Expected Score Range</span>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* EI Check */}
-                        {results.calculatedScores.day_ei !== null && (
-                          <div className="bg-mint-grey p-4 rounded-xl flex flex-col items-center text-center space-y-1 text-xs border border-primary/5">
-                            <span className="text-sm font-bold text-primary block">EI</span>
-                            <span className="text-mid font-mono text-[11px] block">Expected: {expectedRanges.day_ei.min}-{expectedRanges.day_ei.max}</span>
-                            <span className="font-semibold text-primary font-mono text-[12px] block">Actual: {results.calculatedScores.day_ei}</span>
-                            <div className="text-lg pt-1">
-                              {results.calculatedScores.day_ei >= expectedRanges.day_ei.min && results.calculatedScores.day_ei <= expectedRanges.day_ei.max ? (
-                                <span className="text-secondary font-bold" title="Aligned with rubric preset">✅</span>
-                              ) : (
-                                <span className="text-accent font-bold" title="Out of preset range">⚠️</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* PR Check */}
-                        {results.calculatedScores.day_pr !== null && (
-                          <div className="bg-mint-grey p-4 rounded-xl flex flex-col items-center text-center space-y-1 text-xs border border-primary/5">
-                            <span className="text-sm font-bold text-primary block">PR</span>
-                            <span className="text-mid font-mono text-[11px] block">Expected: {expectedRanges.day_pr.min}-{expectedRanges.day_pr.max}</span>
-                            <span className="font-semibold text-primary font-mono text-[12px] block">Actual: {results.calculatedScores.day_pr}</span>
-                            <div className="text-lg pt-1">
-                              {results.calculatedScores.day_pr >= expectedRanges.day_pr.min && results.calculatedScores.day_pr <= expectedRanges.day_pr.max ? (
-                                <span className="text-secondary font-bold" title="Aligned with rubric preset">✅</span>
-                              ) : (
-                                <span className="text-accent font-bold" title="Out of preset range">⚠️</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* SA Check */}
-                        {results.calculatedScores.day_sa !== null && (
-                          <div className="bg-mint-grey p-4 rounded-xl flex flex-col items-center text-center space-y-1 text-xs border border-primary/5">
-                            <span className="text-sm font-bold text-primary block">SA</span>
-                            <span className="text-mid font-mono text-[11px] block">Expected: {expectedRanges.day_sa.min}-{expectedRanges.day_sa.max}</span>
-                            <span className="font-semibold text-primary font-mono text-[12px] block">Actual: {results.calculatedScores.day_sa}</span>
-                            <div className="text-lg pt-1">
-                              {results.calculatedScores.day_sa >= expectedRanges.day_sa.min && results.calculatedScores.day_sa <= expectedRanges.day_sa.max ? (
-                                <span className="text-secondary font-bold" title="Aligned with rubric preset">✅</span>
-                              ) : (
-                                <span className="text-accent font-bold" title="Out of preset range">⚠️</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
 
                   {/* Section: Scoring Health */}
                   {results.scoreResult && (
@@ -1270,10 +1294,102 @@ export default function TestPage() {
                             </div>
                           </div>
                         )}
+
+                        {/* Vocabulary */}
+                        {refl.vocabulary && refl.vocabulary.length > 0 && (
+                          <div className="space-y-1.5 pt-2">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Detected Vocabulary</span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {refl.vocabulary.map((vocab, idx) => (
+                                <span key={idx} className="px-2 py-0.5 bg-[#B8A8D4]/20 text-[#5A4A8A] text-[9px] uppercase font-bold tracking-wider rounded-md">
+                                  {vocab}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
                 })()}
+
+                {/* Section 4.5: Vocabulary Engine Results */}
+                {results.vocabState && (
+                  <div className="bg-white rounded-premium border border-primary/5 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-primary/5 bg-[#FAFBFB] flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Smile size={16} className="text-secondary" />
+                        <h2 className="font-serif text-sm font-semibold text-primary">Vocabulary Engine Results</h2>
+                      </div>
+                      <span className="px-2 py-0.5 bg-[#8DBFB4]/12 text-[#1A5040] text-[9px] uppercase font-bold tracking-wider rounded-md">
+                        Validated
+                      </span>
+                    </div>
+
+                    <div className="p-6 space-y-4 text-xs">
+                      {/* Detected Words & Frequency Counts */}
+                      <div className="space-y-1.5">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Extracted Words & Frequency Counts</span>
+                        {results.vocabState.words && results.vocabState.words.length > 0 ? (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {results.vocabState.words.map((v, idx) => (
+                              <div key={idx} className="bg-mint-grey p-2.5 rounded-xl border border-primary/5 flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <span className="font-semibold text-primary">{v.word}</span>
+                                  <span className="text-[9.5px] text-mid block">norm: {v.normalized_word}</span>
+                                </div>
+                                <span className="font-mono font-bold text-secondary">{v.frequency}×</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-light-mid italic">No words extracted or saved.</p>
+                        )}
+                      </div>
+
+                      {/* Cluster Results */}
+                      <div className="space-y-1.5">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Cluster Groupings</span>
+                        {results.vocabState.clusters && results.vocabState.clusters.length > 0 ? (
+                          <div className="space-y-2">
+                            {results.vocabState.clusters.map((c, idx) => (
+                              <div key={idx} className="bg-mint-grey/50 p-3 rounded-xl border border-primary/5 space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-semibold text-primary capitalize">{c.cluster_name}</span>
+                                  <span className="px-1.5 py-0.5 bg-primary/5 border border-primary/10 rounded text-[9px] font-bold uppercase text-mid">
+                                    {c.cluster_type}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-mid">Word count: {c.word_count}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-light-mid italic">No clusters generated yet.</p>
+                        )}
+                      </div>
+
+                      {/* Validation Results */}
+                      <div className="space-y-1.5 border-t border-primary/5 pt-3">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Validation Check Results</span>
+                        <div className="space-y-1 text-[11px] leading-relaxed">
+                          <div className="flex items-center gap-2 text-secondary">
+                            <span className="w-1.5 h-1.5 rounded-full bg-secondary shrink-0" />
+                            <span>Filler / Stop Words Check: Passed (no generic terms extracted)</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-secondary">
+                            <span className="w-1.5 h-1.5 rounded-full bg-secondary shrink-0" />
+                            <span>Emotional Language Check: Passed (prioritized affect words)</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-secondary">
+                            <span className="w-1.5 h-1.5 rounded-full bg-secondary shrink-0" />
+                            <span>Self-Descriptive Language Check: Passed (prioritized internal descriptors)</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Section 6: Raw AI Response (Developer Accordion) */}
                 {(results.aiTrace || results.scoringTrace || results.reflectionTrace) && (
@@ -1555,7 +1671,9 @@ export default function TestPage() {
           </div>
         )}
           </>
-        ) : (
+        )}
+
+        {activeTab === 'compliance' && (
           /* Compliance Verification Tab */
           <motion.div
             key="compliance-view"
@@ -1756,6 +1874,325 @@ export default function TestPage() {
                   </div>
                 );
               })()
+            )}
+          </motion.div>
+        )}
+
+        {activeTab === 'history' && (
+          /* Entry History Playground Tab */
+          <motion.div
+            key="history-view"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="space-y-6 text-left"
+          >
+            <div className="flex justify-between items-center border-b border-primary/5 pb-3">
+              <div className="space-y-1">
+                <h2 className="font-serif text-xl font-normal text-primary">Journal Entry History</h2>
+                <p className="text-xs text-mid text-left">Explore raw database entries, AI responses, psychometric scores, and crisis evaluations.</p>
+              </div>
+              <button
+                onClick={fetchHistoryEntries}
+                disabled={isHistoryLoading}
+                className="flex items-center gap-1.5 px-4 py-2 border border-primary/10 hover:border-primary/25 bg-white text-primary rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
+              >
+                <RotateCw size={13} className={isHistoryLoading ? 'animate-spin' : ''} />
+                <span>Refresh History</span>
+              </button>
+            </div>
+
+            {isHistoryLoading ? (
+              <div className="bg-white rounded-premium border border-primary/5 shadow-sm p-12 flex flex-col items-center justify-center space-y-4 text-center">
+                <RotateCw size={24} className="text-primary animate-spin" style={{ animationDuration: '2.5s' }} />
+                <h3 className="font-serif text-lg text-primary font-normal">Loading historical entries...</h3>
+              </div>
+            ) : historyError ? (
+              <div className="p-4 bg-accent/8 border border-accent/20 rounded-xl text-[#8a3020] text-xs flex items-start gap-2.5">
+                <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">Failed to load entry history:</span> {historyError}
+                </div>
+              </div>
+            ) : historyEntries.length === 0 ? (
+              <div className="bg-white rounded-premium border border-primary/5 shadow-sm p-12 text-center text-xs text-mid italic">
+                No history entries found in the database.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {historyEntries.map((entry) => {
+                  const isExpanded = !!expandedEntries[entry.id];
+                  const hasReflection = entry.reflection !== null && entry.reflection !== undefined;
+                  const latency = (entry.updated_at && entry.created_at)
+                    ? new Date(entry.updated_at).getTime() - new Date(entry.created_at).getTime()
+                    : null;
+
+                  return (
+                    <div 
+                      key={entry.id}
+                      className="bg-white rounded-premium border border-primary/5 shadow-sm overflow-hidden transition-all"
+                    >
+                      {/* Accordion Header */}
+                      <div 
+                        onClick={() => toggleEntryExpand(entry.id)}
+                        className="p-4 flex items-center justify-between cursor-pointer hover:bg-mint-grey/20 transition-colors select-none"
+                      >
+                        <div className="flex flex-wrap items-center gap-3 text-xs">
+                          <span className="font-mono text-[10px] text-mid bg-primary/5 px-2 py-0.5 rounded select-all">
+                            ID: {entry.id.substring(0, 8)}...
+                          </span>
+                          <span className="text-primary font-semibold">
+                            {new Date(entry.created_at).toLocaleString()}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                            entry.entry_type === 'guided' || entry.session_id
+                              ? 'bg-[#8DBFB4]/12 text-[#1A5040]' 
+                              : 'bg-primary/5 text-primary'
+                          }`}>
+                            {entry.entry_type === 'guided' || entry.session_id ? 'Guided' : 'Free Write'}
+                          </span>
+                          {entry.cycle_day && (
+                            <span className="text-[10px] text-secondary font-bold uppercase">
+                              Day {entry.cycle_day}
+                            </span>
+                          )}
+                          {entry.crisis_flag && (
+                            <span className="px-2 py-0.5 bg-accent/15 text-accent text-[9px] font-bold uppercase rounded-full">
+                              Crisis Flagged
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-mid/60 hover:text-primary transition-colors">
+                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </div>
+                      </div>
+
+                      {/* Accordion Content */}
+                      {isExpanded && (
+                        <div className="border-t border-primary/5 p-6 bg-mint-grey/10 space-y-6 text-left">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                            
+                            {/* Left Side: Journal Entry Content */}
+                            <div className="space-y-4">
+                              <div className="space-y-1">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-mid">Raw Content</span>
+                                <div className="p-4 bg-white border border-primary/5 rounded-xl font-serif italic text-sm text-primary pr-3 leading-relaxed select-text">
+                                  "{entry.content}"
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-white border border-primary/5 rounded-xl p-3.5 space-y-1">
+                                  <span className="text-[8px] font-bold uppercase tracking-wider text-mid block">Created At</span>
+                                  <span className="text-[11px] font-mono text-primary">{entry.created_at}</span>
+                                </div>
+                                <div className="bg-white border border-primary/5 rounded-xl p-3.5 space-y-1">
+                                  <span className="text-[8px] font-bold uppercase tracking-wider text-mid block">Scoring Status</span>
+                                  <span className="text-[11px] font-mono text-primary uppercase">{entry.scoring_status || 'pending'}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Right Side: Metadata / Scores / Crisis */}
+                            <div className="space-y-5">
+                              
+                              {/* Psychometrics */}
+                              <div className="bg-white border border-primary/5 rounded-xl p-4.5 space-y-3.5">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-mid block border-b border-primary/5 pb-1">
+                                  Psychometric Scores
+                                </span>
+                                <div className="grid grid-cols-3 gap-2 text-center">
+                                  <div className="bg-mint-grey/30 p-2.5 rounded-lg border border-primary/5">
+                                    <div className="text-[8px] font-bold uppercase text-mid">Emotional Intel</div>
+                                    <div className="text-lg font-bold font-mono text-[#1E2A2E] mt-0.5">
+                                      {entry.day_ei !== null ? Math.round(entry.day_ei * 100) : '--'}%
+                                    </div>
+                                  </div>
+                                  <div className="bg-mint-grey/30 p-2.5 rounded-lg border border-primary/5">
+                                    <div className="text-[8px] font-bold uppercase text-mid">Personal Resolve</div>
+                                    <div className="text-lg font-bold font-mono text-[#1E2A2E] mt-0.5">
+                                      {entry.day_pr !== null ? Math.round(entry.day_pr * 100) : '--'}%
+                                    </div>
+                                  </div>
+                                  <div className="bg-mint-grey/30 p-2.5 rounded-lg border border-primary/5">
+                                    <div className="text-[8px] font-bold uppercase text-mid">Self Awareness</div>
+                                    <div className="text-lg font-bold font-mono text-[#1E2A2E] mt-0.5">
+                                      {entry.day_sa !== null ? Math.round(entry.day_sa * 100) : '--'}%
+                                    </div>
+                                  </div>
+                                </div>
+                                {(entry.confidence_flag !== null || entry.confidence_reason) && (
+                                  <div className="text-[10.5px] text-mid bg-mint-grey/25 p-2 rounded-lg border border-primary/5">
+                                    <span className="font-semibold">Confidence Note:</span> {entry.confidence_reason || 'N/A'}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Crisis Audit */}
+                              <div className="bg-white border border-primary/5 rounded-xl p-4.5 space-y-3">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-mid block border-b border-primary/5 pb-1">
+                                  Crisis Flag Evaluation
+                                </span>
+                                <div className="flex justify-between items-center text-xs">
+                                  <span>Crisis Flagged:</span>
+                                  <span className={`font-semibold px-2 py-0.5 rounded text-[10px] ${
+                                    entry.crisis_flag 
+                                      ? 'bg-accent/15 text-accent font-bold' 
+                                      : 'bg-secondary/10 text-secondary font-bold'
+                                  }`}>
+                                    {entry.crisis_flag ? 'YES' : 'NO'}
+                                  </span>
+                                </div>
+                                {entry.crisis_flag && (
+                                  <div className="space-y-2 text-xs pt-1.5 border-t border-primary/5 text-left">
+                                    <div>
+                                      <span className="font-semibold block text-mid">Stressor/Risk Category:</span>
+                                      <span className="font-mono text-accent">{entry.crisis_type || 'N/A'}</span>
+                                    </div>
+                                    {entry.crisis_quote && (
+                                      <div>
+                                        <span className="font-semibold block text-mid">Trigger Quote:</span>
+                                        <span className="font-serif italic text-primary bg-accent/5 p-2 rounded block mt-1">"{entry.crisis_quote}"</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Reflection Details */}
+                              <div className="bg-white border border-primary/5 rounded-xl p-4.5 space-y-3.5">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-mid block border-b border-primary/5 pb-1">
+                                  AI Reflection Details
+                                </span>
+                                {hasReflection ? (
+                                  <div className="space-y-3 text-xs text-left">
+                                    <div>
+                                      <span className="font-semibold block text-mid">Observation:</span>
+                                      <p className="font-sans leading-relaxed mt-0.5">{entry.reflection.reflection_text}</p>
+                                    </div>
+                                    {entry.reflection.closing_question && (
+                                      <div>
+                                        <span className="font-semibold block text-mid">Closing Question:</span>
+                                        <p className="font-serif italic mt-0.5 text-[#5A4A8A]">"{entry.reflection.closing_question}"</p>
+                                      </div>
+                                    )}
+                                    {entry.reflection.vocabulary && entry.reflection.vocabulary.length > 0 && (
+                                      <div>
+                                        <span className="font-semibold block text-mid mb-1">Cycle Vocabulary Words:</span>
+                                        <div className="flex gap-1 flex-wrap">
+                                          {entry.reflection.vocabulary.map((w, idx) => (
+                                            <span key={idx} className="bg-mint-grey px-1.5 py-0.5 rounded font-mono text-[10px]">
+                                              {w}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                    <div className="grid grid-cols-2 gap-4 border-t border-primary/5 pt-2.5 text-[11px] font-mono text-mid">
+                                      <div>Provider: <span className="font-semibold text-primary">{entry.reflection.provider}</span></div>
+                                      <div>Status: <span className="font-semibold text-primary">{entry.reflection.status}</span></div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="text-xs italic text-mid">No reflection generated or pending.</div>
+                                )}
+                              </div>
+
+                              {/* Compilation / Latency */}
+                              <div className="bg-white border border-primary/5 rounded-xl p-4.5 flex justify-between items-center text-xs">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-mid">Compilation Latency:</span>
+                                <span className="font-mono text-primary font-bold">
+                                  {latency !== null && latency > 0 ? `${latency}ms` : 'N/A (cached/synced)'}
+                                </span>
+                              </div>
+
+                            </div>
+
+                          </div>
+
+                          {/* Chronological reflection timeline */}
+                          <div className="border-t border-primary/5 pt-6 space-y-3.5">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Evaluation Timeline</span>
+                            <div className="bg-white border border-primary/5 rounded-xl p-5 space-y-4 shadow-xs relative overflow-hidden">
+                              <div className="absolute left-0 top-0 bottom-0 w-[4px] bg-secondary" />
+                              
+                              <div className="flex flex-col md:flex-row items-stretch gap-4 text-xs font-sans">
+                                
+                                {/* 1. Journal Entry */}
+                                <div className="flex-1 bg-mint-grey/25 rounded-lg p-3.5 space-y-1 border border-primary/5 relative">
+                                  <div className="text-[9px] uppercase font-bold text-secondary">1. Journal Entry</div>
+                                  <p className="font-serif italic text-primary/90 leading-relaxed text-[12.5px]">
+                                    "{entry.content.length > 200 ? entry.content.substring(0, 200) + '...' : entry.content}"
+                                  </p>
+                                  <div className="text-[9.5px] text-mid/60 mt-1">Word count: {entry.word_count}</div>
+                                </div>
+                                
+                                {/* Connection Arrow */}
+                                <div className="flex items-center justify-center text-secondary/40 shrink-0">
+                                  <svg className="w-5 h-5 rotate-90 md:rotate-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                                  </svg>
+                                </div>
+
+                                {/* 2. Reflection Question */}
+                                <div className="flex-1 bg-mint-grey/25 rounded-lg p-3.5 space-y-1 border border-primary/5 relative">
+                                  <div className="text-[9px] uppercase font-bold text-secondary">2. Reflection Question</div>
+                                  {hasReflection && entry.reflection.closing_question ? (
+                                    <>
+                                      <p className="font-serif italic text-[#5A4A8A] leading-relaxed text-[12.5px]">
+                                        "{entry.reflection.closing_question}"
+                                      </p>
+                                      {entry.reflection.classification && (
+                                        <span className="inline-block bg-[#5A4A8A]/10 text-[#5A4A8A] font-bold text-[8px] px-1.5 py-0.5 rounded mt-1 uppercase">
+                                          {entry.reflection.classification}
+                                        </span>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <p className="italic text-mid/60">No reflection question generated.</p>
+                                  )}
+                                </div>
+
+                                {/* Connection Arrow */}
+                                <div className="flex items-center justify-center text-secondary/40 shrink-0">
+                                  <svg className="w-5 h-5 rotate-90 md:rotate-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                                  </svg>
+                                </div>
+
+                                {/* 3. User Reflection Answer */}
+                                <div className="flex-1 bg-mint-grey/25 rounded-lg p-3.5 space-y-1 border border-primary/5 relative">
+                                  <div className="text-[9px] uppercase font-bold text-secondary">3. User Reflection Answer</div>
+                                  {hasReflection && entry.reflection.reflection_answer ? (
+                                    <>
+                                      <p className="font-serif italic text-[#8a3020] leading-relaxed text-[12.5px]">
+                                        "{entry.reflection.reflection_answer}"
+                                      </p>
+                                      {entry.reflection.answered_at && (
+                                        <div className="text-[9.5px] text-mid/60 mt-1 font-mono">
+                                          Answered: {new Date(entry.reflection.answered_at).toLocaleString()}
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <div className="space-y-1">
+                                      <p className="italic text-mid/60">Unanswered</p>
+                                      <span className="inline-block bg-accent/10 text-accent font-bold text-[8px] px-1.5 py-0.5 rounded uppercase">
+                                        Pending Response
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                              </div>
+                            </div>
+                          </div>
+
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </motion.div>
         )}

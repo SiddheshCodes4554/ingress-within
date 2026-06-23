@@ -19,7 +19,9 @@ import {
   ArrowRight,
   Sparkles,
   PenLine,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  MessageSquare
 } from 'lucide-react';
 import { DashboardService } from '../services/dashboardService';
 import DashboardNavbar from '../components/DashboardNavbar';
@@ -43,6 +45,24 @@ export default function DashboardPage({ user, profile, onSignOut }) {
   const [isSavingThread, setIsSavingThread] = useState(false);
   const [dailySessionState, setDailySessionState] = useState(null);
   const [threadsList, setThreadsList] = useState([]);
+  const [vocabStats, setVocabStats] = useState(null);
+
+  // Reflection response states
+  const [reflectionModalOpen, setReflectionModalOpen] = useState(false);
+  const [reflectionToAnswer, setReflectionToAnswer] = useState(null);
+  const [reflectionAnswerText, setReflectionAnswerText] = useState('');
+  const [isSavingReflection, setIsSavingReflection] = useState(false);
+  const [reflectionSaveError, setReflectionSaveError] = useState(null);
+  // Cycle Engine states
+  const [cycleInfo, setCycleInfo] = useState(null);
+  const [cyclesList, setCyclesList] = useState([]);
+  const [expandedCycles, setExpandedCycles] = useState({});
+  const [expandedCycleEntries, setExpandedCycleEntries] = useState({});
+  const [isAssessmentGate, setIsAssessmentGate] = useState(false);
+  const [assessmentModalOpen, setAssessmentModalOpen] = useState(false);
+  const [assessmentAnswers, setAssessmentAnswers] = useState({ q1: '', q2: '', q3: '' });
+  const [isSubmittingAssessment, setIsSubmittingAssessment] = useState(false);
+  const [assessmentError, setAssessmentError] = useState(null);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -50,6 +70,20 @@ export default function DashboardPage({ user, profile, onSignOut }) {
     try {
       const result = await DashboardService.fetchDashboardData();
       setData(result);
+
+      // Check for unanswered reflection on the most recent entry
+      if (result && result.entries && result.entries.length > 0) {
+        const latestEntry = result.entries[0];
+        const reflection = latestEntry.reflection;
+        if (reflection && reflection.status === 'ready' && reflection.closing_question) {
+          setReflectionToAnswer(reflection);
+          setReflectionAnswerText(reflection.reflection_answer || '');
+        } else {
+          setReflectionToAnswer(null);
+        }
+      } else {
+        setReflectionToAnswer(null);
+      }
       
       try {
         const sessionData = await DashboardService.fetchActiveSession();
@@ -66,6 +100,42 @@ export default function DashboardPage({ user, profile, onSignOut }) {
         console.warn('Could not fetch active threads, falling back to mock:', tErr);
         setThreadsList(result.threads);
       }
+
+      try {
+        const vStats = await DashboardService.fetchVocabOverview();
+        setVocabStats(vStats);
+      } catch (vErr) {
+        console.warn('Could not fetch vocab overview, falling back to none:', vErr);
+      }
+
+      try {
+        const cycleStatus = await DashboardService.fetchCycleStatus();
+        if (cycleStatus.success && cycleStatus.hasCycle) {
+          setCycleInfo(cycleStatus.cycle);
+          setIsAssessmentGate(cycleStatus.isAssessmentGate);
+        } else {
+          setCycleInfo(null);
+          setIsAssessmentGate(false);
+        }
+      } catch (cErr) {
+        console.warn('Could not fetch cycle status:', cErr);
+      }
+
+      try {
+        const cycles = await DashboardService.fetchCyclesList();
+        setCyclesList(cycles);
+        
+        // Auto-expand the active cycle or the first one
+        const activeCycle = cycles.find((c) => c.status === 'ACTIVE');
+        if (activeCycle) {
+          setExpandedCycles((prev) => ({ ...prev, [activeCycle.id]: true }));
+        } else if (cycles.length > 0) {
+          setExpandedCycles((prev) => ({ ...prev, [cycles[0].id]: true }));
+        }
+      } catch (cyListErr) {
+        console.warn('Could not fetch cycles list:', cyListErr);
+        setCyclesList([]);
+      }
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
       setError(err);
@@ -79,7 +149,6 @@ export default function DashboardPage({ user, profile, onSignOut }) {
     loadData();
   }, []);
 
-
   // Compute time-of-day greeting
   const getGreeting = () => {
     const hours = new Date().getHours();
@@ -91,6 +160,10 @@ export default function DashboardPage({ user, profile, onSignOut }) {
   const displayName = profile?.full_name || user?.name || 'Arjun';
 
   const handleStartWriting = (mode) => {
+    if (isAssessmentGate) {
+      handleOpenAssessmentModal();
+      return;
+    }
     window.navigateTo(`/write?mode=${mode}`);
   };
 
@@ -99,7 +172,6 @@ export default function DashboardPage({ user, profile, onSignOut }) {
     setIsSavingEntry(true);
     try {
       await DashboardService.saveJournalEntry(entryText);
-      // Reload dashboard data
       const result = await DashboardService.fetchDashboardData();
       setData(result);
       setEntrySavedSuccess(true);
@@ -112,6 +184,10 @@ export default function DashboardPage({ user, profile, onSignOut }) {
   };
 
   const handleOpenThread = (thread) => {
+    if (isAssessmentGate) {
+      handleOpenAssessmentModal();
+      return;
+    }
     setActiveThread(thread);
     setThreadResponse('');
   };
@@ -121,7 +197,6 @@ export default function DashboardPage({ user, profile, onSignOut }) {
     setIsSavingThread(true);
     try {
       await DashboardService.submitThreadResponse(activeThread.id, threadResponse);
-      // Reload dashboard data
       const result = await DashboardService.fetchDashboardData();
       setData(result);
       setActiveThread(null);
@@ -132,6 +207,73 @@ export default function DashboardPage({ user, profile, onSignOut }) {
     }
   };
 
+  const handleOpenReflectionModal = () => {
+    if (isAssessmentGate) {
+      handleOpenAssessmentModal();
+      return;
+    }
+    setReflectionModalOpen(true);
+    setReflectionSaveError(null);
+  };
+
+  const handleSaveReflection = async () => {
+    if (!reflectionAnswerText.trim() || !reflectionToAnswer) return;
+    setIsSavingReflection(true);
+    setReflectionSaveError(null);
+    try {
+      await DashboardService.submitReflectionAnswer(reflectionToAnswer.id, reflectionAnswerText, 'completed');
+      setReflectionModalOpen(false);
+      setReflectionToAnswer(null);
+      setReflectionAnswerText('');
+      const result = await DashboardService.fetchDashboardData();
+      setData(result);
+    } catch (err) {
+      console.error('Failed to save reflection answer:', err);
+      setReflectionSaveError(err.message || String(err));
+    } finally {
+      setIsSavingReflection(false);
+    }
+  };
+
+  const toggleCycleExpanded = (cycleId) => {
+    setExpandedCycles((prev) => ({
+      ...prev,
+      [cycleId]: !prev[cycleId]
+    }));
+  };
+
+  const toggleCycleEntriesExpanded = (cycleId) => {
+    setExpandedCycleEntries((prev) => ({
+      ...prev,
+      [cycleId]: !prev[cycleId]
+    }));
+  };
+
+  const handleOpenAssessmentModal = () => {
+    setAssessmentModalOpen(true);
+    setAssessmentAnswers({ q1: '', q2: '', q3: '' });
+    setAssessmentError(null);
+  };
+
+  const handleSaveAssessment = async () => {
+    if (!assessmentAnswers.q1.trim() || !assessmentAnswers.q2.trim() || !assessmentAnswers.q3.trim()) {
+      setAssessmentError('Please provide answers for all three reflection prompts.');
+      return;
+    }
+    setIsSubmittingAssessment(true);
+    setAssessmentError(null);
+    try {
+      await DashboardService.submitCycleAssessment(assessmentAnswers);
+      setAssessmentModalOpen(false);
+      await loadData();
+    } catch (err) {
+      console.error('Failed to submit cycle transition assessment:', err);
+      setAssessmentError(err.message || String(err));
+    } finally {
+      setIsSubmittingAssessment(false);
+    }
+  };
+ 
   // Render error screen if load failed
   if (error) {
     return (
@@ -192,9 +334,68 @@ export default function DashboardPage({ user, profile, onSignOut }) {
           <div className="text-[10px] uppercase tracking-widest text-secondary font-semibold">{getGreeting()}</div>
           <h1 className="font-serif text-[26px] text-primary font-normal">Welcome back, {displayName}.</h1>
           <p className="text-xs text-mid">
-            Cycle {data.cycleInfo.cycleNumber} · Day {data.cycleInfo.currentDay} of {data.cycleInfo.totalDays} · {data.cycleInfo.hasWrittenToday ? 'You wrote today' : 'Ready for today\'s reflection'}
+            Cycle {cycleInfo ? cycleInfo.cycleNumber : data.cycleInfo.cycleNumber} · Day {cycleInfo ? cycleInfo.currentDay : data.cycleInfo.currentDay} of {cycleInfo ? cycleInfo.totalDays : data.cycleInfo.totalDays} · {cycleInfo ? (cycleInfo.status === 'COMPLETED' ? 'Cycle Completed' : (data.cycleInfo.hasWrittenToday ? 'You wrote today' : "Ready for today's reflection")) : (data.cycleInfo.hasWrittenToday ? 'You wrote today' : "Ready for today's reflection")}
           </p>
         </section>
+
+        {/* Current Cycle Card */}
+        {cycleInfo && (
+          <div className="bg-white border border-[#1E2A2E]/8 rounded-xl p-5 flex flex-col sm:flex-row items-center justify-between text-left shadow-xs gap-4">
+            <div className="flex items-center gap-5">
+              {/* Progress Ring */}
+              <div className="relative w-14 h-14 flex items-center justify-center shrink-0">
+                <svg className="w-full h-full transform -rotate-90">
+                  <circle
+                    cx="28"
+                    cy="28"
+                    r="24"
+                    stroke="#1E2A2E"
+                    strokeWidth="3.5"
+                    fill="transparent"
+                    className="opacity-10"
+                  />
+                  <circle
+                    cx="28"
+                    cy="28"
+                    r="24"
+                    stroke="#8DBFB4"
+                    strokeWidth="3.5"
+                    fill="transparent"
+                    strokeDasharray={150.8}
+                    strokeDashoffset={150.8 - (150.8 * (cycleInfo.progressPercentage || 0)) / 100}
+                    strokeLinecap="round"
+                    className="transition-all duration-500"
+                  />
+                </svg>
+                <span className="absolute text-[10px] font-bold text-primary">
+                  {cycleInfo.progressPercentage || 0}%
+                </span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-[8px] font-bold text-secondary uppercase tracking-widest">Current Cycle</span>
+                <h2 className="font-serif text-lg text-primary font-normal">Cycle {cycleInfo.cycleNumber}</h2>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-mid">
+                  <span>Day {cycleInfo.currentDay} of {cycleInfo.totalDays}</span>
+                  <span className="text-[#1E2A2E]/20">•</span>
+                  <span>{cycleInfo.daysRemaining} days remaining</span>
+                  {cycleInfo.streak > 0 && (
+                    <>
+                      <span className="text-[#1E2A2E]/20">•</span>
+                      <span className="flex items-center gap-0.5">🔥 {cycleInfo.streak} day streak</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3 sm:text-right">
+              <div className="flex flex-col sm:items-end space-y-0.5">
+                <span className="text-[8px] font-bold text-secondary uppercase tracking-widest">Consistency</span>
+                <span className="font-serif text-base text-primary font-normal">{cycleInfo.writingConsistency}% of days written</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Responsive Desktop 3-Column Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
@@ -202,211 +403,474 @@ export default function DashboardPage({ user, profile, onSignOut }) {
           {/* Main Workspace (Left 2 Columns) */}
           <div className="md:col-span-2 space-y-6">
             
-            {/* Today's Session Card */}
+            {/* Unanswered Reflection Reminder Card */}
+            {reflectionToAnswer && !isAssessmentGate && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white border border-[#E0A898]/30 rounded-xl p-4.5 shadow-xs relative overflow-hidden pl-5 text-left"
+              >
+                <div className="absolute left-0 top-0 bottom-0 w-[4px] bg-[#E0A898]" />
+                
+                <div className="flex justify-between items-start mb-2">
+                  <div className="space-y-0.5">
+                    <span className="text-[8px] font-bold text-[#E0A898] uppercase tracking-widest">Reflection Continuity</span>
+                    <h3 className="text-[13.5px] font-bold text-primary">You have an unanswered reflection from your last entry.</h3>
+                  </div>
+                  {data?.entries?.[0]?.date && (
+                    <span className="text-[9.5px] text-mid/60 lowercase">
+                      {data.entries[0].date}
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <p className="font-serif italic text-[13px] text-[#E0A898] leading-relaxed">
+                    "{reflectionToAnswer.closing_question}"
+                  </p>
+                  
+                  {reflectionToAnswer.reflection_text && (
+                    <div className="bg-mint-grey/30 border border-[#1E2A2E]/5 rounded-lg p-2.5 flex items-start gap-2">
+                      <Sparkles size={11} className="text-[#5A4A8A] mt-0.5 shrink-0" />
+                      <p className="text-[11.5px] text-mid leading-relaxed font-normal">
+                        <span className="font-semibold text-primary/80">Context:</span> {reflectionToAnswer.reflection_text.length > 120 ? reflectionToAnswer.reflection_text.substring(0, 120) + '...' : reflectionToAnswer.reflection_text}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      onClick={handleOpenReflectionModal}
+                      className="px-4 py-2 bg-primary text-white hover:bg-[#2A3A3E] text-[11px] font-semibold uppercase tracking-wider rounded transition-all cursor-pointer border-none"
+                    >
+                      Answer Reflection
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Today's Session / Assessment Gate Card */}
             <section className="space-y-2.5">
               <div className="text-[9px] font-bold uppercase tracking-widest text-secondary">Today's Session</div>
               
-              {data.cycleInfo.hasWrittenToday ? (
+              {isAssessmentGate && cycleInfo ? (
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white border border-[#1E2A2E]/10 rounded-xl p-4.5 shadow-sm"
+                  className="bg-white border border-[#5A4A8A]/25 bg-gradient-to-br from-[#5A4A8A]/3 to-transparent rounded-xl p-5 shadow-[0_4px_20px_rgba(90,74,138,0.05)] text-left space-y-4 relative overflow-hidden pl-5"
                 >
-                  {dailySessionState?.exists && dailySessionState?.isCompletedToday ? (
-                    <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 text-left items-center">
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-[#8DBFB4]/15 flex items-center justify-center text-[#8DBFB4] shrink-0">
-                            <CheckCircle2 size={18} />
+                  <div className="absolute left-0 top-0 bottom-0 w-[4px] bg-[#5A4A8A]" />
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-[#5A4A8A]/10 flex items-center justify-center text-[#5A4A8A] shrink-0">
+                      <Sparkles size={16} />
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-[8px] font-bold text-[#5A4A8A] uppercase tracking-widest">CYCLE BOUNDARY REACHED</span>
+                      <h3 className="font-serif text-[15px] text-primary">Unlock Cycle {cycleInfo.cycleNumber + 1}</h3>
+                    </div>
+                  </div>
+                  <p className="text-[11.5px] text-mid leading-relaxed">
+                    You have successfully reached the end of Cycle {cycleInfo.cycleNumber}. To integrate your learnings and begin your next cycle of self-reflection, please complete your transition assessment.
+                  </p>
+                  <div>
+                    <button
+                      onClick={handleOpenAssessmentModal}
+                      className="px-5 py-2.5 bg-[#5A4A8A] text-white hover:bg-[#4A3B75] text-[11px] font-semibold uppercase tracking-wider rounded transition-all cursor-pointer border-none shadow-sm flex items-center gap-1.5"
+                    >
+                      <span>Complete Transition Assessment</span>
+                      <ChevronRight size={12} />
+                    </button>
+                  </div>
+                </motion.div>
+              ) : (
+                <>
+                  {data.cycleInfo.hasWrittenToday ? (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-white border border-[#1E2A2E]/10 rounded-xl p-4.5 shadow-sm"
+                    >
+                      {dailySessionState?.exists && dailySessionState?.isCompletedToday ? (
+                        <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 text-left items-center">
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-[#8DBFB4]/15 flex items-center justify-center text-[#8DBFB4] shrink-0">
+                                <CheckCircle2 size={18} />
+                              </div>
+                              <h3 className="font-serif text-base text-primary">Day {dailySessionState.session.day_number} Complete</h3>
+                            </div>
+                            <p className="text-[11.5px] text-mid leading-relaxed">
+                              Your daily reframing and journal writing are locked. The patterns are integrated.
+                            </p>
+                            <div className="text-[10px] text-mid/60 italic font-medium">
+                              Resets at 12:00 AM (midnight) local time.
+                            </div>
                           </div>
-                          <h3 className="font-serif text-base text-primary">Day {dailySessionState.session.day_number} Complete</h3>
+
+                          <div className="space-y-3 bg-secondary/5 rounded-xl p-3.5 border border-secondary/10">
+                            <div className="grid grid-cols-2 gap-2 border-b border-[#1E2A2E]/5 pb-2">
+                              <div>
+                                <div className="text-[8px] uppercase font-bold text-secondary">Stressor Reframed</div>
+                                <div className="text-[11px] font-semibold text-primary capitalize mt-0.5">
+                                  {dailySessionState.exercise?.stressor_type || 'General'}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-[8px] uppercase font-bold text-secondary">Clarity Score</div>
+                                <div className="text-[11px] font-semibold text-primary mt-0.5">
+                                  {dailySessionState.exercise?.clarity_score || 85}%
+                                </div>
+                              </div>
+                            </div>
+                            {dailySessionState.exercise?.reframed_thought && (
+                              <div>
+                                <div className="text-[8px] uppercase font-bold text-secondary mb-0.5">Reframed Focus</div>
+                                <p className="font-serif italic text-[11px] leading-relaxed text-primary/80">
+                                  "{dailySessionState.exercise.reframed_thought}"
+                                </p>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-[11.5px] text-mid leading-relaxed">
-                          Your daily reframing and journal writing are locked. The patterns are integrated.
+                      ) : (
+                        <div className="flex flex-col items-center text-center space-y-3">
+                          <div className="w-10 h-10 rounded-full bg-[#8DBFB4]/15 flex items-center justify-center text-[#8DBFB4]">
+                            <CheckCircle2 size={20} />
+                          </div>
+                          <div className="space-y-1">
+                            <h3 className="font-serif text-base text-primary">Daily Writing Complete</h3>
+                            <p className="text-[11.5px] text-mid max-w-sm leading-relaxed">
+                              You have already logged a journal entry today. The guided daily session is locked for today.
+                            </p>
+                          </div>
+                          <div className="text-[10px] text-mid/60 italic font-medium pt-0.5">
+                            Resets at 12:00 AM (midnight) local time.
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  ) : dailySessionState?.exists && !dailySessionState?.isCompletedToday && dailySessionState?.session?.status !== 'complete' ? (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-white border border-[#8DBFB4]/35 bg-gradient-to-br from-[#8DBFB4]/3 to-transparent rounded-xl p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-[0_4px_16px_rgba(141,191,180,0.06)]"
+                    >
+                      <div className="space-y-1">
+                        <div className="text-[8px] font-bold text-[#8DBFB4] uppercase tracking-widest">SESSION IN PROGRESS</div>
+                        <h3 className="font-serif text-base text-primary">Day {dailySessionState.session.day_number} Session</h3>
+                        <p className="text-[11px] text-mid leading-relaxed">
+                          You left off on the <span className="font-semibold capitalize">"{dailySessionState.session.status}"</span> step.
                         </p>
-                        <div className="text-[10px] text-mid/60 italic font-medium">
-                          Resets at 12:00 AM (midnight) local time.
+                      </div>
+                      <button
+                        onClick={() => window.navigateTo(`/session/${dailySessionState.session.status}`)}
+                        className="sm:w-auto px-5 py-2.5 bg-primary text-white hover:bg-[#2A3A3E] text-[11px] font-semibold uppercase tracking-wider rounded transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5 shrink-0"
+                      >
+                        <span>Resume Session</span>
+                        <ArrowRight size={12} />
+                      </button>
+                    </motion.div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Premium Start Card */}
+                      <div 
+                        onClick={() => handleStartWriting('fresh')}
+                        className="bg-primary text-white p-4.5 rounded-xl flex flex-col justify-between h-[130px] cursor-pointer hover:bg-[#2A3A3E] transition-all group shadow-sm border border-primary/5"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center text-accent group-hover:scale-105 transition-transform">
+                          <Sparkles size={14} />
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="text-[8px] font-bold text-accent uppercase tracking-widest">DAILY SESSION</div>
+                          <h3 className="text-[13.5px] font-bold">Begin today's session</h3>
+                          <p className="text-[11px] text-on-primary/60 font-light leading-snug">Guided breathing, cognitive reframing, and writing.</p>
                         </div>
                       </div>
 
-                      <div className="space-y-3 bg-secondary/5 rounded-xl p-3.5 border border-secondary/10">
-                        <div className="grid grid-cols-2 gap-2 border-b border-[#1E2A2E]/5 pb-2">
-                          <div>
-                            <div className="text-[8px] uppercase font-bold text-secondary">Stressor Reframed</div>
-                            <div className="text-[11px] font-semibold text-primary capitalize mt-0.5">
-                              {dailySessionState.exercise?.stressor_type || 'General'}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[8px] uppercase font-bold text-secondary">Clarity Score</div>
-                            <div className="text-[11px] font-semibold text-primary mt-0.5">
-                              {dailySessionState.exercise?.clarity_score || 85}%
-                            </div>
-                          </div>
+                      {/* Secondary Fresh Entry Card */}
+                      <div 
+                        onClick={() => handleStartWriting('fresh')}
+                        className="bg-white border border-[#1E2A2E]/8 p-4.5 rounded-xl flex flex-col justify-between h-[130px] cursor-pointer hover:shadow-md hover:border-[#1E2A2E]/15 transition-all group"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-[#1E2A2E]/5 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                          <PenLine size={13} />
                         </div>
-                        {dailySessionState.exercise?.reframed_thought && (
-                          <div>
-                            <div className="text-[8px] uppercase font-bold text-secondary mb-0.5">Reframed Focus</div>
-                            <p className="font-serif italic text-[11px] leading-relaxed text-primary/80">
-                              "{dailySessionState.exercise.reframed_thought}"
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center text-center space-y-3">
-                      <div className="w-10 h-10 rounded-full bg-[#8DBFB4]/15 flex items-center justify-center text-[#8DBFB4]">
-                        <CheckCircle2 size={20} />
-                      </div>
-                      <div className="space-y-1">
-                        <h3 className="font-serif text-base text-primary">Daily Writing Complete</h3>
-                        <p className="text-[11.5px] text-mid max-w-sm leading-relaxed">
-                          You have already logged a journal entry today. The guided daily session is locked for today.
-                        </p>
-                      </div>
-                      <div className="text-[10px] text-mid/60 italic font-medium pt-0.5">
-                        Resets at 12:00 AM (midnight) local time.
+                        <div className="space-y-0.5">
+                          <div className="text-[8px] font-bold text-secondary uppercase tracking-widest">FREE WRITE</div>
+                          <h3 className="text-[13.5px] font-bold text-primary">Write a fresh entry</h3>
+                          <p className="text-[11px] text-mid font-light leading-snug">Direct journal entry workspace without prompts.</p>
+                        </div>
                       </div>
                     </div>
                   )}
-                </motion.div>
-              ) : dailySessionState?.exists && !dailySessionState?.isCompletedToday && dailySessionState?.session?.status !== 'complete' ? (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-white border border-[#8DBFB4]/35 bg-gradient-to-br from-[#8DBFB4]/3 to-transparent rounded-xl p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-[0_4px_16px_rgba(141,191,180,0.06)]"
-                >
-                  <div className="space-y-1">
-                    <div className="text-[8px] font-bold text-[#8DBFB4] uppercase tracking-widest">SESSION IN PROGRESS</div>
-                    <h3 className="font-serif text-base text-primary">Day {dailySessionState.session.day_number} Session</h3>
-                    <p className="text-[11px] text-mid leading-relaxed">
-                      You left off on the <span className="font-semibold capitalize">"{dailySessionState.session.status}"</span> step.
+                </>
+              )}
+            </section>
+
+            {/* Cycles Overview */}
+            <section className="space-y-3">
+              <div className="text-[9px] font-bold uppercase tracking-widest text-secondary">Cycles Overview</div>
+              
+              <div className="space-y-4">
+                {cyclesList.length > 0 ? (
+                  cyclesList.map((cycle) => {
+                    const isExpanded = !!expandedCycles[cycle.id];
+                    const hasEntries = cycle.entries && cycle.entries.length > 0;
+                    
+                    return (
+                      <div 
+                        key={cycle.id}
+                        className="bg-white border border-[#1E2A2E]/8 rounded-xl overflow-hidden shadow-xs text-left transition-all"
+                      >
+                        {/* Accordion Header */}
+                        <div 
+                          onClick={() => toggleCycleExpanded(cycle.id)}
+                          className="p-4 flex items-center justify-between cursor-pointer hover:bg-mint-grey/20 transition-all select-none border-b border-[#1E2A2E]/5"
+                        >
+                          <div className="flex flex-wrap items-center gap-3">
+                            <span className="font-serif text-[15px] font-semibold text-primary">
+                              Cycle {cycle.cycle_number}
+                            </span>
+                            
+                            {/* Status Badge */}
+                            <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-bold uppercase tracking-wider ${
+                              cycle.status === 'ACTIVE' 
+                                ? 'bg-[#8DBFB4]/12 text-[#1A5040]' 
+                                : cycle.status === 'COMPLETED'
+                                ? 'bg-[#5A4A8A]/10 text-[#5A4A8A]'
+                                : 'bg-primary/5 text-primary'
+                            }`}>
+                              {cycle.status}
+                            </span>
+
+                            {/* Entry Count */}
+                            <span className="text-[11px] text-mid">
+                              {cycle.entries_count} {cycle.entries_count === 1 ? 'writing' : 'writings'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-4">
+                            {/* Assessment Status Badge */}
+                            <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-bold uppercase tracking-wider ${
+                              cycle.assessment_completed
+                                ? 'bg-[#8DBFB4]/15 text-[#1A5040]'
+                                : cycle.status === 'COMPLETED' || cycle.assessment_available
+                                ? 'bg-[#f59e0b]/10 text-[#b45309]'
+                                : 'bg-primary/5 text-primary'
+                            }`}>
+                              Assessment: {cycle.assessment_completed ? 'Completed' : (cycle.status === 'COMPLETED' || cycle.assessment_available ? 'Pending' : 'Locked')}
+                            </span>
+
+                            {/* Collapsed view metadata (Current Day / Progress) */}
+                            {!isExpanded && (
+                              <span className="text-[11px] text-mid hidden sm:inline">
+                                Day {cycle.current_day} of {cycle.total_days} ({cycle.progress_percentage}%)
+                              </span>
+                            )}
+
+                            {/* Caret */}
+                            <ChevronRight 
+                              size={16} 
+                              className={`text-light-mid transform transition-transform duration-200 ${
+                                isExpanded ? 'rotate-90' : ''
+                              }`} 
+                            />
+                          </div>
+                        </div>
+
+                        {/* Accordion Content (Expanded View) */}
+                        {isExpanded && (
+                          <div className="p-4.5 bg-white space-y-5">
+                            {/* Quick-Access Metrics Grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                              {/* Vocabulary */}
+                              <div 
+                                onClick={(e) => { e.stopPropagation(); window.navigateTo('/vocab'); }}
+                                className="bg-mint-grey/30 border border-[#1E2A2E]/5 rounded-xl p-3 hover:border-[#1E2A2E]/15 hover:shadow-xs transition-all cursor-pointer text-center space-y-1 group"
+                              >
+                                <Smile size={14} className="text-[#5A4A8A] mx-auto group-hover:scale-105 transition-transform" />
+                                <div className="text-[14px] font-serif font-bold text-primary">{cycle.vocabulary_count}</div>
+                                <div className="text-[8px] font-bold uppercase tracking-wider text-secondary">Vocabulary</div>
+                              </div>
+
+                              {/* Weekly Summaries */}
+                              <div 
+                                onClick={(e) => { e.stopPropagation(); window.navigateTo('/reports'); }}
+                                className="bg-mint-grey/30 border border-[#1E2A2E]/5 rounded-xl p-3 hover:border-[#1E2A2E]/15 hover:shadow-xs transition-all cursor-pointer text-center space-y-1 group"
+                              >
+                                <FileText size={14} className="text-[#8DBFB4] mx-auto group-hover:scale-105 transition-transform" />
+                                <div className="text-[14px] font-serif font-bold text-primary">{cycle.weekly_summaries_count}</div>
+                                <div className="text-[8px] font-bold uppercase tracking-wider text-secondary">Summaries</div>
+                              </div>
+
+                              {/* Open Threads */}
+                              <div 
+                                onClick={(e) => { e.stopPropagation(); window.navigateTo('/threads'); }}
+                                className="bg-mint-grey/30 border border-[#1E2A2E]/5 rounded-xl p-3 hover:border-[#1E2A2E]/15 hover:shadow-xs transition-all cursor-pointer text-center space-y-1 group"
+                              >
+                                <MessageSquare size={14} className="text-[#E0A898] mx-auto group-hover:scale-105 transition-transform" />
+                                <div className="text-[14px] font-serif font-bold text-primary">{cycle.open_threads_count}</div>
+                                <div className="text-[8px] font-bold uppercase tracking-wider text-secondary">Open Threads</div>
+                              </div>
+
+                              {/* Patterns */}
+                              <div 
+                                onClick={(e) => { e.stopPropagation(); window.navigateTo('/patterns'); }}
+                                className="bg-mint-grey/30 border border-[#1E2A2E]/5 rounded-xl p-3 hover:border-[#1E2A2E]/15 hover:shadow-xs transition-all cursor-pointer text-center space-y-1 group"
+                              >
+                                <TrendingUp size={14} className="text-secondary-dark mx-auto group-hover:scale-105 transition-transform" />
+                                <div className="text-[14px] font-serif font-bold text-primary">
+                                  {cycle.status === 'ACTIVE' ? 'Active' : 'Archived'}
+                                </div>
+                                <div className="text-[8px] font-bold uppercase tracking-wider text-secondary">Patterns</div>
+                              </div>
+
+                              {/* Assessments */}
+                              <div 
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  if (cycle.assessment_available && !cycle.assessment_completed) {
+                                    handleOpenAssessmentModal();
+                                  } else {
+                                    window.navigateTo('/assessment');
+                                  }
+                                }}
+                                className="bg-mint-grey/30 border border-[#1E2A2E]/5 rounded-xl p-3 hover:border-[#1E2A2E]/15 hover:shadow-xs transition-all cursor-pointer text-center space-y-1 group"
+                              >
+                                <Sparkles size={14} className="text-[#5A4A8A] mx-auto group-hover:scale-105 transition-transform" />
+                                <div className="text-[11px] font-semibold text-primary truncate pt-0.5">
+                                  {cycle.assessment_completed ? 'Completed' : (cycle.status === 'COMPLETED' || cycle.assessment_available ? 'Take Quiz' : 'Locked')}
+                                </div>
+                                <div className="text-[8px] font-bold uppercase tracking-wider text-secondary">Assessment</div>
+                              </div>
+                            </div>
+
+                            {/* Cycle Entries Timeline */}
+                            <div className="space-y-3">
+                              <div className="text-[9px] font-bold uppercase tracking-widest text-secondary pl-1">
+                                Cycle Writings ({cycle.entries.length})
+                              </div>
+                                                    <div className="space-y-3.5 pl-3 border-l border-[#1E2A2E]/10">
+                                {hasEntries ? (
+                                  (() => {
+                                    const showAll = !!expandedCycleEntries[cycle.id];
+                                    const visibleEntries = showAll ? cycle.entries : cycle.entries.slice(0, 5);
+
+                                    return (
+                                      <>
+                                        {visibleEntries.map((entry) => {
+                                          const isGuided = entry.entry_type === 'guided';
+                                          const snippet = entry.content.length > 140 ? entry.content.substring(0, 140) + '...' : entry.content;
+                                          const entryDateStr = new Date(entry.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+                                          return (
+                                            <div 
+                                              key={entry.id}
+                                              onClick={(e) => { e.stopPropagation(); window.navigateTo(`/entry/${entry.id}`); }}
+                                              className="bg-white border border-[#1E2A2E]/8 rounded-xl p-4 hover:border-secondary/30 hover:shadow-xs transition-all space-y-2.5 cursor-pointer group relative text-left"
+                                            >
+                                              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1E2A2E]/5 pb-2">
+                                                <div className="flex items-center gap-2">
+                                                  <span className="text-[10px] font-bold text-primary">
+                                                    {entryDateStr}
+                                                  </span>
+                                                  <span className="text-mid/60 text-xs">·</span>
+                                                  <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-bold uppercase tracking-wider ${
+                                                    isGuided 
+                                                      ? 'bg-[#8DBFB4]/12 text-[#1A5040]' 
+                                                      : 'bg-primary/5 text-primary'
+                                                  }`}>
+                                                    {isGuided ? 'Guided Session' : 'Free Write'}
+                                                  </span>
+                                                  {entry.cycle_day && (
+                                                    <span className="text-[9.5px] font-semibold text-secondary ml-1">
+                                                      Day {entry.cycle_day}
+                                                    </span>
+                                                  )}
+                                                </div>
+
+                                                <div className="flex items-center gap-2">
+                                                  {/* Reflection Status Badge */}
+                                                  {entry.reflectionStatus === 'Completed' && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#8DBFB4]/15 text-[#1A5040]">
+                                                      <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
+                                                      <span>Reflection Answered</span>
+                                                    </span>
+                                                  )}
+                                                  {entry.reflectionStatus === 'Pending Response' && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#8DBFB4]/15 text-[#1A5040]">
+                                                      <span className="w-1 h-1 rounded-full bg-[#8DBFB4]" />
+                                                      <span>Reflection Ready</span>
+                                                    </span>
+                                                  )}
+                                                  {entry.reflectionStatus === 'Processing AI...' && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#f59e0b]/10 text-[#b45309] animate-pulse">
+                                                      <span className="w-1 h-1 rounded-full bg-[#f59e0b]" />
+                                                      <span>Processing AI...</span>
+                                                    </span>
+                                                  )}
+                                                  <span className="text-[9.5px] text-mid/60 lowercase pr-1">{entry.word_count} words</span>
+                                                </div>
+                                              </div>
+
+                                              <p className="text-[12.5px] text-primary italic leading-relaxed font-serif pr-1">
+                                                "{snippet}"
+                                              </p>
+
+                                              <div className="flex items-center justify-end text-[10px] font-bold uppercase tracking-widest text-secondary group-hover:text-primary transition-colors pt-1">
+                                                <span className="flex items-center gap-1">
+                                                  <span>Explore Details</span>
+                                                  <ArrowRight size={11} className="transform group-hover:translate-x-0.5 transition-transform" />
+                                                </span>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                        {cycle.entries.length > 5 && (
+                                          <div className="pt-2 flex justify-center">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleCycleEntriesExpanded(cycle.id);
+                                              }}
+                                              className="px-3.5 py-1.5 border border-[#1E2A2E]/10 hover:border-secondary/35 text-xs text-mid hover:text-primary rounded-lg transition-all font-sans font-semibold cursor-pointer bg-transparent"
+                                            >
+                                              {showAll ? 'Show less writings' : `Show ${cycle.entries.length - 5} more writings`}
+                                            </button>
+                                          </div>
+                                        )}
+                                      </>
+                                    );
+                                  })()
+                                ) : (
+                                  <div className="text-[12px] text-mid italic py-2 pl-1">
+                                    No writings logged in this cycle yet.
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="bg-white border border-[#1E2A2E]/5 rounded-xl p-8 text-center space-y-3">
+                    <div className="w-10 h-10 rounded-full bg-mint-grey flex items-center justify-center text-light-mid mx-auto">
+                      <BookOpen size={16} />
+                    </div>
+                    <p className="text-[12.5px] text-mid italic">
+                      No cycles found. Start a daily session to initialize.
                     </p>
-                  </div>
-                  <button
-                    onClick={() => window.navigateTo(`/session/${dailySessionState.session.status}`)}
-                    className="sm:w-auto px-5 py-2.5 bg-primary text-white hover:bg-[#2A3A3E] text-[11px] font-semibold uppercase tracking-wider rounded transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5 shrink-0"
-                  >
-                    <span>Resume Session</span>
-                    <ArrowRight size={12} />
-                  </button>
-                </motion.div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Premium Start Card */}
-                  <div 
-                    onClick={() => window.navigateTo('/session/start')}
-                    className="bg-primary text-white p-4.5 rounded-xl flex flex-col justify-between h-[130px] cursor-pointer hover:bg-[#2A3A3E] transition-all group shadow-sm border border-primary/5"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center text-accent group-hover:scale-105 transition-transform">
-                      <Sparkles size={14} />
-                    </div>
-                    <div className="space-y-0.5">
-                      <div className="text-[8px] font-bold text-accent uppercase tracking-widest">DAILY SESSION</div>
-                      <h3 className="text-[13.5px] font-bold">Begin today's session</h3>
-                      <p className="text-[11px] text-on-primary/60 font-light leading-snug">Guided breathing, cognitive reframing, and writing.</p>
-                    </div>
-                  </div>
-
-                  {/* Secondary Fresh Entry Card */}
-                  <div 
-                    onClick={() => handleStartWriting('fresh')}
-                    className="bg-white border border-[#1E2A2E]/8 p-4.5 rounded-xl flex flex-col justify-between h-[130px] cursor-pointer hover:shadow-md hover:border-[#1E2A2E]/15 transition-all group"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-[#1E2A2E]/5 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
-                      <PenLine size={13} />
-                    </div>
-                    <div className="space-y-0.5">
-                      <div className="text-[8px] font-bold text-secondary uppercase tracking-widest">FREE WRITE</div>
-                      <h3 className="text-[13.5px] font-bold text-primary">Write a fresh entry</h3>
-                      <p className="text-[11px] text-mid font-light leading-snug">Direct journal entry workspace without prompts.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            {/* Active Inquiries (Open Threads) */}
-            <section className="space-y-2.5">
-              <div className="text-[9px] font-bold uppercase tracking-widest text-secondary">Active Inquiries</div>
-              
-              {openThreads.length > 0 ? (
-                <div className={openThreads.length > 1 ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-3"}>
-                  {openThreads.map((thread) => (
-                    <div 
-                      key={thread.id} 
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => window.navigateTo('/thread/' + thread.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          window.navigateTo('/thread/' + thread.id);
-                        }
-                      }}
-                      className="bg-white border border-[#1E2A2E]/8 rounded-xl p-4.5 cursor-pointer hover:shadow-xs hover:border-[#1E2A2E]/15 transition-all relative overflow-hidden pl-5 group focus:outline-none focus:ring-1 focus:ring-secondary/40"
+                    <button 
+                      onClick={() => handleStartWriting('fresh')}
+                      className="px-4 py-2 bg-primary hover:bg-[#2A3A3E] text-mint-grey rounded text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer border-none"
                     >
-                      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent" />
-                      
-                      <div className="flex justify-between items-center text-[9px] uppercase font-bold text-secondary mb-1.5">
-                        <span>{thread.origin}</span>
-                        <span className="text-mid font-normal font-sans lowercase">
-                          {new Date(thread.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                        </span>
-                      </div>
-                      
-                      <h3 className="font-serif italic text-[14px] text-primary leading-normal pr-5 mb-2.5">
-                        "{thread.question}"
-                      </h3>
-                      
-                      <div className="flex items-center justify-between text-xs">
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                          thread.status === 'NEW' ? 'bg-[#b8a8d4]/15 text-[#5A4A8A]' : thread.status === 'RETURNED' ? 'bg-[#e0a898]/12 text-[#8a3020]' : 'bg-secondary/15 text-secondary-dark'
-                        }`}>
-                          {thread.status}
-                        </span>
-                        <span className="font-semibold text-[10.5px] text-primary flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
-                          Write reflection <ChevronRight size={12} />
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-white/40 border border-dashed border-[#1E2A2E]/10 rounded-xl p-4 flex flex-col items-center justify-center text-center h-[130px]">
-                  <div className="w-8 h-8 rounded-full bg-[#1E2A2E]/5 flex items-center justify-center text-[#8DBFB4] mb-1.5">
-                    <CheckCircle2 size={15} />
+                      Write First Entry
+                    </button>
                   </div>
-                  <h4 className="text-[12px] font-semibold text-primary">All inquiries integrated</h4>
-                  <p className="text-[10.5px] text-mid max-w-[190px] mt-1 leading-normal">
-                    New threads surface based on patterns in your daily sessions.
-                  </p>
-                </div>
-              )}
-            </section>
-
-            {/* Recent Writings */}
-            <section className="space-y-2.5">
-              <div className="text-[9px] font-bold uppercase tracking-widest text-secondary">Recent writing</div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {data.entries.slice(0, 3).map((entry) => (
-                  <div 
-                    key={entry.id}
-                    className="bg-white border border-[#1E2A2E]/8 rounded-xl p-4 hover:border-accent/30 transition-all space-y-1.5 group flex flex-col justify-between"
-                  >
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between items-center text-[9px] uppercase font-bold text-secondary">
-                        <span>{entry.day} · {entry.date}</span>
-                        <span className="text-mid lowercase font-normal">{entry.words} w</span>
-                      </div>
-                      <p className="text-[12px] text-primary italic leading-relaxed font-serif pr-1 line-clamp-3">
-                        "{entry.text}"
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                )}
               </div>
             </section>
 
@@ -439,12 +903,40 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                 <ChevronRight size={13} className="text-light-mid group-hover:translate-x-0.5 transition-transform" />
               </div>
               <p className="text-[11.5px] text-mid italic leading-relaxed">
-                "Most emotion words this cycle are depletion, not feeling. Tired, drained, exhausted — but not sad, not angry."
+                {(() => {
+                  if (!vocabStats || vocabStats.stats.distinctWordCount === 0) {
+                    return `"Your emotional vocabulary is building as you write."`;
+                  }
+                  if (vocabStats.emerging && vocabStats.emerging.length > 0) {
+                    return `"New emotional language appeared this week."`;
+                  }
+                  if (vocabStats.clusters && vocabStats.clusters.length > 0) {
+                    const clusterNames = vocabStats.clusters.slice(0, 3).map(c => c.cluster_name);
+                    if (clusterNames.length === 1) {
+                      return `"Most of your language this cycle centers around ${clusterNames[0]}."`;
+                    }
+                    if (clusterNames.length === 2) {
+                      return `"Most of your language this cycle centers around ${clusterNames[0]} and ${clusterNames[1]}."`;
+                    }
+                    return `"Most of your language this cycle centers around ${clusterNames.slice(0, -1).join(', ')}, and ${clusterNames[clusterNames.length - 1]}."`;
+                  }
+                  return `"Your emotional vocabulary is building as you write."`;
+                })()}
               </p>
               <div className="flex gap-1 flex-wrap pt-0.5">
-                <span className="text-[9.5px] bg-mint-grey px-1.5 py-0.5 rounded font-medium text-primary">fine ×6</span>
-                <span className="text-[9.5px] bg-mint-grey px-1.5 py-0.5 rounded font-medium text-primary">tired ×4</span>
-                <span className="text-[9.5px] bg-mint-grey px-1.5 py-0.5 rounded font-medium text-primary">frustrated ×3</span>
+                {vocabStats && vocabStats.mostUsed && vocabStats.mostUsed.length > 0 ? (
+                  vocabStats.mostUsed.slice(0, 3).map((w, idx) => (
+                    <span key={idx} className="text-[9.5px] bg-mint-grey px-1.5 py-0.5 rounded font-medium text-primary">
+                      {w.normalized_word} ×{w.frequency}
+                    </span>
+                  ))
+                ) : (
+                  <>
+                    <span className="text-[9.5px] bg-mint-grey px-1.5 py-0.5 rounded font-medium text-primary">fine ×18</span>
+                    <span className="text-[9.5px] bg-mint-grey px-1.5 py-0.5 rounded font-medium text-primary">tired ×14</span>
+                    <span className="text-[9.5px] bg-mint-grey px-1.5 py-0.5 rounded font-medium text-primary">frustrated ×10</span>
+                  </>
+                )}
               </div>
             </div>
 
@@ -582,7 +1074,7 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                   </div>
                   <h2 className="font-serif text-2xl text-primary">Your reflection is saved.</h2>
                   <p className="text-xs text-mid max-w-sm leading-relaxed">
-                    Thank you for writing. This entry has been locked and fed into your Cycle {data.cycleInfo.cycleNumber} logs.
+                    Thank you for writing. This entry has been locked and fed into your Cycle {cycleInfo ? cycleInfo.cycleNumber : data.cycleInfo.cycleNumber} logs.
                   </p>
                   <button 
                     onClick={() => setIsWritingSession(false)}
@@ -606,7 +1098,7 @@ export default function DashboardPage({ user, profile, onSignOut }) {
             {!entrySavedSuccess && (
               <div className="border-t border-[#1E2A2E]/5 px-6 py-4 bg-white flex items-center justify-between shrink-0">
                 <span className="text-[11px] font-sans text-mid">
-                  Cycle 2 · Day {data.cycleInfo.currentDay}
+                  Cycle {cycleInfo ? cycleInfo.cycleNumber : data.cycleInfo.cycleNumber} · Day {cycleInfo ? cycleInfo.currentDay : data.cycleInfo.currentDay}
                 </span>
                 
                 <button 
@@ -675,6 +1167,168 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                   </button>
                   <button 
                     onClick={() => setActiveThread(null)}
+                    className="px-4 py-2.5 border border-[#1E2A2E]/15 rounded text-xs font-semibold text-mid hover:bg-mint-grey transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL WORKSPACE TO RESPOND TO REFLECTION */}
+      <AnimatePresence>
+        {reflectionModalOpen && reflectionToAnswer && (
+          <div className="fixed inset-0 bg-[#1E2A2E]/40 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl max-w-[560px] w-full p-6 space-y-6 relative overflow-hidden max-h-[90vh] overflow-y-auto text-left"
+            >
+              <button 
+                onClick={() => setReflectionModalOpen(false)}
+                className="absolute top-4 right-4 text-mid hover:text-primary cursor-pointer border-none bg-transparent"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="space-y-4">
+                <div>
+                  <div className="text-[10px] uppercase font-bold tracking-widest text-[#E0A898] mb-1">Continue Your Reflection</div>
+                  <h3 className="font-serif italic text-lg text-primary leading-relaxed">
+                    "{reflectionToAnswer.closing_question}"
+                  </h3>
+                </div>
+
+                {reflectionToAnswer.reflection_text && (
+                  <div className="bg-mint-grey rounded-lg p-4 space-y-1 text-xs text-mid leading-relaxed">
+                    <div className="font-bold uppercase tracking-widest text-secondary text-[9px]">AI Observation</div>
+                    <p>"{reflectionToAnswer.reflection_text}"</p>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold uppercase tracking-widest text-secondary">Your Answer</label>
+                  <textarea 
+                    value={reflectionAnswerText}
+                    onChange={(e) => setReflectionAnswerText(e.target.value)}
+                    placeholder="Write what is actually there — no structure, no editing."
+                    className="w-full min-h-[140px] border border-[#1E2A2E]/15 rounded-lg p-3 text-xs leading-relaxed outline-none focus:border-primary font-sans text-primary placeholder-mid/30"
+                  />
+                  {reflectionSaveError && (
+                    <div className="text-[11px] text-[#8a3020] font-medium">{reflectionSaveError}</div>
+                  )}
+                  <div className="text-[10px] text-mid italic">
+                    Your response is saved securely and supports your self-reflection journey.
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button 
+                    onClick={handleSaveReflection}
+                    disabled={!reflectionAnswerText.trim() || isSavingReflection}
+                    className="flex-1 py-2.5 bg-primary text-white hover:bg-[#2A3A3E] disabled:bg-primary/25 disabled:cursor-not-allowed rounded text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border-none"
+                  >
+                    {isSavingReflection ? 'Saving...' : 'Save Reflection'}
+                  </button>
+                  <button 
+                    onClick={() => setReflectionModalOpen(false)}
+                    className="px-4 py-2.5 border border-[#1E2A2E]/15 rounded text-xs font-semibold text-mid hover:bg-mint-grey transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* TRANSITION ASSESSMENT MODAL */}
+      <AnimatePresence>
+        {assessmentModalOpen && cycleInfo && (
+          <div className="fixed inset-0 bg-[#1E2A2E]/40 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl max-w-[560px] w-full p-6 space-y-6 relative overflow-hidden max-h-[90vh] overflow-y-auto text-left"
+            >
+              <button 
+                onClick={() => setAssessmentModalOpen(false)}
+                className="absolute top-4 right-4 text-mid hover:text-primary cursor-pointer border-none bg-transparent"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="space-y-4">
+                <div>
+                  <div className="text-[10px] uppercase font-bold tracking-widest text-[#5A4A8A] mb-1">Cycle Transition Assessment</div>
+                  <h2 className="font-serif text-lg text-primary leading-snug">
+                    Complete Cycle {cycleInfo.cycleNumber} Integration
+                  </h2>
+                  <p className="text-xs text-mid leading-relaxed mt-1">
+                    Take a moment to arrive. These reflective inquiries help synthesize your pattern changes before provisioning your next active cycle container.
+                  </p>
+                </div>
+
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold uppercase tracking-widest text-secondary">
+                      1. What patterns of cognitive rigidity or avoidance did you notice during this cycle?
+                    </label>
+                    <textarea 
+                      value={assessmentAnswers.q1}
+                      onChange={(e) => setAssessmentAnswers(prev => ({ ...prev, q1: e.target.value }))}
+                      placeholder="Reflect on when you felt stuck, defensive, or depleted..."
+                      className="w-full min-h-[90px] border border-[#1E2A2E]/15 rounded-lg p-2.5 text-xs leading-relaxed outline-none focus:border-primary font-sans text-primary placeholder-mid/30"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold uppercase tracking-widest text-secondary">
+                      2. How has your relationship to your feelings shifted over the past 30 days?
+                    </label>
+                    <textarea 
+                      value={assessmentAnswers.q2}
+                      onChange={(e) => setAssessmentAnswers(prev => ({ ...prev, q2: e.target.value }))}
+                      placeholder="Reflect on emotional intensity, clarity, or emotional vocabulary shifts..."
+                      className="w-full min-h-[90px] border border-[#1E2A2E]/15 rounded-lg p-2.5 text-xs leading-relaxed outline-none focus:border-primary font-sans text-primary placeholder-mid/30"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold uppercase tracking-widest text-secondary">
+                      3. What is the focus or intention you want to carry into your next cycle?
+                    </label>
+                    <textarea 
+                      value={assessmentAnswers.q3}
+                      onChange={(e) => setAssessmentAnswers(prev => ({ ...prev, q3: e.target.value }))}
+                      placeholder="Set your intention for the next 30 days..."
+                      className="w-full min-h-[90px] border border-[#1E2A2E]/15 rounded-lg p-2.5 text-xs leading-relaxed outline-none focus:border-primary font-sans text-primary placeholder-mid/30"
+                    />
+                  </div>
+                  
+                  {assessmentError && (
+                    <div className="text-[11px] text-[#8a3020] font-medium bg-[#e0a898]/10 border border-[#e0a898]/30 rounded p-2.5">
+                      {assessmentError}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-2 border-t border-[#1E2A2E]/5">
+                  <button 
+                    onClick={handleSaveAssessment}
+                    disabled={!assessmentAnswers.q1.trim() || !assessmentAnswers.q2.trim() || !assessmentAnswers.q3.trim() || isSubmittingAssessment}
+                    className="flex-1 py-2.5 bg-[#5A4A8A] text-white hover:bg-[#4A3B75] disabled:bg-[#5A4A8A]/25 disabled:cursor-not-allowed rounded text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border-none"
+                  >
+                    {isSubmittingAssessment ? 'Integrating learnings...' : 'Settle & Unlock Next Cycle'}
+                  </button>
+                  <button 
+                    onClick={() => setAssessmentModalOpen(false)}
                     className="px-4 py-2.5 border border-[#1E2A2E]/15 rounded text-xs font-semibold text-mid hover:bg-mint-grey transition-colors cursor-pointer"
                   >
                     Cancel
@@ -776,11 +1430,6 @@ function DashboardSkeleton() {
                 <div className="h-[150px] bg-gray-200 rounded-xl" />
                 <div className="h-[150px] bg-gray-200 rounded-xl" />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="w-24 h-3 bg-gray-200 rounded" />
-              <div className="h-28 bg-gray-200 rounded-xl" />
             </div>
 
             <div className="space-y-2">

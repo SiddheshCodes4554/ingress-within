@@ -9,6 +9,7 @@ export const QUEUE_NAMES = {
   OCEAN_SUMMARY_GENERATION: 'ocean_summary_generation',
   EXERCISE_INSIGHT_GENERATION: 'exercise_insight_generation',
   CRISIS_DETECTION: 'crisis_detection',
+  VOCAB_PROCESSING: 'vocab_processing',
 } as const;
 
 export type QueueName = typeof QUEUE_NAMES[keyof typeof QUEUE_NAMES];
@@ -72,6 +73,9 @@ class QueueRegistry {
         } else if (queueName === 'exercise_insight_generation') {
           const { processExerciseInsight } = await import('./workers/exerciseInsightWorker');
           await processExerciseInsight(data);
+        } else if (queueName === 'vocab_processing') {
+          const { processVocabularyExtraction } = await import('./workers/vocabWorker');
+          await processVocabularyExtraction(data);
         }
       } catch (err: any) {
         console.error(`[Queue Registry] Inline job execution error for ${queueName}:`, err.message || err);

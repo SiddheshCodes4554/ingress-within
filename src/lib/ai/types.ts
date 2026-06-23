@@ -10,6 +10,7 @@ export interface ReflectionResponse {
   classification: 'Flat' | 'Open' | 'Scattered';
   confidence: 'high' | 'medium' | 'low';
   themes: string[];
+  vocabulary?: string[];
   processing_notes: string;
   rawPrompt?: string;
   rawResponse?: string;
@@ -85,6 +86,8 @@ export interface AIProvider {
     newEntryText?: string | null,
     personalityContext?: string | null
   ): Promise<EntryDimensionsScoreResponse>;
+  extractVocabulary(entryContent: string): Promise<{ words: { word: string; normalized_word: string }[] }>;
+  groupClusters(words: { word: string; normalized_word: string; frequency: number }[]): Promise<{ clusters: { cluster_name: string; cluster_type: string; words: string[] }[] }>;
 }
 
 export interface DimensionScores {

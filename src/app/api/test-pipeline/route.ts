@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       const pipelineResult = await executeScoringPipeline(
         reflectionText || null,
         newEntryText || null,
-        'Developer testing context',
+        null,
         provider,
         entryId || null
       );
@@ -251,6 +251,7 @@ export async function POST(request: NextRequest) {
         classification: result?.classification || null,
         confidence: result?.confidence || 'low',
         themes: result?.themes || [],
+        vocabulary: result?.vocabulary || [],
         processingNotes: result?.processing_notes || '',
         validation: validation || { valid: false, reason: validationErrorMsg },
         attempts,
@@ -275,7 +276,7 @@ export async function POST(request: NextRequest) {
       const scoringResult = await executeScoringPipeline(
         reflectionText || null,
         newEntryText || null,
-        'Developer testing context',
+        null,
         provider,
         entryId || null
       );
@@ -436,6 +437,7 @@ export async function POST(request: NextRequest) {
           classification: result?.classification || null,
           confidence: reflectionConfidence,
           themes: reflectionThemes,
+          vocabulary: result?.vocabulary || [],
           validation: reflectionValidation,
           attempts: reflectionAttempts,
           suppressed: reflectionSuppressed
@@ -465,21 +467,33 @@ export async function POST(request: NextRequest) {
       // Find or create active cycle for the user
       let { data: cycle } = await supabase
         .from('cycles')
-        .select('id, started_at')
+        .select('id, start_date')
         .eq('user_id', activeUserId)
-        .eq('status', 'active')
+        .in('status', ['ACTIVE', 'active'])
         .maybeSingle();
 
       if (!cycle) {
-        const { data: newCycle } = await supabase
+        const todayStr = new Date().toISOString().split('T')[0];
+        const { data: newCycle, error: insertErr } = await supabase
           .from('cycles')
           .insert({
             user_id: activeUserId,
-            status: 'active',
-            started_at: new Date().toISOString()
+            status: 'ACTIVE',
+            cycle_number: 1,
+            start_date: todayStr,
+            total_days: 30,
+            current_day: 1,
+            days_completed: 0,
+            entries_count: 0,
+            assessment_completed: false,
+            assessment_available: false
           })
           .select()
           .single();
+        
+        if (insertErr) {
+          console.error('[API Test Pipeline] Failed to create test active cycle:', insertErr);
+        }
         cycle = newCycle;
       }
 
@@ -590,6 +604,30 @@ export async function POST(request: NextRequest) {
       const updatedEntry = entryRes.data;
       const reflection = reflectionRes.data;
 
+      // Fetch vocab_words by cycle_id since entry_id column was removed in v2.5
+      let vocabWords: string[] = [];
+      let vocabDetails: any[] = [];
+      let clusterDetails: any[] = [];
+
+      if (updatedEntry?.cycle_id) {
+        const { data: vocabRes } = await supabase
+          .from('vocab_words')
+          .select('word, normalized_word, frequency')
+          .eq('user_id', updatedEntry.user_id)
+          .eq('cycle_id', updatedEntry.cycle_id);
+        
+        vocabWords = vocabRes ? vocabRes.map((v: any) => v.word) : [];
+        vocabDetails = vocabRes || [];
+
+        const { data: clusterRes } = await supabase
+          .from('vocab_clusters')
+          .select('cluster_name, cluster_type, word_count')
+          .eq('user_id', updatedEntry.user_id)
+          .eq('cycle_id', updatedEntry.cycle_id);
+        
+        clusterDetails = clusterRes || [];
+      }
+
       const getJobStats = async (queueName: any, jobId: string) => {
         // If DB indicates the processing has completed, return COMPLETED status immediately
         if (updatedEntry) {
@@ -604,6 +642,11 @@ export async function POST(request: NextRequest) {
               return { id: jobId, status: 'COMPLETED', executionTime: 0, attemptsMade: 1 };
             }
           }
+          if (queueName === 'vocab_processing') {
+            if (process.env.BYPASS_REDIS === 'true' && (reflection || updatedEntry.crisis_flag || updatedEntry.reflection_suppressed)) {
+              return { id: jobId, status: 'COMPLETED', executionTime: 0, attemptsMade: 1 };
+            }
+          }
         }
 
         // Otherwise query Redis queue
@@ -611,6 +654,11 @@ export async function POST(request: NextRequest) {
           const queue = queueRegistry.getQueue(queueName);
           const job = await queue.getJob(jobId);
           if (!job) {
+            // Fallback: if job is not found in Redis (e.g. deleted after completion or Redis bypassed),
+            // but the reflection (which triggers vocab) is ready, then vocab processing is completed.
+            if (reflection || updatedEntry.crisis_flag || updatedEntry.reflection_suppressed) {
+              return { id: jobId, status: 'COMPLETED', executionTime: 0, attemptsMade: 1 };
+            }
             return { id: jobId, status: 'NOT_QUEUED', executionTime: null };
           }
           const state = await job.getState();
@@ -633,10 +681,11 @@ export async function POST(request: NextRequest) {
         }
       };
 
-      const [scoringJob, reflectionJob, crisisJob] = await Promise.all([
+      const [scoringJob, reflectionJob, crisisJob, vocabJob] = await Promise.all([
         getJobStats('entry_scoring', `score_${entryId}`),
         getJobStats('reflection_generation', `refl_${entryId}`),
-        getJobStats('crisis_detection', `crisis_${entryId}`)
+        getJobStats('crisis_detection', `crisis_${entryId}`),
+        getJobStats('vocab_processing', `vocab_${entryId}`)
       ]);
 
       return NextResponse.json({
@@ -644,10 +693,18 @@ export async function POST(request: NextRequest) {
         jobs: {
           scoring: scoringJob,
           reflection: reflectionJob,
-          crisis: crisisJob
+          crisis: crisisJob,
+          vocab: vocabJob
         },
         entryState: updatedEntry || null,
-        reflectionState: reflection || null
+        reflectionState: reflection ? {
+          ...reflection,
+          vocabulary: vocabWords
+        } : null,
+        vocabState: {
+          words: vocabDetails,
+          clusters: clusterDetails
+        }
       });
     }
 

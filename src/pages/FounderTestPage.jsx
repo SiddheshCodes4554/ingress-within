@@ -12,37 +12,14 @@ import {
   MessageSquare,
   Sparkles,
   Sliders,
-  Sparkle
+  Sparkle,
+  BookOpen,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import DashboardNavbar from '../components/DashboardNavbar';
 
-const PRESETS = [
-  {
-    name: 'Normal Day',
-    reflection: 'I realized I was avoiding talking to my boss because I feared conflict.',
-    newEntry: 'Today I finally discussed the task distribution with my manager. It went surprisingly well, and we reached a compromise. I feel much lighter now.'
-  },
-  {
-    name: 'Feeling Helpless',
-    reflection: '',
-    newEntry: 'I don\'t know what to do. I feel like I have no control over my career. My decisions don\'t matter and everyone else determines my success. I am completely stuck and helpless.'
-  },
-  {
-    name: 'Rigid Thinking',
-    reflection: '',
-    newEntry: 'Everything is absolutely perfect or it is a total disaster. If I make a single mistake at this job, my whole life is a failure and I\'ll never get back on track. People are either with me or against me.'
-  },
-  {
-    name: 'Acute Crisis Intent',
-    reflection: '',
-    newEntry: 'I can\'t go on like this. I want to end my life tonight, I just want to suicide and escape this pain.'
-  },
-  {
-    name: 'Mixed Signals (Hard Day)',
-    reflection: 'I tried to take deep breaths.',
-    newEntry: 'I had a terrible argument and felt extremely overwhelmed, like my chest was exploding. But I didn\'t give up and decided to journal it.'
-  }
-];
+// No preset scenarios to avoid evaluation bias
 
 export default function FounderTestPage() {
   const [reflectionText, setReflectionText] = useState('');
@@ -57,13 +34,49 @@ export default function FounderTestPage() {
   const [isPolling, setIsPolling] = useState(false);
   const [currentEntryId, setCurrentEntryId] = useState(null);
 
-  const loadPreset = (preset) => {
-    setReflectionText(preset.reflection);
-    setNewEntryText(preset.newEntry);
-    setResults(null);
-    setError(null);
-    setCurrentEntryId(null);
-    setIsPolling(false);
+  // Historical Review Tab States
+  const [activeTab, setActiveTab] = useState('analyzer');
+  const [historyEntries, setHistoryEntries] = useState([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
+  const [expandedEntries, setExpandedEntries] = useState({});
+  const [expandedCycles, setExpandedCycles] = useState({});
+
+  const toggleCycleExpand = (cycleNum) => {
+    setExpandedCycles(prev => ({
+      ...prev,
+      [cycleNum]: !prev[cycleNum]
+    }));
+  };
+
+  const fetchHistoryEntries = async () => {
+    setIsHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const res = await fetch('/api/entries');
+      if (!res.ok) throw new Error('Failed to retrieve history entries.');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message || 'Failed to retrieve history entries.');
+      setHistoryEntries(data.entries || []);
+    } catch (err) {
+      console.error(err);
+      setHistoryError(err.message);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchHistoryEntries();
+    }
+  }, [activeTab]);
+
+  const toggleEntryExpand = (id) => {
+    setExpandedEntries(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
   };
 
   const handleClear = () => {
@@ -127,8 +140,9 @@ export default function FounderTestPage() {
           const scoringDone = data.jobs.scoring.status === 'COMPLETED' || data.jobs.scoring.status === 'FAILED';
           const crisisDone = data.jobs.crisis.status === 'COMPLETED' || data.jobs.crisis.status === 'FAILED';
           const reflectionDone = data.jobs.reflection.status === 'COMPLETED' || data.jobs.reflection.status === 'FAILED';
+          const vocabDone = !data.jobs.vocab || data.jobs.vocab.status === 'COMPLETED' || data.jobs.vocab.status === 'FAILED';
 
-          if ((scoringDone && crisisDone && reflectionDone) || attempts >= 20) {
+          if ((scoringDone && crisisDone && reflectionDone && vocabDone) || attempts >= 20) {
             clearInterval(interval);
             setIsPolling(false);
             setIsLoading(false);
@@ -164,10 +178,12 @@ export default function FounderTestPage() {
                   provider: data.reflectionState.provider,
                   confidence: data.reflectionState.confidence,
                   themes: data.reflectionState.themes,
+                  vocabulary: data.reflectionState.vocabulary,
                   status: data.reflectionState.status,
                   closing_question: data.reflectionState.closing_question,
                   classification: data.reflectionState.classification
                 } : null,
+                vocabState: data.vocabState || null,
                 latency: data.jobs.scoring.executionTime ? data.jobs.scoring.executionTime + (data.jobs.reflection.executionTime || 0) : 1200
               });
             }
@@ -190,10 +206,9 @@ export default function FounderTestPage() {
         {/* Header Section */}
         <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-primary/5 pb-8">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-secondary/70 block mb-1">Founder Experience Playground</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-secondary/70 block mb-1">Ingress Within</span>
             <h1 className="font-serif text-3xl font-light text-primary flex items-center gap-3">
-              <span>Ingress Within AI Scorer</span>
-              <span className="px-2 py-0.5 bg-secondary/10 text-secondary text-[9px] uppercase font-bold tracking-wider rounded-md">Founder Review</span>
+              <span>Journal Entry Analysis</span>
             </h1>
           </div>
 
@@ -205,8 +220,8 @@ export default function FounderTestPage() {
                 onChange={(e) => setProvider(e.target.value)}
                 className="bg-transparent text-xs font-semibold text-primary border-none outline-none cursor-pointer focus:ring-0 p-0"
               >
-                <option value="groq">Groq Llama 3.3 (Active)</option>
-                <option value="claude">Claude 3.5 Sonnet (Mock)</option>
+                <option value="groq">Groq (Llama 3.3)</option>
+                <option value="claude">Claude (Sonnet 3.5)</option>
               </select>
             </div>
             
@@ -220,23 +235,28 @@ export default function FounderTestPage() {
           </div>
         </div>
 
-        {/* Preset Scenarios */}
-        <div className="mb-8 bg-white p-6 rounded-premium border border-primary/5 shadow-sm space-y-4">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-secondary flex items-center gap-1.5">
-            <Sparkles size={12} className="text-[#8DBFB4]" />
-            <span>Select a Preset Scenario to Load</span>
-          </div>
-          <div className="flex flex-wrap gap-2.5">
-            {PRESETS.map((preset) => (
-              <button
-                key={preset.name}
-                onClick={() => loadPreset(preset)}
-                className="px-4 py-2 bg-[#F4F6F5] hover:bg-secondary/15 hover:text-secondary-dark rounded-xl text-xs font-semibold transition-all cursor-pointer border border-transparent hover:border-secondary/10"
-              >
-                {preset.name}
-              </button>
-            ))}
-          </div>
+        {/* Navigation Tabs */}
+        <div className="mb-6 flex border-b border-primary/10">
+          <button
+            onClick={() => setActiveTab('analyzer')}
+            className={`px-6 py-2.5 font-sans text-xs font-bold uppercase tracking-wider border-b-2 cursor-pointer transition-all ${
+              activeTab === 'analyzer'
+                ? 'border-secondary text-primary font-semibold'
+                : 'border-transparent text-mid hover:text-primary'
+            }`}
+          >
+            Entry Analyzer
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`px-6 py-2.5 font-sans text-xs font-bold uppercase tracking-wider border-b-2 cursor-pointer transition-all ${
+              activeTab === 'history'
+                ? 'border-secondary text-primary font-semibold'
+                : 'border-transparent text-mid hover:text-primary'
+            }`}
+          >
+            Historical Review
+          </button>
         </div>
 
         {/* Error Alert */}
@@ -249,7 +269,8 @@ export default function FounderTestPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {activeTab === 'analyzer' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* LEFT COLUMN: Input Simulator */}
           <div className="lg:col-span-6">
@@ -261,7 +282,7 @@ export default function FounderTestPage() {
 
               <div className="space-y-5">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-mid block">Reflection on Yesterday</label>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-mid block">Optional Reflection Input Area</label>
                   <textarea
                     value={reflectionText}
                     onChange={(e) => setReflectionText(e.target.value)}
@@ -271,7 +292,7 @@ export default function FounderTestPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-mid block">Today's Writing</label>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-mid block">Single Journal Input Area</label>
                   <textarea
                     value={newEntryText}
                     onChange={(e) => setNewEntryText(e.target.value)}
@@ -291,7 +312,7 @@ export default function FounderTestPage() {
                 ) : (
                   <Play size={14} fill="currentColor" />
                 )}
-                <span>Analyze Entry</span>
+                <span>Run Analysis</span>
               </button>
             </div>
           </div>
@@ -319,7 +340,7 @@ export default function FounderTestPage() {
                 </div>
                 <h3 className="font-serif text-sm font-semibold text-primary/70">Awaiting Journal Entry</h3>
                 <p className="text-[11px] max-w-xs leading-relaxed">
-                  Fill in the input blocks or load a preset, then click Analyze Entry to review the real-time AI results.
+                  Fill in the input blocks, then click Run Analysis to review the real-time AI results.
                 </p>
               </div>
             )}
@@ -511,6 +532,71 @@ export default function FounderTestPage() {
                       </div>
                     )}
 
+                    {/* Detected Vocabulary Card */}
+                    {!results.crisis.crisisFlag && results.reflection && (results.vocabState || (results.reflection.vocabulary && results.reflection.vocabulary.length > 0)) && (
+                      <div className="bg-white rounded-premium border border-primary/5 shadow-sm p-6 space-y-5">
+                        <div className="flex justify-between items-center border-b border-primary/5 pb-3">
+                          <div className="flex items-center gap-2">
+                            <BookOpen size={16} className="text-secondary" />
+                            <h2 className="font-serif text-lg font-normal text-primary">Detected Vocabulary</h2>
+                          </div>
+                        </div>
+
+                        {/* Words and Frequencies */}
+                        <div className="space-y-2.5">
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Extracted Vocabulary & Frequencies</span>
+                          {results.vocabState && results.vocabState.words && results.vocabState.words.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {results.vocabState.words.map((v, idx) => (
+                                <span 
+                                  key={idx} 
+                                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#B8A8D4]/10 text-[#5A4A8A] border border-[#B8A8D4]/20 text-[10px] uppercase font-bold tracking-wider rounded-full hover:bg-[#B8A8D4]/15 transition-all"
+                                >
+                                  <span>{v.word}</span>
+                                  <span className="h-4 w-4 inline-flex items-center justify-center rounded-full bg-[#5A4A8A]/10 text-[#5A4A8A] text-[8px] font-mono">
+                                    {v.frequency}
+                                  </span>
+                                </span>
+                              ))}
+                            </div>
+                          ) : results.reflection.vocabulary && results.reflection.vocabulary.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5">
+                              {results.reflection.vocabulary.map((vocab, idx) => (
+                                <span key={idx} className="px-2 py-0.5 bg-[#B8A8D4]/20 text-[#5A4A8A] text-[9px] uppercase font-bold tracking-wider rounded-md">
+                                  {vocab}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-mid italic">No vocabulary words identified in this entry.</p>
+                          )}
+                        </div>
+
+                        {/* Clusters */}
+                        {results.vocabState && results.vocabState.clusters && results.vocabState.clusters.length > 0 && (
+                          <div className="space-y-3 pt-2.5 border-t border-primary/5">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Thematic Vocabulary Clusters</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {results.vocabState.clusters.map((c, idx) => (
+                                <div 
+                                  key={idx} 
+                                  className="p-3 bg-[#F4F6F5]/50 border border-primary/5 rounded-xl flex items-center justify-between hover:bg-[#F4F6F5] transition-all"
+                                >
+                                  <div className="space-y-0.5">
+                                    <span className="text-xs font-semibold text-primary capitalize">{c.cluster_name}</span>
+                                    <span className="text-[8px] text-mid uppercase tracking-wide block">{c.cluster_type} cluster</span>
+                                  </div>
+                                  <span className="px-2 py-0.5 bg-[#8DBFB4]/12 text-[#1A5040] border border-[#8DBFB4]/10 text-[9px] font-bold tracking-wide rounded-md">
+                                    {c.word_count} {c.word_count === 1 ? 'word' : 'words'}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Latency footer card */}
                     <div className="bg-white rounded-premium border border-primary/5 shadow-sm px-6 py-4 flex justify-between items-center text-[10px] text-mid font-mono">
                       <div className="flex items-center gap-1.5">
@@ -528,6 +614,355 @@ export default function FounderTestPage() {
           </div>
 
         </div>
+        )}
+
+        {activeTab === 'history' && (
+          /* Historical Review Tab - Product Oriented ONLY */
+          <motion.div
+            key="founder-history-view"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="space-y-6 text-left"
+          >
+            <div className="flex justify-between items-center border-b border-primary/5 pb-3">
+              <div className="space-y-1">
+                <h2 className="font-serif text-xl font-normal text-primary">Historical Entries Review</h2>
+                <p className="text-xs text-mid text-left">Browse journal entries, psychometric progress, crisis checks, and AI reframing output.</p>
+              </div>
+              <button
+                onClick={fetchHistoryEntries}
+                disabled={isHistoryLoading}
+                className="flex items-center gap-1.5 px-4 py-2.5 border border-primary/10 hover:border-primary/20 bg-white text-primary rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
+              >
+                <RotateCw size={13} className={isHistoryLoading ? 'animate-spin' : ''} />
+                <span>Refresh List</span>
+              </button>
+            </div>
+
+            {isHistoryLoading ? (
+              <div className="bg-white rounded-premium border border-primary/5 shadow-sm p-12 flex flex-col items-center justify-center space-y-4 text-center">
+                <RotateCw size={24} className="text-primary animate-spin" style={{ animationDuration: '2.5s' }} />
+                <h3 className="font-serif text-lg text-primary font-normal">Loading entries...</h3>
+              </div>
+            ) : historyError ? (
+              <div className="p-4 bg-accent/8 border border-accent/20 rounded-xl text-[#8a3020] text-xs flex items-start gap-2.5">
+                <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">Error loading history:</span> {historyError}
+                </div>
+              </div>
+            ) : historyEntries.length === 0 ? (
+              <div className="bg-white rounded-premium border border-primary/5 shadow-sm p-12 text-center text-xs text-mid italic">
+                No entries available.
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {(() => {
+                  const grouped = {};
+                  historyEntries.forEach(entry => {
+                    const cycleNum = entry.cycle_number || 1;
+                    if (!grouped[cycleNum]) {
+                      grouped[cycleNum] = [];
+                    }
+                    grouped[cycleNum].push(entry);
+                  });
+
+                  // Sort cycles descending
+                  const cycleNums = Object.keys(grouped).map(Number).sort((a, b) => b - a);
+
+                  return cycleNums.map((cycleNum) => {
+                    const cycleEntries = grouped[cycleNum];
+                    const isCycleExpanded = expandedCycles[cycleNum] !== false; // Default expanded
+
+                    return (
+                      <div key={cycleNum} className="space-y-3">
+                        {/* Cycle Accordion Header */}
+                        <div 
+                          onClick={() => toggleCycleExpand(cycleNum)}
+                          className="bg-white border border-primary/5 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:bg-mint-grey/25 transition-colors select-none shadow-sm"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#8DBFB4]" />
+                            <h3 className="font-serif text-base font-semibold text-primary mb-0">Cycle {cycleNum}</h3>
+                            <span className="text-[10px] text-mid font-mono bg-primary/5 px-2 py-0.5 rounded-full ml-2">
+                              {cycleEntries.length} {cycleEntries.length === 1 ? 'entry' : 'entries'}
+                            </span>
+                          </div>
+                          <div className="text-mid/60 hover:text-primary transition-colors flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
+                            <span>{isCycleExpanded ? 'Collapse' : 'Expand'}</span>
+                            {isCycleExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          </div>
+                        </div>
+
+                        {/* Cycle Entries List */}
+                        {isCycleExpanded && (
+                          <div className="space-y-4 pl-4 border-l border-primary/10">
+                            {cycleEntries.map((entry) => {
+                              const isExpanded = !!expandedEntries[entry.id];
+                              const hasReflection = entry.reflection !== null && entry.reflection !== undefined;
+
+                              return (
+                                <div 
+                                  key={entry.id}
+                                  className="bg-white rounded-premium border border-primary/5 shadow-sm overflow-hidden transition-all text-left"
+                                >
+                                  {/* Accordion Header */}
+                                  <div 
+                                    onClick={() => toggleEntryExpand(entry.id)}
+                                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-mint-grey/25 transition-colors select-none"
+                                  >
+                                    <div className="flex flex-wrap items-center gap-3 text-xs">
+                                      <span className="text-primary font-semibold">
+                                        {new Date(entry.created_at).toLocaleDateString('en-GB', { 
+                                          day: 'numeric', 
+                                          month: 'long', 
+                                          year: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        })}
+                                      </span>
+                                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                                        entry.entry_type === 'guided' || entry.session_id
+                                          ? 'bg-[#8DBFB4]/12 text-[#1A5040]' 
+                                          : 'bg-primary/5 text-primary'
+                                      }`}>
+                                        {entry.entry_type === 'guided' || entry.session_id ? 'Guided Session' : 'Free Write'}
+                                      </span>
+                                      {entry.cycle_day && (
+                                        <span className="text-[10px] text-secondary font-bold uppercase">
+                                          Day {entry.cycle_day}
+                                        </span>
+                                      )}
+                                      {entry.crisis_flag && (
+                                        <span className="px-2 py-0.5 bg-accent/15 text-accent text-[9px] font-bold uppercase rounded-full">
+                                          Crisis Suppressed
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-mid/60 hover:text-primary transition-colors">
+                                      {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                    </div>
+                                  </div>
+
+                                  {/* Accordion Content */}
+                                  {isExpanded && (
+                                    <div className="border-t border-primary/5 p-6 bg-[#F4F6F5]/45 space-y-6">
+                                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                                        
+                                        {/* Left Side: Journal Entry Content */}
+                                        <div className="lg:col-span-6 space-y-4">
+                                          <div className="space-y-1.5">
+                                            <span className="text-[9px] font-bold uppercase tracking-wider text-mid">Original Journal Entry</span>
+                                            <div className="p-4.5 bg-white border border-primary/5 rounded-xl font-serif italic text-sm text-primary pr-3 leading-relaxed select-text">
+                                              "{entry.content}"
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        {/* Right Side: Product Metadata */}
+                                        <div className="lg:col-span-6 space-y-5">
+                                          
+                                          {/* Psychometrics */}
+                                          <div className="bg-white border border-primary/5 rounded-xl p-4.5 space-y-3.5 shadow-xs">
+                                            <span className="text-[9px] font-bold uppercase tracking-wider text-mid block border-b border-primary/5 pb-1">
+                                              Psychometric Scores
+                                            </span>
+                                            
+                                            {entry.day_ei !== null && entry.day_pr !== null && entry.day_sa !== null ? (
+                                              <div className="space-y-3 text-xs">
+                                                <div className="space-y-1">
+                                                  <div className="flex justify-between font-semibold">
+                                                    <span>Emotional Intensity (EI)</span>
+                                                    <span className="text-secondary font-mono">{entry.day_ei}</span>
+                                                  </div>
+                                                  <div className="h-2 w-full bg-[#F4F6F5] rounded-full overflow-hidden">
+                                                    <div className="h-full bg-[#8DBFB4] rounded-full" style={{ width: `${entry.day_ei * 10}%` }} />
+                                                  </div>
+                                                </div>
+                                                <div className="space-y-1">
+                                                  <div className="flex justify-between font-semibold">
+                                                    <span>Cognitive Rigidity (PR)</span>
+                                                    <span className="text-secondary font-mono">{entry.day_pr}</span>
+                                                  </div>
+                                                  <div className="h-2 w-full bg-[#F4F6F5] rounded-full overflow-hidden">
+                                                    <div className="h-full bg-[#E0A898] rounded-full" style={{ width: `${entry.day_pr * 10}%` }} />
+                                                  </div>
+                                                </div>
+                                                <div className="space-y-1">
+                                                  <div className="flex justify-between font-semibold">
+                                                    <span>Self-Agency (SA)</span>
+                                                    <span className="text-secondary font-mono">{entry.day_sa}</span>
+                                                  </div>
+                                                  <div className="h-2 w-full bg-[#F4F6F5] rounded-full overflow-hidden">
+                                                    <div className="h-full bg-[#B8A8D4] rounded-full" style={{ width: `${entry.day_sa * 10}%` }} />
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              <div className="text-xs italic text-mid">No scores generated for this entry.</div>
+                                            )}
+                                          </div>
+
+                                          {/* Crisis Protocol Evaluation */}
+                                          <div className="bg-white border border-primary/5 rounded-xl p-4.5 space-y-2.5 shadow-xs">
+                                            <div className="flex justify-between items-center border-b border-primary/5 pb-1.5">
+                                              <span className="text-[9px] font-bold uppercase tracking-wider text-mid">Crisis Assessment</span>
+                                              <span className={`font-semibold px-2 py-0.5 rounded text-[9px] ${
+                                                entry.crisis_flag 
+                                                  ? 'bg-accent/15 text-accent font-bold' 
+                                                  : 'bg-secondary/10 text-[#1A5040] font-bold'
+                                              }`}>
+                                                {entry.crisis_flag ? 'FLAGGED' : 'CLEARED'}
+                                              </span>
+                                            </div>
+                                            <p className="text-xs text-primary/80 font-serif leading-relaxed italic">
+                                              {entry.crisis_flag 
+                                                ? `Distressed safety quote triggered: "${entry.risk_language_quote || 'distress patterns identified'}"`
+                                                : 'Evaluated safe. No crisis safety patterns identified.'}
+                                            </p>
+                                          </div>
+
+                                          {/* Reflection Output */}
+                                          <div className="bg-white border border-primary/5 rounded-xl p-4.5 space-y-3.5 shadow-xs">
+                                            <span className="text-[9px] font-bold uppercase tracking-wider text-mid block border-b border-primary/5 pb-1">
+                                              AI Reflection & closing question
+                                            </span>
+                                            {hasReflection ? (
+                                              <div className="space-y-3 text-xs">
+                                                {entry.reflection.status === 'failed' || entry.crisis_flag ? (
+                                                  <div className="p-3 bg-accent/5 rounded-lg border border-accent/10 text-[11px] text-accent font-medium">
+                                                    Introspective question suppressed due to crisis protocol safety parameters.
+                                                  </div>
+                                                ) : (
+                                                  <>
+                                                    <p className="font-sans leading-relaxed text-primary/90">{entry.reflection.reflection_text}</p>
+                                                    {entry.reflection.closing_question && (
+                                                      <div className="p-3.5 bg-secondary/5 border border-secondary/10 rounded-xl space-y-1">
+                                                        <span className="text-[8px] font-bold uppercase text-secondary tracking-widest block">Closing Contemplation</span>
+                                                        <p className="font-serif italic text-primary/95 text-xs pr-1">"{entry.reflection.closing_question}"</p>
+                                                      </div>
+                                                    )}
+                                                  </>
+                                                )}
+                                              </div>
+                                            ) : (
+                                              <div className="text-xs italic text-mid">Reflection pending compilation.</div>
+                                            )}
+                                          </div>
+
+                                          {/* Vocabulary */}
+                                          {hasReflection && entry.reflection.vocabulary && entry.reflection.vocabulary.length > 0 && (
+                                            <div className="bg-white border border-primary/5 rounded-xl p-4.5 space-y-2.5 shadow-xs">
+                                              <span className="text-[9px] font-bold uppercase tracking-wider text-mid block border-b border-primary/5 pb-1">
+                                                Emotional Vocabulary
+                                              </span>
+                                              <div className="flex gap-1.5 flex-wrap">
+                                                {entry.reflection.vocabulary.map((w, idx) => (
+                                                  <span key={idx} className="bg-mint-grey/70 text-primary px-2.5 py-1 rounded text-[10px] uppercase font-bold tracking-wider">
+                                                    {w}
+                                                  </span>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          )}
+
+                                        </div>
+
+                                      </div>
+
+                                      {/* Chronological reflection timeline */}
+                                      <div className="border-t border-primary/5 pt-6 space-y-3.5">
+                                        <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Evaluation Timeline</span>
+                                        <div className="bg-white border border-primary/5 rounded-xl p-5 space-y-4 shadow-xs relative overflow-hidden">
+                                          <div className="absolute left-0 top-0 bottom-0 w-[4px] bg-secondary" />
+                                          
+                                          <div className="flex flex-col md:flex-row items-stretch gap-4 text-xs font-sans">
+                                            
+                                            {/* 1. Journal Entry */}
+                                            <div className="flex-1 bg-mint-grey/25 rounded-lg p-3.5 space-y-1 border border-primary/5 relative">
+                                              <div className="text-[9px] uppercase font-bold text-secondary">1. Journal Entry</div>
+                                              <p className="font-serif italic text-primary/90 leading-relaxed text-[12.5px]">
+                                                "{entry.content.length > 200 ? entry.content.substring(0, 200) + '...' : entry.content}"
+                                              </p>
+                                              <div className="text-[9.5px] text-mid/60 mt-1">Word count: {entry.word_count}</div>
+                                            </div>
+                                            
+                                            {/* Connection Arrow */}
+                                            <div className="flex items-center justify-center text-secondary/40 shrink-0">
+                                              <svg className="w-5 h-5 rotate-90 md:rotate-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                                              </svg>
+                                            </div>
+
+                                            {/* 2. Reflection Question */}
+                                            <div className="flex-1 bg-mint-grey/25 rounded-lg p-3.5 space-y-1 border border-primary/5 relative">
+                                              <div className="text-[9px] uppercase font-bold text-secondary">2. Reflection Question</div>
+                                              {hasReflection && entry.reflection.closing_question ? (
+                                                <>
+                                                  <p className="font-serif italic text-[#5A4A8A] leading-relaxed text-[12.5px]">
+                                                    "{entry.reflection.closing_question}"
+                                                  </p>
+                                                  {entry.reflection.classification && (
+                                                    <span className="inline-block bg-[#5A4A8A]/10 text-[#5A4A8A] font-bold text-[8px] px-1.5 py-0.5 rounded mt-1 uppercase">
+                                                      {entry.reflection.classification}
+                                                    </span>
+                                                  )}
+                                                </>
+                                              ) : (
+                                                <p className="italic text-mid/60">No reflection question generated.</p>
+                                              )}
+                                            </div>
+
+                                            {/* Connection Arrow */}
+                                            <div className="flex items-center justify-center text-secondary/40 shrink-0">
+                                              <svg className="w-5 h-5 rotate-90 md:rotate-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                                              </svg>
+                                            </div>
+
+                                            {/* 3. User Reflection Answer */}
+                                            <div className="flex-1 bg-mint-grey/25 rounded-lg p-3.5 space-y-1 border border-primary/5 relative">
+                                              <div className="text-[9px] uppercase font-bold text-secondary">3. User Reflection Answer</div>
+                                              {hasReflection && entry.reflection.reflection_answer ? (
+                                                <>
+                                                  <p className="font-serif italic text-[#8a3020] leading-relaxed text-[12.5px]">
+                                                    "{entry.reflection.reflection_answer}"
+                                                  </p>
+                                                  {entry.reflection.answered_at && (
+                                                    <div className="text-[9.5px] text-mid/60 mt-1 font-mono">
+                                                      Answered: {new Date(entry.reflection.answered_at).toLocaleString()}
+                                                    </div>
+                                                  )}
+                                                </>
+                                              ) : (
+                                                <div className="space-y-1">
+                                                  <p className="italic text-mid/60">Unanswered</p>
+                                                  <span className="inline-block bg-accent/10 text-accent font-bold text-[8px] px-1.5 py-0.5 rounded uppercase">
+                                                    Pending Response
+                                                  </span>
+                                                </div>
+                                              )}
+                                            </div>
+
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            )}
+          </motion.div>
+        )}
 
       </main>
     </div>

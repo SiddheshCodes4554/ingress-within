@@ -62,12 +62,12 @@ export async function GET(request: NextRequest) {
 
     if (completedSessions && completedSessions.length > 0) {
       const latest = completedSessions[0];
-      
+
       const clientTodayStart = request.headers.get('x-client-today-start');
       const fallbackStart = new Date();
       fallbackStart.setUTCHours(0, 0, 0, 0);
       const startRange = clientTodayStart || fallbackStart.toISOString();
-      
+
       // If completed on or after client local midnight, treat today's session as completed
       const isCompletedToday = new Date(latest.completed_at).getTime() >= new Date(startRange).getTime();
 
@@ -335,12 +335,28 @@ export async function POST(request: NextRequest) {
       }
       const activeSession = activeSessions[0];
 
+      // Gating check: Block completing session if the latest cycle is completed but assessment is pending
+      const { data: latestCycle } = await supabase
+        .from('cycles')
+        .select('*')
+        .eq('user_id', authUser.userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestCycle && (latestCycle.status === 'COMPLETED' || latestCycle.status === 'complete') && !latestCycle.assessment_completed) {
+        return NextResponse.json(
+          { error: { code: 'ASSESSMENT_REQUIRED', message: 'You must complete your cycle assessment before completing daily sessions.' } },
+          { status: 400 }
+        );
+      }
+
       // Fetch active cycle to populate exercises and entries
       const { data: activeCycle } = await supabase
         .from('cycles')
-        .select('id, started_at')
+        .select('id, start_date, total_days')
         .eq('user_id', authUser.userId)
-        .eq('status', 'active')
+        .in('status', ['ACTIVE', 'active'])
         .maybeSingle();
 
       const cycleId = activeCycle?.id || null;
@@ -408,7 +424,7 @@ export async function POST(request: NextRequest) {
         console.error('Failed to log session journal:', journalError);
         // Attempt cleanup of the exercise
         await supabase.from('exercises').delete().eq('id', exerciseRecord.id);
-        
+
         return NextResponse.json(
           { error: { code: 'DATABASE_ERROR', message: 'Failed to save session journal entry.' } },
           { status: 500 }

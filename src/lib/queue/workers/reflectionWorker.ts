@@ -1,6 +1,7 @@
 import { supabase } from '../../db';
 import { aiProvider } from '../../ai/factory';
 import { decrypt } from '../../encryption';
+import { queueRegistry } from '../registry';
 
 export function validateReflection(text: string): { valid: boolean; reason?: string } {
   const lowercase = text.toLowerCase();
@@ -259,6 +260,17 @@ export async function processReflectionGeneration(jobData: { entry_id: string; u
       if (insertError) {
         throw new Error(`Failed to insert reflection row: ${insertError.message}`);
       }
+    }
+
+    // Chain sequential pipeline: trigger vocabulary processing next
+    try {
+      await queueRegistry.addJob('vocab_processing', `vocab_${entry_id}`, {
+        entry_id,
+        user_id
+      });
+      console.log(`[Reflection Worker] Chained vocabulary processing job for entry ${entry_id}`);
+    } catch (chainErr: any) {
+      console.error(`[Reflection Worker] Error queueing vocabulary processing:`, chainErr.message);
     }
 
     console.log(`[Reflection Worker] Successfully generated and validated reflection for entry ${entry_id} (attempts: ${attempts})`);

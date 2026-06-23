@@ -21,6 +21,7 @@ const VocabPage = lazy(() => import('./pages/VocabPage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
 const SessionFlowPage = lazy(() => import('./pages/SessionFlowPage'));
 const ThreadDetailPage = lazy(() => import('./pages/ThreadDetailPage'));
+const EntryDetailPage = lazy(() => import('./pages/EntryDetailPage'));
 const TestPage = (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_TEST_PAGE === 'true')
   ? lazy(() => import('./pages/TestPage'))
   : () => null;
@@ -334,6 +335,9 @@ export default function App() {
       } else if (path.startsWith('/thread/')) {
         setCurrentRoute('thread');
         window.scrollTo(0, 0);
+      } else if (path.startsWith('/entry/')) {
+        setCurrentRoute('entry-detail');
+        window.scrollTo(0, 0);
       } else if (path === '/ai-data' || path === '/ai-data/') {
         setCurrentRoute('ai-data');
         window.scrollTo(0, 0);
@@ -408,7 +412,7 @@ export default function App() {
 
   const renderPage = () => {
     const path = window.location.pathname;
-    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread');
+    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread') || path.startsWith('/entry');
 
     if (isProtectedRoute && (!authChecked || isLoading)) {
       return <LoadingScreen />;
@@ -455,6 +459,10 @@ export default function App() {
       case 'thread': {
         const threadId = window.location.pathname.split('/thread/')[1]?.replace(/\/$/, '') || '';
         return <ThreadDetailPage user={user} profile={profile} threadId={threadId} onSignOut={handleSignOut} />;
+      }
+      case 'entry-detail': {
+        const entryId = window.location.pathname.split('/entry/')[1]?.replace(/\/$/, '') || '';
+        return <EntryDetailPage user={user} profile={profile} entryId={entryId} onSignOut={handleSignOut} />;
       }
       case 'ai-data':
         return <AiDataPage onOpenPolicy={handleOpenPolicy} />;

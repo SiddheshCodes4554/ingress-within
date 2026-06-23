@@ -16,20 +16,70 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let { data: entries, error } = await supabase
-      .from('entries')
-      .select('*, daily_sessions(day_number)')
-      .eq('user_id', authUser.userId)
-      .order('created_at', { ascending: false });
+    const search = request.nextUrl.searchParams.get('search');
+    const cycleId = request.nextUrl.searchParams.get('cycleId');
+    const classification = request.nextUrl.searchParams.get('classification');
+    const isCrisis = request.nextUrl.searchParams.get('isCrisis');
+    const startDate = request.nextUrl.searchParams.get('startDate');
+    const endDate = request.nextUrl.searchParams.get('endDate');
 
-    // Fallback if the database schema is not fully migrated (missing session_id column or relational ambiguity)
+    let query;
+    let fallbackQuery;
+
+    if (classification) {
+      query = supabase
+        .from('entries')
+        .select('*, reflections!inner(*), daily_sessions!fk_daily_sessions_entry(day_number), cycles(*)')
+        .eq('user_id', authUser.userId)
+        .eq('reflections.classification', classification);
+
+      fallbackQuery = supabase
+        .from('entries')
+        .select('*, reflections!inner(*), cycles(*)')
+        .eq('user_id', authUser.userId)
+        .eq('reflections.classification', classification);
+    } else {
+      query = supabase
+        .from('entries')
+        .select('*, reflections(*), daily_sessions!fk_daily_sessions_entry(day_number), cycles(*)')
+        .eq('user_id', authUser.userId);
+
+      fallbackQuery = supabase
+        .from('entries')
+        .select('*, reflections(*), cycles(*)')
+        .eq('user_id', authUser.userId);
+    }
+
+    if (search) {
+      query = query.ilike('content', `%${search}%`);
+      fallbackQuery = fallbackQuery.ilike('content', `%${search}%`);
+    }
+    if (cycleId) {
+      query = query.eq('cycle_id', cycleId);
+      fallbackQuery = fallbackQuery.eq('cycle_id', cycleId);
+    }
+    if (isCrisis) {
+      query = query.eq('crisis_flag', isCrisis === 'true');
+      fallbackQuery = fallbackQuery.eq('crisis_flag', isCrisis === 'true');
+    }
+    if (startDate) {
+      query = query.gte('created_at', startDate);
+      fallbackQuery = fallbackQuery.gte('created_at', startDate);
+    }
+    if (endDate) {
+      query = query.lte('created_at', endDate);
+      fallbackQuery = fallbackQuery.lte('created_at', endDate);
+    }
+
+    query = query.order('created_at', { ascending: false });
+    fallbackQuery = fallbackQuery.order('created_at', { ascending: false });
+
+    let { data: entries, error } = await query;
+
+    // Fallback if the database schema has relational join ambiguity
     if (error && (error.code === 'PGRST201' || error.code === 'PGRST200' || error.message.includes('relationship') || error.message.includes('column'))) {
       console.warn('[api/entries] Join query failed, falling back to simple select (schema may need migration):', error.message);
-      const { data: simpleEntries, error: simpleError } = await supabase
-        .from('entries')
-        .select('*')
-        .eq('user_id', authUser.userId)
-        .order('created_at', { ascending: false });
+      const { data: simpleEntries, error: simpleError } = await fallbackQuery;
         
       if (simpleError) {
         console.error('Failed to fetch journal entries on fallback:', simpleError);
@@ -47,9 +97,55 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Fetch cycle vocab words to map vocab elements per entry cycle
+    const { data: vocabRes } = await supabase
+      .from('vocab_words')
+      .select('cycle_id, word')
+      .eq('user_id', authUser.userId);
+
+    const formattedEntries = (entries || []).map((entry: any) => {
+      // Normalize reflections (can be array or single object depending on PostgREST cardinality detection)
+      const rawReflection = entry.reflections;
+      const reflection = Array.isArray(rawReflection)
+        ? (rawReflection[0] || null)
+        : (rawReflection || null);
+      delete entry.reflections;
+
+      // Normalize daily_sessions (can be array or single object)
+      const rawSession = entry.daily_sessions;
+      const session = Array.isArray(rawSession)
+        ? (rawSession[0] || null)
+        : (rawSession || null);
+      entry.daily_sessions = session;
+
+      // Normalize cycles (can be array or single object)
+      const rawCycle = entry.cycles;
+      const cycle = Array.isArray(rawCycle)
+        ? (rawCycle[0] || null)
+        : (rawCycle || null);
+      
+      const cycleNum = cycle 
+        ? (cycle.cycle_number !== undefined ? cycle.cycle_number : cycle.number)
+        : null;
+      delete entry.cycles;
+
+      const cycleVocab = vocabRes
+        ? vocabRes.filter((v: any) => v.cycle_id === entry.cycle_id).map((v: any) => v.word)
+        : [];
+
+      return {
+        ...entry,
+        cycle_number: cycleNum,
+        reflection: reflection ? {
+          ...reflection,
+          vocabulary: cycleVocab
+        } : null
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      entries: entries || []
+      entries: formattedEntries
     });
 
   } catch (error) {
@@ -108,22 +204,40 @@ export async function POST(request: NextRequest) {
 
     const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
 
+    // Gating check: Block new entries if the latest cycle is completed but assessment is pending
+    const { data: latestCycle } = await supabase
+      .from('cycles')
+      .select('*')
+      .eq('user_id', authUser.userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestCycle && (latestCycle.status === 'COMPLETED' || latestCycle.status === 'complete') && !latestCycle.assessment_completed) {
+      return NextResponse.json(
+        { error: { code: 'ASSESSMENT_REQUIRED', message: 'You must complete your cycle assessment before writing new entries.' } },
+        { status: 400 }
+      );
+    }
+
     // Fetch the active cycle for the user to populate cycle_id and cycle_day
     const { data: activeCycle } = await supabase
       .from('cycles')
-      .select('id, started_at')
+      .select('id, start_date, total_days')
       .eq('user_id', authUser.userId)
-      .eq('status', 'active')
+      .in('status', ['ACTIVE', 'active'])
       .maybeSingle();
 
     const cycleId = activeCycle?.id || null;
     let cycleDay = 1;
     if (activeCycle) {
-      const started = new Date(activeCycle.started_at);
+      const started = new Date(activeCycle.start_date);
       const today = new Date();
-      const diffTime = Math.abs(today.getTime() - started.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      cycleDay = Math.min(30, Math.max(1, diffDays));
+      const startMidnight = new Date(started.getFullYear(), started.getMonth(), started.getDate());
+      const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const diffTime = todayMidnight.getTime() - startMidnight.getTime();
+      const calculatedDay = Math.floor(diffTime / (24 * 60 * 60 * 1000)) + 1;
+      cycleDay = Math.min(activeCycle.total_days || 30, Math.max(1, calculatedDay));
     }
 
     const insertPayload: any = {

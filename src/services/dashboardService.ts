@@ -7,6 +7,10 @@ export interface JournalEntry {
   type: 'entry' | 'exercise' | 'summary' | 'report';
   preview?: string;
   meta?: string;
+  reflection?: any;
+  entry_type?: string;
+  cycle_day?: number;
+  created_at?: string;
 }
 
 export interface ReflectionThread {
@@ -86,7 +90,11 @@ export class DashboardService {
           text: entry.content,
           date: new Date(entry.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
           words: entry.word_count,
-          type: 'entry'
+          type: 'entry',
+          reflection: entry.reflection,
+          entry_type: entry.entry_type,
+          cycle_day: entry.cycle_day,
+          created_at: entry.created_at
         };
       });
 
@@ -364,5 +372,115 @@ export class DashboardService {
       localStorage.removeItem('iw_dashboard_data_v1');
     }
   }
+
+  static async fetchVocabOverview(): Promise<any> {
+    const res = await fetch('/api/vocab/overview', {
+      headers: DashboardService.getHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to fetch vocabulary overview.');
+    }
+    return data.data;
+  }
+
+  static async fetchVocabByCycle(): Promise<any> {
+    const res = await fetch('/api/vocab/by-cycle', {
+      headers: DashboardService.getHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to fetch vocabulary by cycle.');
+    }
+    return data.cycles;
+  }
+
+  static async fetchVocabThreadResponses(): Promise<any> {
+    const res = await fetch('/api/vocab/thread-responses', {
+      headers: DashboardService.getHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to fetch vocabulary thread responses.');
+    }
+    return data;
+  }
+
+  /**
+   * Submits or autosaves a response to a reflection question.
+   */
+  static async submitReflectionAnswer(reflectionId: string, answer: string, status: 'ready' | 'completed' = 'completed'): Promise<any> {
+    const res = await fetch('/api/reflections/answer', {
+      method: 'POST',
+      headers: DashboardService.getHeaders(),
+      body: JSON.stringify({ reflectionId, answer, status })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to submit reflection response.');
+    }
+    return data.reflection;
+  }
+
+  /**
+   * Fetches active cycle status and progression metrics.
+   */
+  static async fetchCycleStatus(): Promise<any> {
+    const res = await fetch('/api/cycles/status', {
+      headers: DashboardService.getHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to fetch cycle status.');
+    }
+    return data;
+  }
+
+  /**
+   * Submits the cycle-end transition assessment and triggers next cycle.
+   */
+  static async submitCycleAssessment(answers: Record<string, any>): Promise<any> {
+    const res = await fetch('/api/cycles/complete-assessment', {
+      method: 'POST',
+      headers: DashboardService.getHeaders(),
+      body: JSON.stringify({ answers })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to submit cycle transition assessment.');
+    }
+    return data;
+  }
+
+  /**
+   * Simulates cycle events for developer testing.
+   */
+  static async simulateCycle(payload: { action: string; days?: number; cycleNumber?: number; cycleId?: string }): Promise<any> {
+    const res = await fetch('/api/cycles/simulate', {
+      method: 'POST',
+      headers: DashboardService.getHeaders(),
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to execute cycle simulation.');
+    }
+    return data;
+  }
+
+  /**
+   * Fetches the complete, cycle-centric timeline list.
+   */
+  static async fetchCyclesList(): Promise<any[]> {
+    const res = await fetch('/api/cycles', {
+      headers: DashboardService.getHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to fetch cycles list.');
+    }
+    return data.cycles || [];
+  }
 }
+
 
