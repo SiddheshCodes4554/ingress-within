@@ -168,11 +168,12 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Check user state on initial load and route shifts
-    // Run background checks silently to avoid visual layout flashing if auth is already checked
-    const silent = authChecked;
-    checkUserStatus(silent);
-  }, [currentRoute]);
+    // Check user state on initial load.
+    // Only check user status if it hasn't been checked yet, to avoid duplicate auth checks on every route change.
+    if (!authChecked) {
+      checkUserStatus(false);
+    }
+  }, [currentRoute, authChecked]);
 
   // Protective Redirect Engine
   useEffect(() => {

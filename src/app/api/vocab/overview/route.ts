@@ -40,13 +40,15 @@ export async function GET(request: NextRequest) {
     const { count: distinctWordCount, error: vocabCountErr } = await supabase
       .from('vocab_words')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .gte('frequency', 2);
 
     // C. Most used word (all-time)
     const { data: topAllTimeWords, error: topWordErr } = await supabase
       .from('vocab_words')
       .select('word, normalized_word, frequency')
       .eq('user_id', userId)
+      .gte('frequency', 2)
       .order('frequency', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -56,6 +58,7 @@ export async function GET(request: NextRequest) {
       .from('vocab_words')
       .select('word, normalized_word, frequency, cycle_id')
       .eq('user_id', userId)
+      .gte('frequency', 2)
       .order('frequency', { ascending: false })
       .limit(5);
 
@@ -67,6 +70,7 @@ export async function GET(request: NextRequest) {
         .select('word, normalized_word, frequency, first_seen, last_seen')
         .eq('user_id', userId)
         .eq('cycle_id', cycleId)
+        .gte('frequency', 2)
         .order('first_seen', { ascending: false });
 
       if (currentCycleWords) {
@@ -75,6 +79,7 @@ export async function GET(request: NextRequest) {
           .from('vocab_words')
           .select('normalized_word')
           .eq('user_id', userId)
+          .gte('frequency', 2)
           .neq('cycle_id', cycleId);
 
         const olderSet = new Set(olderCyclesWords.data?.map(w => w.normalized_word) || []);
@@ -101,7 +106,8 @@ export async function GET(request: NextRequest) {
           const { data: words } = await supabase
             .from('vocab_words')
             .select('word, normalized_word, frequency')
-            .eq('cluster_id', cl.id);
+            .eq('cluster_id', cl.id)
+            .gte('frequency', 2);
 
           const wordsList = words ? words.map(w => w.normalized_word) : [];
           // Find anchor word (the word with highest frequency in this cluster)
@@ -127,6 +133,7 @@ export async function GET(request: NextRequest) {
       .from('vocab_words')
       .select('first_seen')
       .eq('user_id', userId)
+      .gte('frequency', 2)
       .order('first_seen', { ascending: true });
 
     const timeline = (allWordsSorted || []).map((w, idx) => ({

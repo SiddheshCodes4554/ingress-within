@@ -49,6 +49,60 @@ function getAgeString(createdAt: string | null | undefined): string {
 }
 
 export class DashboardService {
+  private static cache: Record<string, { data: any; timestamp: number }> = {};
+  private static STALE_TIME = 15000; // 15 seconds stale limit
+  private static listeners: Record<string, Set<(data: any) => void>> = {};
+  private static latencies: Record<string, number[]> = {};
+
+  private static getCached<T>(key: string): T | null {
+    const cached = this.cache[key];
+    if (cached && (Date.now() - cached.timestamp < this.STALE_TIME)) {
+      return cached.data as T;
+    }
+    return null;
+  }
+
+  private static setCached(key: string, data: any) {
+    this.cache[key] = { data, timestamp: Date.now() };
+    const keyListeners = this.listeners[key];
+    if (keyListeners) {
+      keyListeners.forEach(cb => {
+        try {
+          cb(data);
+        } catch (err) {
+          console.error(`Error in cache listener for key ${key}:`, err);
+        }
+      });
+    }
+  }
+
+  public static subscribe(key: string, callback: (data: any) => void): () => void {
+    if (!this.listeners[key]) {
+      this.listeners[key] = new Set();
+    }
+    this.listeners[key].add(callback);
+    return () => {
+      this.listeners[key]?.delete(callback);
+      if (this.listeners[key]?.size === 0) {
+        delete this.listeners[key];
+      }
+    };
+  }
+
+  private static trackLatency(apiName: string, durationMs: number) {
+    if (!this.latencies[apiName]) {
+      this.latencies[apiName] = [];
+    }
+    this.latencies[apiName].push(Math.round(durationMs));
+    if (this.latencies[apiName].length > 20) {
+      this.latencies[apiName].shift();
+    }
+  }
+
+  public static getLatencies(): Record<string, number[]> {
+    return this.latencies;
+  }
+
   /**
    * Generates request headers, including client local midnight in UTC for daily limits.
    */
@@ -72,67 +126,72 @@ export class DashboardService {
    * Fetches dashboard data by combining parallel requests to entries, threads, and sessions endpoints.
    */
   static async fetchDashboardData(): Promise<DashboardData> {
-    try {
-      // 1. Fetch entries
-      const entriesRes = await fetch('/api/entries', {
-        headers: DashboardService.getHeaders()
-      });
-      if (!entriesRes.ok) throw new Error('Failed to fetch journal entries.');
-      const entriesData = await entriesRes.json();
-      const dbEntries = entriesData.entries || [];
+    const cacheKey = 'dashboard_data';
+    const cached = this.getCached<DashboardData>(cacheKey);
 
-      // Map entries
-      const mappedEntries: JournalEntry[] = dbEntries.map((entry: any) => {
-        const dayNum = entry.daily_sessions?.day_number;
-        return {
-          id: entry.id,
-          day: dayNum ? `D${dayNum}` : 'Free Write',
-          text: entry.content,
-          date: new Date(entry.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-          words: entry.word_count,
-          type: 'entry',
-          reflection: entry.reflection,
-          entry_type: entry.entry_type,
-          cycle_day: entry.cycle_day,
-          created_at: entry.created_at
-        };
-      });
-
-      // 2. Fetch threads
-      const threadsRes = await fetch('/api/threads', {
-        headers: DashboardService.getHeaders()
-      });
-      if (!threadsRes.ok) throw new Error('Failed to fetch active threads.');
-      const threadsData = await threadsRes.json();
-      const dbThreads = threadsData.threads || [];
-
-      // Map threads
-      const mappedThreads: ReflectionThread[] = dbThreads.map((thread: any) => {
-        return {
-          id: thread.id,
-          from: thread.origin || 'Self-Reflection',
-          question: thread.question,
-          context: 'This thread has been opened based on your recurring patterns for ongoing self-reflection.',
-          status: thread.status,
-          age: getAgeString(thread.created_at)
-        };
-      });
-
-      // 3. Fetch active session state to compute cycleInfo
-      let hasWrittenToday = false;
-      let cycleNumber = 1;
-      let currentDay = 1;
-      let totalDays = 28;
-      let startedAt = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-      let daysRemaining = 27;
-
+    const fetchFresh = async () => {
+      const startTime = performance.now();
       try {
-        const sessionRes = await fetch('/api/session', {
-          headers: DashboardService.getHeaders()
+        const [entriesRes, threadsRes, sessionRes] = await Promise.all([
+          fetch('/api/entries?limit=5', { headers: this.getHeaders() }),
+          fetch('/api/threads', { headers: this.getHeaders() }),
+          fetch('/api/session', { headers: this.getHeaders() }).catch(err => {
+            console.error('Session fetch failed in dashboardService:', err);
+            return null;
+          })
+        ]);
+
+        if (!entriesRes.ok) throw new Error('Failed to fetch journal entries.');
+        if (!threadsRes.ok) throw new Error('Failed to fetch active threads.');
+
+        const [entriesData, threadsData] = await Promise.all([
+          entriesRes.json(),
+          threadsRes.json()
+        ]);
+
+        const dbEntries = entriesData.entries || [];
+        const dbThreads = threadsData.threads || [];
+
+        // Map entries
+        const mappedEntries: JournalEntry[] = dbEntries.map((entry: any) => {
+          const dayNum = entry.daily_sessions?.day_number;
+          return {
+            id: entry.id,
+            day: dayNum ? `D${dayNum}` : 'Free Write',
+            text: entry.content,
+            date: new Date(entry.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+            words: entry.word_count,
+            type: 'entry',
+            reflection: entry.reflection,
+            entry_type: entry.entry_type,
+            cycle_day: entry.cycle_day,
+            created_at: entry.created_at
+          };
         });
-        if (sessionRes.ok) {
-          const sessionData = await sessionRes.json();
-          if (sessionData.session) {
+
+        // Map threads
+        const mappedThreads: ReflectionThread[] = dbThreads.map((thread: any) => {
+          return {
+            id: thread.id,
+            from: thread.origin || 'Self-Reflection',
+            question: thread.question,
+            context: 'This thread has been opened based on your recurring patterns for ongoing self-reflection.',
+            status: thread.status,
+            age: getAgeString(thread.created_at)
+          };
+        });
+
+        // Fetch active session state to compute cycleInfo
+        let hasWrittenToday = false;
+        let cycleNumber = 1;
+        let currentDay = 1;
+        let totalDays = 28;
+        let startedAt = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        let daysRemaining = 27;
+
+        if (sessionRes && sessionRes.ok) {
+          const sessionData = await sessionRes.json().catch(() => null);
+          if (sessionData && sessionData.session) {
             const session = sessionData.session;
             const isCompletedToday = sessionData.isCompletedToday || false;
             
@@ -158,58 +217,58 @@ export class DashboardService {
             startedAt = cycleStartDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
           }
         }
-      } catch (sessionErr) {
-        console.error('Error fetching session for cycleInfo:', sessionErr);
+
+        // If they wrote a free write today, set hasWrittenToday = true
+        const hasWrittenFreeWriteToday = dbEntries.some((entry: any) => {
+          const entryDate = new Date(entry.created_at);
+          const today = new Date();
+          return entryDate.getDate() === today.getDate() &&
+                 entryDate.getMonth() === today.getMonth() &&
+                 entryDate.getFullYear() === today.getFullYear();
+        });
+
+        if (hasWrittenFreeWriteToday) {
+          hasWrittenToday = true;
+        }
+
+        const dashboardDataResult: DashboardData = {
+          cycleInfo: {
+            cycleNumber,
+            currentDay,
+            totalDays,
+            startedAt,
+            daysRemaining,
+            hasWrittenToday
+          },
+          entries: mappedEntries,
+          threads: mappedThreads
+        };
+
+        const duration = performance.now() - startTime;
+        this.trackLatency('fetchDashboardData', duration);
+
+        this.setCached(cacheKey, dashboardDataResult);
+        return dashboardDataResult;
+      } catch (err) {
+        console.error('Error in fetchDashboardData background fetch:', err);
+        throw err;
       }
+    };
 
-      // If they wrote a free write today, set hasWrittenToday = true
-      const hasWrittenFreeWriteToday = dbEntries.some((entry: any) => {
-        const entryDate = new Date(entry.created_at);
-        const today = new Date();
-        return entryDate.getDate() === today.getDate() &&
-               entryDate.getMonth() === today.getMonth() &&
-               entryDate.getFullYear() === today.getFullYear();
-      });
-
-      if (hasWrittenFreeWriteToday) {
-        hasWrittenToday = true;
-      }
-
-      return {
-        cycleInfo: {
-          cycleNumber,
-          currentDay,
-          totalDays,
-          startedAt,
-          daysRemaining,
-          hasWrittenToday
-        },
-        entries: mappedEntries,
-        threads: mappedThreads
-      };
-
-    } catch (error) {
-      console.error('Error in fetchDashboardData:', error);
-      // Return fallback empty structures to prevent dashboard from breaking
-      return {
-        cycleInfo: {
-          cycleNumber: 1,
-          currentDay: 1,
-          totalDays: 28,
-          startedAt: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-          daysRemaining: 27,
-          hasWrittenToday: false
-        },
-        entries: [],
-        threads: []
-      };
+    if (cached) {
+      // Async revalidate
+      fetchFresh().catch(() => {});
+      return cached;
     }
+
+    return fetchFresh();
   }
 
   /**
    * Saves a free-form journal entry in the database.
    */
   static async saveJournalEntry(text: string): Promise<JournalEntry> {
+    const startTime = performance.now();
     const res = await fetch('/api/entries', {
       method: 'POST',
       headers: DashboardService.getHeaders(),
@@ -219,7 +278,14 @@ export class DashboardService {
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Failed to save journal entry.');
     }
+    
+    // Invalidate dashboard caches on write
+    this.cache = {};
+
     const entry = data.entry;
+    const duration = performance.now() - startTime;
+    this.trackLatency('saveJournalEntry', duration);
+
     return {
       id: entry.id,
       day: entry.daily_sessions?.day_number ? `D${entry.daily_sessions.day_number}` : 'Free Write',
@@ -234,6 +300,7 @@ export class DashboardService {
    * Fetches status of a specific entry (for checking scoring/crisis).
    */
   static async checkEntryStatus(entryId: string): Promise<any> {
+    const startTime = performance.now();
     const res = await fetch(`/api/entries/${entryId}`, {
       headers: DashboardService.getHeaders()
     });
@@ -241,6 +308,9 @@ export class DashboardService {
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Failed to check entry status.');
     }
+    const duration = performance.now() - startTime;
+    this.trackLatency('checkEntryStatus', duration);
+
     return {
       ...data.entry,
       reflection: data.reflection || null
@@ -251,6 +321,7 @@ export class DashboardService {
    * Fetches active threads for the user from Supabase.
    */
   static async fetchActiveThreads(): Promise<any> {
+    const startTime = performance.now();
     const res = await fetch('/api/threads', {
       headers: DashboardService.getHeaders()
     });
@@ -258,6 +329,9 @@ export class DashboardService {
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Failed to fetch active threads.');
     }
+    const duration = performance.now() - startTime;
+    this.trackLatency('fetchActiveThreads', duration);
+
     return data.threads;
   }
 
@@ -288,6 +362,8 @@ export class DashboardService {
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Failed to submit thread response.');
     }
+    // Invalidate caches
+    this.cache = {};
     return data.response;
   }
 
@@ -295,6 +371,7 @@ export class DashboardService {
    * Fetches the user's active or completed daily session for today.
    */
   static async fetchActiveSession(): Promise<any> {
+    const startTime = performance.now();
     const res = await fetch('/api/session', {
       headers: DashboardService.getHeaders()
     });
@@ -302,6 +379,9 @@ export class DashboardService {
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Failed to fetch active session.');
     }
+    const duration = performance.now() - startTime;
+    this.trackLatency('fetchActiveSession', duration);
+
     return data;
   }
 
@@ -361,6 +441,8 @@ export class DashboardService {
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Failed to complete session.');
     }
+    // Invalidate caches
+    this.cache = {};
     return data;
   }
 
@@ -368,31 +450,62 @@ export class DashboardService {
    * Clears state for testing or logout purposes.
    */
   static resetState() {
+    this.cache = {};
     if (typeof window !== 'undefined') {
       localStorage.removeItem('iw_dashboard_data_v1');
     }
   }
 
   static async fetchVocabOverview(): Promise<any> {
-    const res = await fetch('/api/vocab/overview', {
-      headers: DashboardService.getHeaders()
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data?.error?.message || 'Failed to fetch vocabulary overview.');
+    const cacheKey = 'vocab_overview';
+    const cached = this.getCached<any>(cacheKey);
+
+    const fetchFresh = async () => {
+      const startTime = performance.now();
+      const res = await fetch('/api/vocab/overview', {
+        headers: DashboardService.getHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error?.message || 'Failed to fetch vocabulary overview.');
+      }
+      const duration = performance.now() - startTime;
+      this.trackLatency('fetchVocabOverview', duration);
+      this.setCached(cacheKey, data.data);
+      return data.data;
+    };
+
+    if (cached) {
+      fetchFresh().catch(() => {});
+      return cached;
     }
-    return data.data;
+    return fetchFresh();
   }
 
   static async fetchVocabByCycle(): Promise<any> {
-    const res = await fetch('/api/vocab/by-cycle', {
-      headers: DashboardService.getHeaders()
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data?.error?.message || 'Failed to fetch vocabulary by cycle.');
+    const cacheKey = 'vocab_by_cycle';
+    const cached = this.getCached<any>(cacheKey);
+
+    const fetchFresh = async () => {
+      const startTime = performance.now();
+      const res = await fetch('/api/vocab/by-cycle', {
+        headers: DashboardService.getHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error?.message || 'Failed to fetch vocabulary by cycle.');
+      }
+      const duration = performance.now() - startTime;
+      this.trackLatency('fetchVocabByCycle', duration);
+      this.setCached(cacheKey, data.cycles);
+      return data.cycles;
+    };
+
+    if (cached) {
+      fetchFresh().catch(() => {});
+      return cached;
     }
-    return data.cycles;
+    return fetchFresh();
   }
 
   static async fetchVocabThreadResponses(): Promise<any> {
@@ -419,6 +532,8 @@ export class DashboardService {
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Failed to submit reflection response.');
     }
+    // Invalidate caches
+    this.cache = {};
     return data.reflection;
   }
 
@@ -426,14 +541,29 @@ export class DashboardService {
    * Fetches active cycle status and progression metrics.
    */
   static async fetchCycleStatus(): Promise<any> {
-    const res = await fetch('/api/cycles/status', {
-      headers: DashboardService.getHeaders()
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data?.error?.message || 'Failed to fetch cycle status.');
+    const cacheKey = 'cycle_status';
+    const cached = this.getCached<any>(cacheKey);
+
+    const fetchFresh = async () => {
+      const startTime = performance.now();
+      const res = await fetch('/api/cycles/status', {
+        headers: DashboardService.getHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error?.message || 'Failed to fetch cycle status.');
+      }
+      const duration = performance.now() - startTime;
+      this.trackLatency('fetchCycleStatus', duration);
+      this.setCached(cacheKey, data);
+      return data;
+    };
+
+    if (cached) {
+      fetchFresh().catch(() => {});
+      return cached;
     }
-    return data;
+    return fetchFresh();
   }
 
   /**
@@ -449,6 +579,8 @@ export class DashboardService {
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Failed to submit cycle transition assessment.');
     }
+    // Invalidate caches on transition
+    this.cache = {};
     return data;
   }
 
@@ -465,6 +597,8 @@ export class DashboardService {
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Failed to execute cycle simulation.');
     }
+    // Invalidate caches on simulation
+    this.cache = {};
     return data;
   }
 
@@ -472,14 +606,49 @@ export class DashboardService {
    * Fetches the complete, cycle-centric timeline list.
    */
   static async fetchCyclesList(): Promise<any[]> {
-    const res = await fetch('/api/cycles', {
+    const cacheKey = 'cycles_list';
+    const cached = this.getCached<any[]>(cacheKey);
+
+    const fetchFresh = async () => {
+      const startTime = performance.now();
+      const res = await fetch('/api/cycles', {
+        headers: DashboardService.getHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error?.message || 'Failed to fetch cycles list.');
+      }
+      const duration = performance.now() - startTime;
+      this.trackLatency('fetchCyclesList', duration);
+      
+      const cycles = data.cycles || [];
+      this.setCached(cacheKey, cycles);
+      return cycles;
+    };
+
+    if (cached) {
+      fetchFresh().catch(() => {});
+      return cached;
+    }
+    return fetchFresh();
+  }
+
+  /**
+   * Fetches full single cycle details on demand.
+   */
+  static async fetchCycleDetails(cycleId: string): Promise<any> {
+    const startTime = performance.now();
+    const res = await fetch(`/api/cycles/${cycleId}`, {
       headers: DashboardService.getHeaders()
     });
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data?.error?.message || 'Failed to fetch cycles list.');
+      throw new Error(data?.error?.message || 'Failed to fetch cycle details.');
     }
-    return data.cycles || [];
+    const duration = performance.now() - startTime;
+    this.trackLatency('fetchCycleDetails', duration);
+
+    return data.cycle;
   }
 }
 

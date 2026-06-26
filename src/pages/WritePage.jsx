@@ -78,9 +78,18 @@ export default function WritePage({ user, profile, onSignOut }) {
         if (result && result.entries && result.entries.length > 0) {
           const latestEntry = result.entries[0];
           const reflection = latestEntry.reflection;
-          if (reflection && reflection.status === 'ready' && reflection.closing_question) {
+          
+          const entryDate = new Date(latestEntry.created_at);
+          const today = new Date();
+          const isToday = entryDate.getDate() === today.getDate() &&
+                          entryDate.getMonth() === today.getMonth() &&
+                          entryDate.getFullYear() === today.getFullYear();
+
+          if (reflection && reflection.status === 'ready' && reflection.closing_question && !isToday) {
             setReflectionToAnswer(reflection);
             setReflectionAnswer(reflection.reflection_answer || '');
+          } else {
+            setReflectionToAnswer(null);
           }
         }
 

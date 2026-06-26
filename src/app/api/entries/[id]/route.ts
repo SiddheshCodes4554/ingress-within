@@ -88,7 +88,8 @@ export async function GET(
         .from('vocab_words')
         .select('word')
         .eq('user_id', authUser.userId)
-        .eq('cycle_id', entry.cycle_id);
+        .eq('cycle_id', entry.cycle_id)
+        .gte('frequency', 2);
       vocabWords = vocabRes ? vocabRes.map((v: any) => v.word) : [];
     }
 
@@ -101,7 +102,8 @@ export async function GET(
           .from('vocab_words')
           .select('word')
           .eq('user_id', authUser.userId)
-          .eq('cycle_id', previousEntry.cycle_id);
+          .eq('cycle_id', previousEntry.cycle_id)
+          .gte('frequency', 2);
         prevVocabWords = prevVocabRes ? prevVocabRes.map((v: any) => v.word) : [];
       }
     }

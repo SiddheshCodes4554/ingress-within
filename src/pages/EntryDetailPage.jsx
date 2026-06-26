@@ -213,25 +213,6 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
                 "{entry.content}"
               </div>
             </div>
-
-            {/* Active Cycle Vocabulary (Moved to Left Column for better visual balance) */}
-            {reflection && reflection.vocabulary && reflection.vocabulary.length > 0 && (
-              <div className="bg-white rounded-xl border border-[#1E2A2E]/5 p-6 shadow-[0_8px_32px_rgba(30,42,46,0.02)] space-y-4">
-                <div className="border-b border-[#1E2A2E]/5 pb-3">
-                  <h3 className="font-serif text-[15.5px] text-primary font-normal flex items-center gap-2">
-                    <Smile size={16} className="text-secondary animate-pulse" />
-                    <span>Active Cycle Vocabulary</span>
-                  </h3>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  {reflection.vocabulary.map((w, idx) => (
-                    <span key={idx} className="text-[10.5px] bg-[#8DBFB4]/12 text-primary px-3 py-1 rounded font-medium hover:bg-[#8DBFB4]/20 transition-colors uppercase tracking-wider font-semibold">
-                      {w}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Right Column: AI Reflection & Continuity */}

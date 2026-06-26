@@ -25,6 +25,9 @@ import {
 } from 'lucide-react';
 import { DashboardService } from '../services/dashboardService';
 import DashboardNavbar from '../components/DashboardNavbar';
+import { ThreadResponseModal } from '../components/ThreadResponseModal';
+import { ReflectionModal } from '../components/ReflectionModal';
+import { AssessmentModal } from '../components/AssessmentModal';
 
 export default function DashboardPage({ user, profile, onSignOut }) {
   const [isLoading, setIsLoading] = useState(true);
@@ -50,6 +53,7 @@ export default function DashboardPage({ user, profile, onSignOut }) {
   // Reflection response states
   const [reflectionModalOpen, setReflectionModalOpen] = useState(false);
   const [reflectionToAnswer, setReflectionToAnswer] = useState(null);
+  const [reflectionEntry, setReflectionEntry] = useState(null);
   const [reflectionAnswerText, setReflectionAnswerText] = useState('');
   const [isSavingReflection, setIsSavingReflection] = useState(false);
   const [reflectionSaveError, setReflectionSaveError] = useState(null);
@@ -64,77 +68,78 @@ export default function DashboardPage({ user, profile, onSignOut }) {
   const [isSubmittingAssessment, setIsSubmittingAssessment] = useState(false);
   const [assessmentError, setAssessmentError] = useState(null);
 
+  const loadCycleDetails = async (cycleId) => {
+    try {
+      const detailedCycle = await DashboardService.fetchCycleDetails(cycleId);
+      setCyclesList((prevList) => 
+        prevList.map((c) => (c.id === cycleId ? { ...c, ...detailedCycle } : c))
+      );
+    } catch (err) {
+      console.warn(`Failed to fetch details for cycle ${cycleId}:`, err);
+    }
+  };
+
   const loadData = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await DashboardService.fetchDashboardData();
+      const [result, sessionData, threads, vStats, cycleStatus, cycles] = await Promise.all([
+        DashboardService.fetchDashboardData(),
+        DashboardService.fetchActiveSession().catch(() => ({ exists: false })),
+        DashboardService.fetchActiveThreads().catch(() => []),
+        DashboardService.fetchVocabOverview().catch(() => null),
+        DashboardService.fetchCycleStatus().catch(() => ({ success: false })),
+        DashboardService.fetchCyclesList().catch(() => [])
+      ]);
+
       setData(result);
+      setDailySessionState(sessionData);
+      setThreadsList(threads);
+      setVocabStats(vStats);
 
       // Check for unanswered reflection on the most recent entry
       if (result && result.entries && result.entries.length > 0) {
         const latestEntry = result.entries[0];
         const reflection = latestEntry.reflection;
-        if (reflection && reflection.status === 'ready' && reflection.closing_question) {
+        
+        // Reflection is only open to answer starting the next day
+        const entryDate = new Date(latestEntry.created_at);
+        const today = new Date();
+        const isToday = entryDate.getDate() === today.getDate() &&
+                        entryDate.getMonth() === today.getMonth() &&
+                        entryDate.getFullYear() === today.getFullYear();
+
+        if (reflection && reflection.status === 'ready' && reflection.closing_question && !isToday) {
           setReflectionToAnswer(reflection);
+          setReflectionEntry(latestEntry);
           setReflectionAnswerText(reflection.reflection_answer || '');
         } else {
           setReflectionToAnswer(null);
+          setReflectionEntry(null);
         }
       } else {
         setReflectionToAnswer(null);
+        setReflectionEntry(null);
       }
+
+      if (cycleStatus.success && cycleStatus.hasCycle) {
+        setCycleInfo(cycleStatus.cycle);
+        setIsAssessmentGate(cycleStatus.isAssessmentGate);
+      } else {
+        setCycleInfo(null);
+        setIsAssessmentGate(false);
+      }
+
+      setCyclesList(cycles);
       
-      try {
-        const sessionData = await DashboardService.fetchActiveSession();
-        setDailySessionState(sessionData);
-      } catch (sErr) {
-        console.warn('Could not fetch active daily session, falling back to none:', sErr);
-        setDailySessionState({ exists: false });
-      }
-
-      try {
-        const threads = await DashboardService.fetchActiveThreads();
-        setThreadsList(threads);
-      } catch (tErr) {
-        console.warn('Could not fetch active threads, falling back to mock:', tErr);
-        setThreadsList(result.threads);
-      }
-
-      try {
-        const vStats = await DashboardService.fetchVocabOverview();
-        setVocabStats(vStats);
-      } catch (vErr) {
-        console.warn('Could not fetch vocab overview, falling back to none:', vErr);
-      }
-
-      try {
-        const cycleStatus = await DashboardService.fetchCycleStatus();
-        if (cycleStatus.success && cycleStatus.hasCycle) {
-          setCycleInfo(cycleStatus.cycle);
-          setIsAssessmentGate(cycleStatus.isAssessmentGate);
-        } else {
-          setCycleInfo(null);
-          setIsAssessmentGate(false);
-        }
-      } catch (cErr) {
-        console.warn('Could not fetch cycle status:', cErr);
-      }
-
-      try {
-        const cycles = await DashboardService.fetchCyclesList();
-        setCyclesList(cycles);
-        
-        // Auto-expand the active cycle or the first one
-        const activeCycle = cycles.find((c) => c.status === 'ACTIVE');
-        if (activeCycle) {
-          setExpandedCycles((prev) => ({ ...prev, [activeCycle.id]: true }));
-        } else if (cycles.length > 0) {
-          setExpandedCycles((prev) => ({ ...prev, [cycles[0].id]: true }));
-        }
-      } catch (cyListErr) {
-        console.warn('Could not fetch cycles list:', cyListErr);
-        setCyclesList([]);
+      // Auto-expand the active cycle or the first one and fetch its details
+      const activeCycle = cycles.find((c) => c.status === 'ACTIVE');
+      if (activeCycle) {
+        setExpandedCycles((prev) => ({ ...prev, [activeCycle.id]: true }));
+        loadCycleDetails(activeCycle.id);
+      } else if (cycles.length > 0) {
+        setExpandedCycles((prev) => ({ ...prev, [cycles[0].id]: true }));
+        loadCycleDetails(cycles[0].id);
       }
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
@@ -144,9 +149,65 @@ export default function DashboardPage({ user, profile, onSignOut }) {
     }
   };
 
-  // Load data on mount
+  // Load data on mount and subscribe to background SWR updates
   useEffect(() => {
     loadData();
+
+    const unsubDashboard = DashboardService.subscribe('dashboard_data', (freshData) => {
+      setData(freshData);
+      if (freshData && freshData.entries && freshData.entries.length > 0) {
+        const latestEntry = freshData.entries[0];
+        const reflection = latestEntry.reflection;
+        
+        const entryDate = new Date(latestEntry.created_at);
+        const today = new Date();
+        const isToday = entryDate.getDate() === today.getDate() &&
+                        entryDate.getMonth() === today.getMonth() &&
+                        entryDate.getFullYear() === today.getFullYear();
+
+        if (reflection && reflection.status === 'ready' && reflection.closing_question && !isToday) {
+          setReflectionToAnswer(reflection);
+          setReflectionEntry(latestEntry);
+          setReflectionAnswerText(reflection.reflection_answer || '');
+        } else {
+          setReflectionToAnswer(null);
+          setReflectionEntry(null);
+        }
+      } else {
+        setReflectionToAnswer(null);
+        setReflectionEntry(null);
+      }
+    });
+
+    const unsubVocab = DashboardService.subscribe('vocab_overview', (freshVocab) => {
+      setVocabStats(freshVocab);
+    });
+
+    const unsubCycleStatus = DashboardService.subscribe('cycle_status', (freshStatus) => {
+      if (freshStatus.success && freshStatus.hasCycle) {
+        setCycleInfo(freshStatus.cycle);
+        setIsAssessmentGate(freshStatus.isAssessmentGate);
+      }
+    });
+
+    const unsubCyclesList = DashboardService.subscribe('cycles_list', (freshCycles) => {
+      setCyclesList((prevList) => {
+        return freshCycles.map((freshCycle) => {
+          const existingCycle = prevList.find(c => c.id === freshCycle.id);
+          if (existingCycle && existingCycle.entries !== null) {
+            return { ...freshCycle, ...existingCycle };
+          }
+          return freshCycle;
+        });
+      });
+    });
+
+    return () => {
+      unsubDashboard();
+      unsubVocab();
+      unsubCycleStatus();
+      unsubCyclesList();
+    };
   }, []);
 
   // Compute time-of-day greeting
@@ -216,6 +277,21 @@ export default function DashboardPage({ user, profile, onSignOut }) {
     setReflectionSaveError(null);
   };
 
+  const handleOpenReflectionForEntry = (entry) => {
+    const virtualReflection = {
+      id: entry.reflectionId,
+      reflection_text: entry.reflectionText,
+      closing_question: entry.closingQuestion,
+      reflection_answer: entry.reflectionAnswer,
+      status: entry.reflectionStatus === 'Pending Response' ? 'ready' : 'completed'
+    };
+    setReflectionToAnswer(virtualReflection);
+    setReflectionEntry(entry);
+    setReflectionAnswerText(entry.reflectionAnswer || '');
+    setReflectionModalOpen(true);
+    setReflectionSaveError(null);
+  };
+
   const handleSaveReflection = async () => {
     if (!reflectionAnswerText.trim() || !reflectionToAnswer) return;
     setIsSavingReflection(true);
@@ -227,6 +303,13 @@ export default function DashboardPage({ user, profile, onSignOut }) {
       setReflectionAnswerText('');
       const result = await DashboardService.fetchDashboardData();
       setData(result);
+      
+      // Reload details for all currently expanded cycles to ensure UI matches
+      Object.keys(expandedCycles).forEach(cycleId => {
+        if (expandedCycles[cycleId]) {
+          loadCycleDetails(cycleId);
+        }
+      });
     } catch (err) {
       console.error('Failed to save reflection answer:', err);
       setReflectionSaveError(err.message || String(err));
@@ -235,11 +318,19 @@ export default function DashboardPage({ user, profile, onSignOut }) {
     }
   };
 
-  const toggleCycleExpanded = (cycleId) => {
+  const toggleCycleExpanded = async (cycleId) => {
+    const isExpanding = !expandedCycles[cycleId];
     setExpandedCycles((prev) => ({
       ...prev,
-      [cycleId]: !prev[cycleId]
+      [cycleId]: isExpanding
     }));
+
+    if (isExpanding) {
+      const cycle = cyclesList.find((c) => c.id === cycleId);
+      if (cycle && cycle.entries === null) {
+        await loadCycleDetails(cycleId);
+      }
+    }
   };
 
   const toggleCycleEntriesExpanded = (cycleId) => {
@@ -749,10 +840,15 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                             {/* Cycle Entries Timeline */}
                             <div className="space-y-3">
                               <div className="text-[9px] font-bold uppercase tracking-widest text-secondary pl-1">
-                                Cycle Writings ({cycle.entries.length})
+                                Cycle Writings ({cycle.entries_count})
                               </div>
                                                     <div className="space-y-3.5 pl-3 border-l border-[#1E2A2E]/10">
-                                {hasEntries ? (
+                                {cycle.entries === null ? (
+                                  <div className="text-[11px] text-mid italic py-3 pl-1 flex items-center gap-2">
+                                    <div className="w-3.5 h-3.5 border-2 border-secondary border-t-transparent rounded-full animate-spin" />
+                                    <span>Retrieving writings...</span>
+                                  </div>
+                                ) : hasEntries ? (
                                   (() => {
                                     const showAll = !!expandedCycleEntries[cycle.id];
                                     const visibleEntries = showAll ? cycle.entries : cycle.entries.slice(0, 5);
@@ -798,12 +894,28 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                                                       <span>Reflection Answered</span>
                                                     </span>
                                                   )}
-                                                  {entry.reflectionStatus === 'Pending Response' && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#8DBFB4]/15 text-[#1A5040]">
-                                                      <span className="w-1 h-1 rounded-full bg-[#8DBFB4]" />
-                                                      <span>Reflection Ready</span>
-                                                    </span>
-                                                  )}
+                                                  {entry.reflectionStatus === 'Pending Response' && (() => {
+                                                    const entryDate = new Date(entry.created_at);
+                                                    const today = new Date();
+                                                    const isToday = entryDate.getDate() === today.getDate() &&
+                                                                    entryDate.getMonth() === today.getMonth() &&
+                                                                    entryDate.getFullYear() === today.getFullYear();
+                                                    if (isToday) {
+                                                      return (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#f59e0b]/10 text-[#b45309]">
+                                                          <span className="w-1 h-1 rounded-full bg-[#f59e0b]" />
+                                                          <span>Compiling Continuity</span>
+                                                        </span>
+                                                      );
+                                                    } else {
+                                                      return (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#8DBFB4]/15 text-[#1A5040]">
+                                                          <span className="w-1 h-1 rounded-full bg-[#8DBFB4]" />
+                                                          <span>Reflection Ready</span>
+                                                        </span>
+                                                      );
+                                                    }
+                                                  })()}
                                                   {entry.reflectionStatus === 'Processing AI...' && (
                                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#f59e0b]/10 text-[#b45309] animate-pulse">
                                                       <span className="w-1 h-1 rounded-full bg-[#f59e0b]" />
@@ -818,11 +930,36 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                                                 "{snippet}"
                                               </p>
 
-                                              <div className="flex items-center justify-end text-[10px] font-bold uppercase tracking-widest text-secondary group-hover:text-primary transition-colors pt-1">
-                                                <span className="flex items-center gap-1">
-                                                  <span>Explore Details</span>
-                                                  <ArrowRight size={11} className="transform group-hover:translate-x-0.5 transition-transform" />
-                                                </span>
+                                              <div className="flex items-center justify-between pt-1 mt-1 border-t border-[#1E2A2E]/5">
+                                                <div>
+                                                  {entry.reflectionStatus === 'Pending Response' && (() => {
+                                                    const entryDate = new Date(entry.created_at);
+                                                    const today = new Date();
+                                                    const isToday = entryDate.getDate() === today.getDate() &&
+                                                                    entryDate.getMonth() === today.getMonth() &&
+                                                                    entryDate.getFullYear() === today.getFullYear();
+                                                    if (!isToday) {
+                                                      return (
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleOpenReflectionForEntry(entry);
+                                                          }}
+                                                          className="px-2.5 py-1.5 bg-[#8DBFB4]/12 hover:bg-[#8DBFB4]/20 text-[#1A5040] text-[9.5px] font-bold uppercase tracking-wider rounded transition-all cursor-pointer border-none"
+                                                        >
+                                                          Answer Reflection
+                                                        </button>
+                                                      );
+                                                    }
+                                                    return null;
+                                                  })()}
+                                                </div>
+                                                <div className="flex items-center justify-end text-[10px] font-bold uppercase tracking-widest text-secondary group-hover:text-primary transition-colors">
+                                                  <span className="flex items-center gap-1">
+                                                    <span>Explore Details</span>
+                                                    <ArrowRight size={11} className="transform group-hover:translate-x-0.5 transition-transform" />
+                                                  </span>
+                                                </div>
                                               </div>
                                             </div>
                                           );
@@ -1115,230 +1252,40 @@ export default function DashboardPage({ user, profile, onSignOut }) {
       </AnimatePresence>
 
       {/* MODAL WORKSPACE TO RESPOND TO THREAD */}
-      <AnimatePresence>
-        {activeThread && (
-          <div className="fixed inset-0 bg-[#1E2A2E]/40 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl max-w-[560px] w-full p-6 space-y-6 relative overflow-hidden max-h-[90vh] overflow-y-auto"
-            >
-              <button 
-                onClick={() => setActiveThread(null)}
-                className="absolute top-4 right-4 text-mid hover:text-primary cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-
-              <div className="space-y-4">
-                <div>
-                  <div className="text-[10px] uppercase font-bold tracking-widest text-secondary mb-1">Open Thread Question</div>
-                  <h3 className="font-serif italic text-lg text-primary leading-relaxed">
-                    "{activeThread.question}"
-                  </h3>
-                </div>
-
-                <div className="bg-mint-grey rounded-lg p-4 space-y-1 text-xs text-mid leading-relaxed">
-                  <div className="font-bold uppercase tracking-widest text-secondary text-[9px]">Context</div>
-                  <p>"{activeThread.context}"</p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold uppercase tracking-widest text-secondary">Your Reflection</label>
-                  <textarea 
-                    value={threadResponse}
-                    onChange={(e) => setThreadResponse(e.target.value)}
-                    placeholder="Write what is actually there — no structure, no editing."
-                    className="w-full min-h-[140px] border border-[#1E2A2E]/15 rounded-lg p-3 text-xs leading-relaxed outline-none focus:border-primary font-sans text-primary placeholder-mid/30"
-                  />
-                  <div className="text-[10px] text-mid italic">
-                    Your response feeds directly into your Day 28 report.
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <button 
-                    onClick={handleSaveThreadResponse}
-                    disabled={!threadResponse.trim() || isSavingThread}
-                    className="flex-1 py-2.5 bg-primary text-white hover:bg-[#2A3A3E] disabled:bg-primary/25 disabled:cursor-not-allowed rounded text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer"
-                  >
-                    {isSavingThread ? 'Saving...' : "That's what's there"}
-                  </button>
-                  <button 
-                    onClick={() => setActiveThread(null)}
-                    className="px-4 py-2.5 border border-[#1E2A2E]/15 rounded text-xs font-semibold text-mid hover:bg-mint-grey transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <ThreadResponseModal
+        isOpen={!!activeThread}
+        activeThread={activeThread}
+        onClose={() => setActiveThread(null)}
+        threadResponse={threadResponse}
+        setThreadResponse={setThreadResponse}
+        onSave={handleSaveThreadResponse}
+        isSaving={isSavingThread}
+      />
 
       {/* MODAL WORKSPACE TO RESPOND TO REFLECTION */}
-      <AnimatePresence>
-        {reflectionModalOpen && reflectionToAnswer && (
-          <div className="fixed inset-0 bg-[#1E2A2E]/40 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl max-w-[560px] w-full p-6 space-y-6 relative overflow-hidden max-h-[90vh] overflow-y-auto text-left"
-            >
-              <button 
-                onClick={() => setReflectionModalOpen(false)}
-                className="absolute top-4 right-4 text-mid hover:text-primary cursor-pointer border-none bg-transparent"
-              >
-                <X size={18} />
-              </button>
-
-              <div className="space-y-4">
-                <div>
-                  <div className="text-[10px] uppercase font-bold tracking-widest text-[#E0A898] mb-1">Continue Your Reflection</div>
-                  <h3 className="font-serif italic text-lg text-primary leading-relaxed">
-                    "{reflectionToAnswer.closing_question}"
-                  </h3>
-                </div>
-
-                {reflectionToAnswer.reflection_text && (
-                  <div className="bg-mint-grey rounded-lg p-4 space-y-1 text-xs text-mid leading-relaxed">
-                    <div className="font-bold uppercase tracking-widest text-secondary text-[9px]">AI Observation</div>
-                    <p>"{reflectionToAnswer.reflection_text}"</p>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold uppercase tracking-widest text-secondary">Your Answer</label>
-                  <textarea 
-                    value={reflectionAnswerText}
-                    onChange={(e) => setReflectionAnswerText(e.target.value)}
-                    placeholder="Write what is actually there — no structure, no editing."
-                    className="w-full min-h-[140px] border border-[#1E2A2E]/15 rounded-lg p-3 text-xs leading-relaxed outline-none focus:border-primary font-sans text-primary placeholder-mid/30"
-                  />
-                  {reflectionSaveError && (
-                    <div className="text-[11px] text-[#8a3020] font-medium">{reflectionSaveError}</div>
-                  )}
-                  <div className="text-[10px] text-mid italic">
-                    Your response is saved securely and supports your self-reflection journey.
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <button 
-                    onClick={handleSaveReflection}
-                    disabled={!reflectionAnswerText.trim() || isSavingReflection}
-                    className="flex-1 py-2.5 bg-primary text-white hover:bg-[#2A3A3E] disabled:bg-primary/25 disabled:cursor-not-allowed rounded text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border-none"
-                  >
-                    {isSavingReflection ? 'Saving...' : 'Save Reflection'}
-                  </button>
-                  <button 
-                    onClick={() => setReflectionModalOpen(false)}
-                    className="px-4 py-2.5 border border-[#1E2A2E]/15 rounded text-xs font-semibold text-mid hover:bg-mint-grey transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <ReflectionModal
+        isOpen={reflectionModalOpen}
+        reflectionToAnswer={reflectionToAnswer}
+        entryText={reflectionEntry?.content || reflectionEntry?.text}
+        onClose={() => setReflectionModalOpen(false)}
+        reflectionAnswerText={reflectionAnswerText}
+        setReflectionAnswerText={setReflectionAnswerText}
+        onSave={handleSaveReflection}
+        isSaving={isSavingReflection}
+        error={reflectionSaveError}
+      />
 
       {/* TRANSITION ASSESSMENT MODAL */}
-      <AnimatePresence>
-        {assessmentModalOpen && cycleInfo && (
-          <div className="fixed inset-0 bg-[#1E2A2E]/40 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl max-w-[560px] w-full p-6 space-y-6 relative overflow-hidden max-h-[90vh] overflow-y-auto text-left"
-            >
-              <button 
-                onClick={() => setAssessmentModalOpen(false)}
-                className="absolute top-4 right-4 text-mid hover:text-primary cursor-pointer border-none bg-transparent"
-              >
-                <X size={18} />
-              </button>
-
-              <div className="space-y-4">
-                <div>
-                  <div className="text-[10px] uppercase font-bold tracking-widest text-[#5A4A8A] mb-1">Cycle Transition Assessment</div>
-                  <h2 className="font-serif text-lg text-primary leading-snug">
-                    Complete Cycle {cycleInfo.cycleNumber} Integration
-                  </h2>
-                  <p className="text-xs text-mid leading-relaxed mt-1">
-                    Take a moment to arrive. These reflective inquiries help synthesize your pattern changes before provisioning your next active cycle container.
-                  </p>
-                </div>
-
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold uppercase tracking-widest text-secondary">
-                      1. What patterns of cognitive rigidity or avoidance did you notice during this cycle?
-                    </label>
-                    <textarea 
-                      value={assessmentAnswers.q1}
-                      onChange={(e) => setAssessmentAnswers(prev => ({ ...prev, q1: e.target.value }))}
-                      placeholder="Reflect on when you felt stuck, defensive, or depleted..."
-                      className="w-full min-h-[90px] border border-[#1E2A2E]/15 rounded-lg p-2.5 text-xs leading-relaxed outline-none focus:border-primary font-sans text-primary placeholder-mid/30"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold uppercase tracking-widest text-secondary">
-                      2. How has your relationship to your feelings shifted over the past 30 days?
-                    </label>
-                    <textarea 
-                      value={assessmentAnswers.q2}
-                      onChange={(e) => setAssessmentAnswers(prev => ({ ...prev, q2: e.target.value }))}
-                      placeholder="Reflect on emotional intensity, clarity, or emotional vocabulary shifts..."
-                      className="w-full min-h-[90px] border border-[#1E2A2E]/15 rounded-lg p-2.5 text-xs leading-relaxed outline-none focus:border-primary font-sans text-primary placeholder-mid/30"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold uppercase tracking-widest text-secondary">
-                      3. What is the focus or intention you want to carry into your next cycle?
-                    </label>
-                    <textarea 
-                      value={assessmentAnswers.q3}
-                      onChange={(e) => setAssessmentAnswers(prev => ({ ...prev, q3: e.target.value }))}
-                      placeholder="Set your intention for the next 30 days..."
-                      className="w-full min-h-[90px] border border-[#1E2A2E]/15 rounded-lg p-2.5 text-xs leading-relaxed outline-none focus:border-primary font-sans text-primary placeholder-mid/30"
-                    />
-                  </div>
-                  
-                  {assessmentError && (
-                    <div className="text-[11px] text-[#8a3020] font-medium bg-[#e0a898]/10 border border-[#e0a898]/30 rounded p-2.5">
-                      {assessmentError}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-3 pt-2 border-t border-[#1E2A2E]/5">
-                  <button 
-                    onClick={handleSaveAssessment}
-                    disabled={!assessmentAnswers.q1.trim() || !assessmentAnswers.q2.trim() || !assessmentAnswers.q3.trim() || isSubmittingAssessment}
-                    className="flex-1 py-2.5 bg-[#5A4A8A] text-white hover:bg-[#4A3B75] disabled:bg-[#5A4A8A]/25 disabled:cursor-not-allowed rounded text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border-none"
-                  >
-                    {isSubmittingAssessment ? 'Integrating learnings...' : 'Settle & Unlock Next Cycle'}
-                  </button>
-                  <button 
-                    onClick={() => setAssessmentModalOpen(false)}
-                    className="px-4 py-2.5 border border-[#1E2A2E]/15 rounded text-xs font-semibold text-mid hover:bg-mint-grey transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <AssessmentModal
+        isOpen={assessmentModalOpen}
+        cycleInfo={cycleInfo}
+        onClose={() => setAssessmentModalOpen(false)}
+        answers={assessmentAnswers}
+        setAnswers={setAssessmentAnswers}
+        onSave={handleSaveAssessment}
+        isSubmitting={isSubmittingAssessment}
+        error={assessmentError}
+      />
 
       {/* Save Error Warning Popup Modal */}
       <AnimatePresence>

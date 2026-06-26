@@ -22,6 +22,8 @@ export async function GET(request: NextRequest) {
     const isCrisis = request.nextUrl.searchParams.get('isCrisis');
     const startDate = request.nextUrl.searchParams.get('startDate');
     const endDate = request.nextUrl.searchParams.get('endDate');
+    const limit = request.nextUrl.searchParams.get('limit');
+    const offset = request.nextUrl.searchParams.get('offset');
 
     let query;
     let fallbackQuery;
@@ -74,6 +76,24 @@ export async function GET(request: NextRequest) {
     query = query.order('created_at', { ascending: false });
     fallbackQuery = fallbackQuery.order('created_at', { ascending: false });
 
+    if (limit) {
+      const parsedLimit = parseInt(limit);
+      if (!isNaN(parsedLimit)) {
+        query = query.limit(parsedLimit);
+        fallbackQuery = fallbackQuery.limit(parsedLimit);
+      }
+    }
+    if (offset) {
+      const parsedOffset = parseInt(offset);
+      if (!isNaN(parsedOffset)) {
+        const parsedLimit = limit ? parseInt(limit) : 20;
+        const from = parsedOffset;
+        const to = from + (parsedLimit - 1);
+        query = query.range(from, to);
+        fallbackQuery = fallbackQuery.range(from, to);
+      }
+    }
+
     let { data: entries, error } = await query;
 
     // Fallback if the database schema has relational join ambiguity
@@ -101,7 +121,8 @@ export async function GET(request: NextRequest) {
     const { data: vocabRes } = await supabase
       .from('vocab_words')
       .select('cycle_id, word')
-      .eq('user_id', authUser.userId);
+      .eq('user_id', authUser.userId)
+      .gte('frequency', 2);
 
     const formattedEntries = (entries || []).map((entry: any) => {
       // Normalize reflections (can be array or single object depending on PostgREST cardinality detection)

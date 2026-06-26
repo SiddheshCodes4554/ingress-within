@@ -177,11 +177,13 @@ export async function GET(request: NextRequest) {
     const uniqueDaysWritten = Array.from(new Set(entriesList.map(e => e.cycle_day || 1)));
     const daysCompleted = uniqueDaysWritten.length;
 
-    // Fetch all user entries to calculate total streak
+    // Fetch recent user entries to calculate total streak (limit to 200 to optimize performance)
     const { data: allUserEntries } = await supabase
       .from('entries')
-      .select('id, created_at')
-      .eq('user_id', userId);
+      .select('created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(200);
 
     const streak = calculateStreak(allUserEntries || []);
 

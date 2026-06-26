@@ -46,7 +46,8 @@ export async function GET(request: NextRequest) {
     const allWords = await supabase
       .from('vocab_words')
       .select('cycle_id, normalized_word, frequency')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .gte('frequency', 2);
 
     if (allWords.data) {
       allWords.data.forEach(w => {

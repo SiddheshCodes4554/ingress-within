@@ -104,7 +104,8 @@ export async function processVocabularyExtraction(jobData: {
       .from('vocab_words')
       .select('word, normalized_word, frequency')
       .eq('user_id', user_id)
-      .eq('cycle_id', entry.cycle_id);
+      .eq('cycle_id', entry.cycle_id)
+      .gte('frequency', 2);
 
     if (fetchWordsErr) {
       throw new Error(`Failed to fetch cycle words for clustering: ${fetchWordsErr.message}`);
