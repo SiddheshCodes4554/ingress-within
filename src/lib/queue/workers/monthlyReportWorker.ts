@@ -13,10 +13,10 @@ export async function processMonthlyReport(jobData: {
 
   console.log(`[Monthly Report Worker] Processing monthly report for user ${user_id} cycle ${cycle_id}`);
 
-  // 1. Fetch entries for the cycle
+  // 1. Fetch entries for the cycle (joining reflections)
   const { data: entries, error: entriesError } = await supabase
     .from('entries')
-    .select('*')
+    .select('*, reflections(*)')
     .eq('cycle_id', cycle_id)
     .eq('user_id', user_id)
     .order('cycle_day', { ascending: true });
@@ -144,11 +144,22 @@ export async function processMonthlyReport(jobData: {
     }
   }
 
-  // 8. Decrypt entries for AI Report Generation
+  // 8. Decrypt entries for AI Report Generation (including completed reflection answers)
   const formattedEntries = validEntries.map(e => {
     const text = decrypt(e.new_entry_text_encrypted, e.new_entry_text_iv) || e.content;
+    let content = text || '';
+
+    const rawReflection = e.reflections;
+    const reflection = Array.isArray(rawReflection)
+      ? (rawReflection[0] || null)
+      : (rawReflection || null);
+
+    if (reflection && reflection.status === 'completed' && reflection.reflection_answer) {
+      content += `\n[Reflection Question]: ${reflection.closing_question}\n[User Reflection Response]: ${reflection.reflection_answer}`;
+    }
+
     return {
-      content: text || '',
+      content: content,
       created_at: e.written_at || e.created_at
     };
   });

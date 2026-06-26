@@ -43,10 +43,10 @@ export async function processWeeklySummary(jobData: {
 
   const { id: actualSummaryId, day_start, day_end } = summaryRow;
 
-  // 2. Fetch all entries written during this weekly range
+  // 2. Fetch all entries written during this weekly range (joining reflections)
   const { data: entries, error: entriesError } = await supabase
     .from('entries')
-    .select('*')
+    .select('*, reflections(*)')
     .eq('cycle_id', cycle_id)
     .eq('user_id', user_id)
     .gte('cycle_day', day_start)
@@ -182,12 +182,23 @@ export async function processWeeklySummary(jobData: {
 
   const personalityContext = user?.personality_summary_text || undefined;
 
-  // 4. Decrypt and format entries
+  // 4. Decrypt and format entries (including completed reflection answers)
   const formattedEntries = (entries || [])
     .map(e => {
       const text = decrypt(e.new_entry_text_encrypted, e.new_entry_text_iv) || e.content;
+      let content = text || '';
+
+      const rawReflection = e.reflections;
+      const reflection = Array.isArray(rawReflection)
+        ? (rawReflection[0] || null)
+        : (rawReflection || null);
+
+      if (reflection && reflection.status === 'completed' && reflection.reflection_answer) {
+        content += `\n[Reflection Question]: ${reflection.closing_question}\n[User Reflection Response]: ${reflection.reflection_answer}`;
+      }
+
       return {
-        content: text || '',
+        content: content,
         created_at: e.written_at || e.created_at
       };
     })
