@@ -243,6 +243,7 @@ export async function processReflectionGeneration(jobData: { entry_id: string; u
       generated_at: new Date().toISOString()
     };
 
+    let reflectionId = existingReflection?.id || null;
     if (existingReflection) {
       const { error: updateError } = await supabase
         .from('reflections')
@@ -253,12 +254,54 @@ export async function processReflectionGeneration(jobData: { entry_id: string; u
         throw new Error(`Failed to update reflection row: ${updateError.message}`);
       }
     } else {
-      const { error: insertError } = await supabase
+      const { data: newRefl, error: insertError } = await supabase
         .from('reflections')
-        .insert(reflectionPayload);
+        .insert(reflectionPayload)
+        .select()
+        .single();
 
       if (insertError) {
         throw new Error(`Failed to insert reflection row: ${insertError.message}`);
+      }
+      reflectionId = newRefl.id;
+    }
+
+    if (reflectionId && reflectionPayload.closing_question) {
+      const { data: existingThread, error: threadCheckError } = await supabase
+        .from('threads')
+        .select('id')
+        .eq('reflection_id', reflectionId)
+        .maybeSingle();
+
+      if (threadCheckError) {
+        console.error(`[Reflection Worker] Error checking existing thread:`, threadCheckError);
+      } else if (!existingThread) {
+        const { error: threadInsertError } = await supabase
+          .from('threads')
+          .insert({
+            user_id,
+            cycle_id: entry.cycle_id,
+            reflection_id: reflectionId,
+            closing_question: reflectionPayload.closing_question,
+            status: 'Open'
+          });
+
+        if (threadInsertError) {
+          console.error(`[Reflection Worker] Failed to insert thread:`, threadInsertError.message);
+        } else {
+          console.log(`[Reflection Worker] Created open thread for reflection ${reflectionId}`);
+        }
+      } else {
+        const { error: threadUpdateError } = await supabase
+          .from('threads')
+          .update({
+            closing_question: reflectionPayload.closing_question
+          })
+          .eq('id', existingThread.id);
+
+        if (threadUpdateError) {
+          console.error(`[Reflection Worker] Failed to update thread:`, threadUpdateError.message);
+        }
       }
     }
 

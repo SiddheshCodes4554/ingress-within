@@ -52,6 +52,13 @@ export default function TestPage() {
   const [developerUser, setDeveloperUser] = useState(null);
   const [checkingCompliance, setCheckingCompliance] = useState(false);
 
+  // Threads Test State
+  const [testThreads, setTestThreads] = useState([]);
+  const [isThreadsLoading, setIsThreadsLoading] = useState(false);
+  const [threadsError, setThreadsError] = useState(null);
+  const [expandedTestThreads, setExpandedTestThreads] = useState({});
+  const [testThreadResponses, setTestThreadResponses] = useState({});
+
   // Cycle Engine State
   const [cycleStatus, setCycleStatus] = useState(null);
   const [cycleLoading, setCycleLoading] = useState(false);
@@ -139,9 +146,50 @@ export default function TestPage() {
     }
   };
 
+  const fetchTestThreads = async () => {
+    setIsThreadsLoading(true);
+    setThreadsError(null);
+    try {
+      const res = await fetch('/api/threads');
+      if (!res.ok) throw new Error('Failed to fetch test threads.');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message || 'Failed to fetch test threads.');
+      setTestThreads(data.threads || []);
+    } catch (err) {
+      console.error(err);
+      setThreadsError(err.message);
+    } finally {
+      setIsThreadsLoading(false);
+    }
+  };
+
+  const fetchTestThreadResponses = async (threadId) => {
+    try {
+      const res = await fetch(`/api/threads/${threadId}`);
+      if (!res.ok) throw new Error('Failed to fetch thread responses.');
+      const data = await res.json();
+      setTestThreadResponses(prev => ({
+        ...prev,
+        [threadId]: data.responses || []
+      }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const toggleTestThreadExpand = async (id) => {
+    const nextState = !expandedTestThreads[id];
+    setExpandedTestThreads(prev => ({ ...prev, [id]: nextState }));
+    if (nextState && !testThreadResponses[id]) {
+      await fetchTestThreadResponses(id);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'history') {
       fetchHistoryEntries();
+    } else if (activeTab === 'threads') {
+      fetchTestThreads();
     }
   }, [activeTab]);
 
@@ -565,6 +613,16 @@ export default function TestPage() {
             }`}
           >
             Entry History
+          </button>
+          <button
+            onClick={() => setActiveTab('threads')}
+            className={`px-6 py-2.5 font-sans text-xs font-bold uppercase tracking-wider border-b-2 cursor-pointer transition-all ${
+              activeTab === 'threads'
+                ? 'border-secondary text-primary font-semibold'
+                : 'border-transparent text-mid hover:text-primary'
+            }`}
+          >
+            Threads Testing
           </button>
           <button
             onClick={() => setActiveTab('performance')}
@@ -2297,6 +2355,109 @@ export default function TestPage() {
                 </div>
               </div>
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'threads' && (
+          <motion.div
+            key="threads-view"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="space-y-6 text-left"
+          >
+            <div className="border-b border-primary/5 pb-3">
+              <h2 className="font-serif text-xl font-normal text-primary">Threads Testing</h2>
+              <p className="text-xs text-mid text-left">Displaying all active and answered threads with status, scoring details, and response logs.</p>
+            </div>
+
+            {isThreadsLoading ? (
+              <div className="text-center py-10 space-y-2">
+                <Loader className="w-6 h-6 animate-spin text-secondary mx-auto" />
+                <span className="text-xs font-serif italic text-mid/60">Fetching test threads...</span>
+              </div>
+            ) : threadsError ? (
+              <div className="bg-[#fef2f2] border border-red-200 text-red-700 p-4 rounded-xl text-xs">
+                <strong>Error:</strong> {threadsError}
+              </div>
+            ) : testThreads.length === 0 ? (
+              <div className="bg-white rounded-premium border border-primary/5 p-8 text-center text-xs text-mid italic">
+                No threads found in database. Create reflections first.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {testThreads.map(t => {
+                  const isExpanded = !!expandedTestThreads[t.id];
+                  const resps = testThreadResponses[t.id] || [];
+
+                  return (
+                    <div key={t.id} className="bg-white rounded-xl border border-primary/5 p-5 shadow-xs space-y-3">
+                      <div className="flex justify-between items-center flex-wrap gap-2 text-xs">
+                        <div className="flex gap-2 items-center">
+                          <span className="font-mono bg-mint-grey px-2 py-0.5 rounded text-[10px] text-secondary font-bold">
+                            Cycle {t.cycle_number}
+                          </span>
+                          <span className="font-semibold text-primary">Thread ID: {t.id}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            t.status === 'Open'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {t.status}
+                          </span>
+                          <button
+                            onClick={() => toggleTestThreadExpand(t.id)}
+                            className="text-secondary hover:text-primary transition-colors text-xs font-semibold underline bg-transparent border-none cursor-pointer"
+                          >
+                            {isExpanded ? 'Hide Responses' : 'View Responses'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="bg-mint-grey/25 p-3 rounded-lg border border-primary/5 space-y-1">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-mid/60">Closing Question</div>
+                        <div className="text-xs font-semibold text-primary italic font-serif">"{t.closing_question}"</div>
+                      </div>
+
+                      {t.draft_response && (
+                        <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg text-xs text-blue-800">
+                          <strong className="block text-[9px] uppercase tracking-wider text-blue-600 mb-0.5">Saved Draft:</strong>
+                          "{t.draft_response}"
+                        </div>
+                      )}
+
+                      {isExpanded && (
+                        <div className="pt-2 border-t border-primary/5 space-y-3">
+                          <h4 className="text-[10px] font-bold uppercase tracking-wider text-secondary">Thread Responses ({resps.length})</h4>
+                          {resps.length === 0 ? (
+                            <p className="text-[11px] text-mid italic pl-2">No responses logged yet.</p>
+                          ) : (
+                            <div className="space-y-3 pl-3 border-l border-primary/10">
+                              {resps.map((resp, i) => (
+                                <div key={resp.id} className="text-xs space-y-1 bg-mint-grey/10 p-2.5 rounded border border-primary/5">
+                                  <div className="flex justify-between items-center text-[10px] font-semibold text-mid/70">
+                                    <span>Response #{i+1} · {new Date(resp.created_at).toLocaleString()}</span>
+                                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${
+                                      resp.used_for_scoring
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : 'bg-primary/5 text-mid/40'
+                                    }`}>
+                                      {resp.used_for_scoring ? 'USED FOR SCORING' : 'HISTORICAL'}
+                                    </span>
+                                  </div>
+                                  <p className="font-serif italic text-primary">"{resp.response_text}"</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </motion.div>
         )}
 

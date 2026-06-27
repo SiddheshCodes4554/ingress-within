@@ -15,7 +15,9 @@ import {
   Sparkle,
   BookOpen,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ArrowDown,
+  Loader
 } from 'lucide-react';
 import DashboardNavbar from '../components/DashboardNavbar';
 
@@ -42,6 +44,12 @@ export default function FounderTestPage() {
   const [expandedEntries, setExpandedEntries] = useState({});
   const [expandedCycles, setExpandedCycles] = useState({});
 
+  // Reflection Threads Tab States
+  const [testThreads, setTestThreads] = useState([]);
+  const [isThreadsLoading, setIsThreadsLoading] = useState(false);
+  const [threadsError, setThreadsError] = useState(null);
+  const [testThreadResponses, setTestThreadResponses] = useState({});
+
   const toggleCycleExpand = (cycleNum) => {
     setExpandedCycles(prev => ({
       ...prev,
@@ -66,9 +74,45 @@ export default function FounderTestPage() {
     }
   };
 
+  const fetchTestThreadsAndResponses = async () => {
+    setIsThreadsLoading(true);
+    setThreadsError(null);
+    try {
+      const res = await fetch('/api/threads');
+      if (!res.ok) throw new Error('Failed to fetch threads.');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message || 'Failed to fetch threads.');
+      
+      const loadedThreads = data.threads || [];
+      setTestThreads(loadedThreads);
+
+      // Load responses for all threads concurrently
+      const responsesMap = {};
+      await Promise.all(loadedThreads.map(async (t) => {
+        try {
+          const detailRes = await fetch(`/api/threads/${t.id}`);
+          if (detailRes.ok) {
+            const detailData = await detailRes.json();
+            responsesMap[t.id] = detailData.responses || [];
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }));
+      setTestThreadResponses(responsesMap);
+    } catch (err) {
+      console.error(err);
+      setThreadsError(err.message);
+    } finally {
+      setIsThreadsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'history') {
       fetchHistoryEntries();
+    } else if (activeTab === 'threads') {
+      fetchTestThreadsAndResponses();
     }
   }, [activeTab]);
 
@@ -256,6 +300,16 @@ export default function FounderTestPage() {
             }`}
           >
             Historical Review
+          </button>
+          <button
+            onClick={() => setActiveTab('threads')}
+            className={`px-6 py-2.5 font-sans text-xs font-bold uppercase tracking-wider border-b-2 cursor-pointer transition-all ${
+              activeTab === 'threads'
+                ? 'border-secondary text-primary font-semibold'
+                : 'border-transparent text-mid hover:text-primary'
+            }`}
+          >
+            Reflection Threads
           </button>
         </div>
 
@@ -959,6 +1013,124 @@ export default function FounderTestPage() {
                     );
                   });
                 })()}
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {activeTab === 'threads' && (
+          <motion.div
+            key="founder-threads-view"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6 text-left"
+          >
+            <div className="border-b border-primary/5 pb-3">
+              <h2 className="font-serif text-xl font-normal text-primary">Reflection Threads</h2>
+              <p className="text-xs text-mid text-left">Chronological history of self-reflection questions, user answers, and scoring eligibility status.</p>
+            </div>
+
+            {isThreadsLoading ? (
+              <div className="flex justify-center items-center py-12 gap-2 text-mid">
+                <Loader className="w-5 h-5 animate-spin text-secondary" />
+                <span className="text-xs font-serif italic">Loading threads...</span>
+              </div>
+            ) : threadsError ? (
+              <div className="bg-accent/10 border border-accent/20 text-[#8a3020] p-4 rounded-xl text-xs">
+                {threadsError}
+              </div>
+            ) : testThreads.length === 0 ? (
+              <div className="bg-white rounded-premium border border-primary/5 p-8 text-center text-xs text-mid italic">
+                No reflection threads recorded. Write a journal entry to start.
+              </div>
+            ) : (
+              <div className="space-y-8 max-w-[640px] mx-auto pt-4">
+                {testThreads.map(t => {
+                  const resps = testThreadResponses[t.id] || [];
+
+                  return (
+                    <div key={t.id} className="relative bg-white rounded-premium border border-primary/5 p-6 shadow-xs space-y-5">
+                      {/* Reflection */}
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-mid/60 font-sans">Reflection Observation</span>
+                        <div className="text-xs font-serif leading-relaxed text-primary italic bg-mint-grey/25 p-3 rounded-lg border border-primary/5">
+                          "{t.reflection_text || 'Self-reflection observation context.'}"
+                        </div>
+                      </div>
+
+                      <div className="flex justify-center select-none text-mid/20">
+                        <ArrowDown size={14} />
+                      </div>
+
+                      {/* Question */}
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-mid/60 font-sans">Closing Question</span>
+                        <h3 className="font-serif text-sm font-semibold text-primary pl-1">
+                          {t.closing_question}
+                        </h3>
+                      </div>
+
+                      <div className="flex justify-center select-none text-mid/20">
+                        <ArrowDown size={14} />
+                      </div>
+
+                      {/* Thread Response */}
+                      <div className="space-y-2">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-mid/60 font-sans">User Responses</span>
+                        {resps.length === 0 ? (
+                          <div className="text-xs font-serif italic text-mid/50 pl-1">Unanswered</div>
+                        ) : (
+                          <div className="space-y-3 pl-3 border-l border-primary/10">
+                            {resps.map((resp) => (
+                              <div key={resp.id} className="space-y-1">
+                                <div className="text-[9px] text-mid/50 font-semibold font-sans">
+                                  Logged {new Date(resp.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} at {new Date(resp.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                                <p className="text-xs font-serif italic text-primary font-semibold">
+                                  "{resp.response_text}"
+                                </p>
+                                
+                                {/* Used In Today's Scoring */}
+                                <div className="pt-1 select-none">
+                                  {resp.used_for_scoring ? (
+                                    <span className="inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wider text-secondary bg-[#8DBFB4]/12 px-2 py-0.5 rounded font-sans">
+                                      <CheckCircle2 size={9} /> Used In Today's Scoring
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wider text-mid/40 bg-primary/5 px-2 py-0.5 rounded font-sans">
+                                      Historical Response
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex justify-center select-none text-mid/20">
+                        <ArrowDown size={14} />
+                      </div>
+
+                      {/* Thread Status */}
+                      <div className="flex justify-between items-center pt-2 border-t border-primary/5 text-xs select-none">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-mid/60 font-sans">Thread Status:</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider font-sans ${
+                            t.status === 'Open'
+                              ? 'bg-[#e0a898]/12 text-[#8a3020]'
+                              : 'bg-[#8DBFB4]/12 text-secondary-dark'
+                          }`}>
+                            {t.status}
+                          </span>
+                        </div>
+                        <span className="text-[9px] text-mid/50 font-sans font-semibold">
+                          Cycle {t.cycle_number}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </motion.div>

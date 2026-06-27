@@ -29,8 +29,21 @@ export async function processEntryScoring(jobData: { entry_id: string; user_id: 
 
   const personalityContext = user?.personality_summary_text || null;
 
-  // 3. Decrypt texts
-  const reflectionText = decrypt(entry.reflection_text_encrypted, entry.reflection_text_iv);
+  // 3. Load latest thread response designated for scoring
+  const { data: latestResponse, error: latestRespError } = await supabase
+    .from('thread_responses')
+    .select('response_text')
+    .eq('user_id', user_id)
+    .eq('used_for_scoring', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (latestRespError) {
+    console.error(`[Entry Scoring Worker] Error fetching latest thread response:`, latestRespError);
+  }
+
+  const reflectionText = latestResponse?.response_text || null;
   const newEntryText = decrypt(entry.new_entry_text_encrypted, entry.new_entry_text_iv) || entry.content;
 
   const hasReflection = !!(reflectionText && reflectionText.trim());

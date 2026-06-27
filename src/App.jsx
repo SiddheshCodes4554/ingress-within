@@ -21,6 +21,7 @@ const VocabPage = lazy(() => import('./pages/VocabPage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
 const SessionFlowPage = lazy(() => import('./pages/SessionFlowPage'));
 const ThreadDetailPage = lazy(() => import('./pages/ThreadDetailPage'));
+const ThreadsPage = lazy(() => import('./pages/ThreadsPage'));
 const EntryDetailPage = lazy(() => import('./pages/EntryDetailPage'));
 const TestPage = (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_TEST_PAGE === 'true')
   ? lazy(() => import('./pages/TestPage'))
@@ -333,6 +334,9 @@ export default function App() {
       } else if (path.startsWith('/session')) {
         setCurrentRoute('session');
         window.scrollTo(0, 0);
+      } else if (path === '/threads' || path === '/threads/') {
+        setCurrentRoute('threads');
+        window.scrollTo(0, 0);
       } else if (path.startsWith('/thread/')) {
         setCurrentRoute('thread');
         window.scrollTo(0, 0);
@@ -457,6 +461,8 @@ export default function App() {
         return <SupportPage />;
       case 'session':
         return <SessionFlowPage user={user} profile={profile} onSignOut={handleSignOut} />;
+      case 'threads':
+        return <ThreadsPage user={user} profile={profile} onSignOut={handleSignOut} />;
       case 'thread': {
         const threadId = window.location.pathname.split('/thread/')[1]?.replace(/\/$/, '') || '';
         return <ThreadDetailPage user={user} profile={profile} threadId={threadId} onSignOut={handleSignOut} />;

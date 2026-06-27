@@ -368,6 +368,22 @@ export class DashboardService {
   }
 
   /**
+   * Saves a draft response to a thread.
+   */
+  static async saveThreadDraft(threadId: string, draft: string): Promise<any> {
+    const res = await fetch(`/api/threads/${threadId}`, {
+      method: 'PATCH',
+      headers: DashboardService.getHeaders(),
+      body: JSON.stringify({ draft })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to save thread draft.');
+    }
+    return data.draft_response;
+  }
+
+  /**
    * Fetches the user's active or completed daily session for today.
    */
   static async fetchActiveSession(): Promise<any> {

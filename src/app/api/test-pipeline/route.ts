@@ -709,10 +709,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'db-compliance-check') {
-      const [reflectionsCheck, entriesCheck, assessmentsCheck] = await Promise.all([
+      const [reflectionsCheck, entriesCheck, assessmentsCheck, threadsCheck, responsesCheck] = await Promise.all([
         supabase.from('reflections').select('closing_question, classification').limit(1),
         supabase.from('entries').select('arc_scoring_note').limit(1),
-        supabase.from('assessments').select('dominant_dimension').limit(1)
+        supabase.from('assessments').select('dominant_dimension').limit(1),
+        supabase.from('threads').select('id, user_id, cycle_id, reflection_id, closing_question, status, draft_response, created_at, answered_at').limit(1),
+        supabase.from('thread_responses').select('id, thread_id, user_id, response_text, created_at, used_for_scoring').limit(1)
       ]);
 
       return NextResponse.json({
@@ -723,7 +725,11 @@ export async function POST(request: NextRequest) {
           entries: !entriesCheck.error,
           entriesError: entriesCheck.error?.message || null,
           assessments: !assessmentsCheck.error,
-          assessmentsError: assessmentsCheck.error?.message || null
+          assessmentsError: assessmentsCheck.error?.message || null,
+          threads: !threadsCheck.error,
+          threadsError: threadsCheck.error?.message || null,
+          thread_responses: !responsesCheck.error,
+          thread_responsesError: responsesCheck.error?.message || null
         }
       });
     }

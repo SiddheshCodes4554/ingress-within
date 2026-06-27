@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../../lib/db';
 import { getAuthenticatedUser } from '../../../../lib/auth-helper';
+import { decrypt } from '../../../../lib/encryption';
 
 type RouteContext = {
   params: Promise<{ id: string }>
 }
 
 /**
- * GET /api/threads/[id]: Fetches thread details and its response history.
+ * GET /api/threads/[id]: Fetches thread details, decrypted parent entry, and response history.
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
@@ -21,10 +22,28 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const { id: threadId } = await context.params;
 
-    // 1. Fetch thread details from open_threads table
+    // Fetch thread, joining reflections and entries
     const { data: thread, error: threadError } = await supabase
-      .from('open_threads')
-      .select('*')
+      .from('threads')
+      .select(`
+        *,
+        reflections (
+          id,
+          reflection_text,
+          entry_id,
+          entries (
+            id,
+            content,
+            new_entry_text_encrypted,
+            new_entry_text_iv,
+            written_at,
+            cycle_day
+          )
+        ),
+        cycles (
+          cycle_number
+        )
+      `)
       .eq('id', threadId)
       .eq('user_id', authUser.userId)
       .maybeSingle();
@@ -44,21 +63,35 @@ export async function GET(request: NextRequest, context: RouteContext) {
       );
     }
 
-    // Map fields for frontend compatibility
+    // Decrypt the original journal entry text
+    const parentEntry = thread.reflections?.entries;
+    let originalEntryText = '';
+    if (parentEntry) {
+      originalEntryText = decrypt(parentEntry.new_entry_text_encrypted, parentEntry.new_entry_text_iv) || parentEntry.content || '';
+    }
+
+    // Map thread details for frontend
     const mappedThread = {
       id: thread.id,
       user_id: thread.user_id,
       cycle_id: thread.cycle_id,
-      source_summary_id: thread.source_summary_id,
-      question: thread.question,
-      origin: thread.origin_context || 'Self-Reflection',
-      status: thread.status === 'open' ? 'NEW' : thread.status.toUpperCase(),
+      cycle_number: thread.cycles?.cycle_number || 1,
+      reflection_id: thread.reflection_id,
+      reflection_text: thread.reflections?.reflection_text || '',
+      closing_question: thread.closing_question,
+      status: thread.status,
+      draft_response: thread.draft_response || '',
       created_at: thread.created_at,
-      addressed_at: thread.addressed_at,
-      addressed_entry_id: thread.addressed_entry_id
+      answered_at: thread.answered_at,
+      original_entry: parentEntry ? {
+        id: parentEntry.id,
+        content: originalEntryText,
+        written_at: parentEntry.written_at,
+        cycle_day: parentEntry.cycle_day
+      } : null
     };
 
-    // 2. Fetch previous responses for this thread
+    // Fetch previous responses for this thread
     const { data: responses, error: responsesError } = await supabase
       .from('thread_responses')
       .select('*')
@@ -74,10 +107,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
       );
     }
 
+    const mappedResponses = (responses || []).map((r: any) => ({
+      id: r.id,
+      thread_id: r.thread_id,
+      user_id: r.user_id,
+      response: r.response_text,
+      response_text: r.response_text,
+      created_at: r.created_at,
+      used_for_scoring: r.used_for_scoring
+    }));
+
     return NextResponse.json({
       success: true,
       thread: mappedThread,
-      responses: responses || []
+      responses: mappedResponses
     });
 
   } catch (error) {
@@ -116,7 +159,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // 1. Confirm thread exists and belongs to user
     const { data: thread, error: threadError } = await supabase
-      .from('open_threads')
+      .from('threads')
       .select('*')
       .eq('id', threadId)
       .eq('user_id', authUser.userId)
@@ -129,13 +172,28 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    // 2. Insert new thread response
+    // 2. Automatically set used_for_scoring = false for all previous thread responses of the user
+    const { error: updateOldResponsesError } = await supabase
+      .from('thread_responses')
+      .update({ used_for_scoring: false })
+      .eq('user_id', authUser.userId);
+
+    if (updateOldResponsesError) {
+      console.error('Failed to disable older responses for scoring:', updateOldResponsesError);
+      return NextResponse.json(
+        { error: { code: 'DATABASE_ERROR', message: 'Failed to update scoring flags.' } },
+        { status: 500 }
+      );
+    }
+
+    // 3. Insert new response with used_for_scoring = true
     const { data: newResponse, error: responseError } = await supabase
       .from('thread_responses')
       .insert({
         thread_id: threadId,
         user_id: authUser.userId,
-        response: response.trim()
+        response_text: response.trim(),
+        used_for_scoring: true
       })
       .select()
       .single();
@@ -148,25 +206,97 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    // 3. Update thread status (transition open/NEW or RETURNED to active/ACTIVE)
-    if (thread.status === 'open' || thread.status === 'NEW' || thread.status === 'RETURNED') {
-      const { error: updateError } = await supabase
-        .from('open_threads')
-        .update({ status: 'active' })
-        .eq('id', threadId);
+    // 4. Update thread status to 'Answered' and set answered_at = NOW() and clear draft_response
+    const { error: updateThreadError } = await supabase
+      .from('threads')
+      .update({
+        status: 'Answered',
+        answered_at: new Date().toISOString(),
+        draft_response: null
+      })
+      .eq('id', threadId);
 
-      if (updateError) {
-        console.warn('Failed to transition thread status to active:', updateError);
-      }
+    if (updateThreadError) {
+      console.warn('Failed to transition thread status to Answered:', updateThreadError);
     }
 
     return NextResponse.json({
       success: true,
-      response: newResponse
+      response: {
+        id: newResponse.id,
+        thread_id: newResponse.thread_id,
+        user_id: newResponse.user_id,
+        response: newResponse.response_text,
+        response_text: newResponse.response_text,
+        created_at: newResponse.created_at,
+        used_for_scoring: newResponse.used_for_scoring
+      }
     });
 
   } catch (error) {
     console.error('Thread response POST Error:', error);
+    return NextResponse.json(
+      { error: { code: 'INTERNAL_ERROR', message: 'An unexpected server error occurred.' } },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/threads/[id]: Saves a draft response to the thread.
+ */
+export async function PATCH(request: NextRequest, context: RouteContext) {
+  try {
+    const authUser = await getAuthenticatedUser(request);
+    if (!authUser) {
+      return NextResponse.json(
+        { error: { code: 'AUTH_REQUIRED', message: 'Authentication is required.' } },
+        { status: 401 }
+      );
+    }
+
+    const { id: threadId } = await context.params;
+    const body = await request.json().catch(() => ({}));
+    const { draft } = body;
+
+    // 1. Confirm thread exists and belongs to user
+    const { data: thread, error: threadError } = await supabase
+      .from('threads')
+      .select('*')
+      .eq('id', threadId)
+      .eq('user_id', authUser.userId)
+      .maybeSingle();
+
+    if (threadError || !thread) {
+      return NextResponse.json(
+        { error: { code: 'THREAD_NOT_FOUND', message: 'Reflection thread not found.' } },
+        { status: 404 }
+      );
+    }
+
+    // 2. Update draft_response
+    const { data: updatedThread, error: updateError } = await supabase
+      .from('threads')
+      .update({ draft_response: draft !== undefined ? draft : '' })
+      .eq('id', threadId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Failed to save thread draft:', updateError);
+      return NextResponse.json(
+        { error: { code: 'DATABASE_ERROR', message: 'Failed to save draft.' } },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      draft_response: updatedThread.draft_response
+    });
+
+  } catch (error) {
+    console.error('Thread draft PATCH Error:', error);
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'An unexpected server error occurred.' } },
       { status: 500 }
