@@ -132,11 +132,15 @@ export class DashboardService {
     const fetchFresh = async () => {
       const startTime = performance.now();
       try {
-        const [entriesRes, threadsRes, sessionRes] = await Promise.all([
+        const [entriesRes, threadsRes, sessionRes, cycleStatusRes] = await Promise.all([
           fetch('/api/entries?limit=5', { headers: this.getHeaders() }),
           fetch('/api/threads', { headers: this.getHeaders() }),
           fetch('/api/session', { headers: this.getHeaders() }).catch(err => {
             console.error('Session fetch failed in dashboardService:', err);
+            return null;
+          }),
+          fetch('/api/cycles/status', { headers: this.getHeaders() }).catch(err => {
+            console.error('Cycle status fetch failed in dashboardService:', err);
             return null;
           })
         ]);
@@ -181,40 +185,37 @@ export class DashboardService {
           };
         });
 
-        // Fetch active session state to compute cycleInfo
+        // Fetch active session state to compute hasWrittenToday
         let hasWrittenToday = false;
-        let cycleNumber = 1;
-        let currentDay = 1;
-        let totalDays = 28;
-        let startedAt = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-        let daysRemaining = 27;
-
         if (sessionRes && sessionRes.ok) {
           const sessionData = await sessionRes.json().catch(() => null);
-          if (sessionData && sessionData.session) {
-            const session = sessionData.session;
-            const isCompletedToday = sessionData.isCompletedToday || false;
+          if (sessionData && sessionData.isCompletedToday) {
+            hasWrittenToday = true;
+          }
+        }
+
+        // Fetch cycle status details from backend status API
+        let cycleNumber = 1;
+        let currentDay = 1;
+        let totalDays = 30;
+        let startedAt = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        let daysRemaining = 29;
+
+        if (cycleStatusRes && cycleStatusRes.ok) {
+          const cycleStatusData = await cycleStatusRes.json().catch(() => null);
+          if (cycleStatusData && cycleStatusData.hasCycle && cycleStatusData.cycle) {
+            const cycle = cycleStatusData.cycle;
+            cycleNumber = cycle.cycleNumber || 1;
+            currentDay = cycle.currentDay || 1;
+            totalDays = cycle.totalDays || 30;
+            daysRemaining = cycle.daysRemaining !== undefined ? cycle.daysRemaining : (totalDays - currentDay);
             
-            if (isCompletedToday) {
-              currentDay = session.day_number;
-              hasWrittenToday = true;
-            } else {
-              if (session.status !== 'complete') {
-                currentDay = session.day_number;
-              } else {
-                currentDay = session.day_number + 1;
+            if (cycle.startDate) {
+              const startDateObj = new Date(cycle.startDate);
+              if (!isNaN(startDateObj.getTime())) {
+                startedAt = startDateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
               }
-              hasWrittenToday = false;
             }
-
-            cycleNumber = Math.floor((currentDay - 1) / 28) + 1;
-            const currentDayInCycle = ((currentDay - 1) % 28) + 1;
-            daysRemaining = 28 - currentDayInCycle;
-
-            const sessionDate = new Date(session.created_at);
-            const dayOffset = currentDayInCycle - 1;
-            const cycleStartDate = new Date(sessionDate.getTime() - dayOffset * 24 * 60 * 60 * 1000);
-            startedAt = cycleStartDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
           }
         }
 
