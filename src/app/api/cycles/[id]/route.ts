@@ -67,12 +67,12 @@ export async function GET(
       .select('id', { count: 'exact', head: true })
       .eq('cycle_id', cy.id);
 
-    // 4. Count threads / open reflections
+    // 4. Count active open threads
     const { count: threadCount } = await supabase
-      .from('reflections')
+      .from('threads')
       .select('id', { count: 'exact', head: true })
       .eq('cycle_id', cy.id)
-      .eq('status', 'ready');
+      .eq('status', 'Open');
 
     // 5. Fetch and count distinct vocabulary words
     const { data: vocabRes } = await supabase
