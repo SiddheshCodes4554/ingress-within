@@ -81,6 +81,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 4. Update the corresponding thread status to match
+    if (status === 'completed' || !status) {
+      const { error: threadUpdateErr } = await supabase
+        .from('threads')
+        .update({
+          status: 'Answered',
+          answered_at: new Date().toISOString(),
+          draft_response: null
+        })
+        .eq('reflection_id', reflectionId);
+        
+      if (threadUpdateErr) {
+        console.warn('Failed to update corresponding thread to Answered:', threadUpdateErr);
+      }
+    } else if (status === 'ready') {
+      const { error: threadUpdateErr } = await supabase
+        .from('threads')
+        .update({
+          draft_response: answer ? answer.trim() : ''
+        })
+        .eq('reflection_id', reflectionId);
+        
+      if (threadUpdateErr) {
+        console.warn('Failed to update corresponding thread draft:', threadUpdateErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       reflection: updatedReflection

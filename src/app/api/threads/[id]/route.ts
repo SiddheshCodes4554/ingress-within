@@ -220,6 +220,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
       console.warn('Failed to transition thread status to Answered:', updateThreadError);
     }
 
+    // 5. Update corresponding reflection status to 'completed'
+    if (thread.reflection_id) {
+      const { error: updateReflectionError } = await supabase
+        .from('reflections')
+        .update({
+          status: 'completed',
+          reflection_answer: response.trim(),
+          answered_at: new Date().toISOString()
+        })
+        .eq('id', thread.reflection_id);
+
+      if (updateReflectionError) {
+        console.error('Failed to update corresponding reflection status:', updateReflectionError);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       response: {
@@ -288,6 +304,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         { error: { code: 'DATABASE_ERROR', message: 'Failed to save draft.' } },
         { status: 500 }
       );
+    }
+
+    // 3. Update corresponding reflection's reflection_answer
+    if (thread.reflection_id) {
+      const { error: reflectionUpdateErr } = await supabase
+        .from('reflections')
+        .update({
+          reflection_answer: draft !== undefined ? draft.trim() : ''
+        })
+        .eq('id', thread.reflection_id);
+        
+      if (reflectionUpdateErr) {
+        console.warn('Failed to update corresponding reflection draft:', reflectionUpdateErr);
+      }
     }
 
     return NextResponse.json({
