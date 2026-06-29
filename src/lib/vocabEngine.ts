@@ -1,33 +1,59 @@
 /**
- * Ingress Within - Emotional Vocabulary Intelligence Engine
- * Deterministic Vocabulary Extraction Utility (v3.0)
+ * Ingress Within - Refined Emotional Vocabulary Intelligence Engine
+ * Multi-stage text normalization, lemmatization and scoring utilities (v4.0)
  */
 
 export const STOP_WORDS = new Set([
   // Articles
   'a', 'an', 'the',
+
   // Pronouns
   'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', 'your', 'yours', 'yourself', 'yourselves',
   'he', 'him', 'his', 'himself', 'she', 'her', 'hers', 'herself', 'it', 'its', 'itself', 'they', 'them', 'their',
-  'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those', 'am', 'is', 'are', 'was',
-  'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing',
+  'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those',
+
+  // Helper Verbs & Modals
+  'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing',
+  'can', 'will', 'should', 'could', 'would', 'may', 'might', 'must', 'shall', 'cannot', 'don', 'ain', 'aren',
+  'couldn', 'didn', 'doesn', 'hadn', 'hasn', 'haven', 'isn', 'mightn', 'mustn', 'needn', 'shan', 'shouldn', 'wasn', 'weren', 'won', 'wouldn',
+
   // Prepositions & Conjunctions
   'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against',
   'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out',
   'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how',
   'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own',
-  'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now', 'd', 'll', 'm', 'o',
-  're', 've', 'y', 'ain', 'aren', 'couldn', 'didn', 'doesn', 'hadn', 'hasn', 'haven', 'isn', 'ma', 'mightn', 'mustn',
-  'needn', 'shan', 'shouldn', 'wasn', 'weren', 'won', 'wouldn',
-  // Fillers & Conversational Words
-  'really', 'very', 'just', 'maybe', 'actually', 'basically', 'literally', 'like', 'get', 'got', 'go', 'going',
-  'thing', 'things', 'someone', 'something', 'anything', 'nothing', 'everyone', 'everything', 'somewhere', 'anywhere',
-  'everywhere', 'nowhere', 'somehow', 'anyhow', 'etc', 'hey', 'hi', 'hello', 'yes', 'no', 'yeah', 'okay', 'ok',
-  'well', 'back', 'much', 'many', 'lot', 'lots', 'feel', 'feeling', 'feelings', 'felt', 'think', 'thinking', 'thought',
-  'thoughts', 'know', 'knowing', 'knew', 'want', 'wanting', 'wanted', 'make', 'making', 'made', 'take', 'taking', 'took',
-  'even', 'still', 'also', 'another', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
-  'always', 'never', 'sometimes', 'often', 'usually', 'feels', 'say', 'saying', 'said', 'tells', 'tell', 'told', 'today',
-  'yesterday', 'tomorrow', 'day', 'days', 'week', 'weeks', 'month', 'months', 'year', 'years', 'people', 'person', 'someone'
+  'same', 'so', 'than', 'too', 'very', 's', 't', 'just', 'now', 'd', 'll', 'm', 'o', 're', 've', 'y',
+
+  // Generic Action Verbs (lexical noise)
+  'go', 'went', 'goes', 'going', 'gone', 'get', 'gets', 'got', 'gotten', 'getting',
+  'make', 'makes', 'made', 'making', 'take', 'takes', 'took', 'taken', 'taking',
+  'use', 'uses', 'used', 'using', 'come', 'comes', 'came', 'coming',
+  'run', 'runs', 'ran', 'running', 'work', 'works', 'worked', 'working',
+  'try', 'tries', 'tried', 'trying', 'start', 'starts', 'started', 'starting',
+  'stop', 'stops', 'stopped', 'stopping', 'seem', 'seems', 'seemed', 'seeming',
+  'show', 'shows', 'showed', 'showing', 'find', 'finds', 'found', 'finding',
+  'keep', 'keeps', 'kept', 'keeping', 'let', 'lets', 'letting',
+  'put', 'puts', 'putting', 'bring', 'brings', 'brought', 'bringing',
+  'carry', 'carries', 'carried', 'carrying', 'tell', 'tells', 'told', 'telling',
+  'say', 'says', 'said', 'saying', 'think', 'thinks', 'thought', 'thinking',
+  'know', 'knows', 'knew', 'knowing', 'want', 'wants', 'wanted', 'wanting',
+  'look', 'looks', 'looked', 'looking', 'write', 'writes', 'wrote', 'written', 'writing',
+  'feel', 'feels', 'felt', 'feeling', 'feelings',
+
+  // Temporal & Frequency Words
+  'today', 'yesterday', 'tomorrow', 'day', 'days', 'week', 'weeks', 'month', 'months', 'year', 'years',
+  'time', 'times', 'now', 'then', 'always', 'never', 'sometimes', 'often', 'usually', 'seldom', 'rarely',
+  'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'morning', 'afternoon', 'evening', 'night', 'nights',
+  'hour', 'hours', 'minute', 'minutes', 'second', 'seconds', 'moment', 'moments', 'soon', 'later', 'early',
+  'late', 'recently', 'first', 'second', 'last', 'past', 'future', 'present', 'ago', 'already', 'yet', 'still',
+  'since', 'during', 'before', 'after', 'until', 'date', 'dates', 'clock', 'schedule',
+
+  // Filler & Conversational Words
+  'really', 'very', 'just', 'maybe', 'actually', 'basically', 'literally', 'like', 'probably', 'perhaps',
+  'quite', 'rather', 'somewhat', 'somehow', 'well', 'back', 'much', 'many', 'lot', 'lots',
+  'stuff', 'thing', 'things', 'someone', 'something', 'anything', 'nothing', 'everyone', 'everything',
+  'somewhere', 'anywhere', 'everywhere', 'nowhere', 'hey', 'hi', 'hello', 'yes', 'no', 'yeah', 'okay', 'ok',
+  'right', 'sure', 'mean', 'means', 'meant', 'meaning', 'people', 'person'
 ]);
 
 export const LEMMA_EXCEPTIONS: Record<string, string> = {
@@ -69,8 +95,122 @@ export const LEMMA_EXCEPTIONS: Record<string, string> = {
   'exhausting': 'exhaust'
 };
 
+// Canonical emotional lemma merging map
+export const EMOTIONAL_LEMMA_MAP: Record<string, string> = {
+  // focus
+  'focusing': 'focus',
+  'focused': 'focus',
+  'focuses': 'focus',
+  // confident / confidence
+  'confidence': 'confident',
+  'confidently': 'confident',
+  // anxious / anxiety
+  'anxiety': 'anxious',
+  'anxieties': 'anxious',
+  'anxiously': 'anxious',
+  // stress
+  'stressed': 'stress',
+  'stresses': 'stress',
+  'stressful': 'stress',
+  'stressing': 'stress',
+  // sadness / sad
+  'sadness': 'sad',
+  'sadnesses': 'sad',
+  'sadly': 'sad',
+  'sadder': 'sad',
+  'saddest': 'sad',
+  // happiness / happy
+  'happiness': 'happy',
+  'happily': 'happy',
+  'happier': 'happy',
+  'happiest': 'happy',
+  // loneliness / lonely
+  'loneliness': 'lonely',
+  'lonelily': 'lonely',
+  // guilt / guilty
+  'guilt': 'guilty',
+  'guiltiness': 'guilty',
+  'guiltily': 'guilty',
+  // anger / angry
+  'anger': 'angry',
+  'angrier': 'angry',
+  'angriest': 'angry',
+  'angrily': 'angry',
+  // fear / scared
+  'fearful': 'fear',
+  'fears': 'fear',
+  'scared': 'scare',
+  'scaring': 'scare',
+  'scary': 'scare',
+  // frustration / frustrate
+  'frustrated': 'frustrate',
+  'frustrating': 'frustrate',
+  'frustration': 'frustrate',
+  'frustrations': 'frustrate',
+  // exhaustion / exhaust
+  'exhausted': 'exhaust',
+  'exhausting': 'exhaust',
+  'exhaustion': 'exhaust',
+  // depletion / deplete
+  'depleted': 'deplete',
+  'depleting': 'deplete',
+  'depletion': 'deplete',
+  // avoidance / avoid
+  'avoided': 'avoid',
+  'avoiding': 'avoid',
+  'avoidance': 'avoid',
+  'avoids': 'avoid',
+  // pressure
+  'pressures': 'pressure',
+  'pressured': 'pressure',
+  'pressuring': 'pressure',
+  // overwhelm
+  'overwhelmed': 'overwhelm',
+  'overwhelming': 'overwhelm',
+  'overwhelmingly': 'overwhelm',
+  'overwhelms': 'overwhelm',
+  // burden
+  'burdens': 'burden',
+  'burdened': 'burden',
+  'burdening': 'burden',
+  'burdensome': 'burden',
+  // uncertainty / uncertain
+  'uncertainty': 'uncertain',
+  'uncertainties': 'uncertain',
+  // confusion / confused
+  'confused': 'confuse',
+  'confusing': 'confuse',
+  'confusion': 'confuse',
+  // pain
+  'painful': 'pain',
+  'painfully': 'pain',
+  'pains': 'pain',
+  // hope
+  'hopeful': 'hope',
+  'hopefully': 'hope',
+  'hopefulness': 'hope',
+  // hopeless
+  'hopelessness': 'hopeless',
+  'hopelessly': 'hopeless'
+};
+
+// Core psychological and emotional affect words for deterministic rule matches
+export const DETERMINISTIC_EMOTIONAL_WORDS = new Set([
+  'sad', 'unhappy', 'grief', 'cry', 'pain', 'hurt', 'sorrow', 'depressed', 'depression', 'blue', 'heavy',
+  'happy', 'joy', 'cheerful', 'excited', 'content', 'peace', 'peaceful', 'calm', 'relaxed', 'relieved', 'gratitude', 'grateful',
+  'angry', 'rage', 'mad', 'furious', 'irritated', 'annoyed', 'frustrate', 'bitter', 'resent', 'resentful',
+  'fear', 'anxious', 'worry', 'panic', 'dread', 'terrified', 'frightened', 'nervous',
+  'shame', 'ashamed', 'guilty', 'embarrassed', 'regret', 'remorse',
+  'lonely', 'isolated', 'abandoned', 'alone', 'empty',
+  'overwhelm', 'exhaust', 'tired', 'weary', 'drained', 'depleted', 'fatigue', 'burden', 'pressure', 'stress', 'tense',
+  'confuse', 'uncertain', 'doubt', 'lost', 'stuck', 'blocked', 'trapped', 'hopeless', 'helpless', 'powerless', 'defeated',
+  'avoid', 'numb', 'hiding', 'withdrawn', 'numbness', 'distracted', 'escape',
+  'focus', 'clear', 'mindful', 'grounded', 'motivated', 'inspired', 'confident', 'worth', 'worthy',
+  'longing', 'yearning', 'craving', 'need', 'desire'
+]);
+
 /**
- * Normalizes and lemmatizes a word.
+ * Normalizes, lemmatizes and merges a word.
  */
 export function lemmatize(w: string): string {
   let word = w.toLowerCase().trim();
@@ -79,61 +219,66 @@ export function lemmatize(w: string): string {
   word = word.replace(/^[^a-z]+|[^a-z]+$/g, '');
   
   if (word.length <= 2) return word;
-  if (LEMMA_EXCEPTIONS[word]) return LEMMA_EXCEPTIONS[word];
-
-  // Plurals and verbs suffixes rules
-  if (word.endsWith('ying')) {
-    return word.slice(0, -4) + 'y';
-  }
-  if (word.endsWith('ied')) {
-    return word.slice(0, -3) + 'y';
-  }
-  if (word.endsWith('ies')) {
-    return word.slice(0, -3) + 'y';
-  }
-
-  if (word.endsWith('ing')) {
-    const stem = word.slice(0, -3);
-    if (stem.length > 2) {
-      if (stem.match(/([^aeiou])\1$/)) {
-        return stem.slice(0, -1);
+  
+  // 1. Apply baseline lemmatization exceptions
+  if (LEMMA_EXCEPTIONS[word]) {
+    word = LEMMA_EXCEPTIONS[word];
+  } else {
+    // Baseline suffix stripping rules
+    if (word.endsWith('ying')) {
+      word = word.slice(0, -4) + 'y';
+    } else if (word.endsWith('ied')) {
+      word = word.slice(0, -3) + 'y';
+    } else if (word.endsWith('ies')) {
+      word = word.slice(0, -3) + 'y';
+    } else if (word.endsWith('ing')) {
+      const stem = word.slice(0, -3);
+      if (stem.length > 2) {
+        if (stem.match(/([^aeiou])\1$/)) {
+          word = stem.slice(0, -1);
+        } else if (['te', 've', 'se', 'ke', 'me', 'ne', 'pe', 're', 'le', 'ce', 'de'].some(suffix => (stem + 'e').endsWith(suffix))) {
+          word = stem + 'e';
+        } else {
+          word = stem;
+        }
       }
-      if (['te', 've', 'se', 'ke', 'me', 'ne', 'pe', 're', 'le', 'ce', 'de'].some(suffix => (stem + 'e').endsWith(suffix))) {
-        return stem + 'e';
+    } else if (word.endsWith('ed')) {
+      const stem = word.slice(0, -2);
+      if (stem.length > 2) {
+        if (stem.endsWith('e')) {
+          word = stem;
+        } else if (stem.match(/([^aeiou])\1$/)) {
+          word = stem.slice(0, -1);
+        } else if (['t', 'v', 's', 'k', 'm', 'n', 'p', 'r', 'l', 'c', 'd'].includes(stem[stem.length - 1])) {
+          word = stem + 'e';
+        } else {
+          word = stem;
+        }
       }
-      return stem;
+    } else if (word.endsWith('s') && !word.endsWith('ss') && !word.endsWith('is') && !word.endsWith('us') && !word.endsWith('as')) {
+      if (word.endsWith('es')) {
+        if (word.endsWith('sses') || word.endsWith('shes') || word.endsWith('ches') || word.endsWith('xes')) {
+          word = word.slice(0, -2);
+        } else {
+          word = word.slice(0, -1);
+        }
+      } else {
+        word = word.slice(0, -1);
+      }
     }
   }
 
-  if (word.endsWith('ed')) {
-    const stem = word.slice(0, -2);
-    if (stem.length > 2) {
-      if (stem.endsWith('e')) return stem;
-      if (stem.match(/([^aeiou])\1$/)) {
-        return stem.slice(0, -1);
-      }
-      if (['t', 'v', 's', 'k', 'm', 'n', 'p', 'r', 'l', 'c', 'd'].includes(stem[stem.length - 1])) {
-        return stem + 'e';
-      }
-      return stem;
-    }
-  }
-
-  if (word.endsWith('s') && !word.endsWith('ss') && !word.endsWith('is') && !word.endsWith('us') && !word.endsWith('as')) {
-    if (word.endsWith('es')) {
-      if (word.endsWith('sses') || word.endsWith('shes') || word.endsWith('ches') || word.endsWith('xes')) {
-        return word.slice(0, -2);
-      }
-      return word.slice(0, -1);
-    }
-    return word.slice(0, -1);
+  // 2. Collapse/Merge to canonical emotional lemma
+  if (EMOTIONAL_LEMMA_MAP[word]) {
+    return EMOTIONAL_LEMMA_MAP[word];
   }
 
   return word;
 }
 
 /**
- * Extracts vocabulary words and logs ignored and raw words.
+ * Extracts candidate vocabulary words, ignoring stop words/lexical noise.
+ * Returns raw words, ignored list, and extracted lemmas map.
  */
 export function extractVocabularyDeterministic(text: string): {
   rawWords: string[];
@@ -149,7 +294,7 @@ export function extractVocabularyDeterministic(text: string): {
   
   const rawWords: string[] = [];
   const ignoredWords: string[] = [];
-  const extractedMap = new Map<string, string>(); // normalized_word -> original_word
+  const extractedMap = new Map<string, { original: string; raws: string[] }>();
 
   for (const token of tokens) {
     const rawWord = token.replace(/^[^a-zA-Z]+|[^a-zA-Z]+$/g, '');
@@ -162,7 +307,6 @@ export function extractVocabularyDeterministic(text: string): {
       continue;
     }
 
-    // Ignore numbers
     if (/^\d+$/.test(rawWord)) {
       ignoredWords.push(rawWord);
       continue;
@@ -180,15 +324,19 @@ export function extractVocabularyDeterministic(text: string): {
       continue;
     }
 
-    // Deduplicate (first occurrence wins for display form)
-    if (!extractedMap.has(normalized)) {
-      extractedMap.set(normalized, rawWord);
+    // Accumulate under merged normalized lemma
+    const existing = extractedMap.get(normalized);
+    if (existing) {
+      existing.raws.push(rawWord);
+    } else {
+      extractedMap.set(normalized, { original: rawWord, raws: [rawWord] });
     }
   }
 
-  const extracted = Array.from(extractedMap.entries()).map(([norm, orig]) => ({
-    word: orig,
-    normalized_word: norm
+  const extracted = Array.from(extractedMap.entries()).map(([norm, val]) => ({
+    word: val.original,
+    normalized_word: norm,
+    raw_tokens: Array.from(new Set(val.raws)) // unique raw tokens matching this lemma
   }));
 
   return {

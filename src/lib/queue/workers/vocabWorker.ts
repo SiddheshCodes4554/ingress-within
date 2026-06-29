@@ -1,7 +1,7 @@
 import { supabase } from '../../db';
 import { aiProvider } from '../../ai/factory';
 import { decrypt } from '../../encryption';
-import { extractVocabularyDeterministic } from '../../vocabEngine';
+import { extractVocabularyDeterministic, DETERMINISTIC_EMOTIONAL_WORDS } from '../../vocabEngine';
 
 export async function processVocabularyExtraction(jobData: {
   entry_id: string;
@@ -65,12 +65,55 @@ export async function processVocabularyExtraction(jobData: {
     console.log(`[Vocab Worker] Extracting literal vocabulary words deterministically...`);
     const { extracted } = extractVocabularyDeterministic(fullText);
 
-    console.log(`[Vocab Worker] Extracted ${extracted.length} literal words.`);
+    console.log(`[Vocab Worker] Extracted ${extracted.length} literal candidate words.`);
+
+    // Classify candidates using deterministic rules first, and collect others for AI validation
+    const scoredWordsMap = new Map<string, { is_emotional: boolean; score: number }>();
+    const aiCandidates: string[] = [];
+
+    for (const w of extracted) {
+      const norm = w.normalized_word.trim().toLowerCase();
+      if (DETERMINISTIC_EMOTIONAL_WORDS.has(norm)) {
+        scoredWordsMap.set(norm, { is_emotional: true, score: 1.0 });
+      } else {
+        aiCandidates.push(w.word); // Use original word for context-aware validation
+      }
+    }
+
+    if (aiCandidates.length > 0) {
+      console.log(`[Vocab Worker] Sending ${aiCandidates.length} candidate words for AI validation...`);
+      try {
+        const aiResult = await aiProvider.scoreEmotionalRelevance(aiCandidates, fullText);
+        if (aiResult?.validatedWords && Array.isArray(aiResult.validatedWords)) {
+          aiResult.validatedWords.forEach(item => {
+            const candidateObj = extracted.find(c => c.word.toLowerCase() === item.word.toLowerCase());
+            if (candidateObj) {
+              const norm = candidateObj.normalized_word.trim().toLowerCase();
+              scoredWordsMap.set(norm, {
+                is_emotional: !!item.is_emotional,
+                score: Number(item.score) || 0.0
+              });
+            }
+          });
+        }
+      } catch (err) {
+        console.error(`[Vocab Worker] AI validation failed for candidate words:`, err);
+      }
+    }
+
+    // Default any remaining unclassified words to false
+    for (const w of extracted) {
+      const norm = w.normalized_word.trim().toLowerCase();
+      if (!scoredWordsMap.has(norm)) {
+        scoredWordsMap.set(norm, { is_emotional: false, score: 0.0 });
+      }
+    }
 
     // 5. Update vocab_words table (deterministic frequency accumulation)
     for (const w of extracted) {
       const cleanWord = w.word.trim();
       const cleanNormWord = w.normalized_word.trim().toLowerCase();
+      const classification = scoredWordsMap.get(cleanNormWord) || { is_emotional: false, score: 0.0 };
 
       // Determine source: entry, thread or combined
       const inEntry = entryText.toLowerCase().includes(cleanNormWord);
@@ -85,7 +128,7 @@ export async function processVocabularyExtraction(jobData: {
       // Check if word already exists in this cycle
       const { data: existingWord, error: queryErr } = await supabase
         .from('vocab_words')
-        .select('id, frequency')
+        .select('id, frequency, raw_tokens')
         .eq('user_id', user_id)
         .eq('cycle_id', entry.cycle_id)
         .eq('normalized_word', cleanNormWord)
@@ -96,6 +139,13 @@ export async function processVocabularyExtraction(jobData: {
         continue;
       }
 
+      // Merge raw tokens
+      const incomingRawTokens = (w as any).raw_tokens || [cleanWord];
+      const uniqueRawTokens = Array.from(new Set([
+        ...(existingWord?.raw_tokens || []),
+        ...incomingRawTokens
+      ]));
+
       if (existingWord) {
         // Increment frequency count
         const { error: updateErr } = await supabase
@@ -103,7 +153,10 @@ export async function processVocabularyExtraction(jobData: {
           .update({
             frequency: existingWord.frequency + 1,
             last_seen: new Date().toISOString(),
-            source
+            source,
+            is_emotional: classification.is_emotional,
+            emotional_score: classification.score,
+            raw_tokens: uniqueRawTokens
           })
           .eq('id', existingWord.id);
 
@@ -122,7 +175,10 @@ export async function processVocabularyExtraction(jobData: {
             frequency: 1,
             first_seen: new Date().toISOString(),
             last_seen: new Date().toISOString(),
-            source
+            source,
+            is_emotional: classification.is_emotional,
+            emotional_score: classification.score,
+            raw_tokens: uniqueRawTokens
           });
 
         if (insertErr) {
@@ -156,7 +212,6 @@ export async function processVocabularyExtraction(jobData: {
         }
 
         if (existingConcept) {
-          // Increment frequency and update confidence
           await supabase
             .from('vocab_concepts')
             .update({
@@ -165,7 +220,6 @@ export async function processVocabularyExtraction(jobData: {
             })
             .eq('id', existingConcept.id);
         } else {
-          // Insert new concept record
           await supabase
             .from('vocab_concepts')
             .insert({
@@ -179,20 +233,21 @@ export async function processVocabularyExtraction(jobData: {
       }
     }
 
-    // 7. Update vocab_clusters table (AI grouping, deterministic stats)
-    console.log(`[Vocab Worker] Fetching all active cycle vocabulary words...`);
+    // 7. Update vocab_clusters table (AI grouping, deterministic stats) using ONLY emotional words
+    console.log(`[Vocab Worker] Fetching all active cycle EMOTIONAL vocabulary words...`);
     const { data: allCycleWords, error: fetchWordsErr } = await supabase
       .from('vocab_words')
       .select('word, normalized_word, frequency')
       .eq('user_id', user_id)
-      .eq('cycle_id', entry.cycle_id);
+      .eq('cycle_id', entry.cycle_id)
+      .eq('is_emotional', true);
 
     if (fetchWordsErr) {
       throw new Error(`Failed to fetch cycle words for clustering: ${fetchWordsErr.message}`);
     }
 
     if (allCycleWords && allCycleWords.length > 0) {
-      console.log(`[Vocab Worker] Clustering ${allCycleWords.length} active words...`);
+      console.log(`[Vocab Worker] Clustering ${allCycleWords.length} active emotional words...`);
       const clusterResult = await aiProvider.groupClusters(allCycleWords);
 
       if (clusterResult.clusters && Array.isArray(clusterResult.clusters)) {
@@ -211,11 +266,9 @@ export async function processVocabularyExtraction(jobData: {
 
           const clusterWords = cl.words.map((w: string) => w.trim().toLowerCase());
 
-          // Calculate cluster frequency deterministically from database words
           const matchingWordsObj = allCycleWords.filter(w => clusterWords.includes(w.normalized_word));
           const totalClusterFreq = matchingWordsObj.reduce((sum, w) => sum + w.frequency, 0);
 
-          // Insert cluster record (words and frequency columns match required database schema)
           const { data: newCluster, error: clusterInsertErr } = await supabase
             .from('vocab_clusters')
             .insert({

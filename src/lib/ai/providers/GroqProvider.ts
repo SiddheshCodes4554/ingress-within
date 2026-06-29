@@ -538,4 +538,25 @@ Return a valid JSON object matching the requested schema:
     const userContent = JSON.stringify(words);
     return this.callGroq<{ clusters: { cluster_name: string; cluster_type: string; words: string[] }[] }>(systemPrompt, `Input words:\n${userContent}`);
   }
+
+  async scoreEmotionalRelevance(words: string[], entryContent: string): Promise<{ validatedWords: { word: string; is_emotional: boolean; score: number }[] }> {
+    const systemPrompt = `You are a psychological and emotional analysis assistant.
+    
+TASK:
+Analyze the provided list of candidate words extracted from a user's journal entry. Determine if each word has emotional or psychological relevance (e.g., describes feelings, mood, emotional states, mental stressors, coping mechanisms, or psychological dynamics).
+For each word:
+1. Set "is_emotional" to true or false. Factual/descriptive words (e.g. 'work', 'meeting', 'office', 'computer', 'walking') must be false.
+2. Assign a "score" between 0.0 (no relevance) and 1.0 (highly relevant).
+Use the raw journal entry context to evaluate the word's contextual usage (e.g. "heavy" in "feeling heavy" is emotional, but in "heavy books" is physical).
+
+Return a valid JSON object matching the requested schema:
+{
+  "validatedWords": [
+    { "word": "anxious", "is_emotional": true, "score": 0.95 },
+    { "word": "office", "is_emotional": false, "score": 0.0 }
+  ]
+}`;
+    const userContent = JSON.stringify({ words, entryContext: entryContent });
+    return this.callGroq<{ validatedWords: { word: string; is_emotional: boolean; score: number }[] }>(systemPrompt, userContent);
+  }
 }

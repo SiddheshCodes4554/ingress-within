@@ -36,26 +36,29 @@ export async function GET(request: NextRequest) {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId);
 
-    // B. All distinct words count
+    // B. All distinct EMOTIONAL words count
     const { count: distinctWordCount, error: vocabCountErr } = await supabase
       .from('vocab_words')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('is_emotional', true);
 
-    // C. Most used word (all-time)
+    // C. Most used EMOTIONAL word (all-time)
     const { data: topAllTimeWords, error: topWordErr } = await supabase
       .from('vocab_words')
       .select('word, normalized_word, frequency')
       .eq('user_id', userId)
+      .eq('is_emotional', true)
       .order('frequency', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    // 3. Fetch top 10 most used words (all-time)
+    // 3. Fetch top 10 most used EMOTIONAL words (all-time)
     const { data: mostUsedAllTime, error: mostUsedErr } = await supabase
       .from('vocab_words')
       .select('word, normalized_word, frequency, cycle_id, first_seen, last_seen')
       .eq('user_id', userId)
+      .eq('is_emotional', true)
       .order('frequency', { ascending: false })
       .limit(10);
 
@@ -67,7 +70,7 @@ export async function GET(request: NextRequest) {
       .order('frequency', { ascending: false })
       .limit(5);
 
-    // 5. Fetch emerging words in this cycle (words first seen in current cycle)
+    // 5. Fetch emerging EMOTIONAL words in this cycle
     let emergingWords: any[] = [];
     let currentCycleWordsList: any[] = [];
     if (cycleId) {
@@ -76,6 +79,7 @@ export async function GET(request: NextRequest) {
         .select('word, normalized_word, frequency, first_seen, last_seen')
         .eq('user_id', userId)
         .eq('cycle_id', cycleId)
+        .eq('is_emotional', true)
         .order('frequency', { ascending: false });
 
       if (currentCycleWords && currentCycleWords.length > 0) {
@@ -85,11 +89,12 @@ export async function GET(request: NextRequest) {
           .from('vocab_words')
           .select('normalized_word')
           .eq('user_id', userId)
+          .eq('is_emotional', true)
           .neq('cycle_id', cycleId);
 
         const olderSet = new Set(olderCyclesWords?.map(w => w.normalized_word) || []);
         
-        // Emerging = words in current cycle that were NOT seen in older cycles
+        // Emerging = emotional words in current cycle that were NOT seen in older cycles
         emergingWords = currentCycleWords
           .filter(w => !olderSet.has(w.normalized_word))
           .map(w => w.normalized_word)
@@ -97,7 +102,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 6. Fetch clusters and their associated words for this cycle
+    // 6. Fetch clusters and their associated words for this cycle (already filters matching words)
     let mappedClusters: any[] = [];
     if (cycleId) {
       const { data: clusters } = await supabase
@@ -111,7 +116,8 @@ export async function GET(request: NextRequest) {
           const { data: words } = await supabase
             .from('vocab_words')
             .select('word, normalized_word, frequency')
-            .eq('cluster_id', cl.id);
+            .eq('cluster_id', cl.id)
+            .eq('is_emotional', true);
 
           const wordsList = cl.words || (words ? words.map(w => w.normalized_word) : []);
           
@@ -139,11 +145,12 @@ export async function GET(request: NextRequest) {
       return words.reduce((sum, w) => sum + w.frequency, 0);
     }
 
-    // 7. Fetch timeline: cumulative distinct words over time
+    // 7. Fetch timeline: cumulative distinct EMOTIONAL words over time
     const { data: allWordsSorted } = await supabase
       .from('vocab_words')
       .select('first_seen, normalized_word')
       .eq('user_id', userId)
+      .eq('is_emotional', true)
       .order('first_seen', { ascending: true });
 
     // Deduplicate normalized words chronologically
@@ -169,7 +176,8 @@ export async function GET(request: NextRequest) {
         .from('vocab_words')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', userId)
-        .eq('cycle_id', cycleId);
+        .eq('cycle_id', cycleId)
+        .eq('is_emotional', true);
       currentCycleWordsCount = count || 0;
     }
 

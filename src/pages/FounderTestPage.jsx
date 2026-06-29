@@ -609,17 +609,19 @@ export default function FounderTestPage() {
                           <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Extracted Vocabulary & Frequencies</span>
                           {results.vocabState && results.vocabState.words && results.vocabState.words.length > 0 ? (
                             <div className="flex flex-wrap gap-2">
-                              {results.vocabState.words.map((v, idx) => (
-                                <span 
-                                  key={idx} 
-                                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#B8A8D4]/10 text-[#5A4A8A] border border-[#B8A8D4]/20 text-[10px] uppercase font-bold tracking-wider rounded-full hover:bg-[#B8A8D4]/15 transition-all"
-                                >
-                                  <span>{v.word}</span>
-                                  <span className="h-4 w-4 inline-flex items-center justify-center rounded-full bg-[#5A4A8A]/10 text-[#5A4A8A] text-[8px] font-mono">
-                                    {v.frequency}
+                              {results.vocabState.words
+                                .filter(v => v.is_emotional)
+                                .map((v, idx) => (
+                                  <span 
+                                    key={idx} 
+                                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#B8A8D4]/10 text-[#5A4A8A] border border-[#B8A8D4]/20 text-[10px] uppercase font-bold tracking-wider rounded-full hover:bg-[#B8A8D4]/15 transition-all"
+                                  >
+                                    <span>{v.word}</span>
+                                    <span className="h-4 w-4 inline-flex items-center justify-center rounded-full bg-[#5A4A8A]/10 text-[#5A4A8A] text-[8px] font-mono">
+                                      {v.frequency}
+                                    </span>
                                   </span>
-                                </span>
-                              ))}
+                                ))}
                             </div>
                           ) : results.reflection.vocabulary && results.reflection.vocabulary.length > 0 ? (
                             <div className="flex flex-wrap gap-1.5">

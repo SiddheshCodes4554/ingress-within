@@ -618,7 +618,7 @@ export async function POST(request: NextRequest) {
       if (updatedEntry?.cycle_id) {
         const { data: vocabRes } = await supabase
           .from('vocab_words')
-          .select('word, normalized_word, frequency')
+          .select('word, normalized_word, frequency, is_emotional, emotional_score')
           .eq('user_id', updatedEntry.user_id)
           .eq('cycle_id', updatedEntry.cycle_id);
         

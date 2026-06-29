@@ -1491,10 +1491,18 @@ export default function TestPage() {
                         {results.vocabState.words && results.vocabState.words.length > 0 ? (
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                             {results.vocabState.words.map((v, idx) => (
-                              <div key={idx} className="bg-mint-grey p-2.5 rounded-xl border border-primary/5 flex items-center justify-between">
+                              <div key={idx} className={`p-2.5 rounded-xl border flex items-center justify-between ${v.is_emotional ? 'bg-[#5A4A8A]/5 border-[#5A4A8A]/15' : 'bg-mint-grey border-primary/5'}`}>
                                 <div className="space-y-0.5">
-                                  <span className="font-semibold text-primary">{v.word}</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-semibold text-primary">{v.word}</span>
+                                    {v.is_emotional && (
+                                      <span className="px-1 py-0.2 bg-[#5A4A8A]/10 text-[#5A4A8A] text-[8px] font-bold uppercase tracking-wider rounded">EMO</span>
+                                    )}
+                                  </div>
                                   <span className="text-[9.5px] text-mid block">norm: {v.normalized_word}</span>
+                                  {v.is_emotional && v.emotional_score !== undefined && (
+                                    <span className="text-[9px] text-[#5A4A8A] block">score: {Number(v.emotional_score).toFixed(2)}</span>
+                                  )}
                                 </div>
                                 <span className="font-mono font-bold text-secondary">{v.frequency}×</span>
                               </div>
