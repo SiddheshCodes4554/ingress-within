@@ -108,11 +108,31 @@ export async function GET(request: NextRequest) {
 
       // Find dropped words: words that were in the immediately preceding cycle (i-1) but not in this cycle
       let droppedWords: string[] = [];
+      let moreFrequent: string[] = [];
+      let lessFrequent: string[] = [];
+
       if (i > 0) {
         const prevCycleId = cyclesToProcess[i - 1].id;
         const prevCycleWords = cycleWordsMap.get(prevCycleId) || [];
         const currentWordsSet = new Set(cycleWords.map(w => w.normalized_word));
         droppedWords = prevCycleWords.filter(w => !currentWordsSet.has(w));
+
+        const prevCycleWordsFull = allWords.data?.filter(w => w.cycle_id === prevCycleId) || [];
+        const prevFreqMap = new Map<string, number>();
+        prevCycleWordsFull.forEach(w => {
+          prevFreqMap.set(w.normalized_word, w.frequency);
+        });
+
+        cycleWords.forEach(w => {
+          const prevFreq = prevFreqMap.get(w.normalized_word);
+          if (prevFreq !== undefined) {
+            if (w.frequency > prevFreq) {
+              moreFrequent.push(w.normalized_word);
+            } else if (w.frequency < prevFreq) {
+              lessFrequent.push(w.normalized_word);
+            }
+          }
+        });
       }
 
       cycleComparisons.push({
@@ -124,7 +144,9 @@ export async function GET(request: NextRequest) {
         entry_count: entryCount || 0,
         most_used: mostUsed,
         new_words: newWords,
-        dropped_words: droppedWords
+        dropped_words: droppedWords,
+        more_frequent: moreFrequent,
+        less_frequent: lessFrequent
       });
     }
 

@@ -81,19 +81,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Update the corresponding thread status to match
+    let newResponseId = null;
+
+    // 4. Update the corresponding thread status to match and insert thread response
     if (status === 'completed' || !status) {
-      const { error: threadUpdateErr } = await supabase
+      const { data: thread } = await supabase
         .from('threads')
-        .update({
-          status: 'Answered',
-          answered_at: new Date().toISOString(),
-          draft_response: null
-        })
-        .eq('reflection_id', reflectionId);
-        
-      if (threadUpdateErr) {
-        console.warn('Failed to update corresponding thread to Answered:', threadUpdateErr);
+        .select('id')
+        .eq('reflection_id', reflectionId)
+        .maybeSingle();
+
+      if (thread) {
+        // Deactivate other responses for scoring
+        await supabase
+          .from('thread_responses')
+          .update({ used_for_scoring: false })
+          .eq('user_id', authUser.userId);
+
+        const { data: threadResp, error: threadRespErr } = await supabase
+          .from('thread_responses')
+          .insert({
+            thread_id: thread.id,
+            user_id: authUser.userId,
+            response_text: answer.trim(),
+            used_for_scoring: true
+          })
+          .select('id')
+          .single();
+
+        if (threadRespErr) {
+          console.warn('Failed to log thread response record:', threadRespErr.message);
+        } else if (threadResp) {
+          newResponseId = threadResp.id;
+        }
+
+        const { error: threadUpdateErr } = await supabase
+          .from('threads')
+          .update({
+            status: 'Answered',
+            answered_at: new Date().toISOString(),
+            draft_response: null
+          })
+          .eq('id', thread.id);
+          
+        if (threadUpdateErr) {
+          console.warn('Failed to update corresponding thread to Answered:', threadUpdateErr);
+        }
       }
     } else if (status === 'ready') {
       const { error: threadUpdateErr } = await supabase
@@ -105,6 +138,20 @@ export async function POST(request: NextRequest) {
         
       if (threadUpdateErr) {
         console.warn('Failed to update corresponding thread draft:', threadUpdateErr);
+      }
+    }
+
+    // 5. Trigger vocabulary processing
+    if (newResponseId) {
+      try {
+        const { queueRegistry } = await import('../../../../lib/queue/registry');
+        await queueRegistry.addJob('vocab_processing', `vocab_thread_${newResponseId}`, {
+          thread_response_id: newResponseId,
+          user_id: authUser.userId
+        });
+        console.log(`[Reflection Answer Route] Enqueued vocab processing job for thread response ${newResponseId}`);
+      } catch (queueErr: any) {
+        console.error(`[Reflection Answer Route] Failed to enqueue vocab processing:`, queueErr.message);
       }
     }
 

@@ -210,43 +210,61 @@ export class GroqProvider implements AIProvider {
       throw new Error(`[GroqProvider Mock] Unsupported prompt template.`);
     }
 
-    try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages: [
-            { role: 'system', content: `${systemPrompt}\nYou must return a valid JSON object matching the requested schema. Do not output any conversational introduction or explanation.` },
-            { role: 'user', content: userContent }
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.1
-        })
-      });
+    let attempts = 3;
+    let delayMs = 7000; // wait 7 seconds if rate limited
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Groq API returned HTTP error ${response.status}: ${errText}`);
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: this.model,
+            messages: [
+              { role: 'system', content: `${systemPrompt}\nYou must return a valid JSON object matching the requested schema. Do not output any conversational introduction or explanation.` },
+              { role: 'user', content: userContent }
+            ],
+            response_format: { type: 'json_object' },
+            temperature: 0.1
+          })
+        });
+
+        if (response.status === 429) {
+          console.warn(`[GroqProvider] Rate limit hit (429). Attempt ${attempt} of ${attempts}. Waiting ${delayMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          delayMs *= 2.0; // Exponential backoff
+          continue;
+        }
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Groq API returned HTTP error ${response.status}: ${errText}`);
+        }
+
+        const payload = await response.json();
+        const rawText = payload.choices?.[0]?.message?.content;
+        if (!rawText) {
+          throw new Error('Groq API returned an empty completion response.');
+        }
+
+        this.lastRawResponse = rawText;
+        this.lastUsage = payload.usage || null;
+
+        return extractJson<T>(rawText);
+      } catch (error) {
+        if (attempt === attempts) {
+          console.error('[GroqProvider] API request failed after all attempts:', error);
+          throw error;
+        }
+        console.warn(`[GroqProvider] Request failed on attempt ${attempt}. Retrying in ${delayMs}ms... Error: ${error instanceof Error ? error.message : String(error)}`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        delayMs *= 2.0;
       }
-
-      const payload = await response.json();
-      const rawText = payload.choices?.[0]?.message?.content;
-      if (!rawText) {
-        throw new Error('Groq API returned an empty completion response.');
-      }
-
-      this.lastRawResponse = rawText;
-      this.lastUsage = payload.usage || null;
-
-      return extractJson<T>(rawText);
-    } catch (error) {
-      console.error('[GroqProvider] API request failed:', error);
-      throw error;
     }
+    throw new Error('GroqProvider call completed loop without returning or throwing.');
   }
 
   async scoreEntry(content: string): Promise<ClarityScoreResponse> {

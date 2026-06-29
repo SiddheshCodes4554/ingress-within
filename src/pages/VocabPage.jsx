@@ -35,6 +35,7 @@ export default function VocabPage({ user, profile, onSignOut }) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [cycles, setCycles] = useState([]);
+  const [rebuildInProgress, setRebuildInProgress] = useState(false);
 
   // Track accordion open/close state for cycles
   const [openCycles, setOpenCycles] = useState({ 0: true });
@@ -46,22 +47,68 @@ export default function VocabPage({ user, profile, onSignOut }) {
     }));
   };
 
-  useEffect(() => {
-    async function loadVocabData() {
-      try {
-        const overview = await DashboardService.fetchVocabOverview();
-        setStats(overview);
-        
-        const byCycle = await DashboardService.fetchVocabByCycle();
-        setCycles(byCycle);
-      } catch (err) {
-        console.error('Failed to load vocab page data:', err);
-      } finally {
-        setLoading(false);
-      }
+  const loadVocabData = async () => {
+    try {
+      const overview = await DashboardService.fetchVocabOverview();
+      setStats(overview);
+      
+      const byCycle = await DashboardService.fetchVocabByCycle();
+      setCycles(byCycle);
+    } catch (err) {
+      console.error('Failed to load vocab page data:', err);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const checkRebuildStatus = async () => {
+    try {
+      const res = await fetch('/api/vocab/rebuild');
+      const data = await res.json();
+      if (data.success) {
+        setRebuildInProgress(data.inProgress);
+        return data.inProgress;
+      }
+    } catch (err) {
+      console.error('Failed to check rebuild status:', err);
+    }
+    return false;
+  };
+
+  const handleTriggerRebuild = async () => {
+    setRebuildInProgress(true);
+    try {
+      const res = await fetch('/api/vocab/rebuild', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data?.error?.message || 'Failed to trigger rebuild.');
+        setRebuildInProgress(false);
+      }
+    } catch (err) {
+      console.error('Failed to trigger rebuild:', err);
+      setRebuildInProgress(false);
+    }
+  };
+
+  useEffect(() => {
     loadVocabData();
+    checkRebuildStatus();
   }, []);
+
+  useEffect(() => {
+    if (!rebuildInProgress) return;
+
+    const interval = setInterval(async () => {
+      console.log('[Vocab Page] Checking vocabulary rebuild status...');
+      const inProgress = await checkRebuildStatus();
+      if (!inProgress) {
+        console.log('[Vocab Page] Rebuild completed. Reloading data...');
+        loadVocabData();
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [rebuildInProgress]);
 
   if (loading) {
     return (
@@ -148,6 +195,8 @@ export default function VocabPage({ user, profile, onSignOut }) {
             <h1 className="font-serif text-[22px] text-primary mb-0.5">Emotional vocabulary</h1>
             <p className="text-xs text-mid">The words you reach for across your entire practice — and what they say about where you actually are.</p>
           </div>
+
+
 
           {/* Stats strip */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">

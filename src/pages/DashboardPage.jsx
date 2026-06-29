@@ -197,6 +197,19 @@ export default function DashboardPage({ user, profile, onSignOut }) {
     };
   }, []);
 
+  // Short polling when entries are in "Processing AI..." state
+  useEffect(() => {
+    const hasProcessingEntry = data?.entries?.some(e => e.reflectionStatus === 'Processing AI...') || false;
+    if (!hasProcessingEntry) return;
+
+    const interval = setInterval(() => {
+      console.log('[Dashboard Page] Polling for completed background processing...');
+      loadData();
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [data]);
+
   // Compute time-of-day greeting
   const getGreeting = () => {
     const hours = new Date().getHours();

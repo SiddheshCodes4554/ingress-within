@@ -1,82 +1,85 @@
 import { supabase } from '../../db';
 import { aiProvider } from '../../ai/factory';
 import { decrypt } from '../../encryption';
-import { extractVocabularyDeterministic } from '../../vocabEngine';
 
 export async function processVocabularyExtraction(jobData: {
-  entry_id: string;
+  entry_id?: string;
+  thread_response_id?: string;
   user_id: string;
 }) {
-  const { entry_id, user_id } = jobData;
+  const { entry_id, thread_response_id, user_id } = jobData;
 
-  console.log(`[Vocab Worker] Starting vocabulary processing for entry ${entry_id} (user ${user_id})`);
+  console.log(`[Vocab Worker] Starting vocabulary processing for job:`, JSON.stringify(jobData));
 
-  // 1. Fetch the entry
-  const { data: entry, error: entryError } = await supabase
-    .from('entries')
-    .select('*')
-    .eq('id', entry_id)
-    .single();
+  let cycle_id = '';
+  let fullText = '';
+  let source = '';
 
-  if (entryError || !entry) {
-    throw new Error(`Failed to fetch entry ${entry_id}: ${entryError?.message || 'Not found'}`);
-  }
-
-  // Prevent duplicate processing
-  if (entry.vocab_processed) {
-    console.log(`[Vocab Worker] Entry ${entry_id} has already been processed for vocabulary. Skipping.`);
-    return;
-  }
-
-  // 2. Decrypt entry text
-  const entryText = decrypt(entry.new_entry_text_encrypted, entry.new_entry_text_iv) || entry.content;
-  if (!entryText || entryText.trim() === '') {
-    console.log(`[Vocab Worker] Entry ${entry_id} has empty text. Marking as processed and skipping.`);
-    await supabase.from('entries').update({ vocab_processed: true }).eq('id', entry_id);
-    return;
-  }
-
-  // 3. Fetch latest unprocessed thread response for user in active cycle
-  let threadText = '';
-  let threadResp: any = null;
-  try {
-    const { data: resp, error: respErr } = await supabase
-      .from('thread_responses')
+  // 1. Resolve source document
+  if (entry_id) {
+    const { data: entry, error: entryError } = await supabase
+      .from('entries')
       .select('*')
-      .eq('user_id', user_id)
-      .eq('vocab_processed', false)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .eq('id', entry_id)
+      .single();
 
-    if (!respErr && resp) {
-      threadResp = resp;
-      threadText = resp.response_text || '';
-      console.log(`[Vocab Worker] Found unprocessed thread response to include: "${threadText.substring(0, 40)}..."`);
+    if (entryError || !entry) {
+      throw new Error(`Failed to fetch entry ${entry_id}: ${entryError?.message || 'Not found'}`);
     }
-  } catch (err) {
-    console.warn(`[Vocab Worker] Failed to query thread responses:`, err);
+
+    if (entry.vocab_processed) {
+      console.log(`[Vocab Worker] Entry ${entry_id} has already been processed. Skipping.`);
+      return;
+    }
+
+    cycle_id = entry.cycle_id;
+    fullText = decrypt(entry.new_entry_text_encrypted, entry.new_entry_text_iv) || entry.content || '';
+    source = 'entry';
+  } else if (thread_response_id) {
+    const { data: resp, error: respError } = await supabase
+      .from('thread_responses')
+      .select('*, threads(cycle_id)')
+      .eq('id', thread_response_id)
+      .single() as any;
+
+    if (respError || !resp) {
+      throw new Error(`Failed to fetch thread response ${thread_response_id}: ${respError?.message || 'Not found'}`);
+    }
+
+    if (resp.vocab_processed) {
+      console.log(`[Vocab Worker] Thread response ${thread_response_id} has already been processed. Skipping.`);
+      return;
+    }
+
+    cycle_id = resp.threads?.cycle_id;
+    fullText = resp.response_text || '';
+    source = 'thread_response';
   }
+
+  if (!cycle_id) {
+    console.warn(`[Vocab Worker] Could not resolve cycle_id for job. Skipping.`);
+    return;
+  }
+
+  if (!fullText.trim()) {
+    console.log(`[Vocab Worker] Empty content. Marking as processed and skipping.`);
+    if (entry_id) {
+      await supabase.from('entries').update({ vocab_processed: true }).eq('id', entry_id);
+    } else if (thread_response_id) {
+      await supabase.from('thread_responses').update({ vocab_processed: true }).eq('id', thread_response_id);
+    }
+    return;
+  }
+
   try {
-    const fullText = entryText + (threadText ? '\n\n' + threadText : '');
     // Check if new columns exist (semantic_meaning, context, confidence, entry_ids)
     let hasNewColumns = false;
     try {
-      const { data: testRow } = await supabase
+      const { error: testErr } = await supabase
         .from('vocab_words')
-        .select('*')
+        .select('semantic_meaning')
         .limit(1);
-      if (testRow && testRow.length > 0 && 'semantic_meaning' in testRow[0]) {
-        hasNewColumns = true;
-      } else {
-        const { error: testErr } = await supabase
-          .from('vocab_words')
-          .select('semantic_meaning')
-          .limit(1);
-        if (!testErr) {
-          hasNewColumns = true;
-        }
-      }
+      if (!testErr) hasNewColumns = true;
     } catch (_) {}
 
     // Check if category column exists (from v5 migration)
@@ -86,137 +89,247 @@ export async function processVocabularyExtraction(jobData: {
         .from('vocab_words')
         .select('category')
         .limit(1);
-      if (!categoryErr) {
-        hasCategoryColumn = true;
-      }
+      if (!categoryErr) hasCategoryColumn = true;
     } catch (_) {}
-    
-    console.log(`[Vocab Worker] Database schema has personalized columns: ${hasNewColumns}, category column: ${hasCategoryColumn}`);
 
-    // Extract vocabulary expressions using AI
-    console.log(`[Vocab Worker] Extracting personalized emotional vocabulary using AI...`);
+    // Check if vocab_extractions table exists
+    let hasExtractionsTable = false;
+    try {
+      const { error: extErr } = await supabase
+        .from('vocab_extractions')
+        .select('id')
+        .limit(1);
+      if (!extErr) hasExtractionsTable = true;
+    } catch (_) {}
+
+    console.log(`[Vocab Worker] Database schema: hasNewColumns=${hasNewColumns}, hasCategoryColumn=${hasCategoryColumn}, hasExtractionsTable=${hasExtractionsTable}`);
+
+    // 2. Extract Vocabulary using AI
+    console.log(`[Vocab Worker] Extracting expressions using AI...`);
     const aiResult = await aiProvider.extractVocabulary(fullText);
     const expressions = aiResult?.expressions || [];
 
-    console.log(`[Vocab Worker] AI extracted ${expressions.length} personalized expressions.`);
+    console.log(`[Vocab Worker] AI extracted ${expressions.length} expressions.`);
 
-    for (const exp of expressions) {
-      const cleanWord = exp.word.trim();
-      const cleanNormWord = exp.normalized.trim().toLowerCase();
-      
-      // If normalized word is empty or too short, skip
-      if (cleanNormWord.length < 3) continue;
-
-      // Determine source: entry, thread or combined
-      const inEntry = entryText.toLowerCase().includes(cleanNormWord);
-      const inThread = threadText ? threadText.toLowerCase().includes(cleanNormWord) : false;
-      let source = 'entry';
-      if (inThread && !inEntry) {
-        source = 'thread_response';
-      } else if (inEntry && inThread) {
-        source = 'combined';
+    // 3. Clear existing extractions for this specific entry/thread response (idempotency)
+    if (hasExtractionsTable) {
+      if (entry_id) {
+        await supabase
+          .from('vocab_extractions')
+          .delete()
+          .eq('entry_id', entry_id);
+      } else if (thread_response_id) {
+        await supabase
+          .from('vocab_extractions')
+          .delete()
+          .eq('thread_response_id', thread_response_id);
       }
 
-      // Check if word already exists in this cycle
-      const { data: existingWord, error: queryErr } = await supabase
-        .from('vocab_words')
-        .select('*')
-        .eq('user_id', user_id)
-        .eq('cycle_id', entry.cycle_id)
-        .eq('normalized_word', cleanNormWord)
-        .maybeSingle();
+      // Insert raw extractions
+      const extractionsToInsert = expressions
+        .filter(exp => exp.word && exp.normalized && exp.normalized.trim().length >= 3)
+        .map(exp => ({
+          user_id,
+          cycle_id,
+          entry_id: entry_id || null,
+          thread_response_id: thread_response_id || null,
+          word: exp.word.trim(),
+          normalized_word: exp.normalized.trim().toLowerCase(),
+          sentence: exp.context || '',
+          confidence: exp.confidence || 1.0,
+          sentence_reasoning: exp.semantic_meaning || ''
+        }));
 
-      if (queryErr) {
-        console.error(`[Vocab Worker] Error querying existing word:`, queryErr.message);
-        continue;
-      }
-
-      // Merge raw tokens
-      const incomingRawTokens = [cleanWord];
-      const uniqueRawTokens = Array.from(new Set([
-        ...(existingWord?.raw_tokens || []),
-        ...incomingRawTokens
-      ]));
-
-      // Merge entry IDs
-      const currentEntryIds = existingWord?.entry_ids || [];
-      const uniqueEntryIds = Array.from(new Set([
-        ...currentEntryIds,
-        entry_id
-      ]));
-
-      // Build database payload
-      const wordPayload: any = {
-        frequency: existingWord ? existingWord.frequency + 1 : 1,
-        last_seen: new Date().toISOString(),
-        source,
-        is_emotional: true, // For backwards compatibility
-        emotional_score: exp.confidence || 1.0, // For backwards compatibility
-        raw_tokens: uniqueRawTokens
-      };
-
-      if (hasCategoryColumn) {
-        wordPayload.category = 'emotional'; // For backwards compatibility with by-cycle and legacy routes
-      }
-
-      if (hasNewColumns) {
-        wordPayload.semantic_meaning = exp.semantic_meaning || '';
-        wordPayload.context = exp.context || '';
-        wordPayload.confidence = exp.confidence || 1.0;
-        wordPayload.entry_ids = uniqueEntryIds;
-      }
-
-      if (existingWord) {
-        // Update existing word record
-        const { error: updateErr } = await supabase
-          .from('vocab_words')
-          .update(wordPayload)
-          .eq('id', existingWord.id);
-
-        if (updateErr) {
-          console.error(`[Vocab Worker] Failed to update word "${cleanNormWord}":`, updateErr.message);
-        }
-      } else {
-        // Insert new word record
-        wordPayload.user_id = user_id;
-        wordPayload.cycle_id = entry.cycle_id;
-        wordPayload.word = cleanWord;
-        wordPayload.normalized_word = cleanNormWord;
-        wordPayload.first_seen = new Date().toISOString();
-
-        const { error: insertErr } = await supabase
-          .from('vocab_words')
-          .insert(wordPayload);
-
-        if (insertErr) {
-          console.error(`[Vocab Worker] Failed to insert word "${cleanNormWord}":`, insertErr.message);
+      if (extractionsToInsert.length > 0) {
+        const { error: extInsertErr } = await supabase
+          .from('vocab_extractions')
+          .insert(extractionsToInsert);
+        if (extInsertErr) {
+          console.error(`[Vocab Worker] Failed to insert audit extractions:`, extInsertErr.message);
+        } else {
+          console.log(`[Vocab Worker] Logged ${extractionsToInsert.length} audit extractions.`);
         }
       }
     }
 
-    // 6. Emotional Concept Extraction (using AI)
+    // 4. Update/Recalculate vocab_words for the cycle
+    if (hasExtractionsTable) {
+      // Fetch all extractions for this cycle
+      const { data: cycleExtractions, error: extFetchErr } = await supabase
+        .from('vocab_extractions')
+        .select('*')
+        .eq('user_id', user_id)
+        .eq('cycle_id', cycle_id);
+
+      if (extFetchErr) {
+        console.error(`[Vocab Worker] Failed to fetch cycle extractions:`, extFetchErr.message);
+      } else {
+        const extractions = cycleExtractions || [];
+        
+        // Group by normalized_word
+        const groups = new Map<string, typeof extractions>();
+        extractions.forEach(ext => {
+          const list = groups.get(ext.normalized_word) || [];
+          list.push(ext);
+          groups.set(ext.normalized_word, list);
+        });
+
+        const activeWords = Array.from(groups.keys());
+
+        // Delete vocab_words for the cycle that are no longer in extractions
+        if (activeWords.length > 0) {
+          // Format activeWords for Postgres SQL IN array format
+          const activeWordsList = activeWords.map(w => w.replace(/'/g, "''"));
+          await supabase
+            .from('vocab_words')
+            .delete()
+            .eq('user_id', user_id)
+            .eq('cycle_id', cycle_id)
+            .not('normalized_word', 'in', `(${activeWordsList.map(w => `'${w}'`).join(',')})`);
+        } else {
+          await supabase
+            .from('vocab_words')
+            .delete()
+            .eq('user_id', user_id)
+            .eq('cycle_id', cycle_id);
+        }
+
+        // Upsert aggregated vocab_words
+        for (const [normWord, group] of groups.entries()) {
+          // Sort by created_at desc to find the most recent
+          const sorted = [...group].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          const mostRecent = sorted[0];
+
+          // Determine first_seen and last_seen
+          const dates = group.map(g => new Date(g.created_at).getTime());
+          const firstSeen = new Date(Math.min(...dates)).toISOString();
+          const lastSeen = new Date(Math.max(...dates)).toISOString();
+
+          // Get unique entry/thread IDs
+          const entryIds = Array.from(new Set(group.map(g => g.entry_id).filter(Boolean)));
+          
+          // Determine source
+          const hasEntry = group.some(g => g.entry_id);
+          const hasThread = group.some(g => g.thread_response_id);
+          const wordSource = (hasEntry && hasThread) ? 'combined' : (hasThread ? 'thread_response' : 'entry');
+
+          // Collect unique raw tokens
+          const rawTokens = Array.from(new Set(group.map(g => g.word)));
+
+          const wordPayload: any = {
+            frequency: group.length,
+            first_seen: firstSeen,
+            last_seen: lastSeen,
+            source: wordSource,
+            is_emotional: true,
+            emotional_score: mostRecent.confidence,
+            raw_tokens: rawTokens,
+            word: mostRecent.word,
+            normalized_word: normWord
+          };
+
+          if (hasCategoryColumn) {
+            wordPayload.category = 'emotional';
+          }
+
+          if (hasNewColumns) {
+            wordPayload.semantic_meaning = mostRecent.sentence_reasoning || '';
+            wordPayload.context = mostRecent.sentence || '';
+            wordPayload.confidence = mostRecent.confidence;
+            wordPayload.entry_ids = entryIds;
+          }
+
+          // Check if it already exists
+          const { data: existingWord } = await supabase
+            .from('vocab_words')
+            .select('id')
+            .eq('user_id', user_id)
+            .eq('cycle_id', cycle_id)
+            .eq('normalized_word', normWord)
+            .maybeSingle();
+
+          if (existingWord) {
+            await supabase
+              .from('vocab_words')
+              .update(wordPayload)
+              .eq('id', existingWord.id);
+          } else {
+            wordPayload.user_id = user_id;
+            wordPayload.cycle_id = cycle_id;
+            await supabase
+              .from('vocab_words')
+              .insert(wordPayload);
+          }
+        }
+      }
+    } else {
+      // Slower fallback if vocab_extractions migration is not run yet
+      console.warn(`[Vocab Worker] vocab_extractions table not found. Using legacy incremental fallback.`);
+      for (const exp of expressions) {
+        const cleanWord = exp.word.trim();
+        const cleanNormWord = exp.normalized.trim().toLowerCase();
+        
+        if (cleanNormWord.length < 3) continue;
+
+        const { data: existingWord } = await supabase
+          .from('vocab_words')
+          .select('*')
+          .eq('user_id', user_id)
+          .eq('cycle_id', cycle_id)
+          .eq('normalized_word', cleanNormWord)
+          .maybeSingle();
+
+        const uniqueEntryIds = Array.from(new Set([
+          ...(existingWord?.entry_ids || []),
+          entry_id || thread_response_id
+        ].filter(Boolean)));
+
+        const wordPayload: any = {
+          frequency: existingWord ? existingWord.frequency + 1 : 1,
+          last_seen: new Date().toISOString(),
+          source: entry_id ? 'entry' : 'thread_response',
+          is_emotional: true,
+          emotional_score: exp.confidence || 1.0,
+          raw_tokens: Array.from(new Set([...(existingWord?.raw_tokens || []), cleanWord]))
+        };
+
+        if (hasCategoryColumn) wordPayload.category = 'emotional';
+        if (hasNewColumns) {
+          wordPayload.semantic_meaning = exp.semantic_meaning || '';
+          wordPayload.context = exp.context || '';
+          wordPayload.confidence = exp.confidence || 1.0;
+          wordPayload.entry_ids = uniqueEntryIds;
+        }
+
+        if (existingWord) {
+          await supabase.from('vocab_words').update(wordPayload).eq('id', existingWord.id);
+        } else {
+          wordPayload.user_id = user_id;
+          wordPayload.cycle_id = cycle_id;
+          wordPayload.word = cleanWord;
+          wordPayload.normalized_word = cleanNormWord;
+          wordPayload.first_seen = new Date().toISOString();
+          await supabase.from('vocab_words').insert(wordPayload);
+        }
+      }
+    }
+
+    // 5. Concepts Extraction
     console.log(`[Vocab Worker] Extracting emotional concepts using AI...`);
     const conceptResult = await aiProvider.extractConcepts(fullText);
 
     if (conceptResult.concepts && Array.isArray(conceptResult.concepts)) {
-      console.log(`[Vocab Worker] Extracted ${conceptResult.concepts.length} emotional concepts.`);
       for (const c of conceptResult.concepts) {
         if (!c.concept) continue;
         const cleanConcept = c.concept.trim();
 
-        // Check if concept already exists in this cycle
-        const { data: existingConcept, error: conceptQueryErr } = await supabase
+        const { data: existingConcept } = await supabase
           .from('vocab_concepts')
           .select('id, frequency')
           .eq('user_id', user_id)
-          .eq('cycle_id', entry.cycle_id)
+          .eq('cycle_id', cycle_id)
           .eq('concept', cleanConcept)
           .maybeSingle();
-
-        if (conceptQueryErr) {
-          console.error(`[Vocab Worker] Error querying concept:`, conceptQueryErr.message);
-          continue;
-        }
 
         if (existingConcept) {
           await supabase
@@ -231,7 +344,7 @@ export async function processVocabularyExtraction(jobData: {
             .from('vocab_concepts')
             .insert({
               user_id,
-              cycle_id: entry.cycle_id,
+              cycle_id,
               concept: cleanConcept,
               frequency: 1,
               confidence: c.confidence || 1.0
@@ -240,23 +353,17 @@ export async function processVocabularyExtraction(jobData: {
       }
     }
 
-    // 7. Update vocab_clusters table (AI grouping, deterministic stats) using ONLY emotional words
-    await generateAndSaveClusters(user_id, entry.cycle_id);
+    // 6. Update vocab_clusters
+    await generateAndSaveClusters(user_id, cycle_id);
 
-    // 8. Mark entry and thread response as processed
-    await supabase
-      .from('entries')
-      .update({ vocab_processed: true })
-      .eq('id', entry_id);
-
-    if (threadResp) {
-      await supabase
-        .from('thread_responses')
-        .update({ vocab_processed: true })
-        .eq('id', threadResp.id);
+    // 7. Mark document as processed
+    if (entry_id) {
+      await supabase.from('entries').update({ vocab_processed: true }).eq('id', entry_id);
+    } else if (thread_response_id) {
+      await supabase.from('thread_responses').update({ vocab_processed: true }).eq('id', thread_response_id);
     }
 
-    console.log(`[Vocab Worker] Vocabulary processing completed successfully for entry ${entry_id}`);
+    console.log(`[Vocab Worker] Vocabulary processing completed successfully.`);
   } catch (err: any) {
     console.error(`[Vocab Worker] Error during vocabulary processing:`, err);
     throw err;
@@ -308,7 +415,7 @@ export async function generateAndSaveClusters(user_id: string, cycle_id: string)
     const clusterResult = await aiProvider.groupClusters(allCycleWords as any[]);
 
     if (clusterResult.clusters && Array.isArray(clusterResult.clusters)) {
-      // 1. Filter out isolated clusters: supported by at least 2 distinct words, OR a single word with frequency >= 2
+      // Filter out isolated clusters: supported by at least 2 distinct words, OR a single word with frequency >= 2
       const validClusters = clusterResult.clusters.filter(cl => {
         if (!cl.words || cl.words.length === 0) return false;
         if (cl.words.length > 1) return true; // Multiple distinct words

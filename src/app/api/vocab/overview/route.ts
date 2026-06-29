@@ -72,6 +72,25 @@ export async function GET(request: NextRequest) {
       activeCycleWords = data || [];
     }
 
+    // B. All distinct words count
+    const { count: distinctWordCount, error: vocabCountErr } = await supabase
+      .from('vocab_words')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('frequency', 2);
+
+    // B2. Current cycle distinct words count
+    let currentCycleWordsCount = 0;
+    if (cycleId) {
+      const { count: cWordCount } = await supabase
+        .from('vocab_words')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('cycle_id', cycleId)
+        .gte('frequency', 2);
+      currentCycleWordsCount = cWordCount || 0;
+    }
+
     // Fetch all time top words
     const allTimeFields = hasNewWordsColumns 
       ? 'word, normalized_word, frequency, semantic_meaning, context, confidence, entry_ids, first_seen, last_seen'
@@ -266,14 +285,14 @@ export async function GET(request: NextRequest) {
     }
 
     // 8. Fetch growth metrics
-    let currentCycleWordsCount = activeCycleWords.length;
+    currentCycleWordsCount = activeCycleWords.length;
 
     return NextResponse.json({
       success: true,
       data: {
         stats: {
           entriesCount: entriesCount || 0,
-          distinctWordCount: activeCycleWords.length,
+          distinctWordCount: distinctWordCount || 0,
           mostUsedWord: mostUsedAllTime?.[0]?.normalized_word || 'none',
           mostUsedFrequency: mostUsedAllTime?.[0]?.frequency || 0,
           currentCycleWordsCount
