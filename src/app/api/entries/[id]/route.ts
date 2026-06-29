@@ -81,30 +81,46 @@ export async function GET(
       }
     }
 
-    // Fetch cycle vocabulary words to attach to reflections
+    // Fetch entry-specific vocabulary words from extractions
     let vocabWords: string[] = [];
-    if (entry.cycle_id) {
-      const { data: vocabRes } = await supabase
+    const { data: vocabRes, error: vocabErr } = await supabase
+      .from('vocab_extractions')
+      .select('word')
+      .eq('user_id', authUser.userId)
+      .eq('entry_id', entry.id);
+
+    if (!vocabErr && vocabRes) {
+      vocabWords = vocabRes.map((v: any) => v.word);
+    } else {
+      console.warn(`[api/entries/[id]] Failed to fetch vocab_extractions, falling back to vocab_words:`, vocabErr?.message);
+      const { data: wordsRes } = await supabase
         .from('vocab_words')
-        .select('word')
-        .eq('user_id', authUser.userId)
-        .eq('cycle_id', entry.cycle_id)
-        .gte('frequency', 2);
-      vocabWords = vocabRes ? vocabRes.map((v: any) => v.word) : [];
+        .select('word, entry_ids')
+        .eq('user_id', authUser.userId);
+      vocabWords = wordsRes 
+        ? wordsRes.filter((v: any) => Array.isArray(v.entry_ids) && v.entry_ids.includes(entry.id)).map((v: any) => v.word)
+        : [];
     }
 
     let prevVocabWords: string[] = [];
-    if (previousEntry && previousEntry.cycle_id) {
-      if (previousEntry.cycle_id === entry.cycle_id) {
-        prevVocabWords = vocabWords;
+    if (previousEntry) {
+      const { data: prevVocabRes, error: prevVocabErr } = await supabase
+        .from('vocab_extractions')
+        .select('word')
+        .eq('user_id', authUser.userId)
+        .eq('entry_id', previousEntry.id);
+
+      if (!prevVocabErr && prevVocabRes) {
+        prevVocabWords = prevVocabRes.map((v: any) => v.word);
       } else {
-        const { data: prevVocabRes } = await supabase
+        console.warn(`[api/entries/[id]] Failed to fetch previous vocab_extractions, falling back to vocab_words:`, prevVocabErr?.message);
+        const { data: wordsRes } = await supabase
           .from('vocab_words')
-          .select('word')
-          .eq('user_id', authUser.userId)
-          .eq('cycle_id', previousEntry.cycle_id)
-          .gte('frequency', 2);
-        prevVocabWords = prevVocabRes ? prevVocabRes.map((v: any) => v.word) : [];
+          .select('word, entry_ids')
+          .eq('user_id', authUser.userId);
+        prevVocabWords = wordsRes
+          ? wordsRes.filter((v: any) => Array.isArray(v.entry_ids) && v.entry_ids.includes(previousEntry.id)).map((v: any) => v.word)
+          : [];
       }
     }
 

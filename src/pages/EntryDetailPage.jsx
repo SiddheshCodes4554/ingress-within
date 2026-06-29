@@ -233,11 +233,6 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
                         {reflection.classification}
                       </span>
                     )}
-                    {reflection.confidence && (
-                      <span className="text-[8.5px] bg-primary/5 text-primary px-2 py-0.5 rounded font-semibold capitalize">
-                        {reflection.confidence} trust
-                      </span>
-                    )}
                   </div>
                 )}
               </div>

@@ -618,12 +618,26 @@ export async function POST(request: NextRequest) {
       if (updatedEntry?.cycle_id) {
         const { data: vocabRes } = await supabase
           .from('vocab_words')
-          .select('word, normalized_word, frequency, is_emotional, emotional_score')
+          .select('word, normalized_word, frequency, is_emotional, emotional_score, entry_ids')
           .eq('user_id', updatedEntry.user_id)
           .eq('cycle_id', updatedEntry.cycle_id);
         
-        vocabWords = vocabRes ? vocabRes.map((v: any) => v.word) : [];
         vocabDetails = vocabRes || [];
+
+        // Fetch entry-specific vocabulary words from extractions
+        const { data: extRes, error: extErr } = await supabase
+          .from('vocab_extractions')
+          .select('word')
+          .eq('user_id', updatedEntry.user_id)
+          .eq('entry_id', updatedEntry.id);
+        
+        if (!extErr && extRes) {
+          vocabWords = extRes.map((v: any) => v.word);
+        } else {
+          vocabWords = vocabDetails
+            ? vocabDetails.filter((v: any) => Array.isArray(v.entry_ids) && v.entry_ids.includes(updatedEntry.id)).map((v: any) => v.word)
+            : [];
+        }
 
         const { data: clusterRes } = await supabase
           .from('vocab_clusters')

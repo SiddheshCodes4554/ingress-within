@@ -117,12 +117,30 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch cycle vocab words to map vocab elements per entry cycle
-    const { data: vocabRes } = await supabase
-      .from('vocab_words')
-      .select('cycle_id, word')
-      .eq('user_id', authUser.userId)
-      .gte('frequency', 2);
+    // Fetch entry-specific vocab words from extractions
+    let vocabRes: any[] = [];
+    const { data: extRes, error: extErr } = await supabase
+      .from('vocab_extractions')
+      .select('entry_id, word')
+      .eq('user_id', authUser.userId);
+      
+    if (!extErr && extRes) {
+      vocabRes = extRes;
+    } else {
+      console.warn('[api/entries] Failed to fetch vocab_extractions, falling back to vocab_words:', extErr?.message);
+      const { data: wordsRes } = await supabase
+        .from('vocab_words')
+        .select('word, entry_ids')
+        .eq('user_id', authUser.userId);
+      
+      vocabRes = (wordsRes || []).flatMap((v: any) => {
+        if (v.entry_ids && Array.isArray(v.entry_ids)) {
+          return v.entry_ids.map((id: string) => ({ entry_id: id, word: v.word }));
+        }
+        return [];
+      });
+    }
+
 
     const formattedEntries = (entries || []).map((entry: any) => {
       // Normalize reflections (can be array or single object depending on PostgREST cardinality detection)
@@ -150,8 +168,8 @@ export async function GET(request: NextRequest) {
         : null;
       delete entry.cycles;
 
-      const cycleVocab = vocabRes
-        ? vocabRes.filter((v: any) => v.cycle_id === entry.cycle_id).map((v: any) => v.word)
+      const entryVocab = vocabRes
+        ? vocabRes.filter((v: any) => v.entry_id === entry.id).map((v: any) => v.word)
         : [];
 
       return {
@@ -159,7 +177,7 @@ export async function GET(request: NextRequest) {
         cycle_number: cycleNum,
         reflection: reflection ? {
           ...reflection,
-          vocabulary: cycleVocab
+          vocabulary: entryVocab
         } : null
       };
     });

@@ -35,8 +35,6 @@ export default function VocabPage({ user, profile, onSignOut }) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [cycles, setCycles] = useState([]);
-  const [rebuildInProgress, setRebuildInProgress] = useState(false);
-
   // Track accordion open/close state for cycles
   const [openCycles, setOpenCycles] = useState({ 0: true });
 
@@ -61,54 +59,9 @@ export default function VocabPage({ user, profile, onSignOut }) {
     }
   };
 
-  const checkRebuildStatus = async () => {
-    try {
-      const res = await fetch('/api/vocab/rebuild');
-      const data = await res.json();
-      if (data.success) {
-        setRebuildInProgress(data.inProgress);
-        return data.inProgress;
-      }
-    } catch (err) {
-      console.error('Failed to check rebuild status:', err);
-    }
-    return false;
-  };
-
-  const handleTriggerRebuild = async () => {
-    setRebuildInProgress(true);
-    try {
-      const res = await fetch('/api/vocab/rebuild', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data?.error?.message || 'Failed to trigger rebuild.');
-        setRebuildInProgress(false);
-      }
-    } catch (err) {
-      console.error('Failed to trigger rebuild:', err);
-      setRebuildInProgress(false);
-    }
-  };
-
   useEffect(() => {
     loadVocabData();
-    checkRebuildStatus();
   }, []);
-
-  useEffect(() => {
-    if (!rebuildInProgress) return;
-
-    const interval = setInterval(async () => {
-      console.log('[Vocab Page] Checking vocabulary rebuild status...');
-      const inProgress = await checkRebuildStatus();
-      if (!inProgress) {
-        console.log('[Vocab Page] Rebuild completed. Reloading data...');
-        loadVocabData();
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [rebuildInProgress]);
 
   if (loading) {
     return (
@@ -165,17 +118,7 @@ export default function VocabPage({ user, profile, onSignOut }) {
     shiftSignals.push('Your vocabulary tracking has started in Cycle 1. Compare shifts once you progress to Cycle 2.');
   }
 
-  // Construct Vocabulary Timeline (Section 6)
-  const timelineWords = stats?.mostUsed
-    ? [...stats.mostUsed]
-        .filter(w => w.first_seen)
-        .map(w => ({
-          word: w.normalized_word,
-          firstSeen: new Date(w.first_seen),
-          frequency: w.frequency
-        }))
-        .sort((a, b) => b.firstSeen.getTime() - a.firstSeen.getTime()) // Newest first
-    : [];
+
 
   return (
     <div className="min-h-screen bg-mint-grey text-primary font-sans relative pb-20">
@@ -243,23 +186,13 @@ export default function VocabPage({ user, profile, onSignOut }) {
           ) : (
             // Full Content Sections
             <div className="space-y-8">
-              
               {/* PERSONAL VOCABULARY LANDSCAPE */}
               <div className="space-y-3">
                 <div className="text-[10px] font-bold tracking-widest text-[#8DBFB4] uppercase">Personal Vocabulary Landscape</div>
-                <p className="text-[12.5px] text-[#4A6A64] leading-relaxed">
-                  Every person's emotional register is unique. Instead of classifying your logs into generic boxes, Ingress Within discovers recurring thematic clusters directly from your writing.
-                </p>
 
                 <div className="space-y-4">
                   {clusters.length > 0 ? (
                     clusters.map((cl, idx) => {
-                      const trendColor = cl.growth_trend?.includes('+') 
-                        ? 'bg-green-50 text-green-700 border-green-200'
-                        : cl.growth_trend === 'emerging'
-                        ? 'bg-purple-50 text-purple-700 border-purple-200'
-                        : 'bg-gray-50 text-gray-600 border-gray-200';
-                      
                       const dateStart = cl.first_appearance ? new Date(cl.first_appearance).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'n/a';
                       const dateEnd = cl.last_appearance ? new Date(cl.last_appearance).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'n/a';
 
@@ -271,20 +204,13 @@ export default function VocabPage({ user, profile, onSignOut }) {
                               <h3 className="text-[15px] font-bold text-primary">{cl.cluster_name}</h3>
                               <p className="text-[12px] text-mid/90 leading-relaxed">{cl.description}</p>
                             </div>
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${trendColor} shrink-0`}>
-                              {cl.growth_trend || 'stable'}
-                            </span>
                           </div>
 
                           {/* Living Pattern Metrics */}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#FAFBFB] p-3 rounded-lg border border-[#1E2A2E]/5 text-[11px]">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#FAFBFB] p-3 rounded-lg border border-[#1E2A2E]/5 text-[11px]">
                             <div className="space-y-0.5">
                               <span className="text-mid/50 uppercase text-[9px] font-bold tracking-wider">Volume</span>
                               <div className="font-semibold text-primary">{cl.frequency || 0} occurrences</div>
-                            </div>
-                            <div className="space-y-0.5">
-                              <span className="text-mid/50 uppercase text-[9px] font-bold tracking-wider">Confidence</span>
-                              <div className="font-semibold text-[#5A4A8A]">{Math.round((cl.confidence || 0.85) * 100)}% reliability</div>
                             </div>
                             <div className="space-y-0.5">
                               <span className="text-mid/50 uppercase text-[9px] font-bold tracking-wider">Span</span>
@@ -318,25 +244,6 @@ export default function VocabPage({ user, profile, onSignOut }) {
                               })}
                             </div>
                           </div>
-
-                          {/* Related Entries Collapsible */}
-                          {cl.related_entries && cl.related_entries.length > 0 && (
-                            <details className="mt-3 border-t border-[#1E2A2E]/5 pt-2.5 text-[11px] text-mid">
-                              <summary className="cursor-pointer hover:text-primary transition-colors font-bold text-[9.5px] uppercase tracking-widest select-none outline-none">
-                                Trace Evidence ({cl.related_entries.length} logs)
-                              </summary>
-                              <div className="mt-2 space-y-2 max-h-36 overflow-y-auto pr-1">
-                                {cl.related_entries.map((e, eIdx) => (
-                                  <div key={eIdx} className="bg-[#FAFBFB] p-2.5 rounded-lg border border-[#1E2A2E]/5 space-y-1">
-                                    <div className="font-mono text-[9px] text-mid/50">
-                                      {new Date(e.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                    </div>
-                                    <div className="italic font-serif leading-relaxed text-primary/80">"{e.snippet}"</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </details>
-                          )}
                         </div>
                       );
                     })
@@ -399,42 +306,7 @@ export default function VocabPage({ user, profile, onSignOut }) {
                 </div>
               </div>
 
-              {/* SECTION 6: Vocabulary Timeline */}
-              <div className="space-y-3">
-                <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">Section 6: Vocabulary Timeline</div>
-                <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-xs space-y-4">
-                  <p className="text-[12px] text-mid leading-relaxed">
-                    Chronological view of when important words first appeared in your logs and how often they recur.
-                  </p>
-                  
-                  <div className="relative border-l border-[#1E2A2E]/10 pl-5 ml-2 space-y-4">
-                    {timelineWords.length > 0 ? (
-                      timelineWords.map((item, idx) => {
-                        const formattedDate = item.firstSeen.toLocaleDateString('en-GB', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric'
-                        });
-                        return (
-                          <div key={idx} className="relative">
-                            {/* Dot on timeline */}
-                            <div className="absolute -left-[24.5px] top-1.5 w-2 h-2 rounded-full bg-secondary border border-white" />
-                            <div className="space-y-0.5">
-                              <span className="text-[10px] text-mid/50 font-mono uppercase block">{formattedDate}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[13px] font-semibold text-primary">{item.word}</span>
-                                <span className="text-[10.5px] px-1.5 py-0.1 bg-[#1E2A2E]/5 border border-[#1E2A2E]/10 rounded text-mid/70 font-mono">{item.frequency}× all-time</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <p className="text-[12px] text-light-mid italic pl-2">Timeline is empty.</p>
-                    )}
-                  </div>
-                </div>
-              </div>
+
 
               {/* SECTION 3: Cycle Comparison */}
               <div className="space-y-3">

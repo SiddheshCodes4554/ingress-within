@@ -2246,7 +2246,7 @@ export default function TestPage() {
                                     )}
                                     {entry.reflection.vocabulary && entry.reflection.vocabulary.length > 0 && (
                                       <div>
-                                        <span className="font-semibold block text-mid mb-1">Cycle Vocabulary Words:</span>
+                                        <span className="font-semibold block text-mid mb-1">Detected Vocabulary:</span>
                                         <div className="flex gap-1 flex-wrap">
                                           {entry.reflection.vocabulary.map((w, idx) => (
                                             <span key={idx} className="bg-mint-grey px-1.5 py-0.5 rounded font-mono text-[10px]">

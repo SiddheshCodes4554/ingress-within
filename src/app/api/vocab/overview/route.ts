@@ -144,25 +144,7 @@ export async function GET(request: NextRequest) {
         .eq('user_id', userId)
         .eq('cycle_id', cycleId) as any;
 
-      // Self-healing: if no clusters exist but user has active words, generate them inline
-      if ((!clusters || clusters.length === 0) && activeCycleWords.length > 0) {
-        console.log(`[Vocab API] Self-healing trigger: Generating clusters inline for user ${userId}, cycle ${cycleId}`);
-        try {
-          const { generateAndSaveClusters } = await import('../../../../lib/queue/workers/vocabWorker');
-          await generateAndSaveClusters(userId, cycleId);
-          
-          // Refetch clusters now that they've been generated
-          const { data: refetchedClusters } = await supabase
-            .from('vocab_clusters')
-            .select(selectFields)
-            .eq('user_id', userId)
-            .eq('cycle_id', cycleId) as any;
-          
-          clusters = refetchedClusters;
-        } catch (genErr) {
-          console.error('[Vocab API] Failed to self-heal/generate clusters inline:', genErr);
-        }
-      }
+
 
       if (clusters) {
         for (const cl of clusters) {

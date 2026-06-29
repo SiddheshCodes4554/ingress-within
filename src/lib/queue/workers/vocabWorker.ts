@@ -14,18 +14,21 @@ export async function processVocabularyExtraction(jobData: {
   let cycle_id = '';
   let fullText = '';
   let source = '';
+  let entry: any = null;
+  let resp: any = null;
 
   // 1. Resolve source document
   if (entry_id) {
-    const { data: entry, error: entryError } = await supabase
+    const { data: dbEntry, error: entryError } = await supabase
       .from('entries')
       .select('*')
       .eq('id', entry_id)
       .single();
 
-    if (entryError || !entry) {
+    if (entryError || !dbEntry) {
       throw new Error(`Failed to fetch entry ${entry_id}: ${entryError?.message || 'Not found'}`);
     }
+    entry = dbEntry;
 
     if (entry.vocab_processed) {
       console.log(`[Vocab Worker] Entry ${entry_id} has already been processed. Skipping.`);
@@ -36,15 +39,16 @@ export async function processVocabularyExtraction(jobData: {
     fullText = decrypt(entry.new_entry_text_encrypted, entry.new_entry_text_iv) || entry.content || '';
     source = 'entry';
   } else if (thread_response_id) {
-    const { data: resp, error: respError } = await supabase
+    const { data: dbResp, error: respError } = await supabase
       .from('thread_responses')
       .select('*, threads(cycle_id)')
       .eq('id', thread_response_id)
       .single() as any;
 
-    if (respError || !resp) {
+    if (respError || !dbResp) {
       throw new Error(`Failed to fetch thread response ${thread_response_id}: ${respError?.message || 'Not found'}`);
     }
+    resp = dbResp;
 
     if (resp.vocab_processed) {
       console.log(`[Vocab Worker] Thread response ${thread_response_id} has already been processed. Skipping.`);
@@ -125,6 +129,13 @@ export async function processVocabularyExtraction(jobData: {
           .eq('thread_response_id', thread_response_id);
       }
 
+      let sourceCreatedAt = new Date().toISOString();
+      if (entry_id && entry) {
+        sourceCreatedAt = entry.created_at || sourceCreatedAt;
+      } else if (thread_response_id && resp) {
+        sourceCreatedAt = resp.created_at || sourceCreatedAt;
+      }
+
       // Insert raw extractions
       const extractionsToInsert = expressions
         .filter(exp => exp.word && exp.normalized && exp.normalized.trim().length >= 3)
@@ -137,7 +148,8 @@ export async function processVocabularyExtraction(jobData: {
           normalized_word: exp.normalized.trim().toLowerCase(),
           sentence: exp.context || '',
           confidence: exp.confidence || 1.0,
-          sentence_reasoning: exp.semantic_meaning || ''
+          sentence_reasoning: exp.semantic_meaning || '',
+          created_at: sourceCreatedAt
         }));
 
       if (extractionsToInsert.length > 0) {
