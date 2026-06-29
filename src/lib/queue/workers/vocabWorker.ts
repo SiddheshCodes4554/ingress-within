@@ -1,7 +1,7 @@
 import { supabase } from '../../db';
 import { aiProvider } from '../../ai/factory';
 import { decrypt } from '../../encryption';
-import { extractVocabularyDeterministic, DETERMINISTIC_EMOTIONAL_WORDS, DETERMINISTIC_THEME_WORDS } from '../../vocabEngine';
+import { extractVocabularyDeterministic } from '../../vocabEngine';
 
 export async function processVocabularyExtraction(jobData: {
   entry_id: string;
@@ -295,7 +295,7 @@ export async function generateAndSaveClusters(user_id: string, cycle_id: string)
     .select(selectFields)
     .eq('user_id', user_id)
     .eq('cycle_id', cycle_id)
-    .eq('is_emotional', true);
+    .eq('is_emotional', true) as any;
 
   if (fetchWordsErr) {
     throw new Error(`Failed to fetch cycle words for clustering: ${fetchWordsErr.message}`);

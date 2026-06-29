@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
         .eq('user_id', userId)
         .eq('cycle_id', cycleId)
         .eq('is_emotional', true)
-        .order('frequency', { ascending: false });
+        .order('frequency', { ascending: false }) as any;
       activeCycleWords = data || [];
     }
 
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
       .eq('user_id', userId)
       .eq('is_emotional', true)
       .order('frequency', { ascending: false })
-      .limit(10);
+      .limit(10) as any;
 
     // Fetch top 5 emotional concepts
     const { data: topConcepts } = await supabase
@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
         .from('vocab_clusters')
         .select(selectFields)
         .eq('user_id', userId)
-        .eq('cycle_id', cycleId);
+        .eq('cycle_id', cycleId) as any;
 
       // Self-healing: if no clusters exist but user has active words, generate them inline
       if ((!clusters || clusters.length === 0) && activeCycleWords.length > 0) {
@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
             .from('vocab_clusters')
             .select(selectFields)
             .eq('user_id', userId)
-            .eq('cycle_id', cycleId);
+            .eq('cycle_id', cycleId) as any;
           
           clusters = refetchedClusters;
         } catch (genErr) {

@@ -194,6 +194,21 @@ export const EMOTIONAL_LEMMA_MAP: Record<string, string> = {
   'hopelessly': 'hopeless'
 };
 
+// Core psychological and emotional affect words for deterministic rule matches
+export const DETERMINISTIC_EMOTIONAL_WORDS = new Set([
+  'sad', 'unhappy', 'grief', 'cry', 'pain', 'hurt', 'sorrow', 'depressed', 'depression', 'blue', 'heavy',
+  'happy', 'joy', 'cheerful', 'excited', 'content', 'peace', 'peaceful', 'calm', 'relaxed', 'relieved', 'gratitude', 'grateful',
+  'angry', 'rage', 'mad', 'furious', 'irritated', 'annoyed', 'frustrate', 'bitter', 'resent', 'resentful',
+  'fear', 'anxious', 'worry', 'panic', 'dread', 'terrified', 'frightened', 'nervous',
+  'shame', 'ashamed', 'guilty', 'embarrassed', 'regret', 'remorse',
+  'lonely', 'isolated', 'abandoned', 'alone', 'empty',
+  'overwhelm', 'exhaust', 'tired', 'weary', 'drained', 'depleted', 'fatigue', 'burden', 'pressure', 'stress', 'tense',
+  'confuse', 'uncertain', 'doubt', 'lost', 'stuck', 'blocked', 'trapped', 'hopeless', 'helpless', 'powerless', 'defeated',
+  'avoid', 'numb', 'hiding', 'withdrawn', 'numbness', 'distracted', 'escape',
+  'focus', 'clear', 'mindful', 'grounded', 'motivated', 'inspired', 'confident', 'worth', 'worthy',
+  'longing', 'yearning', 'craving', 'need', 'desire'
+]);
+
 
 
 /**
