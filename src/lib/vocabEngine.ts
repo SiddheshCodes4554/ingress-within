@@ -283,7 +283,7 @@ export function lemmatize(w: string): string {
 export function extractVocabularyDeterministic(text: string): {
   rawWords: string[];
   ignoredWords: string[];
-  extracted: { word: string; normalized_word: string }[];
+  extracted: { word: string; normalized_word: string; raw_tokens: string[] }[];
 } {
   const cleanedText = text
     .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
