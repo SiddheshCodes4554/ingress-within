@@ -86,10 +86,27 @@ export interface AIProvider {
     newEntryText?: string | null,
     personalityContext?: string | null
   ): Promise<EntryDimensionsScoreResponse>;
-  extractVocabulary(entryContent: string): Promise<{ words: { word: string; normalized_word: string }[] }>;
+  extractVocabulary(entryContent: string): Promise<{
+    expressions: {
+      word: string;
+      normalized: string;
+      semantic_meaning: string;
+      context: string;
+      confidence: number;
+    }[];
+  }>;
   extractConcepts(entryContent: string): Promise<{ concepts: { concept: string; confidence: number }[] }>;
-  groupClusters(words: { word: string; normalized_word: string; frequency: number }[]): Promise<{ clusters: { cluster_name: string; cluster_type: string; words: string[] }[] }>;
-  scoreEmotionalRelevance(words: string[], entryContent: string): Promise<{ validatedWords: { word: string; is_emotional: boolean; score: number }[] }>;
+  groupClusters(
+    words: { word: string; normalized_word: string; frequency: number; semantic_meaning?: string }[]
+  ): Promise<{
+    clusters: {
+      cluster_name: string;
+      description: string;
+      confidence: number;
+      words: string[];
+    }[];
+  }>;
+  scoreEmotionalRelevance(words: string[], entryContent: string): Promise<{ validatedWords: { word: string; is_emotional: boolean; category?: 'emotional' | 'theme' | 'general'; score: number }[] }>;
 }
 
 export interface DimensionScores {

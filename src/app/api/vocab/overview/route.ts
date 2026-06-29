@@ -29,41 +29,64 @@ export async function GET(request: NextRequest) {
 
     const cycleId = cycle?.id;
 
-    // 2. Fetch stats
+    // 2. Check if new personalized columns exist in the database
+    let hasNewWordsColumns = false;
+    try {
+      const { error } = await supabase
+        .from('vocab_words')
+        .select('semantic_meaning')
+        .limit(1);
+      if (!error) hasNewWordsColumns = true;
+    } catch (_) {}
+
+    let hasNewClustersColumns = false;
+    try {
+      const { error } = await supabase
+        .from('vocab_clusters')
+        .select('description')
+        .limit(1);
+      if (!error) hasNewClustersColumns = true;
+    } catch (_) {}
+
+    // Fetch stats
     // A. Entries count
     const { count: entriesCount, error: entriesErr } = await supabase
       .from('entries')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId);
 
-    // B. All distinct EMOTIONAL words count
-    const { count: distinctWordCount, error: vocabCountErr } = await supabase
-      .from('vocab_words')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('is_emotional', true);
+    // Fetch all active cycle words
+    let activeCycleWords: any[] = [];
+    if (cycleId) {
+      const fields = hasNewWordsColumns 
+        ? 'id, word, normalized_word, frequency, semantic_meaning, context, confidence, entry_ids, first_seen, last_seen'
+        : 'id, word, normalized_word, frequency, first_seen, last_seen';
+      
+      const { data } = await supabase
+        .from('vocab_words')
+        .select(fields)
+        .eq('user_id', userId)
+        .eq('cycle_id', cycleId)
+        .eq('is_emotional', true)
+        .order('frequency', { ascending: false });
+      activeCycleWords = data || [];
+    }
 
-    // C. Most used EMOTIONAL word (all-time)
-    const { data: topAllTimeWords, error: topWordErr } = await supabase
+    // Fetch all time top words
+    const allTimeFields = hasNewWordsColumns 
+      ? 'word, normalized_word, frequency, semantic_meaning, context, confidence, entry_ids, first_seen, last_seen'
+      : 'word, normalized_word, frequency, first_seen, last_seen';
+    
+    const { data: mostUsedAllTime } = await supabase
       .from('vocab_words')
-      .select('word, normalized_word, frequency')
-      .eq('user_id', userId)
-      .eq('is_emotional', true)
-      .order('frequency', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    // 3. Fetch top 10 most used EMOTIONAL words (all-time)
-    const { data: mostUsedAllTime, error: mostUsedErr } = await supabase
-      .from('vocab_words')
-      .select('word, normalized_word, frequency, cycle_id, first_seen, last_seen')
+      .select(allTimeFields)
       .eq('user_id', userId)
       .eq('is_emotional', true)
       .order('frequency', { ascending: false })
       .limit(10);
 
-    // 4. Fetch top 5 emotional concepts
-    const { data: topConcepts, error: conceptsErr } = await supabase
+    // Fetch top 5 emotional concepts
+    const { data: topConcepts } = await supabase
       .from('vocab_concepts')
       .select('concept, frequency, confidence')
       .eq('user_id', userId)
@@ -72,86 +95,159 @@ export async function GET(request: NextRequest) {
 
     // 5. Fetch emerging EMOTIONAL words in this cycle
     let emergingWords: any[] = [];
-    let currentCycleWordsList: any[] = [];
-    if (cycleId) {
-      const { data: currentCycleWords } = await supabase
+    if (cycleId && activeCycleWords.length > 0) {
+      const { data: olderCyclesWords } = await supabase
         .from('vocab_words')
-        .select('word, normalized_word, frequency, first_seen, last_seen')
+        .select('normalized_word')
         .eq('user_id', userId)
-        .eq('cycle_id', cycleId)
         .eq('is_emotional', true)
-        .order('frequency', { ascending: false });
+        .neq('cycle_id', cycleId);
 
-      if (currentCycleWords && currentCycleWords.length > 0) {
-        currentCycleWordsList = currentCycleWords;
-        // Query to check if these words were seen in older cycles
-        const { data: olderCyclesWords } = await supabase
-          .from('vocab_words')
-          .select('normalized_word')
-          .eq('user_id', userId)
-          .eq('is_emotional', true)
-          .neq('cycle_id', cycleId);
-
-        const olderSet = new Set(olderCyclesWords?.map(w => w.normalized_word) || []);
-        
-        // Emerging = emotional words in current cycle that were NOT seen in older cycles
-        emergingWords = currentCycleWords
-          .filter(w => !olderSet.has(w.normalized_word))
-          .map(w => w.normalized_word)
-          .slice(0, 5);
-      }
+      const olderSet = new Set(olderCyclesWords?.map(w => w.normalized_word) || []);
+      
+      // Emerging = emotional words in current cycle that were NOT seen in older cycles
+      emergingWords = activeCycleWords
+        .filter(w => !olderSet.has(w.normalized_word))
+        .map(w => w.normalized_word)
+        .slice(0, 5);
     }
 
     // 6. Fetch clusters and their associated words for this cycle (already filters matching words)
     let mappedClusters: any[] = [];
     if (cycleId) {
-      const { data: clusters } = await supabase
+      const selectFields = hasNewClustersColumns 
+        ? 'id, cluster_name, cluster_type, words, frequency, confidence, description'
+        : 'id, cluster_name, cluster_type, words, frequency';
+
+      let { data: clusters } = await supabase
         .from('vocab_clusters')
-        .select('*')
+        .select(selectFields)
         .eq('user_id', userId)
         .eq('cycle_id', cycleId);
 
+      // Self-healing: if no clusters exist but user has active words, generate them inline
+      if ((!clusters || clusters.length === 0) && activeCycleWords.length > 0) {
+        console.log(`[Vocab API] Self-healing trigger: Generating clusters inline for user ${userId}, cycle ${cycleId}`);
+        try {
+          const { generateAndSaveClusters } = await import('../../../../lib/queue/workers/vocabWorker');
+          await generateAndSaveClusters(userId, cycleId);
+          
+          // Refetch clusters now that they've been generated
+          const { data: refetchedClusters } = await supabase
+            .from('vocab_clusters')
+            .select(selectFields)
+            .eq('user_id', userId)
+            .eq('cycle_id', cycleId);
+          
+          clusters = refetchedClusters;
+        } catch (genErr) {
+          console.error('[Vocab API] Failed to self-heal/generate clusters inline:', genErr);
+        }
+      }
+
       if (clusters) {
         for (const cl of clusters) {
-          const { data: words } = await supabase
-            .from('vocab_words')
-            .select('word, normalized_word, frequency')
-            .eq('cluster_id', cl.id)
-            .eq('is_emotional', true);
-
-          const wordsList = cl.words || (words ? words.map(w => w.normalized_word) : []);
+          const clusterWords = cl.words || [];
+          const supportingWordsObj = activeCycleWords.filter(w => clusterWords.includes(w.normalized_word));
           
-          // Find anchor word (the word with highest frequency in this cluster)
-          const anchorWordObj = words && words.length > 0
-            ? words.reduce((prev, current) => (prev.frequency > current.frequency ? prev : current))
-            : null;
+          // Compute min first_seen and max last_seen
+          let firstAppearance = new Date().toISOString();
+          let lastAppearance = new Date().toISOString();
+          if (supportingWordsObj.length > 0) {
+            const firstSeens = supportingWordsObj.map(w => new Date(w.first_seen).getTime());
+            const lastSeens = supportingWordsObj.map(w => new Date(w.last_seen).getTime());
+            firstAppearance = new Date(Math.min(...firstSeens)).toISOString();
+            lastAppearance = new Date(Math.max(...lastSeens)).toISOString();
+          }
+
+          // Compute growth trend: compare frequency in current cycle vs previous cycle for these words
+          let growthTrend = 'stable';
+          
+          // Find the previous cycle
+          const { data: prevCycle } = await supabase
+            .from('cycles')
+            .select('id')
+            .eq('user_id', userId)
+            .lt('created_at', cycle ? (cycle as any).created_at || new Date().toISOString() : new Date().toISOString())
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (prevCycle) {
+            const { data: prevWords } = await supabase
+              .from('vocab_words')
+              .select('frequency')
+              .eq('user_id', userId)
+              .eq('cycle_id', prevCycle.id)
+              .in('normalized_word', clusterWords);
+            
+            const prevFreq = prevWords ? prevWords.reduce((sum, w) => sum + w.frequency, 0) : 0;
+            const currFreq = cl.frequency || 0;
+            if (prevFreq > 0) {
+              const diffPct = Math.round(((currFreq - prevFreq) / prevFreq) * 100);
+              if (diffPct > 10) growthTrend = `growing (+${diffPct}%)`;
+              else if (diffPct < -10) growthTrend = `declining (${diffPct}%)`;
+            } else if (currFreq > 0) {
+              growthTrend = 'emerging';
+            }
+          } else {
+            growthTrend = 'emerging';
+          }
+
+          // Related entries: extract unique entry IDs from supporting words and fetch snippets
+          let relatedEntries: any[] = [];
+          if (hasNewWordsColumns) {
+            const entryIdsSet = new Set<string>();
+            supportingWordsObj.forEach(w => {
+              if (w.entry_ids && Array.isArray(w.entry_ids)) {
+                w.entry_ids.forEach((id: string) => entryIdsSet.add(id));
+              }
+            });
+            const entryIds = Array.from(entryIdsSet);
+            if (entryIds.length > 0) {
+              const { data: entries } = await supabase
+                .from('entries')
+                .select('id, content, created_at')
+                .in('id', entryIds)
+                .order('created_at', { ascending: false });
+              relatedEntries = (entries || []).map(e => ({
+                id: e.id,
+                created_at: e.created_at,
+                snippet: e.content ? e.content.slice(0, 120) + (e.content.length > 120 ? '...' : '') : ''
+              }));
+            }
+          }
 
           mappedClusters.push({
             id: cl.id,
             cluster_name: cl.cluster_name,
-            cluster_type: cl.cluster_type,
-            word_count: cl.word_count || wordsList.length,
-            anchor_word: anchorWordObj?.normalized_word || cl.cluster_name,
-            anchor_frequency: anchorWordObj?.frequency || cl.frequency || 0,
-            words: wordsList,
-            frequency: cl.frequency || totalFrequency(words)
+            description: cl.description || 'A recurring semantic pattern discovered from your logs.',
+            confidence: cl.confidence || 0.85,
+            frequency: cl.frequency || 0,
+            first_appearance: firstAppearance,
+            last_appearance: lastAppearance,
+            growth_trend: growthTrend,
+            words: supportingWordsObj.map(w => ({
+              word: w.word,
+              normalized_word: w.normalized_word,
+              frequency: w.frequency,
+              semantic_meaning: w.semantic_meaning || '',
+              context: w.context || ''
+            })),
+            related_entries: relatedEntries
           });
         }
       }
     }
 
-    function totalFrequency(words: any[] | null) {
-      if (!words) return 0;
-      return words.reduce((sum, w) => sum + w.frequency, 0);
-    }
-
     // 7. Fetch timeline: cumulative distinct EMOTIONAL words over time
-    const { data: allWordsSorted } = await supabase
+    const allWordsQuery = supabase
       .from('vocab_words')
       .select('first_seen, normalized_word')
       .eq('user_id', userId)
       .eq('is_emotional', true)
       .order('first_seen', { ascending: true });
+    const { data: allWordsSorted } = await allWordsQuery;
 
     // Deduplicate normalized words chronologically
     const seenWords = new Set<string>();
@@ -170,25 +266,16 @@ export async function GET(request: NextRequest) {
     }
 
     // 8. Fetch growth metrics
-    let currentCycleWordsCount = 0;
-    if (cycleId) {
-      const { count } = await supabase
-        .from('vocab_words')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('cycle_id', cycleId)
-        .eq('is_emotional', true);
-      currentCycleWordsCount = count || 0;
-    }
+    let currentCycleWordsCount = activeCycleWords.length;
 
     return NextResponse.json({
       success: true,
       data: {
         stats: {
           entriesCount: entriesCount || 0,
-          distinctWordCount: distinctWordCount || 0,
-          mostUsedWord: topAllTimeWords?.normalized_word || 'none',
-          mostUsedFrequency: topAllTimeWords?.frequency || 0,
+          distinctWordCount: activeCycleWords.length,
+          mostUsedWord: mostUsedAllTime?.[0]?.normalized_word || 'none',
+          mostUsedFrequency: mostUsedAllTime?.[0]?.frequency || 0,
           currentCycleWordsCount
         },
         mostUsed: (mostUsedAllTime || []).map(w => ({
@@ -196,7 +283,8 @@ export async function GET(request: NextRequest) {
           normalized_word: w.normalized_word,
           frequency: w.frequency,
           first_seen: w.first_seen,
-          last_seen: w.last_seen
+          last_seen: w.last_seen,
+          semantic_meaning: w.semantic_meaning || ''
         })),
         concepts: (topConcepts || []).map(c => ({
           concept: c.concept,
@@ -204,7 +292,17 @@ export async function GET(request: NextRequest) {
           confidence: c.confidence
         })),
         emerging: emergingWords,
-        currentCycleWords: currentCycleWordsList,
+        currentCycleWords: activeCycleWords.map(w => ({
+          word: w.word,
+          normalized_word: w.normalized_word,
+          frequency: w.frequency,
+          first_seen: w.first_seen,
+          last_seen: w.last_seen,
+          semantic_meaning: w.semantic_meaning || '',
+          context: w.context || '',
+          confidence: w.confidence || 1.0,
+          entry_ids: w.entry_ids || []
+        })),
         clusters: mappedClusters,
         timeline,
         currentCycle: cycle ? {

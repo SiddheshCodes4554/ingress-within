@@ -41,13 +41,31 @@ export async function GET(request: NextRequest) {
 
     const cycleComparisons: any[] = [];
 
+    // Check if category column exists
+    let hasCategory = false;
+    try {
+      const { error } = await supabase
+        .from('vocab_words')
+        .select('category')
+        .limit(1);
+      if (!error) hasCategory = true;
+    } catch (_) {}
+
     // Map cycle words for lookup
     const cycleWordsMap = new Map<string, string[]>(); // cycleId -> array of normalized words
-    const allWords = await supabase
+    
+    let query = supabase
       .from('vocab_words')
       .select('cycle_id, normalized_word, frequency')
-      .eq('user_id', userId)
-      .eq('is_emotional', true);
+      .eq('user_id', userId);
+
+    if (hasCategory) {
+      query = query.eq('category', 'emotional');
+    } else {
+      query = query.eq('is_emotional', true);
+    }
+
+    const allWords = await query;
 
     if (allWords.data) {
       allWords.data.forEach(w => {

@@ -128,28 +128,76 @@ export class GroqProvider implements AIProvider {
         mockRes = {
           summary: "You tend to process things internally and find direct conflict uncomfortable. That means things often pile up quietly before they surface. This space is designed for exactly that."
         };
-      } else if (systemPrompt.includes('extract emotional, stress, relationship, and self-descriptive vocabulary')) {
+      } else if (systemPrompt.includes('extract emotionally meaningful expressions and psychologically relevant vocabulary')) {
         mockRes = {
-          words: [
-            { word: "tired", normalized_word: "tired" },
-            { word: "exhausted", normalized_word: "exhausted" },
-            { word: "fine", normalized_word: "fine" },
-            { word: "managing", normalized_word: "managing" }
+          expressions: [
+            {
+              word: "anxious",
+              normalized: "anxious",
+              semantic_meaning: "A state of nervousness or apprehension about upcoming tasks.",
+              context: "I felt very anxious and sad this morning.",
+              confidence: 0.95
+            },
+            {
+              word: "sad",
+              normalized: "sad",
+              semantic_meaning: "A feeling of unhappiness or sorrow.",
+              context: "I felt very anxious and sad this morning.",
+              confidence: 0.95
+            },
+            {
+              word: "pressure",
+              normalized: "pressure",
+              semantic_meaning: "Feeling the weight of expectations regarding career progress.",
+              context: "I felt pressure about my career project.",
+              confidence: 0.9
+            },
+            {
+              word: "work",
+              normalized: "work",
+              semantic_meaning: "Daily tasks and obligations at the office.",
+              context: "I had a lot of work tasks at the office.",
+              confidence: 0.8
+            },
+            {
+              word: "boundaries",
+              normalized: "boundary",
+              semantic_meaning: "Defining personal limits to prevent exhaustion.",
+              context: "I need to establish better boundaries.",
+              confidence: 0.85
+            },
+            {
+              word: "habits",
+              normalized: "habit",
+              semantic_meaning: "Constructive daily routines to support mental health.",
+              context: "I need to establish better boundaries and habits.",
+              confidence: 0.9
+            }
           ]
         };
-      } else if (systemPrompt.includes('group the following vocabulary words into thematic clusters')) {
+      } else if (systemPrompt.includes('specializing in semantic grouping and psychological concept discovery')) {
         mockRes = {
           clusters: [
             {
-              cluster_name: "depletion",
-              cluster_type: "stress",
-              words: ["tired", "exhausted"]
+              cluster_name: "Achievement Pressure",
+              description: "A recurring feeling of tension and high expectations around career progress and daily tasks.",
+              confidence: 0.9,
+              words: ["pressure", "work", "task", "project", "career"]
             },
             {
-              cluster_name: "avoidance",
-              cluster_type: "emotional",
-              words: ["fine", "managing"]
+              cluster_name: "Self-Regulation Needs",
+              description: "Focusing on establishing healthier habits and boundaries to manage mental load.",
+              confidence: 0.85,
+              words: ["boundary", "habit", "support", "establish"]
             }
+          ]
+        };
+      } else if (systemPrompt.includes('psychological and emotional analysis assistant') || systemPrompt.includes('psychological, emotional, and semantic analysis assistant')) {
+        mockRes = {
+          validatedWords: [
+            { word: "anxious", category: "emotional", is_emotional: true, score: 0.95 },
+            { word: "work", category: "theme", is_emotional: false, score: 0.8 },
+            { word: "office", category: "general", is_emotional: false, score: 0.0 }
           ]
         };
       }
@@ -479,22 +527,49 @@ Return a valid JSON object matching the requested schema:
     return result.summary;
   }
 
-  async extractVocabulary(entryContent: string): Promise<{ words: { word: string; normalized_word: string }[] }> {
-    const systemPrompt = `You are an AI assistant designed to extract emotional, stress, relationship, and self-descriptive vocabulary from a journal entry.
-    
-QUALITY RULES:
-- Ignore: filler words, stop words, generic verbs, common pronouns.
-- Prioritize: emotional language, recurring themes, self-descriptive language, relationship language, stress language.
-- Extract words exactly as written in the text, and also provide their normalized/lemma base form (e.g., "exhausted" for both "exhausted" and "exhaustion").
-- Limit output to 2-6 key emotional vocabulary words.
+  async extractVocabulary(entryContent: string): Promise<{
+    expressions: {
+      word: string;
+      normalized: string;
+      semantic_meaning: string;
+      context: string;
+      confidence: number;
+    }[];
+  }> {
+    const systemPrompt = `You are a psychological and emotional analysis assistant.
+Your task is to analyze the user's journal entry and thread responses to extract emotionally meaningful expressions and psychologically relevant vocabulary.
+
+GUIDELINES:
+- Do NOT extract generic or conversational words (e.g. 'work', 'meeting', 'phone', 'went', 'think', 'do').
+- Only extract words or expressions that carry emotional weight, describe psychological experiences, interpersonal dynamics, emotional regulation, distress, hope, fear, coping mechanisms, or values.
+- For each extracted term, provide:
+  1. "word": The literal expression as it appears in the text.
+  2. "normalized": The canonical/lemmatized form of the expression (e.g. "feel heavy" for "feeling heavy", "anxious" for "anxiety").
+  3. "semantic_meaning": A concise description of the word's contextual meaning in this entry.
+  4. "context": The exact sentence or snippet where it was used.
+  5. "confidence": A confidence score between 0.0 and 1.0.
 
 Return a valid JSON object matching the requested schema:
 {
-  "words": [
-    { "word": "word as written", "normalized_word": "normalized lowercase base form" }
+  "expressions": [
+    {
+      "word": "feeling heavy",
+      "normalized": "feel heavy",
+      "semantic_meaning": "A sense of emotional burden, sadness or fatigue.",
+      "context": "I woke up feeling heavy today.",
+      "confidence": 0.95
+    }
   ]
 }`;
-    return this.callGroq<{ words: { word: string; normalized_word: string }[] }>(systemPrompt, `Journal entry:\n"${entryContent}"`);
+    return this.callGroq<{
+      expressions: {
+        word: string;
+        normalized: string;
+        semantic_meaning: string;
+        context: string;
+        confidence: number;
+      }[];
+    }>(systemPrompt, `User text:\n"${entryContent}"`);
   }
 
   async extractConcepts(entryContent: string): Promise<{ concepts: { concept: string; confidence: number }[] }> {
@@ -516,47 +591,79 @@ Return a valid JSON object matching the requested schema:
     return this.callGroq<{ concepts: { concept: string; confidence: number }[] }>(systemPrompt, `Journal entry:\n"${entryContent}"`);
   }
 
-  async groupClusters(words: { word: string; normalized_word: string; frequency: number }[]): Promise<{ clusters: { cluster_name: string; cluster_type: string; words: string[] }[] }> {
-    const systemPrompt = `You are an AI assistant designed to group the following vocabulary words into thematic clusters.
-    
+  async groupClusters(
+    words: { word: string; normalized_word: string; frequency: number; semantic_meaning?: string }[]
+  ): Promise<{
+    clusters: {
+      cluster_name: string;
+      description: string;
+      confidence: number;
+      words: string[];
+    }[];
+  }> {
+    const systemPrompt = `You are an AI assistant specializing in semantic grouping and psychological concept discovery.
+Analyze the provided list of user vocabulary words (which include their contextual semantic meanings and frequencies).
+Your goal is to discover recurring emotional ideas, psychological themes, or coping patterns from this vocabulary landscape.
+
 AI REQUIREMENTS:
-- Group the input words into 1-4 meaningful themed clusters based on common emotional themes, stressors, or self-descriptions.
-- Name each cluster with a short, clear thematic label (e.g., "pressure", "uncertainty", "avoidance", "depletion").
-- Categorize each cluster into a type. The cluster type must be one of: "emotional", "stress", "relationship", "self-descriptive".
-- Do not include any words in a cluster that are not present in the input list.
+1. Group these words into meaningful semantic clusters.
+2. Do NOT use predefined or generic category names (like "positive", "negative", "stress", "relationship"). Instead, generate a highly descriptive and dynamic title for each cluster based on the user's specific expressions (e.g., "Achievement Pressure", "Searching for Alignment", "Quiet Hope", "Emotional Fatigue", "Fear of Falling Behind", "Need for Control").
+3. Provide a brief description for each cluster summarizing the psychological pattern it represents.
+4. Assign a confidence score between 0.0 and 1.0 to each cluster.
+5. Do not include any words in a cluster that are not present in the input list.
 
 Return a valid JSON object matching the requested schema:
 {
   "clusters": [
     {
-      "cluster_name": "pressure",
-      "cluster_type": "stress",
-      "words": ["array of normalized words in this cluster"]
+      "cluster_name": "Achievement Pressure",
+      "description": "A pattern of putting high expectations on oneself to succeed, leading to stress.",
+      "confidence": 0.85,
+      "words": ["heavy", "pressure", "expectations"]
     }
   ]
 }`;
-    const userContent = JSON.stringify(words);
-    return this.callGroq<{ clusters: { cluster_name: string; cluster_type: string; words: string[] }[] }>(systemPrompt, `Input words:\n${userContent}`);
+    const userContent = JSON.stringify(words, null, 2);
+    return this.callGroq<{
+      clusters: {
+        cluster_name: string;
+        description: string;
+        confidence: number;
+        words: string[];
+      }[];
+    }>(systemPrompt, `Input words:\n${userContent}`);
   }
 
-  async scoreEmotionalRelevance(words: string[], entryContent: string): Promise<{ validatedWords: { word: string; is_emotional: boolean; score: number }[] }> {
-    const systemPrompt = `You are a psychological and emotional analysis assistant.
+  async scoreEmotionalRelevance(words: string[], entryContent: string): Promise<{ validatedWords: { word: string; is_emotional: boolean; category?: 'emotional' | 'theme' | 'general'; score: number }[] }> {
+    const systemPrompt = `You are a psychological, emotional, and semantic analysis assistant.
     
 TASK:
-Analyze the provided list of candidate words extracted from a user's journal entry. Determine if each word has emotional or psychological relevance (e.g., describes feelings, mood, emotional states, mental stressors, coping mechanisms, or psychological dynamics).
-For each word:
-1. Set "is_emotional" to true or false. Factual/descriptive words (e.g. 'work', 'meeting', 'office', 'computer', 'walking') must be false.
-2. Assign a "score" between 0.0 (no relevance) and 1.0 (highly relevant).
-Use the raw journal entry context to evaluate the word's contextual usage (e.g. "heavy" in "feeling heavy" is emotional, but in "heavy books" is physical).
+Analyze the provided list of candidate words extracted from a user's journal entry. Classify each word into one of three distinct categories based on its contextual usage in the text:
+
+1. "emotional" (Emotional Vocabulary): Words that directly express feelings, emotional states, psychological experiences, emotional regulation, distress, hope, fear, gratitude, loneliness, confidence, uncertainty, etc.
+   - This category must be highly selective. Only include emotionally meaningful words.
+   - Avoid general action or content words (e.g., "focus", "do", "think", "go").
+   - When uncertain, prefer excluding a word (classify as "general" or "theme") rather than including it as "emotional".
+
+2. "theme" (Personal Themes): Recurring goal-, work-, identity-, growth-, productivity-, relationship-, learning-, or value-oriented terms (e.g., "career", "boundary", "routine", "priority", "improve", "family").
+
+3. "general" (General/Other): Factual, descriptive, or general words with no significant emotional or theme relevance in this context (e.g., "office", "walk", "meeting", "wrote").
+
+For each word, return:
+- "word": The input word string.
+- "category": One of "emotional", "theme", "general".
+- "is_emotional": true if category is "emotional", false otherwise (for backwards compatibility).
+- "score": A relevance score between 0.0 and 1.0 (with 1.0 being highly relevant to the assigned category).
 
 Return a valid JSON object matching the requested schema:
 {
   "validatedWords": [
-    { "word": "anxious", "is_emotional": true, "score": 0.95 },
-    { "word": "office", "is_emotional": false, "score": 0.0 }
+    { "word": "anxious", "category": "emotional", "is_emotional": true, "score": 0.95 },
+    { "word": "work", "category": "theme", "is_emotional": false, "score": 0.8 },
+    { "word": "office", "category": "general", "is_emotional": false, "score": 0.0 }
   ]
 }`;
     const userContent = JSON.stringify({ words, entryContext: entryContent });
-    return this.callGroq<{ validatedWords: { word: string; is_emotional: boolean; score: number }[] }>(systemPrompt, userContent);
+    return this.callGroq<{ validatedWords: { word: string; is_emotional: boolean; category?: 'emotional' | 'theme' | 'general'; score: number }[] }>(systemPrompt, userContent);
   }
 }

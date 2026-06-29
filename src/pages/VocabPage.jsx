@@ -8,7 +8,8 @@ import {
   Compass, 
   Calendar,
   Layers,
-  Sparkles
+  Sparkles,
+  Bookmark
 } from 'lucide-react';
 import DashboardNavbar from '../components/DashboardNavbar';
 import { DashboardService } from '../services/dashboardService';
@@ -82,6 +83,8 @@ export default function VocabPage({ user, profile, onSignOut }) {
   const concepts = stats?.concepts || [];
   const emerging = stats?.emerging || [];
   const clusters = stats?.clusters || [];
+  const personalThemes = stats?.personalThemes || [];
+  const currentCycleThemes = stats?.currentCycleThemes || [];
 
   const isEmpty = distinctWordCount === 0;
 
@@ -192,86 +195,143 @@ export default function VocabPage({ user, profile, onSignOut }) {
             // Full Content Sections
             <div className="space-y-8">
               
-              {/* SECTION 1: Most Used — All Time */}
+              {/* PERSONAL VOCABULARY LANDSCAPE */}
               <div className="space-y-3">
-                <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">Section 1: Most Used — All Time</div>
-                <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-xs space-y-5">
-                  <div className="text-[12.5px] text-[#4A6A64] leading-relaxed border-b border-[#1E2A2E]/5 pb-3">
-                    Your most-used emotion words across all entries. The gap between what you say and what you might mean is usually where something useful is sitting.
-                  </div>
+                <div className="text-[10px] font-bold tracking-widest text-[#8DBFB4] uppercase">Personal Vocabulary Landscape</div>
+                <p className="text-[12.5px] text-[#4A6A64] leading-relaxed">
+                  Every person's emotional register is unique. Instead of classifying your logs into generic boxes, Ingress Within discovers recurring thematic clusters directly from your writing.
+                </p>
 
-                  {/* Bar chart list */}
-                  <div className="space-y-3">
-                    {stats.mostUsed && stats.mostUsed.length > 0 ? (
-                      stats.mostUsed.slice(0, 5).map((w, idx) => {
-                        const maxFreq = stats.mostUsed[0].frequency || 1;
-                        const pct = Math.round((w.frequency / maxFreq) * 100);
-                        return (
-                          <div key={idx} className="flex items-center gap-3">
-                            <span className="text-[12.5px] font-semibold w-24 shrink-0">{w.normalized_word}</span>
-                            <div className="flex-1 h-[5px] bg-primary/5 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-[#E0A898]" 
-                                style={{ width: `${pct}%`, opacity: 1 - (idx * 0.12) }} 
-                              />
-                            </div>
-                            <span className="text-[11px] font-mono font-bold text-mid w-10 text-right">{w.frequency}×</span>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <p className="text-xs text-light-mid italic">No entries logged yet.</p>
-                    )}
-                  </div>
+                <div className="space-y-4">
+                  {clusters.length > 0 ? (
+                    clusters.map((cl, idx) => {
+                      const trendColor = cl.growth_trend?.includes('+') 
+                        ? 'bg-green-50 text-green-700 border-green-200'
+                        : cl.growth_trend === 'emerging'
+                        ? 'bg-purple-50 text-purple-700 border-purple-200'
+                        : 'bg-gray-50 text-gray-600 border-gray-200';
+                      
+                      const dateStart = cl.first_appearance ? new Date(cl.first_appearance).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'n/a';
+                      const dateEnd = cl.last_appearance ? new Date(cl.last_appearance).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'n/a';
 
-                  {/* Top Emotional Concepts (AI detected) */}
-                  {concepts.length > 0 && (
-                    <div className="border-t border-[#1E2A2E]/5 pt-4 space-y-2.5">
-                      <div className="text-[9px] font-bold tracking-wider uppercase text-secondary flex items-center gap-1">
-                        <Compass size={11} className="text-[#5A4A8A]" />
-                        <span>Emotional Concepts (AI-detected psychological themes)</span>
-                      </div>
-                      <div className="grid gap-2">
-                        {concepts.map((c, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-2.5 bg-[#5A4A8A]/5 border border-[#5A4A8A]/10 rounded-lg">
-                            <div>
-                              <span className="text-[12.5px] font-semibold text-primary">{c.concept}</span>
-                              <span className="text-[9.5px] text-mid/60 ml-2">confidence: {Math.round(c.confidence * 100)}%</span>
+                      return (
+                        <div key={cl.id || idx} className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-xs space-y-4 transition-all hover:shadow-sm">
+                          {/* Header / Title */}
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="space-y-1">
+                              <h3 className="text-[15px] font-bold text-primary">{cl.cluster_name}</h3>
+                              <p className="text-[12px] text-mid/90 leading-relaxed">{cl.description}</p>
                             </div>
-                            <span className="text-[11.5px] font-mono font-bold text-[#5A4A8A]">{c.frequency}× detected</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${trendColor} shrink-0`}>
+                              {cl.growth_trend || 'stable'}
+                            </span>
                           </div>
-                        ))}
-                      </div>
+
+                          {/* Living Pattern Metrics */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#FAFBFB] p-3 rounded-lg border border-[#1E2A2E]/5 text-[11px]">
+                            <div className="space-y-0.5">
+                              <span className="text-mid/50 uppercase text-[9px] font-bold tracking-wider">Volume</span>
+                              <div className="font-semibold text-primary">{cl.frequency || 0} occurrences</div>
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="text-mid/50 uppercase text-[9px] font-bold tracking-wider">Confidence</span>
+                              <div className="font-semibold text-[#5A4A8A]">{Math.round((cl.confidence || 0.85) * 100)}% reliability</div>
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="text-mid/50 uppercase text-[9px] font-bold tracking-wider">Span</span>
+                              <div className="font-semibold text-primary">{dateStart} – {dateEnd}</div>
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="text-mid/50 uppercase text-[9px] font-bold tracking-wider">Strength</span>
+                              <div className="font-semibold text-[#8a3020]">Active pattern</div>
+                            </div>
+                          </div>
+
+                          {/* Supporting Words / expressions */}
+                          <div className="space-y-1.5">
+                            <div className="text-[9px] font-bold uppercase tracking-wider text-mid/50">Supporting Expressions</div>
+                            <div className="flex flex-wrap gap-2">
+                              {cl.words && cl.words.map((w, wIdx) => {
+                                const wordText = typeof w === 'string' ? w : w.word;
+                                const wordFreq = typeof w === 'string' ? '' : ` ×${w.frequency}`;
+                                const meaning = typeof w === 'string' ? '' : w.semantic_meaning;
+                                return (
+                                  <div key={wIdx} className="group relative px-2.5 py-1 bg-mint-grey border border-primary/10 rounded-lg text-xs font-semibold text-primary cursor-help">
+                                    <span>{wordText}</span>
+                                    {wordFreq && <span className="font-mono text-[9.5px] text-mid ml-1.5 font-bold">{wordFreq}</span>}
+                                    {meaning && (
+                                      <div className="absolute z-10 hidden group-hover:block bg-[#1E2A2E] text-white text-[10px] p-2.5 rounded-lg -top-14 left-0 w-56 shadow-lg font-normal leading-normal border border-white/10">
+                                        {meaning}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Related Entries Collapsible */}
+                          {cl.related_entries && cl.related_entries.length > 0 && (
+                            <details className="mt-3 border-t border-[#1E2A2E]/5 pt-2.5 text-[11px] text-mid">
+                              <summary className="cursor-pointer hover:text-primary transition-colors font-bold text-[9.5px] uppercase tracking-widest select-none outline-none">
+                                Trace Evidence ({cl.related_entries.length} logs)
+                              </summary>
+                              <div className="mt-2 space-y-2 max-h-36 overflow-y-auto pr-1">
+                                {cl.related_entries.map((e, eIdx) => (
+                                  <div key={eIdx} className="bg-[#FAFBFB] p-2.5 rounded-lg border border-[#1E2A2E]/5 space-y-1">
+                                    <div className="font-mono text-[9px] text-mid/50">
+                                      {new Date(e.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                    <div className="italic font-serif leading-relaxed text-primary/80">"{e.snippet}"</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-xs text-center py-8">
+                      <p className="text-[12.5px] text-light-mid italic">No living vocabulary patterns discovered yet. Keep logging to let Ingress Within map your register.</p>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* SECTION 2: Current Cycle Vocabulary */}
-              <div className="space-y-3">
-                <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">Section 2: Current Cycle Vocabulary</div>
-                <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-xs space-y-3.5">
-                  <p className="text-[12px] text-mid leading-relaxed">
-                    Emotion words you've used in your current active cycle.
-                  </p>
-                  <div className="flex gap-2 flex-wrap">
-                    {activeCycleWords.length > 0 ? (
-                      activeCycleWords.map((w, idx) => (
-                        <div key={idx} className="flex items-center gap-1.5 px-3 py-1 bg-mint-grey border border-[#1E2A2E]/10 rounded-full text-xs text-primary font-medium">
-                          <span>{w.normalized_word}</span>
-                          <span className="font-mono text-[10px] text-mid font-semibold">×{w.frequency}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-[12px] text-light-mid italic">No vocabulary words tracked in the current active cycle yet.</p>
-                    )}
+              {/* UNCLUSTERED EXPRESSIONS */}
+              {(() => {
+                const clusteredWordSet = new Set(clusters.flatMap(c => (c.words || []).map((w) => typeof w === 'string' ? w : w.normalized_word)));
+                const unclusteredWords = activeCycleWords.filter(w => !clusteredWordSet.has(w.normalized_word));
+                if (unclusteredWords.length === 0) return null;
+                return (
+                  <div className="space-y-3">
+                    <div className="text-[10px] font-bold tracking-widest text-[#8DBFB4] uppercase">Isolated Expressions</div>
+                    <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-xs space-y-3">
+                      <p className="text-[11.5px] text-mid/80 leading-relaxed">
+                        These are isolated expressions that carry emotional or psychological weight in your entries but haven't formed a recurring pattern cluster yet.
+                      </p>
+                      <div className="flex gap-2 flex-wrap">
+                        {unclusteredWords.map((w, idx) => (
+                          <div key={idx} className="group relative px-2.5 py-1 bg-mint-grey/50 border border-primary/5 rounded-lg text-xs font-semibold text-primary cursor-help">
+                            <span>{w.word}</span>
+                            <span className="font-mono text-[9.5px] text-mid ml-1.5 font-bold">×{w.frequency}</span>
+                            {w.semantic_meaning && (
+                              <div className="absolute z-10 hidden group-hover:block bg-[#1E2A2E] text-white text-[10px] p-2.5 rounded-lg -top-14 left-0 w-56 shadow-lg font-normal leading-normal border border-white/10">
+                                {w.semantic_meaning}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
-              {/* SECTION 5: Emerging Vocabulary */}
+              {/* EMERGING VOCABULARY */}
               <div className="space-y-3">
-                <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">Section 5: Emerging Vocabulary</div>
+                <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">Emerging Vocabulary</div>
                 <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-xs space-y-3.5">
                   <p className="text-[12px] text-mid leading-relaxed">
                     Words appearing in the current cycle that were not seen in older cycles, indicating a shifting vocabulary pattern.
@@ -285,47 +345,6 @@ export default function VocabPage({ user, profile, onSignOut }) {
                       ))
                     ) : (
                       <p className="text-[12px] text-light-mid italic">No new emerging vocabulary words detected yet.</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 4: Word Clusters */}
-              <div className="space-y-3">
-                <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">Section 4: Word Clusters</div>
-                <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-xs space-y-4">
-                  <div className="text-[12.5px] text-[#4A6A64] leading-relaxed border-b border-[#1E2A2E]/5 pb-3">
-                    AI groups related vocabulary words semantically to find deep emotional patterns (e.g. pressure, avoidance).
-                  </div>
-                  <div className="space-y-3">
-                    {clusters.length > 0 ? (
-                      clusters.map((cl, idx) => (
-                        <div key={cl.id || idx} className="bg-[#F5F8F8] p-4 rounded-xl border border-[#1E2A2E]/5 space-y-2">
-                          <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs">
-                            <div className="flex items-center gap-2">
-                              <span className="px-2.5 py-0.5 rounded-full bg-[#E0A898]/15 text-[#8a3020] font-semibold border border-[#E0A898]/30">
-                                {cl.cluster_name}
-                              </span>
-                              <span className="text-[9.5px] uppercase font-bold tracking-wider text-mid/60">({cl.cluster_type})</span>
-                            </div>
-                            <span className="font-semibold font-mono text-secondary-dark">{cl.frequency}× total occurrences</span>
-                          </div>
-                          
-                          <div className="flex gap-1.5 flex-wrap pt-1">
-                            {cl.words && cl.words.map((w, wIdx) => (
-                              <span key={wIdx} className="bg-white/80 px-2 py-0.5 rounded text-[11px] text-mid border border-[#1E2A2E]/8">
-                                {w}
-                              </span>
-                            ))}
-                          </div>
-
-                          <div className="text-[11.5px] text-[#4A6A64] italic leading-relaxed border-l-2 border-[#E0A898] pl-2.5 mt-2">
-                            {getClusterInsight(cl.cluster_name, cl.words)}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-[12px] text-light-mid italic">No word clusters grouped yet.</p>
                     )}
                   </div>
                 </div>

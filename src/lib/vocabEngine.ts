@@ -28,7 +28,7 @@ export const STOP_WORDS = new Set([
   'go', 'went', 'goes', 'going', 'gone', 'get', 'gets', 'got', 'gotten', 'getting',
   'make', 'makes', 'made', 'making', 'take', 'takes', 'took', 'taken', 'taking',
   'use', 'uses', 'used', 'using', 'come', 'comes', 'came', 'coming',
-  'run', 'runs', 'ran', 'running', 'work', 'works', 'worked', 'working',
+  'run', 'runs', 'ran', 'running',
   'try', 'tries', 'tried', 'trying', 'start', 'starts', 'started', 'starting',
   'stop', 'stops', 'stopped', 'stopping', 'seem', 'seems', 'seemed', 'seeming',
   'show', 'shows', 'showed', 'showing', 'find', 'finds', 'found', 'finding',
@@ -46,7 +46,7 @@ export const STOP_WORDS = new Set([
   'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'morning', 'afternoon', 'evening', 'night', 'nights',
   'hour', 'hours', 'minute', 'minutes', 'second', 'seconds', 'moment', 'moments', 'soon', 'later', 'early',
   'late', 'recently', 'first', 'second', 'last', 'past', 'future', 'present', 'ago', 'already', 'yet', 'still',
-  'since', 'during', 'before', 'after', 'until', 'date', 'dates', 'clock', 'schedule',
+  'since', 'during', 'before', 'after', 'until', 'date', 'dates', 'clock',
 
   // Filler & Conversational Words
   'really', 'very', 'just', 'maybe', 'actually', 'basically', 'literally', 'like', 'probably', 'perhaps',
@@ -194,20 +194,7 @@ export const EMOTIONAL_LEMMA_MAP: Record<string, string> = {
   'hopelessly': 'hopeless'
 };
 
-// Core psychological and emotional affect words for deterministic rule matches
-export const DETERMINISTIC_EMOTIONAL_WORDS = new Set([
-  'sad', 'unhappy', 'grief', 'cry', 'pain', 'hurt', 'sorrow', 'depressed', 'depression', 'blue', 'heavy',
-  'happy', 'joy', 'cheerful', 'excited', 'content', 'peace', 'peaceful', 'calm', 'relaxed', 'relieved', 'gratitude', 'grateful',
-  'angry', 'rage', 'mad', 'furious', 'irritated', 'annoyed', 'frustrate', 'bitter', 'resent', 'resentful',
-  'fear', 'anxious', 'worry', 'panic', 'dread', 'terrified', 'frightened', 'nervous',
-  'shame', 'ashamed', 'guilty', 'embarrassed', 'regret', 'remorse',
-  'lonely', 'isolated', 'abandoned', 'alone', 'empty',
-  'overwhelm', 'exhaust', 'tired', 'weary', 'drained', 'depleted', 'fatigue', 'burden', 'pressure', 'stress', 'tense',
-  'confuse', 'uncertain', 'doubt', 'lost', 'stuck', 'blocked', 'trapped', 'hopeless', 'helpless', 'powerless', 'defeated',
-  'avoid', 'numb', 'hiding', 'withdrawn', 'numbness', 'distracted', 'escape',
-  'focus', 'clear', 'mindful', 'grounded', 'motivated', 'inspired', 'confident', 'worth', 'worthy',
-  'longing', 'yearning', 'craving', 'need', 'desire'
-]);
+
 
 /**
  * Normalizes, lemmatizes and merges a word.
