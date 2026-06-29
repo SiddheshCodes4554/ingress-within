@@ -596,6 +596,14 @@ export default function FounderTestPage() {
                           </div>
                         </div>
 
+                        {/* Cycle info */}
+                        {results.vocabState?.cycleInfo && (
+                          <div className="p-3 bg-[#FAFBFB] border border-primary/5 rounded-xl flex items-center justify-between text-xs text-mid">
+                            <span>Cycle Assignment: <strong>Cycle {results.vocabState.cycleInfo.cycle_id ? 'Active' : '—'}</strong></span>
+                            <span>Cycle Day: <strong>Day {results.vocabState.cycleInfo.cycle_day || '—'}</strong></span>
+                          </div>
+                        )}
+
                         {/* Words and Frequencies */}
                         <div className="space-y-2.5">
                           <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Extracted Vocabulary & Frequencies</span>
@@ -626,6 +634,24 @@ export default function FounderTestPage() {
                           )}
                         </div>
 
+                        {/* Concepts */}
+                        {results.vocabState?.concepts && results.vocabState.concepts.length > 0 && (
+                          <div className="space-y-2.5 pt-2.5 border-t border-primary/5">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-[#5A4A8A] block">Emotional Concepts (AI Detected)</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {results.vocabState.concepts.map((c, idx) => (
+                                <div key={idx} className="px-3 py-2 bg-[#5A4A8A]/5 border border-[#5A4A8A]/10 rounded-xl flex items-center justify-between">
+                                  <div>
+                                    <span className="text-xs font-semibold text-primary">{c.concept}</span>
+                                    <span className="text-[9px] text-mid/60 block">Confidence: {Math.round(c.confidence * 100)}%</span>
+                                  </div>
+                                  <span className="text-xs font-mono font-bold text-[#5A4A8A]">{c.frequency}×</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Clusters */}
                         {results.vocabState && results.vocabState.clusters && results.vocabState.clusters.length > 0 && (
                           <div className="space-y-3 pt-2.5 border-t border-primary/5">
@@ -641,7 +667,7 @@ export default function FounderTestPage() {
                                     <span className="text-[8px] text-mid uppercase tracking-wide block">{c.cluster_type} cluster</span>
                                   </div>
                                   <span className="px-2 py-0.5 bg-[#8DBFB4]/12 text-[#1A5040] border border-[#8DBFB4]/10 text-[9px] font-bold tracking-wide rounded-md">
-                                    {c.word_count} {c.word_count === 1 ? 'word' : 'words'}
+                                    {c.frequency || c.word_count} occurrences
                                   </span>
                                 </div>
                               ))}

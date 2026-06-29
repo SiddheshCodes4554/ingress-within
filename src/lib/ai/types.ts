@@ -87,6 +87,7 @@ export interface AIProvider {
     personalityContext?: string | null
   ): Promise<EntryDimensionsScoreResponse>;
   extractVocabulary(entryContent: string): Promise<{ words: { word: string; normalized_word: string }[] }>;
+  extractConcepts(entryContent: string): Promise<{ concepts: { concept: string; confidence: number }[] }>;
   groupClusters(words: { word: string; normalized_word: string; frequency: number }[]): Promise<{ clusters: { cluster_name: string; cluster_type: string; words: string[] }[] }>;
 }
 

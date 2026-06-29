@@ -1389,15 +1389,105 @@ export default function TestPage() {
                         <Smile size={16} className="text-secondary" />
                         <h2 className="font-serif text-sm font-semibold text-primary">Vocabulary Engine Results</h2>
                       </div>
-                      <span className="px-2 py-0.5 bg-[#8DBFB4]/12 text-[#1A5040] text-[9px] uppercase font-bold tracking-wider rounded-md">
-                        Validated
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {results.jobs?.vocab?.executionTime !== undefined && (
+                          <span className="text-[10px] text-mid font-mono bg-mint-grey px-2 py-0.5 rounded">
+                            Job Time: {results.jobs.vocab.executionTime}ms
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 bg-[#8DBFB4]/12 text-[#1A5040] text-[9px] uppercase font-bold tracking-wider rounded-md">
+                          Validated
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="p-6 space-y-4 text-xs">
+                    <div className="p-6 space-y-5 text-xs">
+                      
+                      {/* Cycle & Pipeline Info */}
+                      {results.vocabState.cycleInfo && (
+                        <div className="p-3 bg-mint-grey/35 rounded-xl border border-primary/5 grid grid-cols-2 gap-4">
+                          <div>
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-mid/60 block">Cycle Assignment</span>
+                            <span className="font-semibold text-primary font-mono text-[11px] block truncate">{results.vocabState.cycleInfo.cycle_id}</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-mid/60 block">Cycle Day</span>
+                            <span className="font-semibold text-primary font-mono text-[11px] block">Day {results.vocabState.cycleInfo.cycle_day}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Raw Extracted Words */}
+                      <div className="space-y-1.5">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">1. Raw Extracted Words ({results.vocabState.rawWords?.length || 0})</span>
+                        <div className="flex flex-wrap gap-1">
+                          {results.vocabState.rawWords && results.vocabState.rawWords.length > 0 ? (
+                            results.vocabState.rawWords.map((w, idx) => (
+                              <span key={idx} className="bg-mint-grey px-2 py-0.5 rounded text-primary font-medium animate-fade-in">
+                                {w}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-light-mid italic">No raw words.</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Normalized Words */}
+                      <div className="space-y-1.5">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">2. Normalized Words (Lemmatized Base Forms)</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {results.vocabState.extracted && results.vocabState.extracted.length > 0 ? (
+                            results.vocabState.extracted.map((v, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-[#8DBFB4]/12 text-[#1A5040] border border-[#8DBFB4]/20 rounded font-medium">
+                                {v.word} &rarr; <strong className="font-semibold">{v.normalized_word}</strong>
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-light-mid italic">No normalized words.</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Ignored Words */}
+                      <div className="space-y-1.5">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">3. Ignored Words (Stop Words / Fillers Filtered Out)</span>
+                        <div className="flex flex-wrap gap-1">
+                          {results.vocabState.ignoredWords && results.vocabState.ignoredWords.length > 0 ? (
+                            results.vocabState.ignoredWords.map((w, idx) => (
+                              <span key={idx} className="bg-primary/5 text-mid/60 px-2 py-0.5 rounded">
+                                {w}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-light-mid italic">No ignored words.</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Vocabulary Concepts */}
+                      <div className="space-y-1.5">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-[#5A4A8A] block">4. Vocabulary Concepts (AI psychological themes)</span>
+                        {results.vocabState.concepts && results.vocabState.concepts.length > 0 ? (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {results.vocabState.concepts.map((c, idx) => (
+                              <div key={idx} className="bg-[#5A4A8A]/5 p-2.5 rounded-xl border border-[#5A4A8A]/10 flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <span className="font-semibold text-primary">{c.concept}</span>
+                                  <span className="text-[9px] text-mid/60 block">confidence: {Math.round(c.confidence * 100)}%</span>
+                                </div>
+                                <span className="font-mono font-bold text-[#5A4A8A]">{c.frequency}×</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-light-mid italic">No concepts extracted.</p>
+                        )}
+                      </div>
+
                       {/* Detected Words & Frequency Counts */}
                       <div className="space-y-1.5">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Extracted Words & Frequency Counts</span>
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">5. Accumulated Vocabulary Frequencies (Active Cycle)</span>
                         {results.vocabState.words && results.vocabState.words.length > 0 ? (
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                             {results.vocabState.words.map((v, idx) => (
@@ -1411,24 +1501,27 @@ export default function TestPage() {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-light-mid italic">No words extracted or saved.</p>
+                          <p className="text-light-mid italic">No words accumulated.</p>
                         )}
                       </div>
 
                       {/* Cluster Results */}
                       <div className="space-y-1.5">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">Cluster Groupings</span>
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-mid block">6. Semantic Cluster Groupings</span>
                         {results.vocabState.clusters && results.vocabState.clusters.length > 0 ? (
-                          <div className="space-y-2">
+                          <div className="space-y-2.5">
                             {results.vocabState.clusters.map((c, idx) => (
-                              <div key={idx} className="bg-mint-grey/50 p-3 rounded-xl border border-primary/5 space-y-1">
+                              <div key={idx} className="bg-mint-grey/50 p-3 rounded-xl border border-primary/5 space-y-1.5">
                                 <div className="flex items-center justify-between">
                                   <span className="font-semibold text-primary capitalize">{c.cluster_name}</span>
-                                  <span className="px-1.5 py-0.5 bg-primary/5 border border-primary/10 rounded text-[9px] font-bold uppercase text-mid">
+                                  <span className="px-2 py-0.5 bg-[#E0A898]/15 border border-[#E0A898]/20 rounded text-[9px] font-bold uppercase text-[#8a3020]">
                                     {c.cluster_type}
                                   </span>
                                 </div>
-                                <p className="text-[10px] text-mid">Word count: {c.word_count}</p>
+                                <div className="text-[10px] text-mid/80 flex items-center justify-between">
+                                  <span>Total frequency: {c.frequency || 0}</span>
+                                  <span>Words in cluster: {c.word_count}</span>
+                                </div>
                               </div>
                             ))}
                           </div>

@@ -9,6 +9,8 @@ import { processReflectionGeneration, validateReflection } from '../../../lib/qu
 import { connection } from '../../../lib/queue/config';
 import { executeScoringPipeline } from '../../../lib/ai/pipeline';
 import { evaluateCrisisLayers } from '../../../lib/crisis-detector';
+import { decrypt } from '../../../lib/encryption';
+import { extractVocabularyDeterministic } from '../../../lib/vocabEngine';
 
 
 
@@ -604,10 +606,14 @@ export async function POST(request: NextRequest) {
       const updatedEntry = entryRes.data;
       const reflection = reflectionRes.data;
 
-      // Fetch vocab_words by cycle_id since entry_id column was removed in v2.5
+      // Fetch vocab details, concepts and run deterministic extraction
       let vocabWords: string[] = [];
       let vocabDetails: any[] = [];
       let clusterDetails: any[] = [];
+      let conceptsDetails: any[] = [];
+      let rawWords: string[] = [];
+      let ignoredWords: string[] = [];
+      let extractedWords: any[] = [];
 
       if (updatedEntry?.cycle_id) {
         const { data: vocabRes } = await supabase
@@ -621,11 +627,26 @@ export async function POST(request: NextRequest) {
 
         const { data: clusterRes } = await supabase
           .from('vocab_clusters')
-          .select('cluster_name, cluster_type, word_count')
+          .select('cluster_name, cluster_type, word_count, frequency')
           .eq('user_id', updatedEntry.user_id)
           .eq('cycle_id', updatedEntry.cycle_id);
         
         clusterDetails = clusterRes || [];
+
+        const { data: conceptsRes } = await supabase
+          .from('vocab_concepts')
+          .select('concept, frequency, confidence')
+          .eq('user_id', updatedEntry.user_id)
+          .eq('cycle_id', updatedEntry.cycle_id);
+        
+        conceptsDetails = conceptsRes || [];
+
+        // Run deterministic extraction on entry content for test diagnostics
+        const entryText = decrypt(updatedEntry.new_entry_text_encrypted, updatedEntry.new_entry_text_iv) || updatedEntry.content || '';
+        const extraction = extractVocabularyDeterministic(entryText);
+        rawWords = extraction.rawWords;
+        ignoredWords = extraction.ignoredWords;
+        extractedWords = extraction.extracted;
       }
 
       const getJobStats = async (queueName: any, jobId: string) => {
@@ -703,7 +724,15 @@ export async function POST(request: NextRequest) {
         } : null,
         vocabState: {
           words: vocabDetails,
-          clusters: clusterDetails
+          clusters: clusterDetails,
+          concepts: conceptsDetails,
+          rawWords,
+          ignoredWords,
+          extracted: extractedWords,
+          cycleInfo: updatedEntry?.cycle_id ? {
+            cycle_id: updatedEntry.cycle_id,
+            cycle_day: updatedEntry.cycle_day
+          } : null
         }
       });
     }

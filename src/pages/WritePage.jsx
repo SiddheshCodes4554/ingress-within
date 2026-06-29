@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, CheckCircle2, BookOpen, AlertCircle, Smile, HeartHandshake, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, BookOpen, AlertCircle, Smile, HeartHandshake, X, HelpCircle } from 'lucide-react';
 import { DashboardService } from '../services/dashboardService';
 import DashboardNavbar from '../components/DashboardNavbar';
 
@@ -583,6 +583,18 @@ export default function WritePage({ user, profile, onSignOut }) {
                 );
               })()}
             </div>
+
+            {generatedReflection?.closing_question && (
+              <div className="p-4 bg-secondary/5 rounded-xl border border-secondary/15 space-y-1.5 text-left">
+                <div className="text-[8px] font-bold uppercase tracking-widest text-secondary flex items-center gap-1">
+                  <HelpCircle size={10} />
+                  <span>Inquiry for contemplation</span>
+                </div>
+                <p className="font-serif text-sm italic text-primary/95 leading-relaxed">
+                  "{generatedReflection.closing_question}"
+                </p>
+              </div>
+            )}
 
             <div className="bg-[#F5F8F8] border border-[#1E2A2E]/5 rounded-xl p-5 space-y-2">
               <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">Saved Entry Preview</div>

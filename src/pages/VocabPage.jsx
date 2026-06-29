@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, ChevronDown, BookOpen, Clock, Smile, RotateCw } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  ChevronDown, 
+  BookOpen, 
+  Smile, 
+  RotateCw, 
+  Compass, 
+  Calendar,
+  Layers,
+  Sparkles
+} from 'lucide-react';
 import DashboardNavbar from '../components/DashboardNavbar';
 import { DashboardService } from '../services/dashboardService';
 
@@ -24,23 +34,12 @@ export default function VocabPage({ user, profile, onSignOut }) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [cycles, setCycles] = useState([]);
-  const [threadData, setThreadData] = useState({ responses: [], openThreadsCount: 0 });
 
   // Track accordion open/close state for cycles
   const [openCycles, setOpenCycles] = useState({ 0: true });
 
-  // Track open state for individual responses
-  const [expandedResponses, setExpandedResponses] = useState({});
-
   const toggleCycle = (idx) => {
     setOpenCycles(prev => ({
-      ...prev,
-      [idx]: !prev[idx]
-    }));
-  };
-
-  const toggleResponse = (idx) => {
-    setExpandedResponses(prev => ({
       ...prev,
       [idx]: !prev[idx]
     }));
@@ -54,9 +53,6 @@ export default function VocabPage({ user, profile, onSignOut }) {
         
         const byCycle = await DashboardService.fetchVocabByCycle();
         setCycles(byCycle);
-        
-        const threads = await DashboardService.fetchVocabThreadResponses();
-        setThreadData(threads);
       } catch (err) {
         console.error('Failed to load vocab page data:', err);
       } finally {
@@ -78,13 +74,18 @@ export default function VocabPage({ user, profile, onSignOut }) {
     );
   }
 
-  // Handle case where user has no vocabulary tracked yet
   const distinctWordCount = stats?.stats?.distinctWordCount || 0;
   const entriesCount = stats?.stats?.entriesCount || 0;
   const mostUsedWord = stats?.stats?.mostUsedWord || 'none';
   const mostUsedFrequency = stats?.stats?.mostUsedFrequency || 0;
+  const activeCycleWords = stats?.currentCycleWords || [];
+  const concepts = stats?.concepts || [];
+  const emerging = stats?.emerging || [];
+  const clusters = stats?.clusters || [];
 
-  // Build shift signals dynamically
+  const isEmpty = distinctWordCount === 0;
+
+  // Build shift signals dynamically for Section 3
   const shiftSignals = [];
   if (cycles.length >= 2) {
     const currentCy = cycles[0]; // reversed order, so idx 0 is most recent
@@ -114,54 +115,25 @@ export default function VocabPage({ user, profile, onSignOut }) {
     shiftSignals.push('Your vocabulary tracking has started in Cycle 1. Compare shifts once you progress to Cycle 2.');
   }
 
-  // Fallback data if user has no entries yet (to look premium and ready)
-  const displayMostUsed = distinctWordCount > 0
-    ? stats.mostUsed
-    : [
-        { word: 'fine', normalized_word: 'fine', frequency: 18 },
-        { word: 'tired', normalized_word: 'tired', frequency: 14 },
-        { word: 'frustrated', normalized_word: 'frustrated', frequency: 10 },
-        { word: 'heavy', normalized_word: 'heavy', frequency: 5 },
-        { word: 'conflicted', normalized_word: 'conflicted', frequency: 4 }
-      ];
-
-  const displayClusters = distinctWordCount > 0 && stats.clusters && stats.clusters.length > 0
-    ? stats.clusters
-    : [
-        {
-          id: 'mock1',
-          cluster_name: 'depletion',
-          cluster_type: 'stress',
-          anchor_word: 'tired',
-          anchor_frequency: 14,
-          words: ['exhausted', 'depleted', 'drained']
-        },
-        {
-          id: 'mock2',
-          cluster_name: 'avoidance',
-          cluster_type: 'emotional',
-          anchor_word: 'fine',
-          anchor_frequency: 18,
-          words: ['managing', 'numb', 'resigned']
-        },
-        {
-          id: 'mock3',
-          cluster_name: 'frustration',
-          cluster_type: 'stress',
-          anchor_word: 'frustrated',
-          anchor_frequency: 10,
-          words: ['resentful', 'bitter', 'blocked']
-        }
-      ];
-
-  const mockNeverUsed = ['ashamed', 'helpless', 'lonely', 'proud', 'relieved', 'afraid'];
+  // Construct Vocabulary Timeline (Section 6)
+  const timelineWords = stats?.mostUsed
+    ? [...stats.mostUsed]
+        .filter(w => w.first_seen)
+        .map(w => ({
+          word: w.normalized_word,
+          firstSeen: new Date(w.first_seen),
+          frequency: w.frequency
+        }))
+        .sort((a, b) => b.firstSeen.getTime() - a.firstSeen.getTime()) // Newest first
+    : [];
 
   return (
     <div className="min-h-screen bg-mint-grey text-primary font-sans relative pb-20">
       <DashboardNavbar activeTab="home" />
 
       <main className="max-w-[680px] mx-auto px-6 pt-6">
-        <div className="space-y-4">
+        <div className="space-y-6">
+          {/* Back button */}
           <button 
             onClick={() => window.navigateTo('/dashboard')}
             className="flex items-center gap-2 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors cursor-pointer border-none bg-transparent"
@@ -177,295 +149,350 @@ export default function VocabPage({ user, profile, onSignOut }) {
           {/* Stats strip */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-4 shadow-xs">
-              <div className="text-[20px] font-bold font-mono">{entriesCount || 47}</div>
+              <div className="text-[20px] font-bold font-mono">{entriesCount}</div>
               <div className="text-[11px] text-[#4A6A64] mt-0.5">entries tracked</div>
-              <div className="text-[9.5px] text-[#8DBFB4] mt-0.5">across {cycles.length || 2} cycles</div>
+              <div className="text-[9.5px] text-[#8DBFB4] mt-0.5">across {cycles.length} cycles</div>
             </div>
             <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-4 shadow-xs">
-              <div className="text-[20px] font-bold font-mono">{distinctWordCount || 38}</div>
+              <div className="text-[20px] font-bold font-mono">{distinctWordCount}</div>
               <div className="text-[11px] text-[#4A6A64] mt-0.5">distinct emotion words</div>
               <div className="text-[9.5px] text-[#8DBFB4] mt-0.5">all time</div>
             </div>
             <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-4 shadow-xs">
-              <div className="text-[19px] font-bold text-[#8A3020] font-serif font-normal">
-                "{mostUsedWord !== 'none' ? mostUsedWord : 'fine'}"
+              <div className="text-[19px] font-bold text-[#8A3020] font-serif font-normal truncate">
+                "{mostUsedWord !== 'none' ? mostUsedWord : '—'}"
               </div>
               <div className="text-[11px] text-[#4A6A64] mt-0.5">most reached-for word</div>
               <div className="text-[9.5px] text-[#8DBFB4] mt-0.5">
-                {mostUsedFrequency || 18}× across cycles
+                {mostUsedFrequency > 0 ? `${mostUsedFrequency}× across cycles` : '—'}
               </div>
             </div>
           </div>
 
-          <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">Overall picture</div>
-          
-          <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-4.5 shadow-xs space-y-4">
-            <div className="text-[12.5px] text-[#4A6A64] leading-relaxed border-b border-[#1E2A2E]/5 pb-3">
-              Your most-used emotion words across all entries. The gap between what you say and what you might mean is usually where something useful is sitting.
+          {isEmpty ? (
+            // Graceful Empty State
+            <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-8 text-center space-y-4 shadow-xs">
+              <div className="w-12 h-12 rounded-full bg-secondary/15 flex items-center justify-center text-secondary mx-auto">
+                <Smile size={24} />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-serif text-lg text-primary font-normal">Your register is quiet</h3>
+                <p className="text-xs text-mid leading-relaxed max-w-sm mx-auto">
+                  Your emotional vocabulary is building as you write. Once you submit your first journal entry, this engine will extract literal words, map emotional concepts, and track patterns over time.
+                </p>
+              </div>
+              <button 
+                onClick={() => window.navigateTo('/write')}
+                className="px-4 py-2 bg-primary text-white hover:bg-[#2A3A3E] rounded text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border-none"
+              >
+                Write your first entry
+              </button>
             </div>
-
-            {/* Bar chart list */}
-            <div className="space-y-2.5">
-              <div className="text-[9px] font-bold tracking-wider uppercase text-[#4A6A64]">Most used — all time</div>
+          ) : (
+            // Full Content Sections
+            <div className="space-y-8">
               
-              <div className="space-y-2.5">
-                {displayMostUsed.map((w, idx) => {
-                  const maxFreq = displayMostUsed[0].frequency || 1;
-                  const pct = Math.round((w.frequency / maxFreq) * 100);
-                  const isLowFreq = w.frequency < 6;
-                  return (
-                    <div key={idx} className="flex items-center gap-3">
-                      <span className="text-[12.5px] font-semibold w-24 shrink-0">{w.normalized_word}</span>
-                      <div className="flex-1 h-[5px] bg-primary/5 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full ${idx === 4 ? 'bg-[#B8A8D4]' : isLowFreq ? 'bg-[#8DBFB4]' : 'bg-[#E0A898]'}`} 
-                          style={{ width: `${pct}%`, opacity: 1 - (idx * 0.12) }} 
-                        />
-                      </div>
-                      <span className="text-[11px] font-mono font-bold text-mid w-10 text-right">{w.frequency}×</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Shift Signal */}
-            <div className="bg-[#B8A8D4]/5 border border-[#B8A8D4]/20 rounded-xl p-4 space-y-2.5">
-              <div className="text-[9px] font-bold tracking-wider uppercase text-[#7A6A9E]">How your vocabulary has shifted</div>
-              <div className="space-y-1.5 text-[12px] leading-relaxed">
-                {shiftSignals.map((sig, idx) => (
-                  <div key={idx} className="flex items-start gap-2.5">
-                    <span 
-                      className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${
-                        idx === 0 ? 'bg-[#8DBFB4]' : idx === 1 ? 'bg-[#B8A8D4]' : 'bg-[#E0A898]'
-                      }`} 
-                    />
-                    <span>{sig}</span>
+              {/* SECTION 1: Most Used — All Time */}
+              <div className="space-y-3">
+                <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">Section 1: Most Used — All Time</div>
+                <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-xs space-y-5">
+                  <div className="text-[12.5px] text-[#4A6A64] leading-relaxed border-b border-[#1E2A2E]/5 pb-3">
+                    Your most-used emotion words across all entries. The gap between what you say and what you might mean is usually where something useful is sitting.
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Clusters */}
-            <div className="space-y-2.5">
-              <div className="text-[9px] font-bold tracking-wider uppercase text-[#4A6A64]">Word clusters</div>
-              <div className="space-y-2.5">
-                {displayClusters.map((cl, idx) => (
-                  <div key={cl.id || idx} className="bg-[#F5F8F8] p-3 rounded-lg space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                      <span className="px-2 py-0.5 rounded-full bg-[#E0A898]/15 text-[#8a3020] font-semibold border border-[#E0A898]/30">
-                        {cl.anchor_word}
-                      </span>
-                      {cl.anchor_frequency > 0 && (
-                        <span className="font-semibold font-mono text-[#8a3020]">×{cl.anchor_frequency}</span>
-                      )}
-                      <span className="text-mid">→</span>
-                      <div className="flex gap-1 flex-wrap">
-                        {cl.words && cl.words.map((w, wIdx) => (
-                          <span key={wIdx} className="bg-[#1E2A2E]/5 px-1.5 py-0.5 rounded text-[11px] text-mid border border-[#1E2A2E]/10">
-                            {w}
-                          </span>
+                  {/* Bar chart list */}
+                  <div className="space-y-3">
+                    {stats.mostUsed && stats.mostUsed.length > 0 ? (
+                      stats.mostUsed.slice(0, 5).map((w, idx) => {
+                        const maxFreq = stats.mostUsed[0].frequency || 1;
+                        const pct = Math.round((w.frequency / maxFreq) * 100);
+                        return (
+                          <div key={idx} className="flex items-center gap-3">
+                            <span className="text-[12.5px] font-semibold w-24 shrink-0">{w.normalized_word}</span>
+                            <div className="flex-1 h-[5px] bg-primary/5 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-[#E0A898]" 
+                                style={{ width: `${pct}%`, opacity: 1 - (idx * 0.12) }} 
+                              />
+                            </div>
+                            <span className="text-[11px] font-mono font-bold text-mid w-10 text-right">{w.frequency}×</span>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-xs text-light-mid italic">No entries logged yet.</p>
+                    )}
+                  </div>
+
+                  {/* Top Emotional Concepts (AI detected) */}
+                  {concepts.length > 0 && (
+                    <div className="border-t border-[#1E2A2E]/5 pt-4 space-y-2.5">
+                      <div className="text-[9px] font-bold tracking-wider uppercase text-secondary flex items-center gap-1">
+                        <Compass size={11} className="text-[#5A4A8A]" />
+                        <span>Emotional Concepts (AI-detected psychological themes)</span>
+                      </div>
+                      <div className="grid gap-2">
+                        {concepts.map((c, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2.5 bg-[#5A4A8A]/5 border border-[#5A4A8A]/10 rounded-lg">
+                            <div>
+                              <span className="text-[12.5px] font-semibold text-primary">{c.concept}</span>
+                              <span className="text-[9.5px] text-mid/60 ml-2">confidence: {Math.round(c.confidence * 100)}%</span>
+                            </div>
+                            <span className="text-[11.5px] font-mono font-bold text-[#5A4A8A]">{c.frequency}× detected</span>
+                          </div>
                         ))}
-                      </div>
-                    </div>
-                    <div className="text-[11.5px] text-[#4A6A64] italic leading-relaxed border-l-2 border-[#E0A898] pl-2.5">
-                      {getClusterInsight(cl.cluster_name, cl.words)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Unused words */}
-            <div className="space-y-1.5 border-t border-[#1E2A2E]/5 pt-3">
-              <div className="text-[9px] font-bold tracking-wider uppercase text-[#4A6A64]">Words you've never used</div>
-              <div className="flex gap-1.5 flex-wrap">
-                {mockNeverUsed.map((w, idx) => (
-                  <span key={idx} className="bg-[#1E2A2E]/5 px-2 py-0.5 rounded text-[11.5px] text-mid border border-[#1E2A2E]/8">
-                    {w}
-                  </span>
-                ))}
-              </div>
-              <p className="text-[11px] text-[#4A6A64] italic">Not an accusation — just a note. These words sit nearby but haven't surfaced yet.</p>
-            </div>
-          </div>
-
-          <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase pt-1">By cycle</div>
-
-          {/* Cycles Accordions */}
-          {cycles.length > 0 ? (
-            cycles.map((cy, idx) => {
-              const isOpen = !!openCycles[idx];
-              const dateStart = new Date(cy.start_date || cy.started_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-              const dateEnd = (cy.end_date || cy.ended_at) 
-                ? new Date(cy.end_date || cy.ended_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-                : 'present';
-
-              return (
-                <div key={cy.id || idx} className="bg-white border border-[#1E2A2E]/10 rounded-xl overflow-hidden shadow-xs">
-                  <div 
-                    onClick={() => toggleCycle(idx)}
-                    className="flex items-center justify-between p-3.5 cursor-pointer hover:bg-[#F5F8F8] transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span 
-                        className={`px-2 py-0.5 rounded text-[9px] font-semibold ${
-                          cy.status === 'ACTIVE' || cy.status === 'active' 
-                            ? 'bg-[#e0a898]/12 text-[#8a3020]' 
-                            : 'bg-[#8DBFB4]/12 text-[#1A5040]'
-                        }`}
-                      >
-                        {cy.status === 'ACTIVE' || cy.status === 'active' ? 'Current' : 'Completed'}
-                      </span>
-                      <span className="text-[13px] font-bold">Cycle {cy.cycle_number || cy.number}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[11px] text-[#8DBFB4]">
-                        {dateStart} – {dateEnd} · {cy.entry_count} entries
-                      </span>
-                      <ChevronDown size={14} className={`text-mid transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                    </div>
-                  </div>
-
-                  {isOpen && (
-                    <div className="border-t border-[#1E2A2E]/5 p-4 bg-[#FAFBFB] space-y-3.5">
-                      <div className="text-[9.5px] font-bold tracking-wider text-[#8DBFB4] uppercase">Most used this cycle</div>
-                      <div className="space-y-2">
-                        {cy.most_used && cy.most_used.length > 0 ? (
-                          cy.most_used.map((w, wIdx) => {
-                            const cMaxFreq = cy.most_used[0].frequency || 1;
-                            const cPct = Math.round((w.frequency / cMaxFreq) * 100);
-                            return (
-                              <div key={wIdx} className="flex items-center gap-3">
-                                <span className="text-[12.5px] font-semibold w-20 shrink-0">{w.word}</span>
-                                <div className="flex-1 h-[5px] bg-[#1E2A2E]/5 rounded-full overflow-hidden">
-                                  <div 
-                                    className={`h-full ${wIdx === 2 ? 'bg-[#B8A8D4]' : 'bg-[#E0A898]'}`}
-                                    style={{ width: `${cPct}%`, opacity: 1 - (wIdx * 0.15) }} 
-                                  />
-                                </div>
-                                <span className="text-[11px] font-mono text-mid w-8 text-right">{w.frequency}×</span>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <p className="text-[11.5px] text-light-mid">No vocabulary words tracked in this cycle yet.</p>
-                        )}
-                      </div>
-
-                      {cy.most_used && cy.most_used.length >= 2 && (
-                        <p className="text-[11.5px] text-mid italic border-l-2 border-[#E0A898] pl-2.5 py-0.5">
-                          You used "{cy.most_used[0].word}" and "{cy.most_used[1].word}" the most. They're pointing at different layers of your state.
-                        </p>
-                      )}
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 border-t border-[#1E2A2E]/5 pt-3.5">
-                        <div className="space-y-1">
-                          <div className="text-[9px] tracking-wider uppercase text-[#4A6A64] font-bold">New this cycle</div>
-                          <div className="flex gap-1.5 flex-wrap">
-                            {cy.new_words && cy.new_words.length > 0 ? (
-                              cy.new_words.map(w => (
-                                <span key={w} className="px-2 py-0.5 rounded-full bg-[#B8A8D4]/12 text-[#5A4A8A] border border-[#B8A8D4]/25 text-[10.5px] font-medium">
-                                  {w}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-[11px] text-light-mid">None</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-[9px] tracking-wider uppercase text-[#4A6A64] font-bold">Dropped from prior cycle</div>
-                          <div className="flex gap-1.5 flex-wrap">
-                            {cy.dropped_words && cy.dropped_words.length > 0 ? (
-                              cy.dropped_words.map(w => (
-                                <span key={w} className="px-2 py-0.5 rounded-full bg-[#1E2A2E]/5 text-mid/60 line-through text-[10.5px] border border-[#1E2A2E]/10">
-                                  {w}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-[11px] text-light-mid">None</span>
-                            )}
-                          </div>
-                        </div>
                       </div>
                     </div>
                   )}
                 </div>
-              );
-            })
-          ) : (
-            <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-4 shadow-xs text-center text-xs text-mid">
-              No cycles tracked yet.
-            </div>
-          )}
+              </div>
 
-          {/* Responses */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pb-1 border-b border-[#1E2A2E]/5">
-              <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">What you wrote when asked directly</div>
-              <span className="px-2 py-0.5 rounded-full text-[9px] bg-[#1E2A2E]/5 text-mid font-semibold">
-                {threadData.responses.length} response{threadData.responses.length === 1 ? '' : 's'}
-              </span>
-            </div>
-            
-            <p className="text-[12px] text-mid leading-relaxed">
-              Your responses to open thread questions — raw emotional writing. They feed into your Day 28 report.
-            </p>
-
-            <div className="space-y-2.5">
-              {threadData.responses.length > 0 ? (
-                threadData.responses.map((rep, idx) => {
-                  const isExpanded = !!expandedResponses[idx];
-                  return (
-                    <div 
-                      key={rep.id || idx}
-                      onClick={() => toggleResponse(idx)}
-                      className="bg-white border border-[#1E2A2E]/8 rounded-xl overflow-hidden cursor-pointer hover:shadow-xs transition-all"
-                    >
-                      <div className="p-3.5 flex items-start gap-3 relative pl-5">
-                        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#B8A8D4]" />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold mb-0.5">{rep.from}</div>
-                          <h4 className="font-serif italic text-primary text-[13.5px] leading-relaxed mb-0.5 pr-4">"{rep.question}"</h4>
-                          {!isExpanded && (
-                            <p className="text-mid text-[12px] line-clamp-1">{rep.preview}</p>
-                          )}
-                          <div className="text-[10px] text-[#8DBFB4] mt-0.5 font-light">{rep.meta}</div>
+              {/* SECTION 2: Current Cycle Vocabulary */}
+              <div className="space-y-3">
+                <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">Section 2: Current Cycle Vocabulary</div>
+                <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-xs space-y-3.5">
+                  <p className="text-[12px] text-mid leading-relaxed">
+                    Emotion words you've used in your current active cycle.
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    {activeCycleWords.length > 0 ? (
+                      activeCycleWords.map((w, idx) => (
+                        <div key={idx} className="flex items-center gap-1.5 px-3 py-1 bg-mint-grey border border-[#1E2A2E]/10 rounded-full text-xs text-primary font-medium">
+                          <span>{w.normalized_word}</span>
+                          <span className="font-mono text-[10px] text-mid font-semibold">×{w.frequency}</span>
                         </div>
-                        <ChevronDown size={14} className={`text-mid shrink-0 mt-0.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                      </div>
+                      ))
+                    ) : (
+                      <p className="text-[12px] text-light-mid italic">No vocabulary words tracked in the current active cycle yet.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-                      {isExpanded && (
-                        <div className="border-t border-[#1E2A2E]/5 px-4.5 py-3.5 bg-[#FAFBFB] pl-5 space-y-2.5">
-                          <p className="text-[13px] text-primary leading-relaxed font-serif italic">
-                            {rep.full}
-                          </p>
-                          <div className="flex items-center gap-1.5 text-[10.5px] text-[#4A6A64]">
-                            <BookOpen size={12} className="text-[#8DBFB4]" />
-                            <span>{rep.footer}</span>
+              {/* SECTION 5: Emerging Vocabulary */}
+              <div className="space-y-3">
+                <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">Section 5: Emerging Vocabulary</div>
+                <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-xs space-y-3.5">
+                  <p className="text-[12px] text-mid leading-relaxed">
+                    Words appearing in the current cycle that were not seen in older cycles, indicating a shifting vocabulary pattern.
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    {emerging.length > 0 ? (
+                      emerging.map((w, idx) => (
+                        <span key={idx} className="px-3 py-1 bg-[#E0A898]/12 text-[#8a3020] border border-[#E0A898]/25 rounded-full text-xs font-semibold">
+                          {w}
+                        </span>
+                      ))
+                    ) : (
+                      <p className="text-[12px] text-light-mid italic">No new emerging vocabulary words detected yet.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 4: Word Clusters */}
+              <div className="space-y-3">
+                <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">Section 4: Word Clusters</div>
+                <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-xs space-y-4">
+                  <div className="text-[12.5px] text-[#4A6A64] leading-relaxed border-b border-[#1E2A2E]/5 pb-3">
+                    AI groups related vocabulary words semantically to find deep emotional patterns (e.g. pressure, avoidance).
+                  </div>
+                  <div className="space-y-3">
+                    {clusters.length > 0 ? (
+                      clusters.map((cl, idx) => (
+                        <div key={cl.id || idx} className="bg-[#F5F8F8] p-4 rounded-xl border border-[#1E2A2E]/5 space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2.5 py-0.5 rounded-full bg-[#E0A898]/15 text-[#8a3020] font-semibold border border-[#E0A898]/30">
+                                {cl.cluster_name}
+                              </span>
+                              <span className="text-[9.5px] uppercase font-bold tracking-wider text-mid/60">({cl.cluster_type})</span>
+                            </div>
+                            <span className="font-semibold font-mono text-secondary-dark">{cl.frequency}× total occurrences</span>
+                          </div>
+                          
+                          <div className="flex gap-1.5 flex-wrap pt-1">
+                            {cl.words && cl.words.map((w, wIdx) => (
+                              <span key={wIdx} className="bg-white/80 px-2 py-0.5 rounded text-[11px] text-mid border border-[#1E2A2E]/8">
+                                {w}
+                              </span>
+                            ))}
+                          </div>
+
+                          <div className="text-[11.5px] text-[#4A6A64] italic leading-relaxed border-l-2 border-[#E0A898] pl-2.5 mt-2">
+                            {getClusterInsight(cl.cluster_name, cl.words)}
                           </div>
                         </div>
-                      )}
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="bg-white border border-[#1E2A2E]/8 rounded-xl p-6 text-center text-xs text-mid italic">
-                  No responses submitted to direct thread questions yet.
+                      ))
+                    ) : (
+                      <p className="text-[12px] text-light-mid italic">No word clusters grouped yet.</p>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-
-            {threadData.openThreadsCount > 0 && (
-              <div className="bg-[#FAFBFB] border border-[#1E2A2E]/5 rounded-xl p-3.5 flex items-center gap-3">
-                <Clock size={15} className="text-[#8DBFB4] shrink-0" />
-                <p className="text-xs text-mid leading-relaxed">
-                  You have <strong>{threadData.openThreadsCount} open thread{threadData.openThreadsCount === 1 ? '' : 's'}</strong> waiting. Responses will appear here once written.
-                </p>
               </div>
-            )}
-          </div>
+
+              {/* SECTION 6: Vocabulary Timeline */}
+              <div className="space-y-3">
+                <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">Section 6: Vocabulary Timeline</div>
+                <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-xs space-y-4">
+                  <p className="text-[12px] text-mid leading-relaxed">
+                    Chronological view of when important words first appeared in your logs and how often they recur.
+                  </p>
+                  
+                  <div className="relative border-l border-[#1E2A2E]/10 pl-5 ml-2 space-y-4">
+                    {timelineWords.length > 0 ? (
+                      timelineWords.map((item, idx) => {
+                        const formattedDate = item.firstSeen.toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric'
+                        });
+                        return (
+                          <div key={idx} className="relative">
+                            {/* Dot on timeline */}
+                            <div className="absolute -left-[24.5px] top-1.5 w-2 h-2 rounded-full bg-secondary border border-white" />
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] text-mid/50 font-mono uppercase block">{formattedDate}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[13px] font-semibold text-primary">{item.word}</span>
+                                <span className="text-[10.5px] px-1.5 py-0.1 bg-[#1E2A2E]/5 border border-[#1E2A2E]/10 rounded text-mid/70 font-mono">{item.frequency}× all-time</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-[12px] text-light-mid italic pl-2">Timeline is empty.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 3: Cycle Comparison */}
+              <div className="space-y-3">
+                <div className="text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">Section 3: Cycle Comparison</div>
+                <div className="space-y-3">
+                  
+                  {/* How your vocabulary shifted card */}
+                  <div className="bg-[#B8A8D4]/5 border border-[#B8A8D4]/20 rounded-xl p-5 space-y-2.5 shadow-xs">
+                    <div className="text-[9px] font-bold tracking-wider uppercase text-[#7A6A9E]">How your vocabulary has shifted</div>
+                    <div className="space-y-1.5 text-[12.5px] leading-relaxed">
+                      {shiftSignals.map((sig, idx) => (
+                        <div key={idx} className="flex items-start gap-2.5">
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 bg-[#B8A8D4]" />
+                          <span>{sig}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Cycles list */}
+                  {cycles.map((cy, idx) => {
+                    const isOpen = !!openCycles[idx];
+                    const dateStart = new Date(cy.start_date || cy.started_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+                    const dateEnd = (cy.end_date || cy.ended_at) 
+                      ? new Date(cy.end_date || cy.ended_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                      : 'present';
+
+                    return (
+                      <div key={cy.id || idx} className="bg-white border border-[#1E2A2E]/10 rounded-xl overflow-hidden shadow-xs">
+                        <div 
+                          onClick={() => toggleCycle(idx)}
+                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-[#F5F8F8] transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span 
+                              className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                                cy.status === 'ACTIVE' || cy.status === 'active' 
+                                  ? 'bg-[#e0a898]/12 text-[#8a3020]' 
+                                  : 'bg-[#8DBFB4]/12 text-[#1A5040]'
+                              }`}
+                            >
+                              {cy.status === 'ACTIVE' || cy.status === 'active' ? 'Current' : 'Completed'}
+                            </span>
+                            <span className="text-[13.5px] font-bold">Cycle {cy.cycle_number || cy.number}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-[11.5px] text-[#8DBFB4] font-medium">
+                              {dateStart} – {dateEnd} · {cy.entry_count} entries
+                            </span>
+                            <ChevronDown size={14} className={`text-mid transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                          </div>
+                        </div>
+
+                        {isOpen && (
+                          <div className="border-t border-[#1E2A2E]/5 p-4.5 bg-[#FAFBFB] space-y-4">
+                            <div className="text-[9.5px] font-bold tracking-wider text-[#8DBFB4] uppercase">Most used this cycle</div>
+                            
+                            <div className="space-y-2">
+                              {cy.most_used && cy.most_used.length > 0 ? (
+                                cy.most_used.map((w, wIdx) => {
+                                  const cMaxFreq = cy.most_used[0].frequency || 1;
+                                  const cPct = Math.round((w.frequency / cMaxFreq) * 100);
+                                  return (
+                                    <div key={wIdx} className="flex items-center gap-3">
+                                      <span className="text-[12.5px] font-semibold w-20 shrink-0">{w.word}</span>
+                                      <div className="flex-1 h-[5px] bg-[#1E2A2E]/5 rounded-full overflow-hidden">
+                                        <div 
+                                          className="h-full bg-[#E0A898]"
+                                          style={{ width: `${cPct}%`, opacity: 1 - (wIdx * 0.15) }} 
+                                        />
+                                      </div>
+                                      <span className="text-[11px] font-mono text-mid w-8 text-right">{w.frequency}×</span>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <p className="text-[11.5px] text-light-mid">No vocabulary words tracked in this cycle yet.</p>
+                              )}
+                            </div>
+
+                            {cy.most_used && cy.most_used.length >= 2 && (
+                              <p className="text-[11.5px] text-mid italic border-l-2 border-[#E0A898] pl-2.5 py-0.5">
+                                You used "{cy.most_used[0].word}" and "{cy.most_used[1].word}" the most. They're pointing at different layers of your state.
+                              </p>
+                            )}
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-[#1E2A2E]/5 pt-4">
+                              <div className="space-y-1">
+                                <div className="text-[9px] tracking-wider uppercase text-[#4A6A64] font-bold">New this cycle</div>
+                                <div className="flex gap-1.5 flex-wrap">
+                                  {cy.new_words && cy.new_words.length > 0 ? (
+                                    cy.new_words.map(w => (
+                                      <span key={w} className="px-2 py-0.5 rounded-full bg-[#B8A8D4]/12 text-[#5A4A8A] border border-[#B8A8D4]/25 text-[10.5px] font-medium">
+                                        {w}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="text-[11px] text-light-mid">None</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="space-y-1">
+                                <div className="text-[9px] tracking-wider uppercase text-[#4A6A64] font-bold">Dropped from prior cycle</div>
+                                <div className="flex gap-1.5 flex-wrap">
+                                  {cy.dropped_words && cy.dropped_words.length > 0 ? (
+                                    cy.dropped_words.map(w => (
+                                      <span key={w} className="px-2 py-0.5 rounded-full bg-[#1E2A2E]/5 text-mid/60 line-through text-[10.5px] border border-[#1E2A2E]/10">
+                                        {w}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="text-[11px] text-light-mid">None</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+            </div>
+          )}
         </div>
       </main>
     </div>

@@ -1007,7 +1007,7 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                   window.navigateTo('/vocab');
                 }
               }}
-              className="bg-white border border-[#1E2A2E]/8 rounded-xl p-4.5 cursor-pointer hover:shadow-xs hover:border-[#1E2A2E]/15 transition-all group focus:outline-none focus:ring-1 focus:ring-secondary/40 space-y-2.5"
+              className="bg-white border border-[#1E2A2E]/8 rounded-xl p-4.5 cursor-pointer hover:shadow-xs hover:border-[#1E2A2E]/15 transition-all group focus:outline-none focus:ring-1 focus:ring-secondary/40 space-y-3"
             >
               <div className="flex items-center justify-between">
                 <div className="text-[9px] font-bold uppercase tracking-widest text-secondary flex items-center gap-1.5">
@@ -1016,42 +1016,81 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                 </div>
                 <ChevronRight size={13} className="text-light-mid group-hover:translate-x-0.5 transition-transform" />
               </div>
-              <p className="text-[11.5px] text-mid italic leading-relaxed">
-                {(() => {
-                  if (!vocabStats || vocabStats.stats.distinctWordCount === 0) {
-                    return `"Your emotional vocabulary is building as you write."`;
-                  }
-                  if (vocabStats.emerging && vocabStats.emerging.length > 0) {
-                    return `"New emotional language appeared this week."`;
-                  }
-                  if (vocabStats.clusters && vocabStats.clusters.length > 0) {
-                    const clusterNames = vocabStats.clusters.slice(0, 3).map(c => c.cluster_name);
-                    if (clusterNames.length === 1) {
-                      return `"Most of your language this cycle centers around ${clusterNames[0]}."`;
-                    }
-                    if (clusterNames.length === 2) {
-                      return `"Most of your language this cycle centers around ${clusterNames[0]} and ${clusterNames[1]}."`;
-                    }
-                    return `"Most of your language this cycle centers around ${clusterNames.slice(0, -1).join(', ')}, and ${clusterNames[clusterNames.length - 1]}."`;
-                  }
-                  return `"Your emotional vocabulary is building as you write."`;
-                })()}
-              </p>
-              <div className="flex gap-1 flex-wrap pt-0.5">
-                {vocabStats && vocabStats.mostUsed && vocabStats.mostUsed.length > 0 ? (
-                  vocabStats.mostUsed.slice(0, 3).map((w, idx) => (
-                    <span key={idx} className="text-[9.5px] bg-mint-grey px-1.5 py-0.5 rounded font-medium text-primary">
-                      {w.normalized_word} ×{w.frequency}
+
+              {!vocabStats || vocabStats.stats?.distinctWordCount === 0 ? (
+                // Graceful Empty State
+                <div className="space-y-2 pt-1 text-left">
+                  <p className="text-[11.5px] text-mid italic leading-relaxed">
+                    "Your emotional vocabulary is building as you write. Keep logging entries to see your vocabulary insights."
+                  </p>
+                  <div className="text-[10px] text-light-mid font-medium uppercase tracking-wider">
+                    0 entries · 0 words tracked
+                  </div>
+                </div>
+              ) : (
+                // Active State displaying all required fields
+                <div className="space-y-3 pt-0.5">
+                  {/* Top Emotional Vocabulary (Concepts) */}
+                  {vocabStats.concepts && vocabStats.concepts.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-[8px] font-bold uppercase tracking-wider text-mid/60">Top Emotional Vocabulary</div>
+                      <div className="flex gap-1 flex-wrap">
+                        {vocabStats.concepts.slice(0, 3).map((c, idx) => (
+                          <span key={idx} className="text-[9.5px] bg-[#5A4A8A]/5 border border-[#5A4A8A]/10 px-1.5 py-0.5 rounded font-medium text-[#5A4A8A]">
+                            {c.concept}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Most Frequent Words */}
+                  {vocabStats.mostUsed && vocabStats.mostUsed.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-[8px] font-bold uppercase tracking-wider text-mid/60">Most Frequent Words</div>
+                      <div className="flex gap-1 flex-wrap">
+                        {vocabStats.mostUsed.slice(0, 3).map((w, idx) => (
+                          <span key={idx} className="text-[9.5px] bg-mint-grey px-1.5 py-0.5 rounded font-medium text-primary">
+                            {w.normalized_word} ×{w.frequency}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Emerging Words / Highlights */}
+                  {vocabStats.emerging && vocabStats.emerging.length > 0 ? (
+                    <div className="space-y-1">
+                      <div className="text-[8px] font-bold uppercase tracking-wider text-[#E0A898]">Emerging Words</div>
+                      <div className="flex gap-1 flex-wrap">
+                        {vocabStats.emerging.slice(0, 3).map((w, idx) => (
+                          <span key={idx} className="text-[9.5px] bg-[#E0A898]/10 border border-[#E0A898]/20 px-1.5 py-0.5 rounded font-medium text-[#8a3020]">
+                            {w}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : vocabStats.clusters && vocabStats.clusters.length > 0 ? (
+                    <div className="space-y-1">
+                      <div className="text-[8px] font-bold uppercase tracking-wider text-mid/60">Current Cycle Highlights</div>
+                      <p className="text-[11px] text-mid italic leading-relaxed">
+                        {(() => {
+                          const clusterNames = vocabStats.clusters.slice(0, 2).map(c => c.cluster_name);
+                          return `Centered around ${clusterNames.join(' & ')}.`;
+                        })()}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {/* Vocabulary Growth */}
+                  <div className="border-t border-[#1E2A2E]/5 pt-2 flex items-center justify-between text-[10px] text-mid/60 font-mono">
+                    <span>GROWTH STATS:</span>
+                    <span>
+                      {vocabStats.stats?.distinctWordCount} distinct words (+{vocabStats.stats?.currentCycleWordsCount || 0} this cycle)
                     </span>
-                  ))
-                ) : (
-                  <>
-                    <span className="text-[9.5px] bg-mint-grey px-1.5 py-0.5 rounded font-medium text-primary">fine ×18</span>
-                    <span className="text-[9.5px] bg-mint-grey px-1.5 py-0.5 rounded font-medium text-primary">tired ×14</span>
-                    <span className="text-[9.5px] bg-mint-grey px-1.5 py-0.5 rounded font-medium text-primary">frustrated ×10</span>
-                  </>
-                )}
-              </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Active Patterns Card */}

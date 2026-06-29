@@ -498,6 +498,25 @@ Return a valid JSON object matching the requested schema:
     return this.callClaude<{ words: { word: string; normalized_word: string }[] }>(systemPrompt, `Journal entry:\n"${entryContent}"`);
   }
 
+  async extractConcepts(entryContent: string): Promise<{ concepts: { concept: string; confidence: number }[] }> {
+    const systemPrompt = `You are an AI assistant designed to identify high-level emotional concepts and psychological dynamics implied in a journal entry, beyond the literal words.
+    
+Examples:
+- "I keep carrying everyone's expectations." -> Responsibility, Pressure, Burden
+- "I don't know what to do next." -> Confusion, Anxiety, Uncertainty
+- "I just want to hide in bed." -> Avoidance, Exhaustion, Depression
+
+Identify 1-4 key emotional concepts from the journal entry. Assign a confidence score between 0.0 and 1.0 to each.
+
+Return a valid JSON object matching the requested schema:
+{
+  "concepts": [
+    { "concept": "Responsibility", "confidence": 0.95 }
+  ]
+}`;
+    return this.callClaude<{ concepts: { concept: string; confidence: number }[] }>(systemPrompt, `Journal entry:\n"${entryContent}"`);
+  }
+
   async groupClusters(words: { word: string; normalized_word: string; frequency: number }[]): Promise<{ clusters: { cluster_name: string; cluster_type: string; words: string[] }[] }> {
     const systemPrompt = `You are an AI assistant designed to group the following vocabulary words into thematic clusters.
     
