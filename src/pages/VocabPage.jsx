@@ -200,7 +200,7 @@ export default function VocabPage({ user, profile, onSignOut }) {
                 <div className="space-y-1.5">
                   <h3 className="font-serif text-[15px] text-primary font-normal">Rolling Analysis Generating</h3>
                   <p className="text-[11.5px] text-[#4A6A64] leading-relaxed max-w-sm mx-auto">
-                    Vocabulary analysis updates on a rolling 3-day basis. We require at least 3 days of entries to map your ongoing emotional landscape. Check back shortly.
+                    Vocabulary analysis updates every 3 entries or on a rolling 3-day basis. We require at least 3 entries or 3 days of journal activity to map your ongoing emotional landscape. Check back shortly.
                   </p>
                 </div>
               </div>

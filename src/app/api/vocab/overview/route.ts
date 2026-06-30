@@ -25,24 +25,75 @@ export async function GET(request: NextRequest) {
 
     let isAvailable = false;
     let daysSinceStart = 0;
-    let allowedDays = 0;
     let cutoffTime: Date | null = null;
 
-    // Fetch total entry count
-    const { count: entriesCountAllTime } = await supabase
+    // Fetch user's entries to determine counts and cutoffs
+    const { data: userEntries, error: entriesErr } = await supabase
       .from('entries')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId);
+      .select('id, cycle_id, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+
+    if (entriesErr) {
+      console.error('Error fetching entries for vocab overview:', entriesErr);
+    }
+
+    const entriesCountAllTime = userEntries?.length || 0;
 
     if (firstEntry) {
       const firstEntryTime = new Date(firstEntry.created_at).getTime();
-      // Calculate days elapsed (using Math.floor)
       daysSinceStart = Math.floor((Date.now() - firstEntryTime) / (24 * 60 * 60 * 1000));
-      if (daysSinceStart >= 3) {
-        isAvailable = true;
-        allowedDays = Math.floor(daysSinceStart / 3) * 3;
-        cutoffTime = new Date(firstEntryTime + allowedDays * 24 * 60 * 60 * 1000);
+    }
+
+    // Fetch cycles to identify completed cycles vs active cycles
+    const { data: userCycles, error: cyclesErr } = await supabase
+      .from('cycles')
+      .select('id, status')
+      .eq('user_id', userId);
+
+    if (cyclesErr) {
+      console.error('Error fetching cycles for vocab overview:', cyclesErr);
+    }
+
+    const completedCycleIds = new Set(
+      (userCycles || [])
+        .filter(c => c.status !== 'ACTIVE' && c.status !== 'active')
+        .map(c => c.id)
+    );
+
+    const completedCycleEntries = (userEntries || []).filter(e => e.cycle_id && completedCycleIds.has(e.cycle_id));
+    const activeCycleEntries = (userEntries || []).filter(e => !e.cycle_id || !completedCycleIds.has(e.cycle_id));
+
+    let completedCycleCutoff: Date | null = null;
+    if (completedCycleEntries.length > 0) {
+      completedCycleCutoff = new Date(completedCycleEntries[completedCycleEntries.length - 1].created_at);
+    }
+
+    let activeEntryCutoff: Date | null = null;
+    const activeCount = activeCycleEntries.length;
+    const allowedActiveCount = Math.floor(activeCount / 3) * 3;
+    if (allowedActiveCount >= 3) {
+      activeEntryCutoff = new Date(activeCycleEntries[allowedActiveCount - 1].created_at);
+    }
+
+    let activeDayCutoff: Date | null = null;
+    if (activeCycleEntries.length > 0) {
+      const firstActiveTime = new Date(activeCycleEntries[0].created_at).getTime();
+      const activeDaysSinceStart = Math.floor((Date.now() - firstActiveTime) / (24 * 60 * 60 * 1000));
+      if (activeDaysSinceStart >= 3) {
+        const allowedActiveDays = Math.floor(activeDaysSinceStart / 3) * 3;
+        activeDayCutoff = new Date(firstActiveTime + allowedActiveDays * 24 * 60 * 60 * 1000);
       }
+    }
+
+    const candidateCutoffs: Date[] = [];
+    if (completedCycleCutoff) candidateCutoffs.push(completedCycleCutoff);
+    if (activeEntryCutoff) candidateCutoffs.push(activeEntryCutoff);
+    if (activeDayCutoff) candidateCutoffs.push(activeDayCutoff);
+
+    if (candidateCutoffs.length > 0) {
+      isAvailable = true;
+      cutoffTime = new Date(Math.max(...candidateCutoffs.map(d => d.getTime())));
     }
 
     if (!isAvailable || !cutoffTime) {
