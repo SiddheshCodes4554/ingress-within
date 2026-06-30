@@ -78,9 +78,10 @@ export async function GET(request: NextRequest) {
     for (let i = 0; i < cyclesToProcess.length; i++) {
       const cy = cyclesToProcess[i];
       const cycleWords = allWords.data?.filter(w => w.cycle_id === cy.id) || [];
+      const isActive = cy.status === 'ACTIVE' || cy.status === 'active';
 
       // Sort by frequency descending for most used
-      const mostUsed = [...cycleWords]
+      const mostUsed = isActive ? [] : [...cycleWords]
         .sort((a, b) => b.frequency - a.frequency)
         .slice(0, 3)
         .map(w => ({ word: w.normalized_word, frequency: w.frequency }));
@@ -102,7 +103,7 @@ export async function GET(request: NextRequest) {
         (cycleWordsMap.get(cid) || []).forEach(w => prevWordsSet.add(w));
       });
 
-      const newWords = cycleWords
+      const newWords = isActive ? [] : cycleWords
         .filter(w => !prevWordsSet.has(w.normalized_word))
         .map(w => w.normalized_word);
 
@@ -111,7 +112,7 @@ export async function GET(request: NextRequest) {
       let moreFrequent: string[] = [];
       let lessFrequent: string[] = [];
 
-      if (i > 0) {
+      if (!isActive && i > 0) {
         const prevCycleId = cyclesToProcess[i - 1].id;
         const prevCycleWords = cycleWordsMap.get(prevCycleId) || [];
         const currentWordsSet = new Set(cycleWords.map(w => w.normalized_word));
@@ -146,7 +147,8 @@ export async function GET(request: NextRequest) {
         new_words: newWords,
         dropped_words: droppedWords,
         more_frequent: moreFrequent,
-        less_frequent: lessFrequent
+        less_frequent: lessFrequent,
+        is_locked: isActive
       });
     }
 
