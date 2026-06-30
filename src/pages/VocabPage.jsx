@@ -253,8 +253,11 @@ export default function VocabPage({ user, profile, onSignOut }) {
                   <div className="space-y-3.5">
                     <div className="text-[10px] tracking-wider uppercase text-[#4A6A64] font-bold">Word clusters</div>
                     <div className="flex flex-col gap-3">
-                      {clusters.map((cl, idx) => {
-                        const clusterWords = cl.words || [];
+                      {[...clusters]
+                        .sort((a, b) => b.frequency - a.frequency)
+                        .slice(0, 3)
+                        .map((cl, idx) => {
+                          const clusterWords = cl.words || [];
                         const usedWordText = cl.cluster_name;
                         return (
                           <div key={cl.id || idx} className="bg-[#F5F8F8] rounded-xl p-3.5 space-y-2 border border-[#1E2A2E]/5">
