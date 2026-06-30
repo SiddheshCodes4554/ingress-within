@@ -774,17 +774,7 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                         {isExpanded && (
                           <div className="p-4.5 bg-white space-y-5">
                             {/* Quick-Access Metrics Grid */}
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                              {/* Vocabulary */}
-                              <div 
-                                onClick={(e) => { e.stopPropagation(); window.navigateTo('/vocab'); }}
-                                className="bg-mint-grey/30 border border-[#1E2A2E]/5 rounded-xl p-3 hover:border-[#1E2A2E]/15 hover:shadow-xs transition-all cursor-pointer text-center space-y-1 group"
-                              >
-                                <Smile size={14} className="text-[#5A4A8A] mx-auto group-hover:scale-105 transition-transform" />
-                                <div className="text-[14px] font-serif font-bold text-primary">{cycle.vocabulary_count}</div>
-                                <div className="text-[8px] font-bold uppercase tracking-wider text-secondary">Vocabulary</div>
-                              </div>
-
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                               {/* Weekly Summaries */}
                               <div 
                                 onClick={(e) => { e.stopPropagation(); window.navigateTo('/reports'); }}
@@ -887,41 +877,50 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                                                 </div>
 
                                                 <div className="flex items-center gap-2">
-                                                  {/* Reflection Status Badge */}
-                                                  {entry.reflectionStatus === 'Completed' && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#8DBFB4]/15 text-[#1A5040]">
-                                                      <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
-                                                      <span>Reflection Answered</span>
+                                                  {entry.crisis_flag ? (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[8.5px] font-bold bg-accent/15 text-accent uppercase tracking-widest animate-pulse">
+                                                      <AlertCircle size={10} className="text-accent shrink-0" />
+                                                      <span>Crisis Suppressed</span>
                                                     </span>
-                                                  )}
-                                                  {entry.reflectionStatus === 'Pending Response' && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#8DBFB4]/15 text-[#1A5040]">
-                                                      <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
-                                                      <span>Reflection Ready</span>
-                                                    </span>
-                                                  )}
-                                                  {entry.reflectionStatus === 'Processing AI...' && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#f59e0b]/10 text-[#b45309] animate-pulse">
-                                                      <span className="w-1 h-1 rounded-full bg-[#f59e0b]" />
-                                                      <span>Processing AI...</span>
-                                                    </span>
-                                                  )}
-                                                  {(entry.reflectionStatus === 'None' || !entry.reflectionStatus || entry.reflectionStatus === 'Ready') && (() => {
-                                                    const entryDate = new Date(entry.created_at);
-                                                    const today = new Date();
-                                                    const isToday = entryDate.getDate() === today.getDate() &&
-                                                                    entryDate.getMonth() === today.getMonth() &&
-                                                                    entryDate.getFullYear() === today.getFullYear();
-                                                    if (isToday) {
-                                                      return (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#f59e0b]/10 text-[#b45309]">
-                                                          <span className="w-1 h-1 rounded-full bg-[#f59e0b]" />
-                                                          <span>Compiling Continuity</span>
+                                                  ) : (
+                                                    <>
+                                                      {/* Reflection Status Badge */}
+                                                      {entry.reflectionStatus === 'Completed' && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#8DBFB4]/15 text-[#1A5040]">
+                                                          <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
+                                                          <span>Reflection Answered</span>
                                                         </span>
-                                                      );
-                                                    }
-                                                    return null;
-                                                  })()}
+                                                      )}
+                                                      {entry.reflectionStatus === 'Pending Response' && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#8DBFB4]/15 text-[#1A5040]">
+                                                          <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
+                                                          <span>Reflection Ready</span>
+                                                        </span>
+                                                      )}
+                                                      {entry.reflectionStatus === 'Processing AI...' && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#f59e0b]/10 text-[#b45309] animate-pulse">
+                                                          <span className="w-1 h-1 rounded-full bg-[#f59e0b]" />
+                                                          <span>Processing AI...</span>
+                                                        </span>
+                                                      )}
+                                                      {(entry.reflectionStatus === 'None' || !entry.reflectionStatus || entry.reflectionStatus === 'Ready') && (() => {
+                                                        const entryDate = new Date(entry.created_at);
+                                                        const today = new Date();
+                                                        const isToday = entryDate.getDate() === today.getDate() &&
+                                                                        entryDate.getMonth() === today.getMonth() &&
+                                                                        entryDate.getFullYear() === today.getFullYear();
+                                                        if (isToday) {
+                                                          return (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#f59e0b]/10 text-[#b45309]">
+                                                              <span className="w-1 h-1 rounded-full bg-[#f59e0b]" />
+                                                              <span>Compiling Continuity</span>
+                                                            </span>
+                                                          );
+                                                        }
+                                                        return null;
+                                                      })()}
+                                                    </>
+                                                  )}
                                                   <span className="text-[9.5px] text-mid/60 lowercase pr-1">{entry.word_count} words</span>
                                                 </div>
                                               </div>

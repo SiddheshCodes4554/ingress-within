@@ -110,6 +110,8 @@ export async function GET(
         entry_type: entry.entry_type || 'free_write',
         word_count: entry.word_count || 0,
         created_at: entry.created_at,
+        crisis_flag: entry.crisis_flag || false,
+        crisis_type: entry.crisis_type || null,
         reflectionStatus,
         reflectionId: reflection?.id || null,
         reflectionText: reflection?.reflection_text || null,

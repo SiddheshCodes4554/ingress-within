@@ -11,6 +11,8 @@ export interface JournalEntry {
   entry_type?: string;
   cycle_day?: number;
   created_at?: string;
+  crisis_flag?: boolean;
+  crisis_type?: string | null;
 }
 
 export interface ReflectionThread {
@@ -169,7 +171,9 @@ export class DashboardService {
             reflection: entry.reflection,
             entry_type: entry.entry_type,
             cycle_day: entry.cycle_day,
-            created_at: entry.created_at
+            created_at: entry.created_at,
+            crisis_flag: entry.crisis_flag || false,
+            crisis_type: entry.crisis_type || null
           };
         });
 

@@ -12,7 +12,8 @@ import {
   Layers, 
   AlertCircle,
   HelpCircle,
-  Clock
+  Clock,
+  HeartHandshake
 } from 'lucide-react';
 import DashboardNavbar from '../components/DashboardNavbar';
 
@@ -218,15 +219,24 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
           {/* Right Column: AI Reflection & Continuity */}
           <div className="lg:col-span-5 space-y-6">
             
-            {/* AI Reflection Output Card */}
+            {/* AI Reflection or Crisis Support Card */}
             <div className="bg-white rounded-xl border border-[#1E2A2E]/5 p-6 shadow-[0_8px_32px_rgba(30,42,46,0.02)] space-y-5">
               <div className="border-b border-[#1E2A2E]/5 pb-3 flex items-center justify-between">
                 <h3 className="font-serif text-[15px] text-primary font-normal flex items-center gap-2">
-                  <Compass size={16} className="text-[#5A4A8A]" />
-                  <span>AI Reflection</span>
+                  {entry.crisis_flag ? (
+                    <>
+                      <HeartHandshake size={16} className="text-accent" />
+                      <span>Support Resources</span>
+                    </>
+                  ) : (
+                    <>
+                      <Compass size={16} className="text-[#5A4A8A]" />
+                      <span>AI Reflection</span>
+                    </>
+                  )}
                 </h3>
                 
-                {reflection && (
+                {reflection && !entry.crisis_flag && (
                   <div className="flex gap-1.5">
                     {reflection.classification && (
                       <span className="text-[8.5px] bg-[#5A4A8A]/10 text-[#5A4A8A] font-bold uppercase tracking-widest px-2 py-0.5 rounded">
@@ -237,9 +247,69 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
                 )}
               </div>
 
-              {reflection ? (
+              {entry.crisis_flag ? (
+                <div className="space-y-4 text-left">
+                  <div className="p-4 bg-accent/5 border border-accent/15 rounded-xl space-y-2">
+                    <div className="flex items-start gap-2.5 text-accent font-semibold">
+                      <AlertCircle size={15} className="mt-0.5 shrink-0" />
+                      <div className="text-[12px] leading-relaxed">
+                        Reflection Suppressed
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-mid leading-relaxed pl-6">
+                      This entry triggered a crisis safety protocol. We have muted the AI evaluation to hold a safe space.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3 pt-1">
+                    <div className="text-[9px] tracking-wider uppercase text-accent font-bold">
+                      Confidential Support Services
+                    </div>
+                    <p className="text-[11.5px] text-mid leading-relaxed">
+                      Please don't hold this heavy feeling alone. Reach out to professionals who can help you through this moment:
+                    </p>
+
+                    <div className="grid gap-3 pt-2">
+                      <a 
+                        href="tel:9152987821" 
+                        className="flex items-center justify-between p-3.5 bg-mint-grey/50 hover:bg-mint-grey rounded-xl border border-[#1E2A2E]/5 hover:border-accent/35 transition-all text-left group"
+                      >
+                        <div>
+                          <div className="font-semibold text-xs text-primary group-hover:text-accent transition-colors">iCall (India)</div>
+                          <div className="text-[10px] text-mid mt-0.5">Psychological counselling · Mon–Sat · 8am–10pm</div>
+                        </div>
+                        <span className="px-2.5 py-1 bg-primary/5 text-primary text-[9px] uppercase font-bold rounded-full group-hover:bg-primary group-hover:text-white transition-all shrink-0">Call</span>
+                      </a>
+
+                      <a 
+                        href="tel:18602662345" 
+                        className="flex items-center justify-between p-3.5 bg-mint-grey/50 hover:bg-mint-grey rounded-xl border border-[#1E2A2E]/5 hover:border-accent/35 transition-all text-left group"
+                      >
+                        <div>
+                          <div className="font-semibold text-xs text-primary group-hover:text-accent transition-colors">Vandrevala Foundation</div>
+                          <div className="text-[10px] text-mid mt-0.5">Mental health support · 24/7 · Free & Confidential</div>
+                        </div>
+                        <span className="px-2.5 py-1 bg-[#8DBFB4]/15 text-[#1A5040] text-[9px] uppercase font-bold rounded-full group-hover:bg-[#8DBFB4] group-hover:text-white transition-all shrink-0">24/7</span>
+                      </a>
+
+                      <a 
+                        href="https://wa.me/919152987821" 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="flex items-center justify-between p-3.5 bg-mint-grey/50 hover:bg-mint-grey rounded-xl border border-[#1E2A2E]/5 hover:border-accent/35 transition-all text-left group"
+                      >
+                        <div>
+                          <div className="font-semibold text-xs text-primary group-hover:text-accent transition-colors">iCall — WhatsApp Text Line</div>
+                          <div className="text-[10px] text-mid mt-0.5">Text support if calling feels like too much</div>
+                        </div>
+                        <span className="px-2.5 py-1 bg-[#B8A8D4]/15 text-[#5A4A8A] text-[9px] uppercase font-bold rounded-full group-hover:bg-[#B8A8D4] group-hover:text-white transition-all shrink-0">Text</span>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ) : reflection ? (
                 <div className="space-y-4">
-                  {reflection.status === 'failed' || entry.crisis_flag ? (
+                  {reflection.status === 'failed' ? (
                     <div className="p-4 bg-accent/5 border border-accent/15 rounded-xl space-y-3">
                       <div className="flex items-start gap-2.5 text-accent">
                         <AlertCircle size={15} className="mt-0.5 shrink-0" />
@@ -248,7 +318,7 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
                         </div>
                       </div>
                       <div className="text-[10.5px] text-mid leading-relaxed pl-6">
-                        We noticed this entry carries significant distress. We have muted the AI evaluation to hold a safe space. Please take a look at the support resources in the header menu.
+                        We noticed this entry carries significant distress. We have muted the AI evaluation to hold a safe space.
                       </div>
                     </div>
                   ) : (

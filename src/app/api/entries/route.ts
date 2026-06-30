@@ -267,8 +267,9 @@ export async function POST(request: NextRequest) {
       .in('status', ['ACTIVE', 'active'])
       .maybeSingle();
 
-    const cycleId = activeCycle?.id || null;
+    let cycleId = activeCycle?.id || null;
     let cycleDay = 1;
+    
     if (activeCycle) {
       const started = new Date(activeCycle.start_date);
       const today = new Date();
@@ -277,6 +278,26 @@ export async function POST(request: NextRequest) {
       const diffTime = todayMidnight.getTime() - startMidnight.getTime();
       const calculatedDay = Math.floor(diffTime / (24 * 60 * 60 * 1000)) + 1;
       cycleDay = Math.min(activeCycle.total_days || 30, Math.max(1, calculatedDay));
+    } else {
+      // Fallback: Fetch the most recent cycle (could be COMPLETED or ARCHIVED)
+      const { data: mostRecentCycle } = await supabase
+        .from('cycles')
+        .select('id, start_date, total_days')
+        .eq('user_id', authUser.userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (mostRecentCycle) {
+        cycleId = mostRecentCycle.id;
+        const started = new Date(mostRecentCycle.start_date);
+        const today = new Date();
+        const startMidnight = new Date(started.getFullYear(), started.getMonth(), started.getDate());
+        const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const diffTime = todayMidnight.getTime() - startMidnight.getTime();
+        const calculatedDay = Math.floor(diffTime / (24 * 60 * 60 * 1000)) + 1;
+        cycleDay = Math.min(mostRecentCycle.total_days || 30, Math.max(1, calculatedDay));
+      }
     }
 
     const insertPayload: any = {
