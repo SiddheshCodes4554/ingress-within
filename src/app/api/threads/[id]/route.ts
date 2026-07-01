@@ -236,17 +236,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
 
-    // Trigger vocabulary processing
+    // Trigger vocabulary processing (run in background, do not await to avoid blocking HTTP response)
     if (newResponse && newResponse.id) {
       try {
         const { queueRegistry } = await import('../../../../lib/queue/registry');
-        await queueRegistry.addJob('vocab_processing', `vocab_thread_${newResponse.id}`, {
+        queueRegistry.addJob('vocab_processing', `vocab_thread_${newResponse.id}`, {
           thread_response_id: newResponse.id,
           user_id: authUser.userId
+        }).catch((queueErr: any) => {
+          console.error(`[Thread API Route] Failed to execute vocab processing background job:`, queueErr.message);
         });
-        console.log(`[Thread API Route] Enqueued vocab processing job for response ${newResponse.id}`);
-      } catch (queueErr: any) {
-        console.error(`[Thread API Route] Failed to enqueue vocab processing:`, queueErr.message);
+        console.log(`[Thread API Route] Initiated vocab processing job trigger for response ${newResponse.id}`);
+      } catch (importErr: any) {
+        console.error(`[Thread API Route] Failed to import queue registry:`, importErr.message);
       }
     }
 
