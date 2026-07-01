@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
     });
 
     const verifiedExtractions = (extractions || []).filter(ext => {
-      let doc = null;
+      let doc: { content: string; created_at: string } | undefined = undefined;
       if (ext.entry_id) {
         doc = entriesMap.get(ext.entry_id);
       } else if (ext.thread_response_id) {
