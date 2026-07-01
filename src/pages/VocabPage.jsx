@@ -15,27 +15,6 @@ import {
 import DashboardNavbar from '../components/DashboardNavbar';
 import { DashboardService } from '../services/dashboardService';
 
-function getClusterInsight(name) {
-  const lowercaseName = name.toLowerCase();
-  if (lowercaseName.includes('depletion') || lowercaseName.includes('tired') || lowercaseName.includes('exhaust')) {
-    return 'Tired is about energy. Exhausted implies recovery needed. Depleted implies something was taken. Worth sitting with which one is actually true.';
-  }
-  if (lowercaseName.includes('avoidance') || lowercaseName.includes('fine') || lowercaseName.includes('managing')) {
-    return '"Fine" almost always appears when describing yourself — never about situations or other people. That pattern is worth noticing.';
-  }
-  if (lowercaseName.includes('frustrat') || lowercaseName.includes('resent') || lowercaseName.includes('bitter')) {
-    return 'Frustrated implies something can still change. Resentful implies it already has. The distinction matters.';
-  }
-  return `This cluster highlights language around "${name}". Notice how these words appear in relation to yourself versus other people.`;
-}
-
-function getCycleNote(cycleNumber) {
-  if (cycleNumber === 1) {
-    return "The vocabulary in this cycle leaned heavily on broad, high-level words. Less precise than subsequent cycles.";
-  }
-  return "You used \"tired\" and \"heavy\" in the same entries three times. They're pointing at different layers of your state.";
-}
-
 export default function VocabPage({ user, profile, onSignOut }) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
@@ -47,6 +26,7 @@ export default function VocabPage({ user, profile, onSignOut }) {
   const [openCycles, setOpenCycles] = useState({ 0: true });
   // Track open/close state for thread responses
   const [openResponses, setOpenResponses] = useState({});
+  const [auditOpen, setAuditOpen] = useState(false);
 
   const toggleCycle = (idx) => {
     setOpenCycles(prev => ({
@@ -248,60 +228,54 @@ export default function VocabPage({ user, profile, onSignOut }) {
                   </div>
                 )}
 
-                {/* Word Clusters */}
+                {/* Vocabulary Libraries */}
                 {clusters.length > 0 && (
                   <div className="space-y-3.5">
-                    <div className="text-[10px] tracking-wider uppercase text-[#4A6A64] font-bold">Word clusters</div>
+                    <div className="text-[10px] tracking-wider uppercase text-[#4A6A64] font-bold">Vocabulary libraries</div>
                     <div className="flex flex-col gap-3">
                       {[...clusters]
                         .sort((a, b) => b.frequency - a.frequency)
                         .slice(0, 3)
                         .map((cl, idx) => {
                           const clusterWords = cl.words || [];
-                        const usedWordText = cl.cluster_name;
-                        return (
-                          <div key={cl.id || idx} className="bg-[#F5F8F8] rounded-xl p-3.5 space-y-2 border border-[#1E2A2E]/5">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="px-2.5 py-0.5 bg-[#E0A898]/15 text-[#8A3020] border border-[#E0A898]/25 rounded-full text-[11px] font-semibold">
-                                {usedWordText}
-                              </span>
-                              <span className="text-[10.5px] font-bold text-[#8A3020]">×{cl.frequency}</span>
-                              <span className="text-[#C8D8D4] text-[11px]">→</span>
-                              <div className="flex flex-wrap gap-1.5">
-                                {clusterWords.map((w, wIdx) => {
-                                  const wordText = typeof w === 'string' ? w : w.word;
-                                  return (
-                                    <span key={wIdx} className="px-2 py-0.5 rounded-full bg-[#1E2A2E]/5 text-[#4A6A64] text-[10.5px] font-semibold border border-[#1E2A2E]/8">
-                                      {wordText}
-                                    </span>
-                                  );
-                                })}
+                          const usedWordText = cl.cluster_name;
+                          return (
+                            <div key={cl.id || idx} className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 shadow-[0_4px_24px_rgba(30,42,46,0.01)] text-left space-y-4">
+                              <div className="flex justify-between items-start">
+                                <h3 className="font-serif text-[16px] font-bold text-[#8A3020] tracking-wide uppercase">
+                                  {usedWordText}
+                                </h3>
+                                <span className="text-[10px] font-mono text-mid font-medium">
+                                  Used {cl.frequency}× in similar contexts
+                                </span>
                               </div>
-                            </div>
-                            <p className="text-[12px] text-[#4A6A64] leading-relaxed font-serif italic border-l-2 border-[#E0A898] pl-3 py-0.5">
-                              "{getClusterInsight(cl.cluster_name)}"
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                              
+                              <div className="space-y-2">
+                                <div className="text-[10px] tracking-wider uppercase text-[#4A6A64]/80 font-bold">
+                                  Related expressions from your own writing
+                                </div>
+                                <ul className="space-y-1.5 pl-0.5 list-none">
+                                  {clusterWords.map((w, wIdx) => {
+                                    const wordText = typeof w === 'string' ? w : w.word;
+                                    return (
+                                      <li key={wIdx} className="flex items-center gap-2 text-[12px] text-primary">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#E0A898] shrink-0" />
+                                        <span className="font-semibold">{wordText}</span>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              </div>
 
-                {/* Words never used */}
-                {neverUsedWords.length > 0 && (
-                  <div className="space-y-2.5 pt-1">
-                    <div className="text-[10px] tracking-wider uppercase text-[#4A6A64] font-bold">Words you've never used</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {neverUsedWords.map((word, wIdx) => (
-                        <span key={wIdx} className="px-3 py-0.5 rounded-full bg-[#1E2A2E]/5 text-[#4A6A64] text-[11px] font-medium border border-[#1E2A2E]/8">
-                          {word}
-                        </span>
-                      ))}
+                              {cl.description && (
+                                <p className="text-[12px] text-[#4A6A64] leading-relaxed font-serif italic border-l-2 border-[#E0A898] pl-3 py-0.5">
+                                  "{cl.description}"
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
                     </div>
-                    <p className="text-[11px] text-[#4A6A64]/80 italic mt-1">
-                      Not an accusation — just a note. These words sit nearby but haven't surfaced yet.
-                    </p>
                   </div>
                 )}
 
@@ -394,7 +368,7 @@ export default function VocabPage({ user, profile, onSignOut }) {
                           </div>
 
                           <p className="text-[11.5px] text-[#4A6A64] italic border-l-2 border-[#E0A898] pl-2.5 py-0.5">
-                            {getCycleNote(cy.number)}
+                            Analysis of Cycle {cy.number} vocabulary patterns.
                           </p>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-[#1E2A2E]/5 pt-4">
@@ -505,6 +479,64 @@ export default function VocabPage({ user, profile, onSignOut }) {
               )}
             </div>
           )}
+
+          {/* DEVELOPER AUDIT TRACE LOG */}
+          <div className="border-t border-[#1E2A2E]/10 pt-6 mt-8 text-left">
+            <button
+              onClick={() => setAuditOpen(!auditOpen)}
+              className="w-full flex items-center justify-between py-2.5 text-xs font-mono font-bold tracking-widest text-[#4A6A64] hover:text-primary transition-colors bg-transparent border-none cursor-pointer"
+            >
+              <span>[DEVELOPER AUDIT TRACE LOG]</span>
+              <span>{auditOpen ? '[- Close]' : '[+ Expand]'}</span>
+            </button>
+            
+            {auditOpen && (
+              <div className="mt-4 bg-[#1E2A2E]/5 border border-[#1E2A2E]/10 rounded-xl p-4.5 font-mono space-y-5 text-xs text-[#2A3A3E]">
+                <p className="text-[10px] text-mid uppercase tracking-wide border-b border-[#1E2A2E]/10 pb-2">
+                  Verbatim Verification Trace (Traceability back to database records)
+                </p>
+                {stats?.currentCycleWords && stats.currentCycleWords.length > 0 ? (
+                  <div className="space-y-4">
+                    {stats.currentCycleWords.map((w, idx) => {
+                      const trail = w.audit_trail || [];
+                      if (trail.length === 0) return null;
+                      const primary = trail[0];
+                      const related = trail.slice(1);
+                      return (
+                        <div key={idx} className="space-y-1.5 pb-3 border-b border-[#1E2A2E]/5 last:border-b-0">
+                          <div className="font-bold text-[#8A3020]">Word: {w.normalized_word}</div>
+                          <div className="pl-4 text-light-mid">↓</div>
+                          <div className="pl-4">Journal Entry ID: <span className="underline select-all text-primary">{primary.entry_id}</span> ({primary.type})</div>
+                          <div className="pl-4 text-light-mid">↓</div>
+                          <div className="pl-4 italic text-primary">Original sentence: "{primary.sentence}"</div>
+                          <div className="pl-4 text-light-mid">↓</div>
+                          <div className="pl-4">Date: {primary.date}</div>
+                          <div className="pl-4 text-light-mid">↓</div>
+                          <div className="pl-4">Number of occurrences: {w.frequency}</div>
+                          
+                          {related.length > 0 && (
+                            <>
+                              <div className="pl-4 text-light-mid">↓</div>
+                              <div className="pl-4 space-y-1">
+                                <div>Related entries:</div>
+                                {related.map((r, rIdx) => (
+                                  <div key={rIdx} className="pl-4 text-mid">
+                                    • ID: <span className="underline select-all">{r.entry_id}</span> ({r.date}) - "{r.sentence}"
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-mid italic">No verified current cycle words available for auditing yet.</p>
+                )}
+              </div>
+            )}
+          </div>
 
         </div>
       </main>

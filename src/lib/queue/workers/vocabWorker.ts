@@ -2,6 +2,67 @@ import { supabase } from '../../db';
 import { aiProvider } from '../../ai/factory';
 import { decrypt } from '../../encryption';
 
+export function getVerbatimSentence(word: string, normalized: string, fullText: string): string | null {
+  const cleanWord = word.toLowerCase().trim();
+  const cleanNorm = normalized.toLowerCase().trim();
+  
+  // Split on sentence boundaries (period, exclamation, question mark followed by space)
+  const sentences = fullText.split(/(?<=[.!?])\s+/);
+  
+  for (const s of sentences) {
+    const cleanS = s.toLowerCase();
+    
+    // Check verbatim match
+    if (cleanS.includes(cleanWord)) {
+      return s.trim();
+    }
+    
+    if (cleanNorm && cleanS.includes(cleanNorm)) {
+      return s.trim();
+    }
+    
+    // Word boundary checks for single words
+    if (!cleanWord.includes(' ')) {
+      const rxWord = new RegExp(`\\b${cleanWord}\\b`, 'i');
+      if (rxWord.test(s)) {
+        return s.trim();
+      }
+      if (cleanNorm) {
+        const rxNorm = new RegExp(`\\b${cleanNorm}\\b`, 'i');
+        if (rxNorm.test(s)) {
+          return s.trim();
+        }
+      }
+    }
+  }
+
+  // Fallback substring check in full text
+  const lowerText = fullText.toLowerCase();
+  if (lowerText.includes(cleanWord) || (cleanNorm && lowerText.includes(cleanNorm))) {
+    const targetWord = lowerText.includes(cleanWord) ? cleanWord : cleanNorm;
+    const idx = lowerText.indexOf(targetWord);
+    if (idx !== -1) {
+      let startIdx = 0;
+      for (let i = idx; i >= 0; i--) {
+        if (['.', '!', '?', '\n'].includes(fullText[i])) {
+          startIdx = i + 1;
+          break;
+        }
+      }
+      let endIdx = fullText.length;
+      for (let i = idx; i < fullText.length; i++) {
+        if (['.', '!', '?', '\n'].includes(fullText[i])) {
+          endIdx = i + 1;
+          break;
+        }
+      }
+      return fullText.substring(startIdx, endIdx).trim();
+    }
+  }
+  
+  return null;
+}
+
 export async function processVocabularyExtraction(jobData: {
   entry_id?: string;
   thread_response_id?: string;
@@ -136,21 +197,39 @@ export async function processVocabularyExtraction(jobData: {
         sourceCreatedAt = resp.created_at || sourceCreatedAt;
       }
 
-      // Insert raw extractions
-      const extractionsToInsert = expressions
-        .filter(exp => exp.word && exp.normalized && exp.normalized.trim().length >= 3)
-        .map(exp => ({
+      // Verbatim Validation & Self-Healing
+      const extractionsToInsert: any[] = [];
+      for (const exp of expressions) {
+        if (!exp.word || !exp.normalized || exp.normalized.trim().length < 3) continue;
+
+        const verbatimSentence = getVerbatimSentence(exp.word, exp.normalized, fullText);
+        if (!verbatimSentence) {
+          console.warn(`[Vocab Worker] Discarding expression "${exp.word}" (normalized: "${exp.normalized}"): verbatim check failed.`);
+          continue;
+        }
+
+        // Adjust word to match exact casing inside the verbatim sentence
+        let matchedWord = exp.word.trim();
+        const sentenceLower = verbatimSentence.toLowerCase();
+        const wordLower = exp.word.trim().toLowerCase();
+        const idx = sentenceLower.indexOf(wordLower);
+        if (idx !== -1) {
+          matchedWord = verbatimSentence.substring(idx, idx + wordLower.length);
+        }
+
+        extractionsToInsert.push({
           user_id,
           cycle_id,
           entry_id: entry_id || null,
           thread_response_id: thread_response_id || null,
-          word: exp.word.trim(),
+          word: matchedWord,
           normalized_word: exp.normalized.trim().toLowerCase(),
-          sentence: exp.context || '',
+          sentence: verbatimSentence,
           confidence: exp.confidence || 1.0,
           sentence_reasoning: exp.semantic_meaning || '',
           created_at: sourceCreatedAt
-        }));
+        });
+      }
 
       if (extractionsToInsert.length > 0) {
         const { error: extInsertErr } = await supabase
@@ -159,7 +238,7 @@ export async function processVocabularyExtraction(jobData: {
         if (extInsertErr) {
           console.error(`[Vocab Worker] Failed to insert audit extractions:`, extInsertErr.message);
         } else {
-          console.log(`[Vocab Worker] Logged ${extractionsToInsert.length} audit extractions.`);
+          console.log(`[Vocab Worker] Logged ${extractionsToInsert.length} verified audit extractions.`);
         }
       }
     }
@@ -282,6 +361,12 @@ export async function processVocabularyExtraction(jobData: {
         const cleanNormWord = exp.normalized.trim().toLowerCase();
         
         if (cleanNormWord.length < 3) continue;
+
+        const verbatimSentence = getVerbatimSentence(cleanWord, cleanNormWord, fullText);
+        if (!verbatimSentence) {
+          console.warn(`[Vocab Worker] Discarding legacy expression "${cleanWord}": verbatim check failed.`);
+          continue;
+        }
 
         const { data: existingWord } = await supabase
           .from('vocab_words')
@@ -423,8 +508,12 @@ export async function generateAndSaveClusters(user_id: string, cycle_id: string)
   const mappedClusters: any[] = [];
 
   if (allCycleWords && allCycleWords.length > 0) {
-    console.log(`[Vocab Worker] Grouping ${allCycleWords.length} active words into personalized clusters...`);
-    const clusterResult = await aiProvider.groupClusters(allCycleWords as any[]);
+    // Sort words by frequency desc, then take top 40 to avoid token limits (especially on organizations with 6000 TPM limit)
+    const sortedWords = [...allCycleWords].sort((a: any, b: any) => (b.frequency || 0) - (a.frequency || 0));
+    const wordsToGroup = sortedWords.slice(0, 40);
+
+    console.log(`[Vocab Worker] Grouping top ${wordsToGroup.length} of ${allCycleWords.length} active words into personalized clusters...`);
+    const clusterResult = await aiProvider.groupClusters(wordsToGroup as any[]);
 
     if (clusterResult.clusters && Array.isArray(clusterResult.clusters)) {
       // Filter out isolated clusters: supported by at least 2 distinct words, OR a single word with frequency >= 2

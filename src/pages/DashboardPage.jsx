@@ -1033,10 +1033,12 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                 // Graceful Empty State
                 <div className="space-y-2 pt-1 text-left">
                   <p className="text-[11.5px] text-mid italic leading-relaxed">
-                    "Your emotional vocabulary is building as you write. Keep logging entries to see your vocabulary insights."
+                    {data?.entries?.length > 0
+                      ? "Your emotional vocabulary is compiling. Insights will appear once we have enough data (minimum 3 entries)."
+                      : "Your emotional vocabulary is building as you write. Keep logging entries to see your vocabulary insights."}
                   </p>
                   <div className="text-[10px] text-light-mid font-medium uppercase tracking-wider">
-                    0 entries · 0 words tracked
+                    {vocabStats?.stats?.entriesCount || data?.entries?.length || 0} entries · 0 words tracked
                   </div>
                 </div>
               ) : (

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../../lib/db';
 import { getAuthenticatedUser } from '../../../../lib/auth-helper';
+import { decrypt } from '../../../../lib/encryption';
 
 export async function GET(request: NextRequest) {
   try {
@@ -160,12 +161,55 @@ export async function GET(request: NextRequest) {
     // B. Fetch raw extractions up to cutoffTime
     const { data: extractions } = await supabase
       .from('vocab_extractions')
-      .select('normalized_word, word, confidence, sentence, sentence_reasoning, cycle_id, created_at')
+      .select('normalized_word, word, confidence, sentence, sentence_reasoning, cycle_id, created_at, entry_id, thread_response_id')
       .eq('user_id', userId)
       .lte('created_at', cutoffTime.toISOString());
 
+    // Fetch entries and thread responses for verification
+    const { data: dbEntries } = await supabase
+      .from('entries')
+      .select('id, content, new_entry_text_encrypted, new_entry_text_iv, created_at')
+      .eq('user_id', userId);
+
+    const { data: dbResponses } = await supabase
+      .from('thread_responses')
+      .select('id, response_text, created_at')
+      .eq('user_id', userId);
+
+    const entriesMap = new Map<string, { content: string; created_at: string }>();
+    (dbEntries || []).forEach(e => {
+      const dec = decrypt(e.new_entry_text_encrypted, e.new_entry_text_iv) || e.content || '';
+      entriesMap.set(e.id, { content: dec, created_at: e.created_at });
+    });
+
+    const threadResponsesMap = new Map<string, { content: string; created_at: string }>();
+    (dbResponses || []).forEach(r => {
+      threadResponsesMap.set(r.id, { content: r.response_text || '', created_at: r.created_at });
+    });
+
+    const verifiedExtractions = (extractions || []).filter(ext => {
+      let doc = null;
+      if (ext.entry_id) {
+        doc = entriesMap.get(ext.entry_id);
+      } else if (ext.thread_response_id) {
+        doc = threadResponsesMap.get(ext.thread_response_id);
+      }
+
+      if (!doc || !doc.content) return false;
+
+      const cleanContent = doc.content.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const cleanSentence = ext.sentence.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      const matches = cleanContent.includes(cleanSentence);
+      if (!matches) {
+        console.warn(`[Vocab Verification] Discarding expression "${ext.word}" because its sentence was not found in the original source.`);
+        return false;
+      }
+      return true;
+    });
+
     const wordGroups = new Map<string, any>();
-    (extractions || []).forEach(ext => {
+    verifiedExtractions.forEach(ext => {
       const norm = ext.normalized_word.toLowerCase();
       if (!wordGroups.has(norm)) {
         wordGroups.set(norm, {
@@ -178,12 +222,22 @@ export async function GET(request: NextRequest) {
           semantic_meaning: ext.sentence_reasoning || '',
           context: ext.sentence || '',
           cycle_id: ext.cycle_id,
-          extractions: []
+          extractions: [],
+          audit_trail: []
         });
       }
       const g = wordGroups.get(norm);
       g.frequency += 1;
       g.extractions.push(ext);
+
+      // Add to audit trail
+      g.audit_trail.push({
+        entry_id: ext.entry_id || ext.thread_response_id,
+        sentence: ext.sentence,
+        date: new Date(ext.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+        type: ext.entry_id ? 'Journal Entry' : 'Thread Response'
+      });
+
       if (new Date(ext.created_at).getTime() < new Date(g.first_seen).getTime()) {
         g.first_seen = ext.created_at;
       }
@@ -355,7 +409,8 @@ export async function GET(request: NextRequest) {
           frequency: w.frequency,
           first_seen: w.first_seen,
           last_seen: w.last_seen,
-          semantic_meaning: w.semantic_meaning || ''
+          semantic_meaning: w.semantic_meaning || '',
+          audit_trail: w.audit_trail || []
         })),
         concepts: (topConcepts || []).map(c => ({
           concept: c.concept,
@@ -372,7 +427,8 @@ export async function GET(request: NextRequest) {
           semantic_meaning: w.semantic_meaning || '',
           context: w.context || '',
           confidence: w.confidence || 1.0,
-          entry_ids: w.extractions.map((e: any) => e.entry_id).filter(Boolean)
+          entry_ids: w.extractions.map((e: any) => e.entry_id).filter(Boolean),
+          audit_trail: w.audit_trail || []
         })),
         clusters: mappedClusters,
         timeline,

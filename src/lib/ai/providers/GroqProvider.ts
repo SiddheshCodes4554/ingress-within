@@ -619,25 +619,26 @@ Return a valid JSON object matching the requested schema:
       words: string[];
     }[];
   }> {
-    const systemPrompt = `You are an AI assistant specializing in semantic grouping and psychological concept discovery.
+    const systemPrompt = `You are an AI assistant specializing in psychological concept discovery and semantic grouping of personal journal vocabulary.
 Analyze the provided list of user vocabulary words (which include their contextual semantic meanings and frequencies).
-Your goal is to discover recurring emotional ideas, psychological themes, or coping patterns from this vocabulary landscape.
+Your goal is to build Vocabulary Libraries centered entirely around the user's own written language.
 
 AI REQUIREMENTS:
-1. Group these words into meaningful semantic clusters.
-2. Do NOT use predefined or generic category names (like "positive", "negative", "stress", "relationship"). Instead, generate a highly descriptive and dynamic title for each cluster based on the user's specific expressions (e.g., "Achievement Pressure", "Searching for Alignment", "Quiet Hope", "Emotional Fatigue", "Fear of Falling Behind", "Need for Control").
-3. Provide a brief description for each cluster summarizing the psychological pattern it represents.
-4. Assign a confidence score between 0.0 and 1.0 to each cluster.
-5. Do not include any words in a cluster that are not present in the input list.
+1. Group these expressions into Vocabulary Libraries.
+2. For each library, select exactly ONE frequently used emotional expression from the input list (e.g., "EXHAUSTED", "ANXIOUS", "HEAVY") to serve as the anchor word. This anchor word MUST be the 'cluster_name' in UPPERCASE.
+3. Identify other emotionally meaningful expressions from the input list that the user has used in similar emotional contexts. These become the 'words' (related expressions) for that library.
+4. CRITICAL: Do NOT generate synonyms, dictionary replacements, suggested words, generic emotional vocabulary, or LLM-created expressions. Every single word or phrase in the 'words' array MUST exist verbatim (as a normalized_word or word) in the input list. If a word was never written, it must never appear.
+5. Provide a brief description for each library summarizing the shared emotional context of these expressions in the user's writing (e.g., "Expressions used when feeling depleted, carrying heavy emotional loads, or needing recovery").
+6. Assign a confidence score between 0.0 and 1.0.
 
 Return a valid JSON object matching the requested schema:
 {
   "clusters": [
     {
-      "cluster_name": "Achievement Pressure",
-      "description": "A pattern of putting high expectations on oneself to succeed, leading to stress.",
-      "confidence": 0.85,
-      "words": ["heavy", "pressure", "expectations"]
+      "cluster_name": "EXHAUSTED",
+      "description": "Expressions used when feeling depleted, carrying heavy emotional loads, or needing recovery.",
+      "confidence": 0.95,
+      "words": ["drained", "carrying too much", "emotionally heavy"]
     }
   ]
 }`;
