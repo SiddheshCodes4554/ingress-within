@@ -1007,7 +1007,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                       <div className="hl">
                         <div className="logo">ingress <span>within</span></div>
                         <div className="hdiv"></div>
-                        <div className="wl">Week {selectedReport.week_number} — Pattern Summary</div>
+                        <div className="wl">Week {selectedReport.week_number} Summary</div>
                       </div>
                       <div className="dr">{stats.week_range || (selectedReport.generated_at ? new Date(selectedReport.generated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '')}</div>
                     </div>
