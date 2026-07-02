@@ -671,6 +671,94 @@ export class DashboardService {
 
     return data.cycle;
   }
+
+  /**
+   * Fetches all weekly reports for the user.
+   */
+  static async fetchWeeklyReports(cycleId?: string): Promise<any[]> {
+    const cacheKey = `weekly_reports_${cycleId || 'all'}`;
+    const cached = this.getCached<any[]>(cacheKey);
+
+    const fetchFresh = async () => {
+      const startTime = performance.now();
+      const url = cycleId ? `/api/reports/weekly?cycleId=${cycleId}` : '/api/reports/weekly';
+      const res = await fetch(url, {
+        headers: DashboardService.getHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error?.message || 'Failed to fetch weekly reports.');
+      }
+      const duration = performance.now() - startTime;
+      this.trackLatency('fetchWeeklyReports', duration);
+      this.setCached(cacheKey, data.reports);
+      return data.reports;
+    };
+
+    if (cached) {
+      fetchFresh().catch(() => {});
+      return cached;
+    }
+    return fetchFresh();
+  }
+
+  /**
+   * Fetches single weekly report detail on demand.
+   */
+  static async fetchWeeklyReportDetail(reportId: string): Promise<any> {
+    const cacheKey = `weekly_report_detail_${reportId}`;
+    const cached = this.getCached<any>(cacheKey);
+
+    const fetchFresh = async () => {
+      const startTime = performance.now();
+      const res = await fetch(`/api/reports/weekly/${reportId}`, {
+        headers: DashboardService.getHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error?.message || 'Failed to fetch weekly report detail.');
+      }
+      const duration = performance.now() - startTime;
+      this.trackLatency('fetchWeeklyReportDetail', duration);
+      this.setCached(cacheKey, data.report);
+      return data.report;
+    };
+
+    if (cached) {
+      fetchFresh().catch(() => {});
+      return cached;
+    }
+    return fetchFresh();
+  }
+
+  /**
+   * Fetches the Day 28 assessment report for a cycle.
+   */
+  static async fetchCycleAssessment(cycleId: string): Promise<any> {
+    const cacheKey = `cycle_assessment_${cycleId}`;
+    const cached = this.getCached<any>(cacheKey);
+
+    const fetchFresh = async () => {
+      const startTime = performance.now();
+      const res = await fetch(`/api/reports/assessment?cycleId=${cycleId}`, {
+        headers: DashboardService.getHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error?.message || 'Failed to fetch cycle assessment.');
+      }
+      const duration = performance.now() - startTime;
+      this.trackLatency('fetchCycleAssessment', duration);
+      this.setCached(cacheKey, data.assessment);
+      return data.assessment;
+    };
+
+    if (cached) {
+      fetchFresh().catch(() => {});
+      return cached;
+    }
+    return fetchFresh();
+  }
 }
 
 

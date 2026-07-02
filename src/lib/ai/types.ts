@@ -107,6 +107,154 @@ export interface AIProvider {
     }[];
   }>;
   scoreEmotionalRelevance(words: string[], entryContent: string): Promise<{ validatedWords: { word: string; is_emotional: boolean; category?: 'emotional' | 'theme' | 'general'; score: number }[] }>;
+  generateWeeklyReport(data: WeeklyReportInput): Promise<WeeklyReportResponse>;
+}
+
+export interface WeeklyReportInput {
+  weekly_stats: {
+    entries_completed: number;
+    total_possible: number;
+    skipped_days: number;
+    skipped_day_numbers: number[];
+    writing_streak: number;
+    thread_responses_completed: number;
+    week_range: string;
+    cycle_number: number;
+    week_number: number;
+  };
+  entries: {
+    id: string;
+    cycle_day: number;
+    content: string;
+    word_count: number;
+    created_at: string;
+    written_at: string;
+    reflection_question: string | null;
+    reflection_answer: string | null;
+  }[];
+  threadResponses: {
+    id: string;
+    response_text: string;
+    created_at: string;
+    question: string;
+  }[];
+  vocabThisWeek: {
+    word: string;
+    normalized_word: string;
+    frequency: number;
+    sentence: string;
+  }[];
+  vocabulary_evolution: {
+    new_expressions: string[];
+    growing_expressions: string[];
+    declining_expressions: string[];
+  };
+  scores: {
+    cycle_day: number;
+    ei: number | null;
+    pr: number | null;
+    sa: number | null;
+  }[];
+  crisisEvents: {
+    id: string;
+    crisis_type: string;
+    timestamp: string;
+  }[];
+  openThreads: {
+    id: string;
+    question: string;
+    status: string;
+    created_at: string;
+    addressed_at: string | null;
+  }[];
+  writing_behaviour: {
+    avg_entry_length: number;
+    entry_lengths: number[];
+    writing_times: string[];
+    reflection_completion_rate: number;
+    thread_completion_rate: number;
+    skipped_days: number[];
+  };
+  personalityContext: string | null;
+}
+
+export interface ScoreDimensionDetail {
+  avg: number;
+  highest: {
+    day: number;
+    score: number;
+  };
+  lowest: {
+    day: number;
+    score: number;
+  };
+  interpretation: string;
+}
+
+export interface WeeklyReportResponse {
+  title: string;
+  why: string;
+  weekly_stats: {
+    entries_completed: number;
+    total_possible: number;
+    skipped_days: number;
+    skipped_day_numbers: number[];
+    writing_streak: number;
+    thread_responses_completed: number;
+    week_range: string;
+    cycle_number: number;
+    week_number: number;
+  };
+  emotional_language: {
+    expression: string;
+    frequency: number;
+    importance: 'high' | 'medium' | 'low';
+    context: string;
+    related: string[];
+  }[];
+  week_narrative: string;
+  vocabulary_evolution: {
+    new_expressions: string[];
+    growing_expressions: string[];
+    declining_expressions: string[];
+  };
+  pattern_evolution: {
+    recurring_themes: string[];
+    repeated_stressors: string[];
+    repeated_strengths: string[];
+    coping_strategies: string[];
+  };
+  writing_behaviour: {
+    consistency: string;
+    avg_entry_length: number;
+    entry_lengths: number[];
+    writing_times: string[];
+    reflection_completion_rate: number;
+    thread_completion_rate: number;
+    skipped_days: number[];
+    engagement_trend: string;
+  };
+  score_evolution: {
+    ei: ScoreDimensionDetail;
+    pr: ScoreDimensionDetail;
+    sa: ScoreDimensionDetail;
+  };
+  open_threads_review: {
+    active: string[];
+    resolved_this_week: string[];
+    continued_throughout: string[];
+    summary: string;
+  };
+  crisis_review: {
+    occurred: boolean;
+    summary: string;
+    events: {
+      type: string;
+      timestamp: string;
+    }[];
+  };
+  growth_reflection: string;
+  reflection_question: string;
 }
 
 export interface DimensionScores {

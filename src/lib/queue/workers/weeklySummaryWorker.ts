@@ -2,6 +2,7 @@ import { supabase } from '../../db';
 import { aiProvider } from '../../ai/factory';
 import { decrypt } from '../../encryption';
 import crypto from 'crypto';
+import { collectWeeklyReportData } from '../../weeklyReportCollector';
 
 export async function processWeeklySummary(jobData: {
   cycle_id: string;
@@ -42,6 +43,12 @@ export async function processWeeklySummary(jobData: {
   }
 
   const { id: actualSummaryId, day_start, day_end } = summaryRow;
+
+  // Immutability Guard: Never overwrite a completed report
+  if (summaryRow.status === 'ready' && summaryRow.report_data !== null) {
+    console.log(`[Weekly Summary Worker] Weekly report for summary ID ${actualSummaryId} already exists and is immutable. Skipping.`);
+    return;
+  }
 
   // 2. Fetch all entries written during this weekly range (joining reflections)
   const { data: entries, error: entriesError } = await supabase
@@ -151,11 +158,6 @@ export async function processWeeklySummary(jobData: {
           // If no previous week summary exists but week_number > 1, treat as not distressed
           canClear = true;
         }
-      } else {
-        // If week_number === 1 and it is clean, we don't have enough cycle history to clear yet.
-        // But to be lenient and prevent locking forever, if they were in sustained distress from the past,
-        // and week 1 is clean, we can clear it if the last week of previous cycle was also clean.
-        // For simplicity, we keep the flag until we have 2 consecutive clean weeks.
       }
 
       if (canClear) {
@@ -173,38 +175,26 @@ export async function processWeeklySummary(jobData: {
     console.error(`[Weekly Summary Worker] Error evaluating sustained distress:`, distressErr.message);
   }
 
-  // 3. Fetch user context (OCEAN personality summary text)
-  const { data: user, error: userError } = await supabase
-    .from('users')
-    .select('personality_summary_text')
-    .eq('id', user_id)
-    .single();
+  // 3. Gather full structured weekly report data from all-time history
+  let collectedData;
+  try {
+    collectedData = await collectWeeklyReportData({
+      userId: user_id,
+      cycleId: cycle_id,
+      weekNumber: week_number,
+      dayStart: day_start,
+      dayEnd: day_end
+    });
+  } catch (err: any) {
+    console.error(`[Weekly Summary Worker] Error collecting weekly data:`, err.message);
+    await supabase
+      .from('weekly_summaries')
+      .update({ status: 'failed' })
+      .eq('id', actualSummaryId);
+    throw err;
+  }
 
-  const personalityContext = user?.personality_summary_text || undefined;
-
-  // 4. Decrypt and format entries (including completed reflection answers)
-  const formattedEntries = (entries || [])
-    .map(e => {
-      const text = decrypt(e.new_entry_text_encrypted, e.new_entry_text_iv) || e.content;
-      let content = text || '';
-
-      const rawReflection = e.reflections;
-      const reflection = Array.isArray(rawReflection)
-        ? (rawReflection[0] || null)
-        : (rawReflection || null);
-
-      if (reflection && reflection.status === 'completed' && reflection.reflection_answer) {
-        content += `\n[Reflection Question]: ${reflection.closing_question}\n[User Reflection Response]: ${reflection.reflection_answer}`;
-      }
-
-      return {
-        content: content,
-        created_at: e.written_at || e.created_at
-      };
-    })
-    .filter(e => e.content.trim() !== '');
-
-  if (formattedEntries.length === 0) {
+  if (collectedData.entries.filter(e => e.content.trim().length > 0).length === 0) {
     console.warn(`[Weekly Summary Worker] No written entries found for week ${week_number}. Marking summary as failed.`);
     await supabase
       .from('weekly_summaries')
@@ -218,16 +208,20 @@ export async function processWeeklySummary(jobData: {
   }
 
   try {
-    // 5. Call AI Provider with personality context
-    const result = await aiProvider.generateWeeklySummary(formattedEntries, personalityContext);
+    // 4. Call AI Provider with fully collected report context
+    const result = await aiProvider.generateWeeklyReport(collectedData);
 
-    // 5. Update weekly_summaries table
+    // 5. Update weekly_summaries table with full 11-section report_data
     const { error: updateError } = await supabase
       .from('weekly_summaries')
       .update({
-        body: result.body,
-        open_question: result.q,
+        title: result.title || "Composure vs. Suppression",
+        why: result.why || "Suppressing internal friction to manage external dynamics.",
+        body: result.week_narrative || "A weekly summary is ready.",
+        open_question: result.reflection_question,
+        report_data: result,
         status: 'ready',
+        engine_version: 'v2.0',
         generated_at: new Date().toISOString()
       })
       .eq('id', actualSummaryId);
@@ -236,31 +230,36 @@ export async function processWeeklySummary(jobData: {
       throw new Error(`Failed to update weekly summary row: ${updateError.message}`);
     }
 
-    // 6. Create open thread in open_threads
-    const threadId = crypto.randomUUID();
-
-    const { error: openThreadError } = await supabase
+    // 6. Create open thread in open_threads (if it doesn't already exist for this summary)
+    const { data: existingThread } = await supabase
       .from('open_threads')
-      .insert({
-        id: threadId,
-        user_id,
-        cycle_id,
-        source_summary_id: actualSummaryId,
-        question: result.q,
-        origin_context: result.body,
-        status: 'open',
-        created_at: new Date().toISOString()
-      });
+      .select('id')
+      .eq('source_summary_id', actualSummaryId)
+      .maybeSingle();
 
-    if (openThreadError) {
-      console.warn(`[Weekly Summary Worker] Failed to insert into open_threads:`, openThreadError.message);
+    if (!existingThread) {
+      const threadId = crypto.randomUUID();
+      const { error: openThreadError } = await supabase
+        .from('open_threads')
+        .insert({
+          id: threadId,
+          user_id,
+          cycle_id,
+          source_summary_id: actualSummaryId,
+          question: result.reflection_question,
+          origin_context: result.week_narrative || "A weekly summary.",
+          status: 'open',
+          created_at: new Date().toISOString()
+        });
+
+      if (openThreadError) {
+        console.warn(`[Weekly Summary Worker] Failed to insert into open_threads:`, openThreadError.message);
+      }
     }
 
-
-
-    console.log(`[Weekly Summary Worker] Successfully generated weekly summary and open thread for week ${week_number}`);
+    console.log(`[Weekly Summary Worker] Successfully generated weekly report and open thread for week ${week_number}`);
   } catch (err: any) {
-    console.error(`[Weekly Summary Worker] Error in weekly summary generation:`, err);
+    console.error(`[Weekly Summary Worker] Error in weekly report generation:`, err);
     await supabase
       .from('weekly_summaries')
       .update({ status: 'failed' })

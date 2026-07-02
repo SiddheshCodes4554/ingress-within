@@ -7,7 +7,9 @@ import {
   OceanSummaryResponse, 
   ExerciseInsightResponse,
   CrisisDetectionResponse,
-  EntryDimensionsScoreResponse
+  EntryDimensionsScoreResponse,
+  WeeklyReportInput,
+  WeeklyReportResponse
 } from '../types';
 import { extractJson } from '../utils';
 
@@ -152,8 +154,69 @@ export class ClaudeProvider implements AIProvider {
             }
           ]
         };
+      } else if (systemPrompt.includes('psychologist reviewing the client') || systemPrompt.includes('thoughtful psychologist reviewing')) {
+        mockRes = {
+          title: "Composure vs. Suppression",
+          why: "Underlying avoidance of direct emotional expression in favor of maintaining external expectations.",
+          weekly_stats: {
+            entries_completed: 6,
+            total_possible: 7,
+            skipped_days: 1,
+            skipped_day_numbers: [4],
+            writing_streak: 3,
+            thread_responses_completed: 2,
+            week_range: "1 Jun – 7 Jun",
+            cycle_number: 1,
+            week_number: 1
+          },
+          emotional_language: [
+            { expression: "tired", frequency: 3, importance: "high", context: "Described exhaustion midweek when dealing with workplace responsibilities.", related: ["drained", "depleted"] },
+            { expression: "blank", frequency: 2, importance: "medium", context: "Appeared when writing about social interactions where you felt absent.", related: ["disconnected", "absent"] },
+            { expression: "fine", frequency: 3, importance: "high", context: "Used as a conversational buffer when explaining personal states.", related: ["uncertain", "lost"] }
+          ],
+          week_narrative: "The week began with pressure surrounding work responsibilities and an emphasis on maintaining composure. Midweek, your writing shifted toward exhaustion and feeling drained. By the weekend, your language reflected recovery rather than continued exhaustion, though an undercurrent of resignation remains.",
+          vocabulary_evolution: {
+            new_expressions: ["blank", "absent"],
+            growing_expressions: ["tired", "fine"],
+            declining_expressions: ["stressed"]
+          },
+          pattern_evolution: {
+            recurring_themes: ["Suppression of irritation", "Prioritizing other's schedules"],
+            repeated_stressors: ["startup discussions", "work shortlist expectations"],
+            repeated_strengths: ["intellectual problem solving"],
+            coping_strategies: ["withdrawing from phone calls", "internalizing feedback"]
+          },
+          writing_behaviour: {
+            consistency: "High volume early, one sentence by Sunday. Not quieter — emptier.",
+            avg_entry_length: 245,
+            entry_lengths: [320, 280, 210, 0, 180, 150, 40],
+            writing_times: ["22:14", "21:30", "22:05", "", "23:10", "21:45", "23:55"],
+            reflection_completion_rate: 0.85,
+            thread_completion_rate: 0.66,
+            skipped_days: [4],
+            engagement_trend: "Steady decrease in word count as the week progressed, ending in a minimal single-sentence entry on Sunday."
+          },
+          score_evolution: {
+            ei: { avg: 6.2, highest: { day: 3, score: 8.1 }, lowest: { day: 7, score: 4.0 }, interpretation: "Emotional intensity peaked midweek, reflecting rising frustration with work pressures." },
+            pr: { avg: 5.8, highest: { day: 2, score: 7.0 }, lowest: { day: 7, score: 4.5 }, interpretation: "Pattern rigidity remained elevated throughout, indicating reliance on familiar deflection strategies." },
+            sa: { avg: 4.5, highest: { day: 5, score: 6.5 }, lowest: { day: 3, score: 2.0 }, interpretation: "Self-agency dipped significantly on Day 3 during the shortlist announcement, before recovering slightly." }
+          },
+          open_threads_review: {
+            active: ["Is avoiding the argument the same as keeping the peace?"],
+            resolved_this_week: ["Handling daily work tasks"],
+            continued_throughout: ["Career direction uncertainty"],
+            summary: "Avoidance remains an active core theme. Two threads remain active, while one regarding immediate task execution was resolved."
+          },
+          crisis_review: {
+            occurred: false,
+            summary: "No crisis indicators were detected this week.",
+            events: []
+          },
+          growth_reflection: "You expected to care about the shortlist. You didn't. You haven't been able to stop thinking about that. Every place this week where the question was 'what do you actually think' — you weren't there.",
+          reflection_question: "What would it look like to actually say the thing instead of absorbing it?"
+        };
       }
-
+      
       if (mockRes) {
         this.lastRawResponse = JSON.stringify(mockRes, null, 2);
         this.lastUsage = { input_tokens: 380, output_tokens: 180, total_tokens: 560 };
@@ -265,10 +328,10 @@ Schema:
   async generateWeeklySummary(entries: { content: string; created_at: string }[], personalitySummary?: string): Promise<WeeklySummaryResponse> {
     const systemPrompt = `STANDING CONTEXT — use to calibrate what you notice. Do not surface to the user. Do not reference it directly. Personality context for this user: ${personalitySummary || 'None'}
 ─────────────────────────────────────────────────────────
-You are a clinical supervisor synthesizing a client's weekly journal entries. Analyze the entries and return a JSON object with:
+You are a clinical supervisor synthesizing a weekly journal summary for a user. You must speak directly to them in the second person ("you", "your"). Never refer to them as "the client", "the user", "the individual", or in the third person ("they", "he", "she"). Analyze the entries and return a JSON object with:
 {
   "title": string (a short, evocative weekly summary title capturing the theme, e.g., "Composure vs. Suppression"),
-  "body": string (a 2-3 sentence narrative summarizing the client's emotional landscape this week),
+  "body": string (a 2-3 sentence narrative summarizing their emotional landscape this week directly to them, e.g. "Your week showed..."),
   "why": string (a brief behavioral interpretation explaining the underlying pattern),
   "emos": [
     {
@@ -283,8 +346,66 @@ You are a clinical supervisor synthesizing a client's weekly journal entries. An
     return this.callClaude<WeeklySummaryResponse>(systemPrompt, `Weekly entries:\n${formattedEntries}`);
   }
 
+  async generateWeeklyReport(data: WeeklyReportInput): Promise<WeeklyReportResponse> {
+    const systemPrompt = `You are a clinical psychologist synthesizing a weekly report for a user. You must speak directly to them in the second person ("you", "your"). Never refer to them as "the user", "the individual", "the writer", or in the third person ("they", "he", "she"). Analyze the user's data and output JSON only (no markdown format, no text before/after).
+Schema:
+{
+  "title": "Evocative summary title (e.g. Composure vs. Suppression)",
+  "why": "1-2 sentences clinical explanation of primary pattern",
+  "weekly_stats": ${JSON.stringify(data.weekly_stats)},
+  "emotional_language": [
+    {
+      "expression": "emotional word user wrote verbatim (exactly 3 objects in array)",
+      "frequency": 1,
+      "importance": "high",
+      "context": "1-2 sentences context",
+      "related": ["synonyms"]
+    }
+  ],
+  "week_narrative": "3-5 sentences emotional narrative arc of their week",
+  "vocabulary_evolution": ${JSON.stringify(data.vocabulary_evolution)},
+  "pattern_evolution": {
+    "recurring_themes": ["themes recurring across entries"],
+    "repeated_stressors": ["stressors"],
+    "repeated_strengths": ["strengths"],
+    "coping_strategies": ["coping strategies"]
+  },
+  "writing_behaviour": ${JSON.stringify(data.writing_behaviour)},
+  "score_evolution": {
+    "ei": { "avg": 0.0, "highest": { "day": 1, "score": 0 }, "lowest": { "day": 1, "score": 0 }, "interpretation": "1-2 sentences EI trajectory meaning" },
+    "pr": { "avg": 0.0, "highest": { "day": 1, "score": 0 }, "lowest": { "day": 1, "score": 0 }, "interpretation": "1-2 sentences PR trajectory meaning" },
+    "sa": { "avg": 0.0, "highest": { "day": 1, "score": 0 }, "lowest": { "day": 1, "score": 0 }, "interpretation": "1-2 sentences SA trajectory meaning" }
+  },
+  "open_threads_review": {
+    "active": ["unresolved questions"],
+    "resolved_this_week": ["resolved questions"],
+    "continued_throughout": ["continued questions"],
+    "summary": "1-2 sentences thread progress summary"
+  },
+  "crisis_review": {
+    "occurred": false,
+    "summary": "Factual 1-sentence summary or 'No crisis indicators were detected this week.'",
+    "events": []
+  },
+  "growth_reflection": "1 thoughtful psychologist observation (no advice or motivation)",
+  "reflection_question": "1 thoughtful closing question for next week (becomes new Open Thread)"
+}`;
+
+    const userContent = `User Weekly Data:\n${JSON.stringify({
+      entries: data.entries,
+      threadResponses: data.threadResponses,
+      vocabThisWeek: data.vocabThisWeek,
+      scores: data.scores,
+      crisisEvents: data.crisisEvents,
+      openThreads: data.openThreads,
+      personalityContext: data.personalityContext
+    }, null, 2)}`;
+
+    return this.callClaude<WeeklyReportResponse>(systemPrompt, userContent);
+  }
+
   async generateMonthlyReport(entries: { content: string; created_at: string }[]): Promise<MonthlyReportResponse> {
-    const systemPrompt = `You are a clinical director compiling a Day 28 synthesis report from a month of journal entries. Return a JSON object with:
+    const systemPrompt = `You are a clinical director compiling a Day 28 synthesis report for a user based on a month of journal entries. You must speak directly to them in the second person ("you", "your"). Never refer to them as "the client", "the user", "the individual", or in the third person ("they", "he", "she"). Return a JSON object with:
 {
   "dimensions": [
     {
