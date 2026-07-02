@@ -217,16 +217,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                 <div class="yt" style="font-family: Georgia, serif; font-size: 13px; line-height: 1.65; padding: 12px; background: #F5F6F6; border-left: 2px solid var(--terracotta-rose); border-radius: 8px;">
                   ${reportData.why || 'Recognizing these dynamics helps map triggers.'}
                 </div>
-                ${data.pattern_evolution ? `
-                  <div style="margin-top: 20px;">
-                    <div class="lbl">Pattern Snapshots</div>
-                    <div style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.6; margin-top: 6px;">
-                      ${data.pattern_evolution.recurring_themes?.length > 0 ? `<div>• <strong>Theme:</strong> ${data.pattern_evolution.recurring_themes[0]}</div>` : ''}
-                      ${data.pattern_evolution.repeated_stressors?.length > 0 ? `<div>• <strong>Stressor:</strong> ${data.pattern_evolution.repeated_stressors[0]}</div>` : ''}
-                      ${data.pattern_evolution.coping_strategies?.length > 0 ? `<div>• <strong>Coping:</strong> ${data.pattern_evolution.coping_strategies[0]}</div>` : ''}
-                    </div>
-                  </div>
-                ` : ''}
+
 
               </div>
             </div>
@@ -850,7 +841,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
 
                         {[1, 2, 3].map(weekNum => {
                           const report = cycleReports.find(r => r.week_number === weekNum);
-                          const isWeekCompleted = !isCurrent || (cycle.current_day || 1) > (weekNum * 7);
+                          const isWeekCompleted = (cycle.current_day || 1) > (weekNum * 7) || (report && report.status === 'ready');
 
                           // Calculate completion date based on cycle start_date
                           const startDate = cycle.start_date ? new Date(cycle.start_date) : null;
@@ -1112,22 +1103,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                             {selectedReport.why || 'Recognizing these dynamics helps map triggers.'}
                           </div>
 
-                          {data.pattern_evolution && (
-                            <div className="mt-4 space-y-2">
-                              <div className="lbl">Pattern Snapshots</div>
-                              <div className="text-[12px] space-y-1 text-mid">
-                                {data.pattern_evolution.recurring_themes?.length > 0 && (
-                                  <div>• <strong>Theme:</strong> {data.pattern_evolution.recurring_themes[0]}</div>
-                                )}
-                                {data.pattern_evolution.repeated_stressors?.length > 0 && (
-                                  <div>• <strong>Stressor:</strong> {data.pattern_evolution.repeated_stressors[0]}</div>
-                                )}
-                                {data.pattern_evolution.coping_strategies?.length > 0 && (
-                                  <div>• <strong>Coping:</strong> {data.pattern_evolution.coping_strategies[0]}</div>
-                                )}
-                              </div>
-                            </div>
-                          )}
+
 
 
                         </div>
