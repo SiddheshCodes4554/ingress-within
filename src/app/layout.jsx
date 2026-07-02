@@ -1,4 +1,6 @@
 import { Cormorant_Garamond, DM_Sans } from 'next/font/google';
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 import '../index.css';
 
 const cormorant = Cormorant_Garamond({
@@ -38,6 +40,8 @@ export default function RootLayout({ children }) {
         <div id="root">
           {children}
         </div>
+        <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   );
