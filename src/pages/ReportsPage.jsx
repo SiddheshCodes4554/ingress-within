@@ -227,15 +227,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                     </div>
                   </div>
                 ` : ''}
-                ${data.vocabulary_evolution ? `
-                  <div style="margin-top: 15px;">
-                    <div class="lbl">Vocabulary Shift</div>
-                    <div style="font-size: 11px; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;">
-                      ${data.vocabulary_evolution.new_expressions?.slice(0, 3).map(w => `<span style="background: rgba(184,168,212,0.15); color: #8a3020; border: 1px solid rgba(184,168,212,0.2); padding: 3px 7px; border-radius: 4px; font-weight: 500;">+${w}</span>`).join('')}
-                      ${data.vocabulary_evolution.growing_expressions?.slice(0, 3).map(w => `<span style="background: rgba(224,168,152,0.15); color: #8a3020; border: 1px solid rgba(224,168,152,0.2); padding: 3px 7px; border-radius: 4px; font-weight: 500;">${w}</span>`).join('')}
-                    </div>
-                  </div>
-                ` : ''}
+
               </div>
             </div>
             ${data.crisis_review ? `
@@ -1137,23 +1129,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                             </div>
                           )}
 
-                          {data.vocabulary_evolution && (
-                            <div className="mt-4 space-y-1">
-                              <div className="lbl">Vocabulary Shift</div>
-                              <div className="text-[11px] text-mid flex flex-wrap gap-1">
-                                {data.vocabulary_evolution.new_expressions?.slice(0, 3).map((w, idx) => (
-                                  <span key={idx} className="bg-supporting/15 text-supporting border border-supporting/20 px-2 py-0.5 rounded text-[10px]">
-                                    +{w}
-                                  </span>
-                                ))}
-                                {data.vocabulary_evolution.growing_expressions?.slice(0, 3).map((w, idx) => (
-                                  <span key={idx} className="bg-[#e0a898]/15 text-[#8a3020] border border-[#e0a898]/20 px-2 py-0.5 rounded text-[10px]">
-                                    {w} (growing)
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+
                         </div>
                       </div>
 
