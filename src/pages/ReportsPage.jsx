@@ -134,7 +134,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
 
   const downloadPdf = (reportData, isDay28 = false) => {
     if (!reportData) return;
-    
+
     const printWindow = window.open('', '_blank', 'width=900,height=800');
     if (!printWindow) {
       alert('Please allow popups to download the PDF report.');
@@ -156,7 +156,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
             <div class="hl">
               <div class="logo">ingress <span>within</span></div>
               <div class="hdiv"></div>
-              <div class="wl">Week ${reportData.week_number} — Pattern Summary</div>
+              <div class="wl">Week ${reportData.week_number} Summary</div>
             </div>
             <div class="dr">${stats.week_range || ''}</div>
           </div>
@@ -194,17 +194,17 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                 <div class="lbl">How the week moved</div>
                 <div class="rpt-bars-container">
                   ${[0, 1, 2, 3, 4, 5, 6].map(dayIdx => {
-                    const len = lengths[dayIdx] || 0;
-                    const h = maxLen > 0 ? Math.round((len / maxLen) * 64) : 0;
-                    const barColor = len === 0 ? '#ECEFF0' : h > 45 ? 'var(--terracotta-rose)' : h > 20 ? '#B8C8C6' : 'var(--ocean-sage)';
-                    return `
+        const len = lengths[dayIdx] || 0;
+        const h = maxLen > 0 ? Math.round((len / maxLen) * 64) : 0;
+        const barColor = len === 0 ? '#ECEFF0' : h > 45 ? 'var(--terracotta-rose)' : h > 20 ? '#B8C8C6' : 'var(--ocean-sage)';
+        return `
                       <div class="rpt-bar-wrapper">
                         <span class="rpt-bar-value">${len > 0 ? len + 'w' : '—'}</span>
                         <div class="rpt-bar-element" style="height: ${Math.max(6, h)}px; background: ${barColor}"></div>
                         <span class="rpt-bar-label">D${dayIdx + 1}</span>
                       </div>
                     `;
-                  }).join('')}
+      }).join('')}
                 </div>
                 <div class="arc-note" style="margin-top: 10px;">${data.writing_behaviour?.consistency || 'Writing patterns logged consistently.'}</div>
               </div>
@@ -361,7 +361,8 @@ export default function ReportsPage({ user, profile, onSignOut }) {
 
   return (
     <div className="min-h-screen bg-mint-grey text-primary font-sans relative pb-20">
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         :root {
           --teal-black: #1E2A2E;
           --mint-grey: #ECEFF0;
@@ -695,7 +696,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
             <p className="text-xs text-mid leading-relaxed max-w-sm mx-auto">
               We encountered a database error checking your cycle records.
             </p>
-            <button 
+            <button
               onClick={loadData}
               className="px-4 py-2 bg-primary hover:bg-[#2A3A3E] text-mint-grey rounded text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer"
             >
@@ -707,7 +708,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
         {/* View State: LIST */}
         {!loading && !error && viewState === 'list' && (
           <div className="space-y-4">
-            <button 
+            <button
               onClick={() => window.navigateTo('/dashboard')}
               className="flex items-center gap-2 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors cursor-pointer border-none bg-transparent"
             >
@@ -747,7 +748,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
 
                 return (
                   <div key={cycle.id} className="bg-white border border-[#1E2A2E]/10 rounded-xl overflow-hidden shadow-xs">
-                    <div 
+                    <div
                       onClick={() => handleToggleCycle(cycle.id)}
                       className="flex items-center justify-between p-3.5 cursor-pointer hover:bg-[#F5F8F8] transition-colors"
                     >
@@ -783,7 +784,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                           Day 28 report
                         </div>
                         {cycle.assessment_completed ? (
-                          <div 
+                          <div
                             onClick={() => handleOpenAssessment(cycle.id)}
                             className="p-3.5 flex items-center justify-between hover:bg-[#F5F8F8]/60 cursor-pointer bg-white transition-colors group"
                           >
@@ -821,9 +822,9 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                             {isCurrent && (
                               <div className="flex items-center gap-3">
                                 <div className="w-11 h-1 bg-mint-grey rounded overflow-hidden">
-                                  <div 
-                                    className="bg-accent h-full" 
-                                    style={{ width: `${Math.min(100, Math.round(((cycle.current_day || 1) / (cycle.total_days || 30)) * 100))}%` }} 
+                                  <div
+                                    className="bg-accent h-full"
+                                    style={{ width: `${Math.min(100, Math.round(((cycle.current_day || 1) / (cycle.total_days || 30)) * 100))}%` }}
                                   />
                                 </div>
                                 <span className="text-[10px] font-mono text-[#8DBFB4]">
@@ -931,7 +932,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                           }
 
                           return (
-                            <div 
+                            <div
                               key={report.id}
                               onClick={() => handleOpenSummary(report.id)}
                               className="p-3.5 flex items-center justify-between hover:bg-[#F5F8F8]/60 cursor-pointer bg-white transition-colors group border-b border-[#1E2A2E]/5 last:border-b-0"
@@ -973,14 +974,14 @@ export default function ReportsPage({ user, profile, onSignOut }) {
         {!loading && !error && viewState === 'summary' && (
           <div className="space-y-4 max-w-[620px] mx-auto page-fade-enter-active">
             <div className="flex items-center justify-between">
-              <button 
+              <button
                 onClick={() => setViewState('list')}
                 className="flex items-center gap-2 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors cursor-pointer border-none bg-transparent"
               >
                 <ArrowLeft size={14} /> Back to reports
               </button>
               {selectedReport && !loadingDetail && (
-                <button 
+                <button
                   onClick={() => downloadPdf(selectedReport)}
                   className="flex items-center gap-1.5 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors border border-[#1E2A2E]/10 px-2.5 py-1 rounded bg-white cursor-pointer"
                 >
@@ -1040,7 +1041,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                         <div>
                           <div className="lbl">Emotion language this week</div>
                           <div className="cx">Words pulled from your writing this week, grouped with related words you didn't use.</div>
-                          
+
                           <div className="space-y-3">
                             {listEmos.length === 0 ? (
                               <p className="text-xs text-mid italic">Insufficient emotional expressions detected.</p>
@@ -1065,10 +1066,10 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                               const len = lengths[dayIdx] || 0;
                               // Scale to max height of 64px inside the 100px container
                               const h = maxLen > 0 ? Math.round((len / maxLen) * 64) : 0;
-                              const barColor = len === 0 
-                                ? '#ECEFF0' 
+                              const barColor = len === 0
+                                ? '#ECEFF0'
                                 : h > 45 ? 'var(--terracotta-rose)' : h > 20 ? '#B8C8C6' : 'var(--ocean-sage)';
-                              
+
                               return (
                                 <div key={dayIdx} className="rpt-bar-wrapper group">
                                   {len > 0 ? (
@@ -1076,9 +1077,9 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                                   ) : (
                                     <span className="rpt-bar-value" style={{ opacity: 0.25 }}>—</span>
                                   )}
-                                  <div 
-                                    className="rpt-bar-element" 
-                                    style={{ height: `${Math.max(6, h)}px`, background: barColor }} 
+                                  <div
+                                    className="rpt-bar-element"
+                                    style={{ height: `${Math.max(6, h)}px`, background: barColor }}
                                   />
                                   <span className="rpt-bar-label">D{dayIdx + 1}</span>
                                 </div>
@@ -1133,14 +1134,14 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                     </div>
 
                     <div className="foot">
-                      <button 
-                        onClick={() => setViewState('list')} 
+                      <button
+                        onClick={() => setViewState('list')}
                         className="foot-link border-none bg-transparent hover:text-primary transition-colors cursor-pointer text-secondary"
                       >
                         ← Back to progress
                       </button>
                       <div className="foot-center">Ingress Within · Week {selectedReport.week_number}</div>
-                      <button 
+                      <button
                         onClick={() => window.navigateTo('/write')}
                         className="foot-link border-none bg-transparent hover:text-primary transition-colors cursor-pointer text-secondary"
                       >
@@ -1157,7 +1158,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
         {/* View State: REPORT (Day 28 Synthesis Report) */}
         {!loading && !error && viewState === 'report' && (
           <div className="space-y-4 max-w-[620px] mx-auto page-fade-enter-active">
-            <button 
+            <button
               onClick={() => setViewState('list')}
               className="flex items-center gap-2 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors cursor-pointer border-none bg-transparent"
             >
@@ -1172,7 +1173,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
             ) : (
               (() => {
                 const cycleObj = cycles.find(c => c.id === selectedCycleId) || {};
-                
+
 
 
                 return (
@@ -1187,7 +1188,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                           {selectedAssessment.entry_count} entries · {selectedAssessment.path_assignment || 'Guided pathway'}
                         </p>
                       </div>
-                      <button 
+                      <button
                         onClick={() => downloadPdf(selectedAssessment, true)}
                         className="mt-3 px-3.5 py-1.5 border border-white/15 rounded text-xs font-semibold bg-white/8 hover:bg-white/15 transition-all text-white w-fit cursor-pointer flex items-center gap-1.5"
                       >
