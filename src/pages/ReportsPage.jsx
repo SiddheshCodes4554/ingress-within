@@ -858,14 +858,15 @@ export default function ReportsPage({ user, profile, onSignOut }) {
 
                         {[1, 2, 3].map(weekNum => {
                           const report = cycleReports.find(r => r.week_number === weekNum);
-                          const isWeekCompleted = (cycle.current_day || 1) >= (weekNum * 7);
+                          const isWeekCompleted = !isCurrent || (cycle.current_day || 1) > (weekNum * 7);
+
+                          // Calculate completion date based on cycle start_date
+                          const startDate = cycle.start_date ? new Date(cycle.start_date) : null;
+                          const formattedDate = startDate
+                            ? new Date(startDate.getTime() + (weekNum * 7) * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                            : (report?.generated_at ? new Date(report.generated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '');
 
                           if (!isWeekCompleted) {
-                            // Calculate completion date based on cycle start_date
-                            const startDate = cycle.start_date ? new Date(cycle.start_date) : new Date();
-                            const completionDate = new Date(startDate.getTime() + (weekNum * 7) * 24 * 60 * 60 * 1000);
-                            const formattedDate = completionDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-
                             return (
                               <div key={`locked-week-${weekNum}`} className="p-3.5 flex items-center justify-between bg-white text-mid border-b border-[#1E2A2E]/5 last:border-b-0 opacity-70">
                                 <div className="flex items-center gap-3">
@@ -875,7 +876,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                                   <div>
                                     <div className="text-[13px] font-semibold text-[#1E2A2E]/70">Week {weekNum} summary yet to complete</div>
                                     <div className="text-[11px] text-[#4A6A64]">
-                                      Will compile automatically on {formattedDate} (Cycle Day {weekNum * 7}).
+                                      Will compile automatically on {formattedDate || 'soon'} (Cycle Day {weekNum * 7}).
                                     </div>
                                   </div>
                                 </div>
@@ -893,7 +894,9 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                                   <Loader2 className="animate-spin text-secondary" size={14} />
                                   <div>
                                     <div className="text-[13px] font-semibold text-primary">Week {weekNum} summary</div>
-                                    <div className="text-[11px] text-[#4A6A64]">Preparing weekly writing analysis report...</div>
+                                    <div className="text-[11px] text-[#4A6A64]">
+                                      Preparing weekly writing analysis report... {formattedDate && `(${formattedDate})`}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -907,7 +910,9 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                                   <Loader2 className="animate-spin text-secondary" size={14} />
                                   <div>
                                     <div className="text-[13px] font-semibold text-primary">Week {weekNum} summary</div>
-                                    <div className="text-[11px] text-[#4A6A64]">Generating report in background...</div>
+                                    <div className="text-[11px] text-[#4A6A64]">
+                                      Generating report in background... {formattedDate && `(${formattedDate})`}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -921,7 +926,9 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                                   <AlertCircle size={14} className="text-[#8a3020]" />
                                   <div>
                                     <div className="text-[13px] font-semibold text-[#8a3020]">Week {weekNum} summary compilation failed</div>
-                                    <div className="text-[11px] text-[#4A6A64]">Click retry to restart processor</div>
+                                    <div className="text-[11px] text-[#4A6A64]">
+                                      Click retry to restart processor {formattedDate && `(${formattedDate})`}
+                                    </div>
                                   </div>
                                 </div>
                                 <button
@@ -940,11 +947,6 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                             );
                           }
 
-                          const startDate = cycle.start_date ? new Date(cycle.start_date) : null;
-                          const formattedDate = startDate
-                            ? new Date(startDate.getTime() + (weekNum * 7) * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-                            : (report.generated_at ? new Date(report.generated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Ready');
-
                           return (
                             <div 
                               key={report.id}
@@ -960,7 +962,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                                     {report.title || `Week ${weekNum} summary`}
                                   </div>
                                   <div className="text-[11px] text-[#4A6A64]">
-                                    {formattedDate}
+                                    {formattedDate || 'Ready'}
                                   </div>
                                 </div>
                               </div>
