@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../../lib/db';
 import { getAuthenticatedUser } from '../../../../lib/auth-helper';
 import { backfillWeeklyReports } from '../../../../lib/weeklyReportBackfill';
+import { overlayWeeklyReportGraphData } from '../../../../lib/reportGraphHelper';
 
 /**
  * GET /api/reports/weekly: Fetches all weekly reports for the user.
@@ -46,9 +47,17 @@ export async function GET(request: NextRequest) {
       throw new Error(`Failed to fetch weekly summaries: ${reportsErr.message}`);
     }
 
+    // Recalculate/overlay Reflection Depth and consistency dynamically
+    const processedReports: any[] = [];
+    if (reports) {
+      for (const report of reports) {
+        processedReports.push(await overlayWeeklyReportGraphData(report, userId));
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      reports: reports || [],
+      reports: processedReports,
       backfill: backfillResult
     });
 

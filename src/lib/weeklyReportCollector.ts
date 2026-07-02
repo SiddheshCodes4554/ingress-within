@@ -73,6 +73,7 @@ export interface WeeklyReportData {
     reflection_completion_rate: number;
     thread_completion_rate: number;
     skipped_days: number[];
+    consistency?: string;
   };
   personalityContext: string | null;
 }
@@ -337,7 +338,94 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
   // 10. Compute Writing Behaviour
   const totalWords = entries.reduce((sum, e) => sum + e.word_count, 0);
   const avg_entry_length = entriesCompleted > 0 ? Math.round(totalWords / entriesCompleted) : 0;
-  const entry_lengths = entries.map(e => e.word_count);
+
+  // Group dbEntries by cycle_day and select the final one for each day to pull final weighted scores
+  const dailyMap = new Map<number, any>();
+  (dbEntries || []).forEach(entry => {
+    const existing = dailyMap.get(entry.cycle_day);
+    if (!existing || new Date(entry.created_at) >= new Date(existing.created_at)) {
+      dailyMap.set(entry.cycle_day, entry);
+    }
+  });
+
+  const entry_lengths: number[] = [];
+  const rawScores: (number | null)[] = [];
+  const eis: (number | null)[] = [];
+  const sas: (number | null)[] = [];
+
+  for (let i = 0; i < 7; i++) {
+    const targetDay = dayStart + i;
+    const entry = dailyMap.get(targetDay);
+
+    if (entry && entry.day_ei !== null && entry.day_pr !== null && entry.day_sa !== null) {
+      const ei = Number(entry.day_ei);
+      const pr = Number(entry.day_pr);
+      const sa = Number(entry.day_sa);
+      const score = ei + pr + sa; // range 0 - 30
+      const normalized = Math.round((score / 30) * 64);
+
+      entry_lengths.push(normalized);
+      rawScores.push(score);
+      eis.push(ei);
+      sas.push(sa);
+    } else {
+      entry_lengths.push(0);
+      rawScores.push(null);
+      eis.push(null);
+      sas.push(null);
+    }
+  }
+
+  // Trend analysis to generate dynamic interpretation
+  const validScores = rawScores.filter((s): s is number => s !== null);
+  const validEIs = eis.filter((e): e is number => e !== null);
+  const k = validScores.length;
+
+  let consistency = 'No reflection data recorded this week.';
+
+  if (k === 1) {
+    consistency = 'Single reflection entry logged this week.';
+  } else if (k >= 2) {
+    // A. Calmer trend: first 2 EI average >= 6.5 and last 2 EI average <= 4.5
+    const firstTwoEI = validEIs.slice(0, 2);
+    const lastTwoEI = validEIs.slice(-2);
+    const avgFirstEI = firstTwoEI.reduce((sum, e) => sum + e, 0) / firstTwoEI.length;
+    const avgLastEI = lastTwoEI.reduce((sum, e) => sum + e, 0) / lastTwoEI.length;
+
+    // B. Progressively deeper: linear slope >= 0.75
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    for (let j = 0; j < k; j++) {
+      sumX += j;
+      sumY += validScores[j];
+      sumXY += j * validScores[j];
+      sumXX += j * j;
+    }
+    const slope = (k * sumXX - sumX * sumX) !== 0 
+      ? (k * sumXY - sumX * sumY) / (k * sumXX - sumX * sumX)
+      : 0;
+
+    // C. Midweek Peak
+    const maxVal = Math.max(...validScores);
+    const maxIdx = validScores.indexOf(maxVal);
+    const isMidweek = maxIdx > 0 && maxIdx < k - 1;
+    const isPeak = isMidweek && maxVal >= Math.max(validScores[0], validScores[k - 1]) + 3;
+
+    // D. Consistent: max - min <= 3
+    const minVal = Math.min(...validScores);
+    const isConsistent = (maxVal - minVal) <= 3;
+
+    if (validEIs.length >= 4 && avgFirstEI >= 6.5 && avgLastEI <= 4.5) {
+      consistency = 'After an emotionally intense beginning, your writing gradually became calmer.';
+    } else if (slope >= 0.75) {
+      consistency = 'Your reflections became progressively deeper throughout the week.';
+    } else if (isPeak) {
+      consistency = 'Your strongest emotional processing occurred midweek.';
+    } else if (isConsistent) {
+      consistency = 'Your reflection depth remained consistent across the week.';
+    } else {
+      consistency = 'Reflection depth fluctuated, suggesting changing emotional engagement.';
+    }
+  }
 
   const writing_times = (dbEntries || [])
     .map(e => {
@@ -384,7 +472,8 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
       writing_times,
       reflection_completion_rate,
       thread_completion_rate,
-      skipped_days: skippedDayNumbers
+      skipped_days: skippedDayNumbers,
+      consistency
     },
     personalityContext
   };

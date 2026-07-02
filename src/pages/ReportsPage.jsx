@@ -148,7 +148,6 @@ export default function ReportsPage({ user, profile, onSignOut }) {
       const stats = data.weekly_stats || {};
       const listEmos = data.emotional_language || [];
       const lengths = data.writing_behaviour?.entry_lengths || [];
-      const maxLen = Math.max(...lengths, 1);
 
       contentHtml = `
         <div class="rpt" style="border: none; box-shadow: none; margin: 0;">
@@ -194,12 +193,11 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                 <div class="lbl">How the week moved</div>
                 <div class="rpt-bars-container">
                   ${[0, 1, 2, 3, 4, 5, 6].map(dayIdx => {
-        const len = lengths[dayIdx] || 0;
-        const h = maxLen > 0 ? Math.round((len / maxLen) * 64) : 0;
-        const barColor = len === 0 ? '#ECEFF0' : h > 45 ? 'var(--terracotta-rose)' : h > 20 ? '#B8C8C6' : 'var(--ocean-sage)';
+        const h = lengths[dayIdx] || 0;
+        const barColor = h === 0 ? '#ECEFF0' : h > 45 ? 'var(--terracotta-rose)' : h > 20 ? '#B8C8C6' : 'var(--ocean-sage)';
         return `
                       <div class="rpt-bar-wrapper">
-                        <span class="rpt-bar-value">${len > 0 ? len + 'w' : '—'}</span>
+                        <span class="rpt-bar-value" style="opacity: ${h > 0 ? 0 : 0.25}">—</span>
                         <div class="rpt-bar-element" style="height: ${Math.max(6, h)}px; background: ${barColor}"></div>
                         <span class="rpt-bar-label">D${dayIdx + 1}</span>
                       </div>
@@ -1002,7 +1000,6 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                 const listEmos = data.emotional_language || [];
                 const lengths = data.writing_behaviour?.entry_lengths || [];
                 const times = data.writing_behaviour?.writing_times || [];
-                const maxLen = Math.max(...lengths, 1);
 
                 return (
                   <div className="rpt">
@@ -1063,17 +1060,15 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                           <div className="lbl">How the week moved</div>
                           <div className="rpt-bars-container">
                             {[0, 1, 2, 3, 4, 5, 6].map((dayIdx) => {
-                              const len = lengths[dayIdx] || 0;
-                              // Scale to max height of 64px inside the 100px container
-                              const h = maxLen > 0 ? Math.round((len / maxLen) * 64) : 0;
-                              const barColor = len === 0
+                              const h = lengths[dayIdx] || 0;
+                              const barColor = h === 0
                                 ? '#ECEFF0'
                                 : h > 45 ? 'var(--terracotta-rose)' : h > 20 ? '#B8C8C6' : 'var(--ocean-sage)';
 
                               return (
                                 <div key={dayIdx} className="rpt-bar-wrapper group">
-                                  {len > 0 ? (
-                                    <span className="rpt-bar-value">{len}w</span>
+                                  {h > 0 ? (
+                                    <span className="rpt-bar-value" style={{ opacity: 0 }}>—</span>
                                   ) : (
                                     <span className="rpt-bar-value" style={{ opacity: 0.25 }}>—</span>
                                   )}
