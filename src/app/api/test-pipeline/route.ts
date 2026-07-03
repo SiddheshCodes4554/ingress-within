@@ -202,15 +202,53 @@ export async function POST(request: NextRequest) {
       const startTime = Date.now();
       const content = newEntryText || '';
       
-      // Fetch user context if available
+      // Fetch user contexts if available
       let personalityContext: string | undefined = undefined;
+      let threadContext = 'None';
+      let previousReflectionContext = 'None';
+
       if (activeUserId) {
+        // Fetch personality
         const { data: user } = await supabase
           .from('users')
           .select('personality_summary_text')
           .eq('id', activeUserId)
           .maybeSingle();
         personalityContext = user?.personality_summary_text || undefined;
+
+        // Fetch latest completed thread response
+        const { data: latestThreadResponse } = await supabase
+          .from('thread_responses')
+          .select('response_text, created_at, thread_id')
+          .eq('user_id', activeUserId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestThreadResponse) {
+          const { data: thread } = await supabase
+            .from('threads')
+            .select('closing_question')
+            .eq('id', latestThreadResponse.thread_id)
+            .maybeSingle();
+          if (thread) {
+            threadContext = `Question: "${thread.closing_question}" | Answer: "${latestThreadResponse.response_text}"`;
+          }
+        }
+
+        // Fetch previous reflection context
+        const { data: latestReflection } = await supabase
+          .from('reflections')
+          .select('reflection_text, closing_question')
+          .eq('user_id', activeUserId)
+          .eq('status', 'ready')
+          .order('generated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestReflection) {
+          previousReflectionContext = `Observation: "${latestReflection.reflection_text}" | Question: "${latestReflection.closing_question}"`;
+        }
       }
 
       // Generation/validation loop (up to 3 attempts, synchronous for developer debugging)
@@ -220,14 +258,24 @@ export async function POST(request: NextRequest) {
       let validation: any = null;
       let validationErrorMsg = '';
 
+      const aiProviderInstance = getAIProvider(provider);
+
       while (attempts < 3 && !success) {
         attempts++;
         try {
-          const contextWithRetryFeedback = attempts > 1
+          const useSimplifiedPrompt = attempts === 3;
+          const contextWithRetryFeedback = attempts === 2
             ? `${personalityContext || ''}\n(Correction note: The previous output failed validation. Reason: ${validationErrorMsg}. Please strictly ensure there is no advice, suggestion, or therapeutic label in your response.)`
             : personalityContext;
 
-          result = await aiProvider.generateReflection(content, contextWithRetryFeedback);
+          result = await aiProviderInstance.generateReflection(
+            content,
+            contextWithRetryFeedback,
+            threadContext,
+            previousReflectionContext,
+            useSimplifiedPrompt
+          );
+          
           validation = validateReflection(result.reflection || '');
           if (validation.valid) {
             success = true;
@@ -240,11 +288,16 @@ export async function POST(request: NextRequest) {
       }
 
       const latency = Date.now() - startTime;
-      const tracing = aiProvider as any;
+      const tracing = aiProviderInstance as any;
 
       const fullReflection = result?.reflection 
         ? `${result.reflection.trim()}\n\n${(result.closing_nudge || 'Sit with that tonight.\nCome back tomorrow and tell me what came up.').trim()}` 
         : null;
+
+      const systemPromptText = tracing.lastSystemPrompt || '';
+      const userContentText = tracing.lastUserContent || '';
+      const promptSize = systemPromptText.length + userContentText.length;
+      const estimatedTokens = tracing.lastUsage?.total_tokens || Math.round(promptSize / 4);
 
       return NextResponse.json({
         success,
@@ -257,13 +310,16 @@ export async function POST(request: NextRequest) {
         processingNotes: result?.processing_notes || '',
         validation: validation || { valid: false, reason: validationErrorMsg },
         attempts,
+        storageStatus: 'Skipped (testing only)',
         aiTrace: {
-          systemPrompt: tracing.lastSystemPrompt || '',
-          userContent: tracing.lastUserContent || '',
+          systemPrompt: systemPromptText,
+          userContent: userContentText,
           rawResponse: tracing.lastRawResponse || '',
-          usage: tracing.lastUsage || null,
+          usage: tracing.lastUsage || { prompt_tokens: Math.round(systemPromptText.length / 4), completion_tokens: 0, total_tokens: estimatedTokens },
           provider: provider,
-          latency
+          latency,
+          promptSize,
+          estimatedTokens
         }
       });
     }
@@ -283,7 +339,8 @@ export async function POST(request: NextRequest) {
         entryId || null
       );
 
-      const tracing = aiProvider as any;
+      const aiProviderInstance = getAIProvider(provider);
+      const tracing = aiProviderInstance as any;
       let scoringLatency = scoringResult.latency;
 
       if (!scoringResult.success || !scoringResult.scoreResult) {
@@ -361,7 +418,12 @@ export async function POST(request: NextRequest) {
       } else {
         // Run Reflection Generation
         const reflStart = Date.now();
+        
+        // Fetch contexts
         let personalityContext: string | undefined = undefined;
+        let threadContext = 'None';
+        let previousReflectionContext = 'None';
+
         if (activeUserId) {
           const { data: user } = await supabase
             .from('users')
@@ -369,6 +431,40 @@ export async function POST(request: NextRequest) {
             .eq('id', activeUserId)
             .maybeSingle();
           personalityContext = user?.personality_summary_text || undefined;
+
+          // Fetch latest completed thread response
+          const { data: latestThreadResponse } = await supabase
+            .from('thread_responses')
+            .select('response_text, created_at, thread_id')
+            .eq('user_id', activeUserId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (latestThreadResponse) {
+            const { data: thread } = await supabase
+              .from('threads')
+              .select('closing_question')
+              .eq('id', latestThreadResponse.thread_id)
+              .maybeSingle();
+            if (thread) {
+              threadContext = `Question: "${thread.closing_question}" | Answer: "${latestThreadResponse.response_text}"`;
+            }
+          }
+
+          // Fetch previous reflection context
+          const { data: latestReflection } = await supabase
+            .from('reflections')
+            .select('reflection_text, closing_question')
+            .eq('user_id', activeUserId)
+            .eq('status', 'ready')
+            .order('generated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (latestReflection) {
+            previousReflectionContext = `Observation: "${latestReflection.reflection_text}" | Question: "${latestReflection.closing_question}"`;
+          }
         }
 
         let attempts = 0;
@@ -379,11 +475,19 @@ export async function POST(request: NextRequest) {
         while (attempts < 3 && !success) {
           attempts++;
           try {
-            const contextWithRetryFeedback = attempts > 1
+            const useSimplifiedPrompt = attempts === 3;
+            const contextWithRetryFeedback = attempts === 2
               ? `${personalityContext || ''}\n(Correction note: The previous output failed validation. Reason: ${validationErrorMsg}. Please strictly ensure there is no advice, suggestion, or therapeutic label in your response.)`
               : personalityContext;
 
-            result = await aiProvider.generateReflection(newEntryText || '', contextWithRetryFeedback);
+            result = await aiProviderInstance.generateReflection(
+              newEntryText || '',
+              contextWithRetryFeedback,
+              threadContext,
+              previousReflectionContext,
+              useSimplifiedPrompt
+            );
+            
             reflectionValidation = validateReflection(result.reflection || '');
             if (reflectionValidation.valid) {
               success = true;
@@ -406,13 +510,20 @@ export async function POST(request: NextRequest) {
           reflectionValidation = { valid: false, reason: validationErrorMsg };
         }
 
+        const systemPromptText = tracing.lastSystemPrompt || '';
+        const userContentText = tracing.lastUserContent || '';
+        const promptSize = systemPromptText.length + userContentText.length;
+        const estimatedTokens = tracing.lastUsage?.total_tokens || Math.round(promptSize / 4);
+
         reflectionTrace = {
-          systemPrompt: tracing.lastSystemPrompt || '',
-          userContent: tracing.lastUserContent || '',
+          systemPrompt: systemPromptText,
+          userContent: userContentText,
           rawResponse: tracing.lastRawResponse || '',
-          usage: tracing.lastUsage || null,
+          usage: tracing.lastUsage || { prompt_tokens: Math.round(systemPromptText.length / 4), completion_tokens: 0, total_tokens: estimatedTokens },
           provider: provider,
-          latency: reflLatency
+          latency: reflLatency,
+          promptSize,
+          estimatedTokens
         };
       }
 
@@ -445,15 +556,16 @@ export async function POST(request: NextRequest) {
           suppressed: reflectionSuppressed
         },
         scoringTrace: {
-          systemPrompt: scoringResult.scoreResult ? (aiProvider as any).lastSystemPrompt : '',
-          userContent: (aiProvider as any).lastUserContent || '',
-          rawResponse: scoringResult.rawResponse || (aiProvider as any).lastRawResponse || '',
-          usage: (aiProvider as any).lastUsage || null,
+          systemPrompt: scoringResult.scoreResult ? (aiProviderInstance as any).lastSystemPrompt : '',
+          userContent: (aiProviderInstance as any).lastUserContent || '',
+          rawResponse: scoringResult.rawResponse || (aiProviderInstance as any).lastRawResponse || '',
+          usage: (aiProviderInstance as any).lastUsage || null,
           provider: provider,
           latency: scoringLatency,
           retryCount: scoringResult.retryCount
         },
         reflectionTrace,
+        storageStatus: 'Skipped (testing only)',
         totalLatency
       });
     }

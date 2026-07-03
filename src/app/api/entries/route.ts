@@ -172,9 +172,19 @@ export async function GET(request: NextRequest) {
         ? vocabRes.filter((v: any) => v.entry_id === entry.id).map((v: any) => v.word)
         : [];
 
+      let reflectionStatus = 'None';
+      if (reflection) {
+        if (reflection.status === 'completed') reflectionStatus = 'Completed';
+        else if (reflection.status === 'ready') reflectionStatus = 'Pending Response';
+        else if (reflection.status === 'failed') reflectionStatus = 'Failed';
+        else if (reflection.status === 'pending') reflectionStatus = 'Processing AI...';
+        else reflectionStatus = reflection.status || 'Ready';
+      }
+
       return {
         ...entry,
         cycle_number: cycleNum,
+        reflectionStatus,
         reflection: reflection ? {
           ...reflection,
           vocabulary: entryVocab

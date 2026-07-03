@@ -65,7 +65,13 @@ export interface CrisisDetectionResponse {
 
 export interface AIProvider {
   scoreEntry(content: string): Promise<ClarityScoreResponse>;
-  generateReflection(entryContent: string, context?: string): Promise<ReflectionResponse>;
+  generateReflection(
+    entryContent: string,
+    context?: string,
+    latestThread?: string,
+    previousReflection?: string,
+    useSimplifiedPrompt?: boolean
+  ): Promise<ReflectionResponse>;
   generateWeeklySummary(entries: { content: string; created_at: string }[], personalitySummary?: string): Promise<WeeklySummaryResponse>;
   generateMonthlyReport(entries: { content: string; created_at: string }[]): Promise<MonthlyReportResponse>;
   generateOceanSummary(entries: { content: string; created_at: string }[]): Promise<OceanSummaryResponse>;
