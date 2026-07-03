@@ -911,9 +911,13 @@ export default function FounderTestPage() {
                                             </span>
                                             {hasReflection ? (
                                               <div className="space-y-3 text-xs">
-                                                {entry.reflection.status === 'failed' || entry.crisis_flag ? (
+                                                {entry.crisis_flag || entry.reflection?.reflection_text === 'Reflection suppressed due to crisis protocol.' || entry.reflection?.themes?.includes('Crisis') ? (
                                                   <div className="p-3 bg-accent/5 rounded-lg border border-accent/10 text-[11px] text-accent font-medium">
                                                     Introspective question suppressed due to crisis protocol safety parameters.
+                                                  </div>
+                                                ) : entry.reflection?.status === 'failed' ? (
+                                                  <div className="p-3 bg-accent/5 rounded-lg border border-accent/10 text-[11px] text-accent font-medium">
+                                                    {entry.reflection?.reflection_text || 'Reflection generation failed.'}
                                                   </div>
                                                 ) : (
                                                   <>

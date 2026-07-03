@@ -317,9 +317,11 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
                           {reflection.reflection_text || 'Reflection suppressed due to crisis protocol.'}
                         </div>
                       </div>
-                      <div className="text-[10.5px] text-mid leading-relaxed pl-6">
-                        We noticed this entry carries significant distress. We have muted the AI evaluation to hold a safe space.
-                      </div>
+                      {(entry?.crisis_flag || reflection?.reflection_text === 'Reflection suppressed due to crisis protocol.' || reflection?.themes?.includes('Crisis')) && (
+                        <div className="text-[10.5px] text-mid leading-relaxed pl-6">
+                          We noticed this entry carries significant distress. We have muted the AI evaluation to hold a safe space.
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <>
