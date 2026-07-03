@@ -41,10 +41,11 @@ export class GroqProvider implements AIProvider {
           sentiment: "anxious",
           stressIndicators: ["work load", "avoidance"]
         };
-      } else if (systemPrompt.includes('clinical observation engine')) {
+      } else if (systemPrompt.includes('clinical observation engine') || systemPrompt.includes('professional therapist observes')) {
         mockRes = {
           classification: "Open",
           reflection: "You tend to keep things fair, clapped in the meeting, and did what was reasonable even when you were exhausted. You are performing to expectations even in this journal where nobody else is looking.",
+          closing_nudge: "Sit with that tonight.\nCome back tomorrow and tell me what came up.",
           closing_question: "What would you say about today if you weren't trying to be fair about it?",
           confidence: "high",
           themes: ["Fairness", "Suppression"],
@@ -368,12 +369,15 @@ Then ask one closing question. Its only job is to make the person face what they
 - Scattered: Slow them down. Point at the one thread. Requires stillness, not more words.
 If they already know what they're avoiding, don't ask what it is — ask what they're afraid will happen if they look at it directly.
 
-You must return a valid JSON object matching the requested schema. Do not output any conversational introduction or explanation. Do not output the fixed closing line in the "reflection" field; that will be appended by the backend.
+Next, write a customized, short closing nudge (1-2 sentences) that serves as a gentle transition/invitation for the user. Avoid using a single hardcoded template. Make it feel context-aware, empathetic, and organic.
+
+You must return a valid JSON object matching the requested schema. Do not output any conversational introduction or explanation. Do not output the closing nudge in the "reflection" field; it must be returned in the "closing_nudge" field.
 
 Schema:
 {
   "classification": "Flat" | "Open" | "Scattered",
   "reflection": "The 2-3 plain conversational sentences observing the entry.",
+  "closing_nudge": "A personalized, context-specific closing reflection nudge (1-2 short sentences, e.g., 'Sit with that tonight.\nCome back tomorrow and tell me what came up.' or 'Carry this gentle awareness with you today.\nNotice when you feel the urge to retreat.', or 'Give yourself permission to rest tonight.\nWe can pick this back up tomorrow.').",
   "closing_question": "The single closing question.",
   "confidence": "high" | "medium" | "low",
   "themes": ["array of 2-4 identified themes"],

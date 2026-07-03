@@ -243,7 +243,7 @@ export async function POST(request: NextRequest) {
       const tracing = aiProvider as any;
 
       const fullReflection = result?.reflection 
-        ? `${result.reflection.trim()}\n\nSit with that tonight.\nCome back tomorrow and tell me what came up.` 
+        ? `${result.reflection.trim()}\n\n${(result.closing_nudge || 'Sit with that tonight.\nCome back tomorrow and tell me what came up.').trim()}` 
         : null;
 
       return NextResponse.json({
@@ -397,7 +397,7 @@ export async function POST(request: NextRequest) {
 
         const reflLatency = Date.now() - reflStart;
         reflectionTextOutput = result?.reflection 
-          ? `${result.reflection.trim()}\n\nSit with that tonight.\nCome back tomorrow and tell me what came up.` 
+          ? `${result.reflection.trim()}\n\n${(result.closing_nudge || 'Sit with that tonight.\nCome back tomorrow and tell me what came up.').trim()}` 
           : '';
         reflectionConfidence = result?.confidence || 'low';
         reflectionThemes = result?.themes || [];

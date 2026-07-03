@@ -6,6 +6,7 @@ export interface ClarityScoreResponse {
 
 export interface ReflectionResponse {
   reflection: string;
+  closing_nudge?: string;
   closing_question: string;
   classification: 'Flat' | 'Open' | 'Scattered';
   confidence: 'high' | 'medium' | 'low';

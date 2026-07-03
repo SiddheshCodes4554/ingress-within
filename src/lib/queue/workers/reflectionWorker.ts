@@ -226,8 +226,8 @@ export async function processReflectionGeneration(jobData: { entry_id: string; u
       .eq('entry_id', entry_id)
       .maybeSingle();
 
-    // Programmatically append the fixed closing line exactly
-    const fullReflectionText = `${result.reflection.trim()}\n\nSit with that tonight.\nCome back tomorrow and tell me what came up.`;
+    // Programmatically append the generated closing nudge or fallback to the default
+    const fullReflectionText = `${result.reflection.trim()}\n\n${(result.closing_nudge || 'Sit with that tonight.\nCome back tomorrow and tell me what came up.').trim()}`;
 
     const reflectionPayload = {
       entry_id,
