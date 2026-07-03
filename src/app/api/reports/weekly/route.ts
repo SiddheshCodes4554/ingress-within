@@ -22,10 +22,7 @@ export async function GET(request: NextRequest) {
     const cycleId = request.nextUrl.searchParams.get('cycleId');
     const weekNumber = request.nextUrl.searchParams.get('weekNumber');
 
-    // 1. Run the backfill audit to generate missing reports
-    const backfillResult = await backfillWeeklyReports(userId);
-
-    // 2. Fetch all reports from weekly_summaries
+    // 1. Fetch all reports from weekly_summaries directly (Read-only)
     let query = supabase
       .from('weekly_summaries')
       .select('*')
@@ -58,7 +55,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       reports: processedReports,
-      backfill: backfillResult
+      backfill: null
     });
 
   } catch (error: any) {

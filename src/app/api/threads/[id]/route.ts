@@ -214,7 +214,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         answered_at: new Date().toISOString(),
         draft_response: null
       })
-      .eq('id', threadId);
+      .eq('id', threadId)
+      .eq('user_id', authUser.userId);
 
     if (updateThreadError) {
       console.warn('Failed to transition thread status to Answered:', updateThreadError);
@@ -229,7 +230,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
           reflection_answer: response.trim(),
           answered_at: new Date().toISOString()
         })
-        .eq('id', thread.reflection_id);
+        .eq('id', thread.reflection_id)
+        .eq('user_id', authUser.userId);
 
       if (updateReflectionError) {
         console.error('Failed to update corresponding reflection status:', updateReflectionError);
@@ -311,6 +313,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       .from('threads')
       .update({ draft_response: draft !== undefined ? draft : '' })
       .eq('id', threadId)
+      .eq('user_id', authUser.userId)
       .select()
       .single();
 
@@ -329,7 +332,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         .update({
           reflection_answer: draft !== undefined ? draft.trim() : ''
         })
-        .eq('id', thread.reflection_id);
+        .eq('id', thread.reflection_id)
+        .eq('user_id', authUser.userId);
         
       if (reflectionUpdateErr) {
         console.warn('Failed to update corresponding reflection draft:', reflectionUpdateErr);

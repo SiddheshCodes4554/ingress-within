@@ -55,6 +55,7 @@ export async function GET(
       .from('entries')
       .select('*, reflections(*)')
       .eq('cycle_id', cy.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (entriesErr) {
@@ -65,13 +66,15 @@ export async function GET(
     const { count: summaryCount } = await supabase
       .from('weekly_summaries')
       .select('id', { count: 'exact', head: true })
-      .eq('cycle_id', cy.id);
+      .eq('cycle_id', cy.id)
+      .eq('user_id', userId);
 
     // 4. Count active open threads
     const { count: threadCount } = await supabase
       .from('threads')
       .select('id', { count: 'exact', head: true })
       .eq('cycle_id', cy.id)
+      .eq('user_id', userId)
       .eq('status', 'Open');
 
     // 5. Fetch and count distinct vocabulary words

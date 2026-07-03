@@ -90,7 +90,8 @@ export async function GET(request: NextRequest) {
       const { count: entryCount } = await supabase
         .from('entries')
         .select('id', { count: 'exact', head: true })
-        .eq('cycle_id', cy.id);
+        .eq('cycle_id', cy.id)
+        .eq('user_id', userId);
 
       // Find new words (words first seen in this cycle)
       // Words that do not exist in any cycles with number < cy.number

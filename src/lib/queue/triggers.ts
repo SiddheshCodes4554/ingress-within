@@ -25,35 +25,82 @@ export async function checkWeeklyAndMonthlySummary(userId: string, cycleId: stri
     try {
       const { data: existing } = await supabase
         .from('weekly_summaries')
-        .select('id')
+        .select('id, status')
         .eq('cycle_id', cycleId)
         .eq('week_number', weekNum)
         .maybeSingle();
 
-      if (!existing) {
-        const { data: summary, error: insertError } = await supabase
-          .from('weekly_summaries')
-          .insert({
-            user_id: userId,
-            cycle_id: cycleId,
-            week_number: weekNum,
-            day_start: cycleDay - 6,
-            day_end: cycleDay,
-            status: 'pending'
-          })
-          .select()
-          .single();
+      if (!existing || existing.status === 'failed') {
+        // Query the final entry ID to associate with orchestration state
+        const { data: entry } = await supabase
+          .from('entries')
+          .select('id')
+          .eq('cycle_id', cycleId)
+          .eq('cycle_day', cycleDay)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const entryId = entry?.id || '';
 
-        if (insertError) {
-          console.error(`[Queue Trigger] Failed to insert weekly_summaries row:`, insertError.message);
-        } else if (summary) {
-          console.log(`[Queue Trigger] Created weekly summary row ${summary.id}. Enqueueing weekly_summary_generation.`);
-          await queueRegistry.addJob('weekly_summary_generation', `weekly_${summary.id}`, {
-            cycle_id: cycleId,
-            user_id: userId,
-            week_number: weekNum,
-            summary_id: summary.id
-          });
+        const initialOrchestration = {
+          orchestration: {
+            status: 'waiting_for_scoring',
+            entry_id: entryId,
+            completed_events: {
+              'SCORING_COMPLETED': false,
+              'REFLECTION_COMPLETED': false,
+              'CRISIS_COMPLETED': false,
+              'VOCABULARY_COMPLETED': false,
+              'THREADS_COMPLETED': false,
+              'CYCLE_METADATA_UPDATED': false
+            },
+            history: [
+              { stage: 'waiting_for_scoring', timestamp: new Date().toISOString() }
+            ],
+            updated_at: new Date().toISOString()
+          }
+        };
+
+        if (!existing) {
+          const { data: summary, error: insertError } = await supabase
+            .from('weekly_summaries')
+            .insert({
+              user_id: userId,
+              cycle_id: cycleId,
+              week_number: weekNum,
+              day_start: cycleDay - 6,
+              day_end: cycleDay,
+              status: 'pending',
+              report_data: initialOrchestration
+            })
+            .select()
+            .single();
+
+          if (insertError) {
+            console.error(`[Queue Trigger] Failed to insert weekly_summaries row:`, insertError.message);
+          } else if (summary) {
+            console.log(`[Queue Trigger] Created weekly summary row ${summary.id} in status pending (waiting_for_scoring). Waiting for intelligence engines...`);
+          }
+        } else {
+          // Reset existing failed summary to pending to allow re-triggering
+          const { error: updateError } = await supabase
+            .from('weekly_summaries')
+            .update({
+              status: 'pending',
+              report_data: initialOrchestration,
+              title: null,
+              why: null,
+              body: null,
+              open_question: null,
+              generated_at: null
+            })
+            .eq('id', existing.id);
+
+          if (updateError) {
+            console.error(`[Queue Trigger] Failed to reset failed weekly summary row:`, updateError.message);
+          } else {
+            console.log(`[Queue Trigger] Reset failed weekly summary row ${existing.id} to pending for re-triggering.`);
+          }
         }
       }
     } catch (err: any) {

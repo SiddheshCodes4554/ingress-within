@@ -47,7 +47,8 @@ class QueueRegistry {
     queueName: QueueName,
     jobName: string,
     data: any,
-    jobId?: string
+    jobId?: string,
+    options?: any
   ) {
     if (process.env.BYPASS_REDIS === 'true') {
       console.log(`[Queue Registry] [BYPASS_REDIS] Running job "${jobName}" on queue "${queueName}" inline.`);
@@ -84,8 +85,11 @@ class QueueRegistry {
     }
 
     const queue = this.getQueue(queueName);
-    const options = jobId ? { jobId } : {};
-    return queue.add(jobName, data, options);
+    const jobOptions = {
+      ...(jobId ? { jobId } : {}),
+      ...(options || {})
+    };
+    return queue.add(jobName, data, jobOptions);
   }
 
   public async closeAll() {

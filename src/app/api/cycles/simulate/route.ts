@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     // A. Fetch active or completed cycle
     let activeCycle: any = null;
     if (cycleId) {
-      const { data } = await supabase.from('cycles').select('*').eq('id', cycleId).maybeSingle();
+      const { data } = await supabase.from('cycles').select('*').eq('id', cycleId).eq('user_id', userId).maybeSingle();
       activeCycle = data;
     } else {
       const { data } = await supabase
@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString()
         })
         .eq('id', activeCycle.id)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString()
         })
         .eq('id', activeCycle.id)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -145,6 +147,7 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString()
         })
         .eq('id', activeCycle.id)
+        .eq('user_id', userId)
         .select()
         .single();
 

@@ -219,7 +219,10 @@ export async function processWeeklySummary(jobData: {
         why: result.why || "Suppressing internal friction to manage external dynamics.",
         body: result.week_narrative || "A weekly summary is ready.",
         open_question: result.reflection_question,
-        report_data: result,
+        report_data: {
+          ...result,
+          audit: collectedData.audit
+        },
         status: 'ready',
         engine_version: 'v2.0',
         generated_at: new Date().toISOString()

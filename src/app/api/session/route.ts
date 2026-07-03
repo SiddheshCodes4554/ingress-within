@@ -81,6 +81,7 @@ export async function GET(request: NextRequest) {
             .from('exercises')
             .select('*')
             .eq('id', latest.exercise_id)
+            .eq('user_id', authUser.userId)
             .maybeSingle();
           if (exData) {
             try {
@@ -102,6 +103,7 @@ export async function GET(request: NextRequest) {
             .from('entries')
             .select('*')
             .eq('id', latest.journal_entry_id)
+            .eq('user_id', authUser.userId)
             .maybeSingle();
           journal = jData;
         }
@@ -423,7 +425,7 @@ export async function POST(request: NextRequest) {
       if (journalError) {
         console.error('Failed to log session journal:', journalError);
         // Attempt cleanup of the exercise
-        await supabase.from('exercises').delete().eq('id', exerciseRecord.id);
+        await supabase.from('exercises').delete().eq('id', exerciseRecord.id).eq('user_id', authUser.userId);
 
         return NextResponse.json(
           { error: { code: 'DATABASE_ERROR', message: 'Failed to save session journal entry.' } },
@@ -447,14 +449,15 @@ export async function POST(request: NextRequest) {
           completed_at: new Date().toISOString()
         })
         .eq('id', activeSession.id)
+        .eq('user_id', authUser.userId)
         .select()
         .single();
 
       if (completeError) {
         console.error('Failed to update session to complete:', completeError);
         // Attempt cleanup of created items
-        await supabase.from('exercises').delete().eq('id', exerciseRecord.id);
-        await supabase.from('entries').delete().eq('id', journalRecord.id);
+        await supabase.from('exercises').delete().eq('id', exerciseRecord.id).eq('user_id', authUser.userId);
+        await supabase.from('entries').delete().eq('id', journalRecord.id).eq('user_id', authUser.userId);
 
         return NextResponse.json(
           { error: { code: 'DATABASE_ERROR', message: 'Failed to finalize session completion.' } },

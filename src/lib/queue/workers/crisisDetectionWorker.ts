@@ -95,6 +95,47 @@ export async function processCrisisDetection(jobData: {
 
     console.log(`[Crisis Detection Worker] Scan completed for entry ${entry_id}. isCrisis: ${result.crisisFlag}`);
 
+    if (entry.cycle_day === 7 || entry.cycle_day === 14 || entry.cycle_day === 21) {
+      try {
+        const { weeklyReportOrchestrator } = await import('../../weeklyReportOrchestrator');
+        
+        await weeklyReportOrchestrator.emitEvent({
+          user_id,
+          entry_id,
+          cycle_id: entry.cycle_id,
+          week_number: entry.cycle_day / 7,
+          job_name: 'CRISIS_COMPLETED',
+          completed_at: new Date().toISOString(),
+          status: 'success'
+        });
+
+        if (result.crisisFlag) {
+          // If crisis is detected, subsequent workers are bypassed.
+          // Emit skipped/suppressed events to immediately satisfy the Weekly Report orchestrator.
+          const weekNum = entry.cycle_day / 7;
+          const skippedEvents: any[] = [
+            'REFLECTION_COMPLETED',
+            'THREADS_COMPLETED',
+            'VOCABULARY_COMPLETED',
+            'CYCLE_METADATA_UPDATED'
+          ];
+          for (const ev of skippedEvents) {
+            await weeklyReportOrchestrator.emitEvent({
+              user_id,
+              entry_id,
+              cycle_id: entry.cycle_id,
+              week_number: weekNum,
+              job_name: ev,
+              completed_at: new Date().toISOString(),
+              status: 'suppressed'
+            });
+          }
+        }
+      } catch (eventErr: any) {
+        console.error(`[Crisis Detection Worker] Error emitting events:`, eventErr.message);
+      }
+    }
+
     // Sequential Chaining based on Crisis Gating
     if (result.crisisFlag) {
       console.log(`[Crisis Detection Worker] Suppression due to crisis. Setting reflection status to 'failed'.`);

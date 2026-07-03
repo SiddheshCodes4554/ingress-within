@@ -43,7 +43,13 @@ class WorkerRegistry {
     this.workers.set(
       QUEUE_NAMES.WEEKLY_SUMMARY_GENERATION,
       new Worker(QUEUE_NAMES.WEEKLY_SUMMARY_GENERATION, async (job) => {
-        await processWeeklySummary(job.data);
+        const { cycle_id, user_id, week_number, summary_id, is_validation_job } = job.data;
+        if (is_validation_job) {
+          const { weeklyReportOrchestrator } = await import('../weeklyReportOrchestrator');
+          await weeklyReportOrchestrator.validateAndGenerateReport(summary_id, user_id, cycle_id, week_number);
+        } else {
+          await processWeeklySummary(job.data);
+        }
       }, defaultWorkerOptions)
     );
 

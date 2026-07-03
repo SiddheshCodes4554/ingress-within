@@ -410,9 +410,15 @@ Schema:
     "summary": "1-2 sentences thread progress summary"
   },
   "crisis_review": {
-    "occurred": false,
-    "summary": "Factual 1-sentence summary or 'No crisis indicators were detected this week.'",
-    "events": []
+    "occurred": "boolean (true if any crisis events occurred this week in data.crisisEvents or if any entry has crisis_flag = true, false otherwise)",
+    "summary": "Factual 1-sentence summary of the crisis events or 'No crisis indicators were detected this week.'",
+    "events": [
+      {
+        "date": "YYYY-MM-DD",
+        "type": "crisis type",
+        "details": "1-sentence description of the crisis language/trigger"
+      }
+    ]
   },
   "growth_reflection": "1 thoughtful psychologist observation (no advice or motivation)",
   "reflection_question": "1 thoughtful closing question for next week (becomes new Open Thread)"

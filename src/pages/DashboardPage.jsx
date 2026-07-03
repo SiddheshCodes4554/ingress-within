@@ -49,6 +49,7 @@ export default function DashboardPage({ user, profile, onSignOut }) {
   const [dailySessionState, setDailySessionState] = useState(null);
   const [threadsList, setThreadsList] = useState([]);
   const [vocabStats, setVocabStats] = useState(null);
+  const [weeklyReports, setWeeklyReports] = useState([]);
 
   // Reflection response states
   const [reflectionModalOpen, setReflectionModalOpen] = useState(false);
@@ -83,19 +84,21 @@ export default function DashboardPage({ user, profile, onSignOut }) {
     setIsLoading(true);
     setError(null);
     try {
-      const [result, sessionData, threads, vStats, cycleStatus, cycles] = await Promise.all([
+      const [result, sessionData, threads, vStats, cycleStatus, cycles, reports] = await Promise.all([
         DashboardService.fetchDashboardData(),
         DashboardService.fetchActiveSession().catch(() => ({ exists: false })),
         DashboardService.fetchActiveThreads().catch(() => []),
         DashboardService.fetchVocabOverview().catch(() => null),
         DashboardService.fetchCycleStatus().catch(() => ({ success: false })),
-        DashboardService.fetchCyclesList().catch(() => [])
+        DashboardService.fetchCyclesList().catch(() => []),
+        DashboardService.fetchWeeklyReports().catch(() => [])
       ]);
 
       setData(result);
       setDailySessionState(sessionData);
       setThreadsList(threads);
       setVocabStats(vStats);
+      setWeeklyReports(reports);
 
       // Check for unanswered reflection on the most recent entry
       if (result && result.entries && result.entries.length > 0) {
@@ -189,11 +192,16 @@ export default function DashboardPage({ user, profile, onSignOut }) {
       });
     });
 
+    const unsubWeeklyReports = DashboardService.subscribe('weekly_reports_all', (freshReports) => {
+      setWeeklyReports(freshReports || []);
+    });
+
     return () => {
       unsubDashboard();
       unsubVocab();
       unsubCycleStatus();
       unsubCyclesList();
+      unsubWeeklyReports();
     };
   }, []);
 
@@ -1159,18 +1167,51 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                 </div>
                 <ChevronRight size={13} className="text-light-mid group-hover:translate-x-0.5 transition-transform" />
               </div>
-              <p className="text-[12.5px] text-primary font-serif italic leading-relaxed">
-                "Your Week 2 summary is ready. You have 3 open threads waiting."
-              </p>
-              <div className="flex items-center justify-between text-[10px] text-mid hover:text-primary transition-colors pt-2 border-t border-[#1E2A2E]/5">
-                <div className="flex items-center gap-1.5">
-                  <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-[#e0a898]/15 text-[#8a3020]">
-                    NEW SUMMARY
-                  </span>
-                  <span className="font-medium">Week 2 summary ready</span>
-                </div>
-                <ChevronRight size={12} />
-              </div>
+              {(() => {
+                const latestReport = weeklyReports && weeklyReports.length > 0 ? weeklyReports[0] : null;
+                const openThreadsCount = threadsList ? threadsList.filter(t => t.status === 'Open' || t.status === 'active' || t.status === 'NEW').length : 0;
+                
+                if (latestReport) {
+                  const weekNum = latestReport.week_number;
+                  const threadsText = openThreadsCount > 0 
+                    ? `You have ${openThreadsCount} open thread${openThreadsCount > 1 ? 's' : ''} waiting.` 
+                    : 'No open threads waiting.';
+                  return (
+                    <>
+                      <p className="text-[12.5px] text-primary font-serif italic leading-relaxed">
+                        "Your Week {weekNum} summary is ready. {threadsText}"
+                      </p>
+                      <div className="flex items-center justify-between text-[10px] text-mid hover:text-primary transition-colors pt-2 border-t border-[#1E2A2E]/5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-[#e0a898]/15 text-[#8a3020]">
+                            NEW SUMMARY
+                          </span>
+                          <span className="font-medium">Week {weekNum} summary ready</span>
+                        </div>
+                        <ChevronRight size={12} />
+                      </div>
+                    </>
+                  );
+                } else {
+                  const currentDay = cycleInfo?.currentDay || 1;
+                  return (
+                    <>
+                      <p className="text-[12.5px] text-primary font-serif italic leading-relaxed">
+                        "Write daily journal entries to generate your first weekly summary. Current Day: {currentDay}."
+                      </p>
+                      <div className="flex items-center justify-between text-[10px] text-mid hover:text-[#1E2A2E] transition-colors pt-2 border-t border-[#1E2A2E]/5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-mint-grey text-primary">
+                            NO SUMMARY
+                          </span>
+                          <span className="font-medium">First summary on Day 7</span>
+                        </div>
+                        <ChevronRight size={12} />
+                      </div>
+                    </>
+                  );
+                }
+              })()}
             </div>
 
           </div>

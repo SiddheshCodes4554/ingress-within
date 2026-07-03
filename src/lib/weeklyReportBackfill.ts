@@ -49,7 +49,10 @@ export async function backfillWeeklyReports(userId: string): Promise<BackfillRes
 
     for (const cycle of cycles) {
       const cycleId = cycle.id;
-      const isCycleCompleted = cycle.status?.toLowerCase() === 'complete' || cycle.status?.toLowerCase() === 'completed';
+      const isCycleCompleted = 
+        cycle.status?.toLowerCase() === 'complete' || 
+        cycle.status?.toLowerCase() === 'completed' ||
+        cycle.status?.toLowerCase() === 'archived';
       const currentDay = cycle.current_day || 1;
 
       for (const target of targetWeeks) {

@@ -321,6 +321,23 @@ export async function processEntryScoring(jobData: { entry_id: string; user_id: 
 
   console.log(`[Entry Scoring Worker] Successfully scored entry ${entry_id}. Type: ${entry_type}, Day Scores: EI=${day_ei}, PR=${day_pr}, SA=${day_sa}`);
 
+  if (entry.cycle_day === 7 || entry.cycle_day === 14 || entry.cycle_day === 21) {
+    try {
+      const { weeklyReportOrchestrator } = await import('../../weeklyReportOrchestrator');
+      await weeklyReportOrchestrator.emitEvent({
+        user_id,
+        entry_id,
+        cycle_id: entry.cycle_id,
+        week_number: entry.cycle_day / 7,
+        job_name: 'SCORING_COMPLETED',
+        completed_at: new Date().toISOString(),
+        status: 'success'
+      });
+    } catch (eventErr: any) {
+      console.error(`[Entry Scoring Worker] Error emitting SCORING_COMPLETED event:`, eventErr.message);
+    }
+  }
+
   // Chained sequential pipeline: trigger crisis detection next
   try {
     await queueRegistry.addJob('crisis_detection', `crisis_${entry_id}`, {

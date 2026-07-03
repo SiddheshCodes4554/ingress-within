@@ -1,0 +1,98 @@
+=== API ROUTE USER SCOPING AUDIT ===
+
+1. [Table: user_sessions] src\app\api\auth\me\route.ts:86
+   Snippet: .from('user_sessions')
+   Context: .from('user_sessions') .update({ is_active: false }) .in('id', staleSessionIds) .then(({ error: cleanError }) => {
+
+2. [Table: users] src\app\api\auth\me\route.ts:130
+   Snippet: .from('users')
+   Context: .from('users') .select('id, phone_number, name, is_active, created_at, sustained_distress_flag, crisis_flag_active, personality_summary_text') .eq('id', payload.uid) .eq('is_active', true)
+
+3. [Table: profiles] src\app\api\auth\me\route.ts:166
+   Snippet: .from('profiles')
+   Context: .from('profiles') .select('*') .eq('id', payload.uid) .maybeSingle();
+
+4. [Table: profiles] src\app\api\auth\me\route.ts:189
+   Snippet: .from('profiles')
+   Context: .from('profiles') .insert({ id: user.id, phone_number: user.phone_number }) .select() .maybeSingle();
+
+5. [Table: user_sessions] src\app\api\auth\refresh\route.ts:35
+   Snippet: .from('user_sessions')
+   Context: .from('user_sessions') .select('*') .eq('refresh_token_hash', tokenHash) .eq('is_active', true)
+
+6. [Table: user_sessions] src\app\api\auth\refresh\route.ts:90
+   Snippet: .from('user_sessions')
+   Context: .from('user_sessions') .update({ refresh_token_hash: newHashedRefreshToken, expires_at: newExpiresAt,
+
+7. [Table: profiles] src\app\api\auth\verify-otp\route.ts:83
+   Snippet: .from('profiles')
+   Context: .from('profiles') .select('*') .eq('id', sessionResult.user.id) .maybeSingle();
+
+8. [Table: unknown] src\app\api\cycles\status\route.ts:10
+   Snippet: const uniqueDates = Array.from(new Set(dateStrings)).map(d => new Date(d));
+   Context: const uniqueDates = Array.from(new Set(dateStrings)).map(d => new Date(d));  // Sort descending (newest first) uniqueDates.sort((a, b) => b.getTime() - a.getTime());
+
+9. [Table: entries] src\app\api\entries\route.ts:341
+   Snippet: .from('entries')
+   Context: .from('entries') .insert(fallbackPayload) .select() .single();
+
+10. [Table: unknown] src\app\api\onboarding\assessment\route.ts:85
+   Snippet: const qKeys = Array.from({ length: 12 }, (_, i) => `q${i + 1}`);
+   Context: const qKeys = Array.from({ length: 12 }, (_, i) => `q${i + 1}`); const parsedAnswers: Record<string, number> = {};  for (const key of qKeys) {
+
+11. [Table: users] src\app\api\onboarding\assessment\route.ts:135
+   Snippet: .from('users')
+   Context: .from('users') .update({ ocean_openness: openness, ocean_conscientiousness: conscientiousness,
+
+12. [Table: users] src\app\api\test-pipeline\route.ts:213
+   Snippet: .from('users')
+   Context: .from('users') .select('personality_summary_text') .eq('id', activeUserId) .maybeSingle();
+
+13. [Table: threads] src\app\api\test-pipeline\route.ts:230
+   Snippet: .from('threads')
+   Context: .from('threads') .select('closing_question') .eq('id', latestThreadResponse.thread_id) .maybeSingle();
+
+14. [Table: users] src\app\api\test-pipeline\route.ts:429
+   Snippet: .from('users')
+   Context: .from('users') .select('personality_summary_text') .eq('id', activeUserId) .maybeSingle();
+
+15. [Table: threads] src\app\api\test-pipeline\route.ts:446
+   Snippet: .from('threads')
+   Context: .from('threads') .select('closing_question') .eq('id', latestThreadResponse.thread_id) .maybeSingle();
+
+16. [Table: entries] src\app\api\test-pipeline\route.ts:714
+   Snippet: supabase.from('entries').select('*').eq('id', entryId).maybeSingle(),
+   Context: supabase.from('entries').select('*').eq('id', entryId).maybeSingle(), supabase.from('reflections').select('id, status, reflection_text, provider, confidence, themes, closing_question, classification').eq('entry_id', entryId).maybeSingle() ]); 
+
+17. [Table: reflections] src\app\api\test-pipeline\route.ts:715
+   Snippet: supabase.from('reflections').select('id, status, reflection_text, provider, confidence, themes, closing_question, classification').eq('entry_id', entryId).maybeSingle()
+   Context: supabase.from('reflections').select('id, status, reflection_text, provider, confidence, themes, closing_question, classification').eq('entry_id', entryId).maybeSingle() ]);  const updatedEntry = entryRes.data;
+
+18. [Table: threads] src\app\api\threads\route.ts:20
+   Snippet: .from('threads')
+   Context: .from('threads') .select(` *, reflections (
+
+19. [Table: threads] src\app\api\threads\[id]\route.ts:27
+   Snippet: .from('threads')
+   Context: .from('threads') .select(` *, reflections (
+
+20. [Table: threads] src\app\api\threads\[id]\route.ts:211
+   Snippet: .from('threads')
+   Context: .from('threads') .update({ status: 'Answered', answered_at: new Date().toISOString(),
+
+21. [Table: threads] src\app\api\threads\[id]\route.ts:312
+   Snippet: .from('threads')
+   Context: .from('threads') .update({ draft_response: draft !== undefined ? draft : '' }) .eq('id', threadId) .select()
+
+22. [Table: entries] src\app\api\vocab\by-cycle\route.ts:91
+   Snippet: .from('entries')
+   Context: .from('entries') .select('id', { count: 'exact', head: true }) .eq('cycle_id', cy.id); 
+
+23. [Table: unknown] src\app\api\vocab\overview\route.ts:252
+   Snippet: const wordsList = Array.from(wordGroups.values());
+   Context: const wordsList = Array.from(wordGroups.values());  // Count of distinct words with frequency >= 2 const distinctWordCount = wordsList.filter(w => w.frequency >= 2).length;
+
+24. [Table: thread_responses] src\app\api\vocab\thread-responses\route.ts:22
+   Snippet: .from('thread_responses')
+   Context: .from('thread_responses') .select(` id, response_text,
+

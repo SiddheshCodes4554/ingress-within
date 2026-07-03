@@ -1,0 +1,694 @@
+=== UNSCOPED OR SUSPICIOUS SUPABASE QUERIES ===
+
+[Unscoped] File: src\app\api\auth\me\route.ts:86
+  Table: "user_sessions"
+  Snippet: ".from('user_sessions')"
+  Context: ".from('user_sessions') .update({ is_active: false }) .in('id', staleSessionIds) .then(({ error: cleanError }) => { if (cleanError) { console.error(`[m..."
+
+[Unscoped] File: src\app\api\auth\me\route.ts:130
+  Table: "users"
+  Snippet: ".from('users')"
+  Context: ".from('users') .select('id, phone_number, name, is_active, created_at, sustained_distress_flag, crisis_flag_active, personality_summary_text') .eq('id..."
+
+[Unscoped] File: src\app\api\auth\me\route.ts:166
+  Table: "profiles"
+  Snippet: ".from('profiles')"
+  Context: ".from('profiles') .select('*') .eq('id', payload.uid) .maybeSingle();  if (profileError) { console.error('[me/route.ts] Failed to query user profile:'..."
+
+[Unscoped] File: src\app\api\auth\me\route.ts:189
+  Table: "profiles"
+  Snippet: ".from('profiles')"
+  Context: ".from('profiles') .insert({ id: user.id, phone_number: user.phone_number }) .select() .maybeSingle();  if (backfillError) { console.error('[me/route.t..."
+
+[Unscoped] File: src\app\api\auth\refresh\route.ts:35
+  Table: "user_sessions"
+  Snippet: ".from('user_sessions')"
+  Context: ".from('user_sessions') .select('*') .eq('refresh_token_hash', tokenHash) .eq('is_active', true) .gt('expires_at', nowStr) .maybeSingle();  if (session..."
+
+[Unscoped] File: src\app\api\auth\refresh\route.ts:90
+  Table: "user_sessions"
+  Snippet: ".from('user_sessions')"
+  Context: ".from('user_sessions') .update({ refresh_token_hash: newHashedRefreshToken, expires_at: newExpiresAt, last_active_at: nowStr, ip_address: ipAddress, u..."
+
+[Unscoped] File: src\app\api\auth\verify-otp\route.ts:83
+  Table: "profiles"
+  Snippet: ".from('profiles')"
+  Context: ".from('profiles') .select('*') .eq('id', sessionResult.user.id) .maybeSingle();  // 5. Assemble response const response = NextResponse.json({ success:..."
+
+[Unscoped] File: src\app\api\cycles\complete-assessment\route.ts:97
+  Table: "cycles"
+  Snippet: ".from('cycles')"
+  Context: ".from('cycles') .update({ assessment_completed: true, updated_at: new Date().toISOString() }) .eq('id', cycle.id);  if (updateCycleErr) { console.erro..."
+
+[Unscoped] File: src\app\api\cycles\simulate\route.ts:51
+  Table: "cycles"
+  Snippet: ".from('cycles')"
+  Context: ".from('cycles') .update({ start_date: newStartStr, updated_at: new Date().toISOString() }) .eq('id', activeCycle.id) .select() .single();  if (error) ..."
+
+[Unscoped] File: src\app\api\cycles\simulate\route.ts:78
+  Table: "cycles"
+  Snippet: ".from('cycles')"
+  Context: ".from('cycles') .update({ start_date: newStartStr, status: 'COMPLETED', assessment_available: true, completed_at: new Date().toISOString(), updated_at..."
+
+[Unscoped] File: src\app\api\cycles\simulate\route.ts:142
+  Table: "cycles"
+  Snippet: ".from('cycles')"
+  Context: ".from('cycles') .update({ status: 'ARCHIVED', updated_at: new Date().toISOString() }) .eq('id', activeCycle.id) .select() .single();  if (error) {..."
+
+[Unscoped] File: src\app\api\cycles\status\route.ts:133
+  Table: "cycles"
+  Snippet: ".from('cycles')"
+  Context: ".from('cycles') .update({ status: 'COMPLETED', assessment_available: true, completed_at: new Date().toISOString(), current_day: cycle.total_days // Ca..."
+
+[Unscoped] File: src\app\api\cycles\status\route.ts:153
+  Table: "cycles"
+  Snippet: ".from('cycles')"
+  Context: ".from('cycles') .update({ current_day: Math.min(cycle.total_days, currentDay) }) .eq('id', cycle.id) .select() .single(); if (syncRes) { updatedCycle ..."
+
+[Unscoped] File: src\app\api\cycles\status\route.ts:165
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .select('id, created_at, cycle_day') .eq('cycle_id', updatedCycle.id);  if (entriesErr) { console.error('[API Cycles Status] Error fe..."
+
+[Unscoped] File: src\app\api\cycles\status\route.ts:192
+  Table: "cycles"
+  Snippet: ".from('cycles')"
+  Context: ".from('cycles') .update({ entries_count: entriesCount, days_completed: daysCompleted }) .eq('id', updatedCycle.id);  // Compute progress details const..."
+
+[Unscoped] File: src\app\api\cycles\[id]\route.ts:55
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .select('*, reflections(*)') .eq('cycle_id', cy.id) .order('created_at', { ascending: false });  if (entriesErr) { console.error(`Err..."
+
+[Unscoped] File: src\app\api\cycles\[id]\route.ts:66
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .select('id', { count: 'exact', head: true }) .eq('cycle_id', cy.id);  // 4. Count active open threads const { count: thread..."
+
+[Unscoped] File: src\app\api\entries\route.ts:341
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .insert(fallbackPayload) .select() .single();  if (fallbackError) { console.error('Failed to insert journal entry on fallback:', fall..."
+
+[Unscoped] File: src\app\api\entries\[id]\route.ts:52
+  Table: "reflections"
+  Snippet: ".from('reflections')"
+  Context: ".from('reflections') .select('*') .eq('entry_id', entryId) .maybeSingle();  if (reflectionError) { console.error(`[api/entries/[id]] Database error fe..."
+
+[Unscoped] File: src\app\api\entries\[id]\route.ts:75
+  Table: "reflections"
+  Snippet: ".from('reflections')"
+  Context: ".from('reflections') .select('*') .eq('entry_id', previousEntry.id) .maybeSingle(); if (!prevRefError) { previousReflection = prevRef; } }  // Fetch e..."
+
+[Unscoped] File: src\app\api\onboarding\assessment\route.ts:135
+  Table: "users"
+  Snippet: ".from('users')"
+  Context: ".from('users') .update({ ocean_openness: openness, ocean_conscientiousness: conscientiousness, ocean_extraversion: extraversion, ocean_agreeableness: ..."
+
+[Unscoped] File: src\app\api\reflections\answer\route.ts:70
+  Table: "reflections"
+  Snippet: ".from('reflections')"
+  Context: ".from('reflections') .update(updateData) .eq('id', reflectionId) .select() .single();  if (updateError) { console.error('Failed to update reflection:'..."
+
+[Unscoped] File: src\app\api\reflections\answer\route.ts:89
+  Table: "threads"
+  Snippet: ".from('threads')"
+  Context: ".from('threads') .select('id') .eq('reflection_id', reflectionId) .maybeSingle();  if (thread) { // Deactivate other responses for scoring await supab..."
+
+[Unscoped] File: src\app\api\reflections\answer\route.ts:119
+  Table: "threads"
+  Snippet: ".from('threads')"
+  Context: ".from('threads') .update({ status: 'Answered', answered_at: new Date().toISOString(), draft_response: null }) .eq('id', thread.id);  if (threadUpdateE..."
+
+[Unscoped] File: src\app\api\reflections\answer\route.ts:133
+  Table: "threads"
+  Snippet: ".from('threads')"
+  Context: ".from('threads') .update({ draft_response: answer ? answer.trim() : '' }) .eq('reflection_id', reflectionId);  if (threadUpdateErr) { console.warn('Fa..."
+
+[Unscoped] File: src\app\api\session\route.ts:81
+  Table: "exercises"
+  Snippet: ".from('exercises')"
+  Context: ".from('exercises') .select('*') .eq('id', latest.exercise_id) .maybeSingle(); if (exData) { try { const parsed = JSON.parse(exData.response_encrypted ..."
+
+[Unscoped] File: src\app\api\session\route.ts:102
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .select('*') .eq('id', latest.journal_entry_id) .maybeSingle(); journal = jData; } }  return NextResponse.json({ success: true,..."
+
+[Unscoped] File: src\app\api\session\route.ts:426
+  Table: "exercises"
+  Snippet: "await supabase.from('exercises').delete().eq('id', exerciseRecord.id);"
+  Context: "await supabase.from('exercises').delete().eq('id', exerciseRecord.id);  return NextResponse.json( { error: { code: 'DATABASE_ERROR', message: 'Failed ..."
+
+[Unscoped] File: src\app\api\session\route.ts:441
+  Table: "daily_sessions"
+  Snippet: ".from('daily_sessions')"
+  Context: ".from('daily_sessions') .update({ status: 'complete', exercise_id: exerciseRecord.id, journal_entry_id: journalRecord.id, session_data: finalSessionDa..."
+
+[Unscoped] File: src\app\api\session\route.ts:456
+  Table: "exercises"
+  Snippet: "await supabase.from('exercises').delete().eq('id', exerciseRecord.id);"
+  Context: "await supabase.from('exercises').delete().eq('id', exerciseRecord.id); await supabase.from('entries').delete().eq('id', journalRecord.id);  return Nex..."
+
+[Unscoped] File: src\app\api\session\route.ts:457
+  Table: "entries"
+  Snippet: "await supabase.from('entries').delete().eq('id', journalRecord.id);"
+  Context: "await supabase.from('entries').delete().eq('id', journalRecord.id);  return NextResponse.json( { error: { code: 'DATABASE_ERROR', message: 'Failed to ..."
+
+[Unscoped] File: src\app\api\test-pipeline\route.ts:39
+  Table: "users"
+  Snippet: "const { data: users } = await supabase.from('users').select('id').limit(1);"
+  Context: "const { data: users } = await supabase.from('users').select('id').limit(1); activeUserId = users?.[0]?.id || null; }  const aiProvider = getAIProvider..."
+
+[Unscoped] File: src\app\api\test-pipeline\route.ts:213
+  Table: "users"
+  Snippet: ".from('users')"
+  Context: ".from('users') .select('personality_summary_text') .eq('id', activeUserId) .maybeSingle(); personalityContext = user?.personality_summary_text || unde..."
+
+[Unscoped] File: src\app\api\test-pipeline\route.ts:230
+  Table: "threads"
+  Snippet: ".from('threads')"
+  Context: ".from('threads') .select('closing_question') .eq('id', latestThreadResponse.thread_id) .maybeSingle(); if (thread) { threadContext = `Question: "${thr..."
+
+[Unscoped] File: src\app\api\test-pipeline\route.ts:429
+  Table: "users"
+  Snippet: ".from('users')"
+  Context: ".from('users') .select('personality_summary_text') .eq('id', activeUserId) .maybeSingle(); personalityContext = user?.personality_summary_text || unde..."
+
+[Unscoped] File: src\app\api\test-pipeline\route.ts:446
+  Table: "threads"
+  Snippet: ".from('threads')"
+  Context: ".from('threads') .select('closing_question') .eq('id', latestThreadResponse.thread_id) .maybeSingle(); if (thread) { threadContext = `Question: "${thr..."
+
+[Unscoped] File: src\app\api\test-pipeline\route.ts:714
+  Table: "entries"
+  Snippet: "supabase.from('entries').select('*').eq('id', entryId).maybeSingle(),"
+  Context: "supabase.from('entries').select('*').eq('id', entryId).maybeSingle(), supabase.from('reflections').select('id, status, reflection_text, provider, conf..."
+
+[Unscoped] File: src\app\api\test-pipeline\route.ts:715
+  Table: "reflections"
+  Snippet: "supabase.from('reflections').select('id, status, reflection_text, provider, confidence, themes, closing_question, classification').eq('entry_id', entryId).maybeSingle()"
+  Context: "supabase.from('reflections').select('id, status, reflection_text, provider, confidence, themes, closing_question, classification').eq('entry_id', entr..."
+
+[Unscoped] File: src\app\api\threads\route.ts:20
+  Table: "threads"
+  Snippet: ".from('threads')"
+  Context: ".from('threads') .select(` *, reflections ( reflection_text ), cycles ( cycle_number ) `)..."
+
+[Unscoped] File: src\app\api\threads\[id]\route.ts:27
+  Table: "threads"
+  Snippet: ".from('threads')"
+  Context: ".from('threads') .select(` *, reflections ( id, reflection_text, entry_id, entries ( id, content,..."
+
+[Unscoped] File: src\app\api\threads\[id]\route.ts:211
+  Table: "threads"
+  Snippet: ".from('threads')"
+  Context: ".from('threads') .update({ status: 'Answered', answered_at: new Date().toISOString(), draft_response: null }) .eq('id', threadId);  if (updateThreadEr..."
+
+[Unscoped] File: src\app\api\threads\[id]\route.ts:226
+  Table: "reflections"
+  Snippet: ".from('reflections')"
+  Context: ".from('reflections') .update({ status: 'completed', reflection_answer: response.trim(), answered_at: new Date().toISOString() }) .eq('id', thread.refl..."
+
+[Unscoped] File: src\app\api\threads\[id]\route.ts:311
+  Table: "threads"
+  Snippet: ".from('threads')"
+  Context: ".from('threads') .update({ draft_response: draft !== undefined ? draft : '' }) .eq('id', threadId) .select() .single();  if (updateError) { console.er..."
+
+[Unscoped] File: src\app\api\threads\[id]\route.ts:328
+  Table: "reflections"
+  Snippet: ".from('reflections')"
+  Context: ".from('reflections') .update({ reflection_answer: draft !== undefined ? draft.trim() : '' }) .eq('id', thread.reflection_id);  if (reflectionUpdateErr..."
+
+[Unscoped] File: src\app\api\vocab\by-cycle\route.ts:48
+  Table: "vocab_words"
+  Snippet: ".from('vocab_words')"
+  Context: ".from('vocab_words') .select('category') .limit(1); if (!error) hasCategory = true; } catch (_) {}  // Map cycle words for lookup const cycleWordsMap ..."
+
+[Unscoped] File: src\app\api\vocab\by-cycle\route.ts:91
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .select('id', { count: 'exact', head: true }) .eq('cycle_id', cy.id);  // Find new words (words first seen in this cycle) // Words th..."
+
+[Unscoped] File: src\app\api\vocab\overview\route.ts:139
+  Table: "vocab_words"
+  Snippet: ".from('vocab_words')"
+  Context: ".from('vocab_words') .select('semantic_meaning') .limit(1); if (!error) hasNewWordsColumns = true; } catch (_) {}  let hasNewClustersColumns = false; ..."
+
+[Unscoped] File: src\app\api\vocab\overview\route.ts:148
+  Table: "vocab_clusters"
+  Snippet: ".from('vocab_clusters')"
+  Context: ".from('vocab_clusters') .select('description') .limit(1); if (!error) hasNewClustersColumns = true; } catch (_) {}  // A. Fetch filtered entries count..."
+
+[Unscoped] File: src\app\api\vocab\overview\route.ts:350
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .select('id, content, created_at') .in('id', entryIds) .order('created_at', { ascending: false }); relatedEntries = (entries || []).m..."
+
+[Unscoped] File: src\app\api\vocab\thread-responses\route.ts:22
+  Table: "thread_responses"
+  Snippet: ".from('thread_responses')"
+  Context: ".from('thread_responses') .select(` id, response_text, created_at, threads ( closing_question, cycle_id, cycles ( cycle_number..."
+
+[Unscoped] File: src\lib\ai\pipeline.ts:74
+  Table: "ai_observability"
+  Snippet: ".from('ai_observability')"
+  Context: ".from('ai_observability') .insert({ entry_id: entryId, provider: providerName, raw_provider_response: rawResponse || null, parsed_response: parsedJson..."
+
+[Unscoped] File: src\lib\ai\pipeline.ts:97
+  Table: "ai_failures"
+  Snippet: ".from('ai_failures')"
+  Context: ".from('ai_failures') .insert({ entry_id: entryId, prompt: promptDesc, raw_response: rawResponse || null, parsing_error: errorReason || 'Unknown valida..."
+
+[Unscoped] File: src\lib\queue\triggers.ts:27
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .select('id, status') .eq('cycle_id', cycleId) .eq('week_number', weekNum) .maybeSingle();  if (!existing || existing.status..."
+
+[Unscoped] File: src\lib\queue\triggers.ts:36
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .select('id') .eq('cycle_id', cycleId) .eq('cycle_day', cycleDay) .order('created_at', { ascending: false }) .limit(1) .maybeSingle()..."
+
+[Unscoped] File: src\lib\queue\triggers.ts:87
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .update({ status: 'pending', report_data: initialOrchestration, title: null, why: null, body: null, open_question: null, gen..."
+
+[Unscoped] File: src\lib\queue\workers\crisisDetectionWorker.ts:16
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .select('*') .eq('id', entry_id) .single();  if (entryError || !entry) { throw new Error(`Failed to fetch entry ${entry_id}: ${entryE..."
+
+[Unscoped] File: src\lib\queue\workers\crisisDetectionWorker.ts:88
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .update(updatePayload) .eq('id', entry_id);  if (entryUpdateError) { throw new Error(`Failed to update entry ${entry_id}: ${entryUpda..."
+
+[Unscoped] File: src\lib\queue\workers\entryScoringWorker.ts:14
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .select('*') .eq('id', entry_id) .single();  if (entryError || !entry) { throw new Error(`Failed to fetch entry ${entry_id}: ${entryE..."
+
+[Unscoped] File: src\lib\queue\workers\entryScoringWorker.ts:83
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .update(emptyPayload) .eq('id', entry_id);  if (entryUpdateError) { throw new Error(`Failed to update entry ${entry_id} as empty: ${e..."
+
+[Unscoped] File: src\lib\queue\workers\entryScoringWorker.ts:107
+  Table: "entry_scores"
+  Snippet: "await supabase.from('entry_scores').update(scorePayload).eq('id', existingScore.id);"
+  Context: "await supabase.from('entry_scores').update(scorePayload).eq('id', existingScore.id); } else { await supabase.from('entry_scores').insert(scorePayload)..."
+
+[Unscoped] File: src\lib\queue\workers\entryScoringWorker.ts:109
+  Table: "entry_scores"
+  Snippet: "await supabase.from('entry_scores').insert(scorePayload);"
+  Context: "await supabase.from('entry_scores').insert(scorePayload); }  return; }  // STEP 2 — AI scores each part present (see Scoring Rubric for AI instruction..."
+
+[Unscoped] File: src\lib\queue\workers\entryScoringWorker.ts:131
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .update({ scoring_status: 'failed', updated_at: new Date().toISOString() }) .eq('id', entry_id);  // Sync to entry_scores with failed..."
+
+[Unscoped] File: src\lib\queue\workers\entryScoringWorker.ts:155
+  Table: "entry_scores"
+  Snippet: "await supabase.from('entry_scores').update(failedPayload).eq('id', existingScore.id);"
+  Context: "await supabase.from('entry_scores').update(failedPayload).eq('id', existingScore.id); } else { await supabase.from('entry_scores').insert(failedPayloa..."
+
+[Unscoped] File: src\lib\queue\workers\entryScoringWorker.ts:157
+  Table: "entry_scores"
+  Snippet: "await supabase.from('entry_scores').insert(failedPayload);"
+  Context: "await supabase.from('entry_scores').insert(failedPayload); }  throw new Error(`[Entry Scoring Worker] Hardened pipeline failed: ${errorMsg}`); }  cons..."
+
+[Unscoped] File: src\lib\queue\workers\entryScoringWorker.ts:269
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .update(scoreData) .eq('id', entry_id);  if (entryUpdateError) { throw new Error(`Failed to update entry ${entry_id}: ${entryUpdateEr..."
+
+[Unscoped] File: src\lib\queue\workers\entryScoringWorker.ts:279
+  Table: "entry_scores"
+  Snippet: ".from('entry_scores')"
+  Context: ".from('entry_scores') .select('id') .eq('entry_id', entry_id) .maybeSingle();  // Destructure and omit fields not present in the entry_scores table sc..."
+
+[Unscoped] File: src\lib\queue\workers\entryScoringWorker.ts:305
+  Table: "entry_scores"
+  Snippet: ".from('entry_scores')"
+  Context: ".from('entry_scores') .update(scorePayload) .eq('id', existingScore.id);  if (scoreUpdateError) { throw new Error(`Failed to update entry_scores row: ..."
+
+[Unscoped] File: src\lib\queue\workers\entryScoringWorker.ts:314
+  Table: "entry_scores"
+  Snippet: ".from('entry_scores')"
+  Context: ".from('entry_scores') .insert(scorePayload);  if (scoreInsertError) { throw new Error(`Failed to insert entry_scores row: ${scoreInsertError.message}`..."
+
+[Unscoped] File: src\lib\queue\workers\exerciseInsightWorker.ts:15
+  Table: "exercises"
+  Snippet: ".from('exercises')"
+  Context: ".from('exercises') .select('*') .eq('id', exercise_id) .single();  if (fetchError || !exercise) { throw new Error(`Failed to fetch exercise ${exercise..."
+
+[Unscoped] File: src\lib\queue\workers\exerciseInsightWorker.ts:44
+  Table: "exercises"
+  Snippet: ".from('exercises')"
+  Context: ".from('exercises') .update({ status: 'failed' }) .eq('id', exercise_id); return; }  try { // 3. Call AI Provider const result = await aiProvider.gener..."
+
+[Unscoped] File: src\lib\queue\workers\exerciseInsightWorker.ts:66
+  Table: "exercises"
+  Snippet: ".from('exercises')"
+  Context: ".from('exercises') .update({ insight_note, status: 'completed', completed_at: new Date().toISOString() }) .eq('id', exercise_id);  if (updateError) { ..."
+
+[Unscoped] File: src\lib\queue\workers\exerciseInsightWorker.ts:82
+  Table: "exercises"
+  Snippet: ".from('exercises')"
+  Context: ".from('exercises') .update({ status: 'failed' }) .eq('id', exercise_id); throw err; } } ..."
+
+[Unscoped] File: src\lib\queue\workers\monthlyReportWorker.ts:36
+  Table: "assessments"
+  Snippet: ".from('assessments')"
+  Context: ".from('assessments') .update({ generation_status: 'held', entry_count, ei_avg: 0, pr_avg: 0, sa_avg: 0, dt_score: 0, normalised_sa: 0, risk_total: 0,..."
+
+[Unscoped] File: src\lib\queue\workers\monthlyReportWorker.ts:53
+  Table: "monthly_scores"
+  Snippet: ".from('monthly_scores')"
+  Context: ".from('monthly_scores') .update({ generation_status: 'held', entry_count, ei_score: 0, pr_score: 0, sa_score: 0, dt_score: 0, primary_dimension: 'PR',..."
+
+[Unscoped] File: src\lib\queue\workers\monthlyReportWorker.ts:174
+  Table: "assessments"
+  Snippet: ".from('assessments')"
+  Context: ".from('assessments') .update({ ei_avg, pr_avg, sa_avg, dt_score, normalised_sa, risk_total, path_assignment, branch_assignment,..."
+
+[Unscoped] File: src\lib\queue\workers\monthlyReportWorker.ts:387
+  Table: "assessments"
+  Snippet: "await supabase.from('assessments').update({ generation_status: 'failed' }).eq('id', assessment_id);"
+  Context: "await supabase.from('assessments').update({ generation_status: 'failed' }).eq('id', assessment_id); } if (monthly_score_id) { await supabase.from('mon..."
+
+[Unscoped] File: src\lib\queue\workers\monthlyReportWorker.ts:390
+  Table: "monthly_scores"
+  Snippet: "await supabase.from('monthly_scores').update({ generation_status: 'failed' }).eq('id', monthly_score_id);"
+  Context: "await supabase.from('monthly_scores').update({ generation_status: 'failed' }).eq('id', monthly_score_id); } throw err; } } ..."
+
+[Unscoped] File: src\lib\queue\workers\oceanSummaryWorker.ts:59
+  Table: "users"
+  Snippet: ".from('users')"
+  Context: ".from('users') .update({ ocean_openness: openness, ocean_conscientiousness: conscientiousness, ocean_extraversion: extraversion, ocean_agreeableness: ..."
+
+[Unscoped] File: src\lib\queue\workers\reflectionWorker.ts:93
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .select('*') .eq('id', entry_id) .single();  if (entryError || !entry) { console.error(`[Reflection Engine] [1/8] Failed to fetch ent..."
+
+[Unscoped] File: src\lib\queue\workers\reflectionWorker.ts:128
+  Table: "reflections"
+  Snippet: "await supabase.from('reflections').update(reflectionPayload).eq('id', existingReflection.id);"
+  Context: "await supabase.from('reflections').update(reflectionPayload).eq('id', existingReflection.id); } else { await supabase.from('reflections').insert(refle..."
+
+[Unscoped] File: src\lib\queue\workers\reflectionWorker.ts:130
+  Table: "reflections"
+  Snippet: "await supabase.from('reflections').insert(reflectionPayload);"
+  Context: "await supabase.from('reflections').insert(reflectionPayload); } return; }  // 3. Decrypt text const newEntryText = decrypt(entry.new_entry_text_encryp..."
+
+[Unscoped] File: src\lib\queue\workers\reflectionWorker.ts:182
+  Table: "threads"
+  Snippet: ".from('threads')"
+  Context: ".from('threads') .select('closing_question') .eq('id', latestThreadResponse.thread_id) .maybeSingle(); if (thread) { threadContext = `Question: "${thr..."
+
+[Unscoped] File: src\lib\queue\workers\reflectionWorker.ts:230
+  Table: "reflections"
+  Snippet: "await supabase.from('reflections').update(pendingPayload).eq('id', existingReflection.id);"
+  Context: "await supabase.from('reflections').update(pendingPayload).eq('id', existingReflection.id); } else { await supabase.from('reflections').insert(pendingP..."
+
+[Unscoped] File: src\lib\queue\workers\reflectionWorker.ts:232
+  Table: "reflections"
+  Snippet: "await supabase.from('reflections').insert(pendingPayload);"
+  Context: "await supabase.from('reflections').insert(pendingPayload); }  // 5. Generation/Validation loop let attempts = 0; let success = false; let result: any ..."
+
+[Unscoped] File: src\lib\queue\workers\reflectionWorker.ts:296
+  Table: "reflections"
+  Snippet: ".from('reflections')"
+  Context: ".from('reflections') .update({ status: 'pending', generated_at: new Date().toISOString() }) .eq('entry_id', entry_id); throw err; } } }  // 6. Check i..."
+
+[Unscoped] File: src\lib\queue\workers\reflectionWorker.ts:310
+  Table: "reflections"
+  Snippet: ".from('reflections')"
+  Context: ".from('reflections') .update({ status: 'pending', reflection_text: 'Reflection compiling. We are reviewing style guidelines.', generated_at: new Date(..."
+
+[Unscoped] File: src\lib\queue\workers\reflectionWorker.ts:349
+  Table: "reflections"
+  Snippet: ".from('reflections')"
+  Context: ".from('reflections') .update(reflectionPayload) .eq('id', freshRefl.data.id); if (updateError) throw updateError; } else { const { data: newRefl, erro..."
+
+[Unscoped] File: src\lib\queue\workers\reflectionWorker.ts:355
+  Table: "reflections"
+  Snippet: ".from('reflections')"
+  Context: ".from('reflections') .insert(reflectionPayload) .select() .single(); if (insertError) throw insertError; reflectionId = newRefl.id; }  console.log(`[R..."
+
+[Unscoped] File: src\lib\queue\workers\reflectionWorker.ts:407
+  Table: "threads"
+  Snippet: ".from('threads')"
+  Context: ".from('threads') .update({ closing_question: reflectionPayload.closing_question }) .eq('id', existingThread.id); } }  if (entry.cycle_day === 7 || ent..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:84
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .select('*') .eq('id', entry_id) .single();  if (entryError || !dbEntry) { throw new Error(`Failed to fetch entry ${entry_id}: ${entr..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:104
+  Table: "thread_responses"
+  Snippet: ".from('thread_responses')"
+  Context: ".from('thread_responses') .select('*, threads(cycle_id)') .eq('id', thread_response_id) .single() as any;  if (respError || !dbResp) { throw new Error..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:132
+  Table: "entries"
+  Snippet: "await supabase.from('entries').update({ vocab_processed: true }).eq('id', entry_id);"
+  Context: "await supabase.from('entries').update({ vocab_processed: true }).eq('id', entry_id); } else if (thread_response_id) { await supabase.from('thread_resp..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:134
+  Table: "thread_responses"
+  Snippet: "await supabase.from('thread_responses').update({ vocab_processed: true }).eq('id', thread_response_id);"
+  Context: "await supabase.from('thread_responses').update({ vocab_processed: true }).eq('id', thread_response_id); } return; }  try { // Check if new columns exi..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:144
+  Table: "vocab_words"
+  Snippet: ".from('vocab_words')"
+  Context: ".from('vocab_words') .select('semantic_meaning') .limit(1); if (!testErr) hasNewColumns = true; } catch (_) {}  // Check if category column exists (fr..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:154
+  Table: "vocab_words"
+  Snippet: ".from('vocab_words')"
+  Context: ".from('vocab_words') .select('category') .limit(1); if (!categoryErr) hasCategoryColumn = true; } catch (_) {}  // Check if vocab_extractions table ex..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:164
+  Table: "vocab_extractions"
+  Snippet: ".from('vocab_extractions')"
+  Context: ".from('vocab_extractions') .select('id') .limit(1); if (!extErr) hasExtractionsTable = true; } catch (_) {}  console.log(`[Vocab Worker] Database sche..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:183
+  Table: "vocab_extractions"
+  Snippet: ".from('vocab_extractions')"
+  Context: ".from('vocab_extractions') .delete() .eq('entry_id', entry_id); } else if (thread_response_id) { await supabase .from('vocab_extractions') .delete() ...."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:188
+  Table: "vocab_extractions"
+  Snippet: ".from('vocab_extractions')"
+  Context: ".from('vocab_extractions') .delete() .eq('thread_response_id', thread_response_id); }  let sourceCreatedAt = new Date().toISOString(); if (entry_id &&..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:236
+  Table: "vocab_extractions"
+  Snippet: ".from('vocab_extractions')"
+  Context: ".from('vocab_extractions') .insert(extractionsToInsert); if (extInsertErr) { console.error(`[Vocab Worker] Failed to insert audit extractions:`, extIn..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:351
+  Table: "vocab_words"
+  Snippet: ".from('vocab_words')"
+  Context: ".from('vocab_words') .insert(wordPayload); } } } } else { // Slower fallback if vocab_extractions migration is not run yet console.warn(`[Vocab Worker..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:409
+  Table: "vocab_words"
+  Snippet: "await supabase.from('vocab_words').insert(wordPayload);"
+  Context: "await supabase.from('vocab_words').insert(wordPayload); } } }  // 5. Concepts Extraction console.log(`[Vocab Worker] Extracting emotional concepts usi..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:433
+  Table: "vocab_concepts"
+  Snippet: ".from('vocab_concepts')"
+  Context: ".from('vocab_concepts') .update({ frequency: existingConcept.frequency + 1, confidence: c.confidence || 1.0 }) .eq('id', existingConcept.id); } else {..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:458
+  Table: "entries"
+  Snippet: "await supabase.from('entries').update({ vocab_processed: true }).eq('id', entry_id);"
+  Context: "await supabase.from('entries').update({ vocab_processed: true }).eq('id', entry_id);  if (entry && (entry.cycle_day === 7 || entry.cycle_day === 14 ||..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:465
+  Table: "cycles"
+  Snippet: ".from('cycles')"
+  Context: ".from('cycles') .select('*') .eq('id', entry.cycle_id) .single(); if (cycle) { const targetDay = Math.min(cycle.total_days, Math.max(cycle.current_day..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:472
+  Table: "cycles"
+  Snippet: ".from('cycles')"
+  Context: ".from('cycles') .update({ current_day: targetDay, updated_at: new Date().toISOString() }) .eq('id', entry.cycle_id); }  // Emit VOCABULARY_COMPLETED a..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:506
+  Table: "thread_responses"
+  Snippet: "await supabase.from('thread_responses').update({ vocab_processed: true }).eq('id', thread_response_id);"
+  Context: "await supabase.from('thread_responses').update({ vocab_processed: true }).eq('id', thread_response_id); }  console.log(`[Vocab Worker] Vocabulary proc..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:523
+  Table: "vocab_words"
+  Snippet: ".from('vocab_words')"
+  Context: ".from('vocab_words') .select('semantic_meaning') .limit(1); if (!error) hasNewWordsColumns = true; } catch (_) {}  // Check if custom schema columns e..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:533
+  Table: "vocab_clusters"
+  Snippet: ".from('vocab_clusters')"
+  Context: ".from('vocab_clusters') .select('description') .limit(1); if (!error) hasNewClustersColumns = true; } catch (_) {}  const selectFields = hasNewWordsCo..."
+
+[Unscoped] File: src\lib\queue\workers\vocabWorker.ts:609
+  Table: "vocab_clusters"
+  Snippet: ".from('vocab_clusters')"
+  Context: ".from('vocab_clusters') .insert(clusterPayload) .select() .single();  if (clusterInsertErr || !newCluster) { console.error(`[Vocab Worker] Failed to i..."
+
+[Unscoped] File: src\lib\queue\workers\weeklySummaryWorker.ts:21
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .select('*') .eq('id', summary_id) .single(); if (!error && data) { summaryRow = data; } }  if (!summaryRow) {..."
+
+[Unscoped] File: src\lib\queue\workers\weeklySummaryWorker.ts:33
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .select('*') .eq('cycle_id', cycle_id) .eq('week_number', week_number) .maybeSingle();  if (error || !data) { throw new Erro..."
+
+[Unscoped] File: src\lib\queue\workers\weeklySummaryWorker.ts:125
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .select('*') .eq('cycle_id', cycle_id) .eq('week_number', week_number - 1) .maybeSingle();  if (prevSummary) { const { data:..."
+
+[Unscoped] File: src\lib\queue\workers\weeklySummaryWorker.ts:191
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .update({ status: 'failed' }) .eq('id', actualSummaryId); throw err; }  if (collectedData.entries.filter(e => e.content.trim..."
+
+[Unscoped] File: src\lib\queue\workers\weeklySummaryWorker.ts:200
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .update({ status: 'failed', body: 'No entries written this week.', open_question: 'Please write a journal entry to start.' }..."
+
+[Unscoped] File: src\lib\queue\workers\weeklySummaryWorker.ts:216
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .update({ title: result.title || "Composure vs. Suppression", why: result.why || "Suppressing internal friction to manage ex..."
+
+[Unscoped] File: src\lib\queue\workers\weeklySummaryWorker.ts:238
+  Table: "open_threads"
+  Snippet: ".from('open_threads')"
+  Context: ".from('open_threads') .select('id') .eq('source_summary_id', actualSummaryId) .maybeSingle();  if (!existingThread) { const threadId = crypto.randomUU..."
+
+[Unscoped] File: src\lib\queue\workers\weeklySummaryWorker.ts:267
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .update({ status: 'failed' }) .eq('id', actualSummaryId); throw err; } } ..."
+
+[Unscoped] File: src\lib\rate-limit.ts:67
+  Table: "otp_verifications"
+  Snippet: ".from('otp_verifications')"
+  Context: ".from('otp_verifications') .select('*', { count: 'exact', head: true }) .eq('phone_number', phoneNumber) .gt('created_at', fifteenMinutesAgo);  if (er..."
+
+[Unscoped] File: src\lib\weeklyReportBackfill.ts:70
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .select('*') .eq('cycle_id', cycleId) .eq('week_number', target.week) .maybeSingle();  if (summaryErr) { console.error(`[Bac..."
+
+[Unscoped] File: src\lib\weeklyReportCollector.ts:105
+  Table: "cycles"
+  Snippet: ".from('cycles')"
+  Context: ".from('cycles') .select('*') .eq('id', cycleId) .single();  if (cycleErr || !cycle) { throw new Error(`Failed to fetch cycle details for ID ${cycleId}..."
+
+[Unscoped] File: src\lib\weeklyReportCollector.ts:210
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .select('created_at') .eq('cycle_id', cycleId) .lt('created_at', week_next_start_date.toISOString()) .order('created_at', { ascending..."
+
+[Unscoped] File: src\lib\weeklyReportOrchestrator.ts:25
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .select('*') .eq('cycle_id', cycle_id) .eq('week_number', week_number) .maybeSingle();  if (fetchErr) { console.error(`[Week..."
+
+[Unscoped] File: src\lib\weeklyReportOrchestrator.ts:174
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .select('*') .eq('id', summaryId) .single();  if (!summary) { console.error(`[WeeklyReportOrchestrator] Summary ${summaryId}..."
+
+[Unscoped] File: src\lib\weeklyReportOrchestrator.ts:193
+  Table: "entries"
+  Snippet: ".from('entries')"
+  Context: ".from('entries') .select('*') .eq('cycle_id', cycleId) .eq('cycle_day', cycleDay) .order('created_at', { ascending: false }) .limit(1) .maybeSingle();..."
+
+[Unscoped] File: src\lib\weeklyReportOrchestrator.ts:209
+  Table: "reflections"
+  Snippet: ".from('reflections')"
+  Context: ".from('reflections') .select('*') .eq('entry_id', entry.id) .maybeSingle();  // 2. Perform Final Audit (Step 6) const isScoringComplete = entry.scorin..."
+
+[Unscoped] File: src\lib\weeklyReportOrchestrator.ts:222
+  Table: "cycles"
+  Snippet: ".from('cycles')"
+  Context: ".from('cycles') .select('*') .eq('id', cycleId) .single(); const isCycleMetadataFinalized = cycle && ( cycle.status?.toLowerCase() === 'archived' || c..."
+
+[Unscoped] File: src\lib\weeklyReportOrchestrator.ts:252
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .update({ status: 'pending', report_data: summary.report_data }) .eq('id', summaryId);  // 4. Generate weekly report try { c..."
+
+[Unscoped] File: src\lib\weeklyReportOrchestrator.ts:282
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .update({ status: 'failed', report_data: summary.report_data }) .eq('id', summaryId);  // Trigger exponential backoff retry ..."
+
+[Unscoped] File: src\lib\weeklyReportOrchestrator.ts:303
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .select('*') .eq('id', summaryId) .single();  if (summary) { const reportData = summary.report_data || {}; if (reportData.or..."
+
+[Unscoped] File: src\lib\weeklyReportOrchestrator.ts:314
+  Table: "weekly_summaries"
+  Snippet: ".from('weekly_summaries')"
+  Context: ".from('weekly_summaries') .update({ status: 'pending', report_data: reportData }) .eq('id', summaryId); }  if (process.env.BYPASS_REDIS === 'true') { ..."
+
+[Unscoped] File: src\providers\otpProvider.ts:96
+  Table: "otp_verifications"
+  Snippet: ".from('otp_verifications')"
+  Context: ".from('otp_verifications') .update({ expires_at: nowStr }) .eq('phone_number', phoneNumber) .is('verified_at', null) .gt('expires_at', nowStr);  const..."
+
+[Unscoped] File: src\providers\otpProvider.ts:109
+  Table: "otp_verifications"
+  Snippet: ".from('otp_verifications')"
+  Context: ".from('otp_verifications') .insert({ phone_number: phoneNumber, otp_hash: hashedCode, salt, attempts_count: 0, resend_count: rateLimitCount, expires_a..."
+
+[Unscoped] File: src\providers\otpProvider.ts:132
+  Table: "otp_verifications"
+  Snippet: ".from('otp_verifications')"
+  Context: ".from('otp_verifications') .delete() .eq('phone_number', phoneNumber) .eq('otp_hash', hashedCode);  return { success: false, message: "We couldn't ver..."
+
+[Unscoped] File: src\providers\otpProvider.ts:160
+  Table: "otp_verifications"
+  Snippet: ".from('otp_verifications')"
+  Context: ".from('otp_verifications') .select('*') .eq('phone_number', phoneNumber) .is('verified_at', null) .order('created_at', { ascending: false });  if (dbE..."
+
+[Unscoped] File: src\providers\otpProvider.ts:189
+  Table: "otp_verifications"
+  Snippet: ".from('otp_verifications')"
+  Context: ".from('otp_verifications') .update({ attempts_count: newAttempts }) .eq('id', latestRecord.id);  if (newAttempts >= 3) { return { success: false, mess..."
+
+[Unscoped] File: src\providers\otpProvider.ts:238
+  Table: "otp_verifications"
+  Snippet: ".from('otp_verifications')"
+  Context: ".from('otp_verifications') .update({ verified_at: nowStr }) .eq('id', otpRecord.id);  return { success: true, message: 'Verified successfully.' }; } c..."
+
+[Unscoped] File: src\services\authService.ts:32
+  Table: "users"
+  Snippet: ".from('users')"
+  Context: ".from('users') .select('*') .eq('phone_number', phone_number) .maybeSingle();  if (findError) { throw new Error(`Failed to query user: ${findError.mes..."
+
+[Unscoped] File: src\services\authService.ts:49
+  Table: "users"
+  Snippet: ".from('users')"
+  Context: ".from('users') .insert(insertPayload) .select() .single();  if (createError) { throw new Error(`Failed to create user: ${createError.message}`); }  us..."
+
+
+Total unscoped/suspicious queries: 138

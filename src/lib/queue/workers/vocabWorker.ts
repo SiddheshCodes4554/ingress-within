@@ -456,6 +456,52 @@ export async function processVocabularyExtraction(jobData: {
     // 7. Mark document as processed
     if (entry_id) {
       await supabase.from('entries').update({ vocab_processed: true }).eq('id', entry_id);
+      
+      if (entry && (entry.cycle_day === 7 || entry.cycle_day === 14 || entry.cycle_day === 21)) {
+        const weekNum = entry.cycle_day / 7;
+        try {
+          // Sync cycle current_day and updated_at
+          const { data: cycle } = await supabase
+            .from('cycles')
+            .select('*')
+            .eq('id', entry.cycle_id)
+            .single();
+          if (cycle) {
+            const targetDay = Math.min(cycle.total_days, Math.max(cycle.current_day || 1, entry.cycle_day || 1));
+            await supabase
+              .from('cycles')
+              .update({
+                current_day: targetDay,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', entry.cycle_id);
+          }
+
+          // Emit VOCABULARY_COMPLETED and CYCLE_METADATA_UPDATED events
+          const { weeklyReportOrchestrator } = await import('../../weeklyReportOrchestrator');
+          await weeklyReportOrchestrator.emitEvent({
+            user_id,
+            entry_id,
+            cycle_id: entry.cycle_id,
+            week_number: weekNum,
+            job_name: 'VOCABULARY_COMPLETED',
+            completed_at: new Date().toISOString(),
+            status: 'success'
+          });
+
+          await weeklyReportOrchestrator.emitEvent({
+            user_id,
+            entry_id,
+            cycle_id: entry.cycle_id,
+            week_number: weekNum,
+            job_name: 'CYCLE_METADATA_UPDATED',
+            completed_at: new Date().toISOString(),
+            status: 'success'
+          });
+        } catch (eventErr: any) {
+          console.error(`[Vocab Worker] Error during cycle metadata sync or event emission:`, eventErr.message);
+        }
+      }
     } else if (thread_response_id) {
       await supabase.from('thread_responses').update({ vocab_processed: true }).eq('id', thread_response_id);
     }

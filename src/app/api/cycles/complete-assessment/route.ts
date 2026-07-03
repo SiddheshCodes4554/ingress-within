@@ -64,7 +64,8 @@ export async function POST(request: NextRequest) {
     const { count: entriesCount } = await supabase
       .from('entries')
       .select('id', { count: 'exact', head: true })
-      .eq('cycle_id', cycle.id);
+      .eq('cycle_id', cycle.id)
+      .eq('user_id', userId);
 
     // 3. Create transition assessment report
     const { error: assessmentErr } = await supabase
@@ -99,7 +100,8 @@ export async function POST(request: NextRequest) {
         assessment_completed: true,
         updated_at: new Date().toISOString()
       })
-      .eq('id', cycle.id);
+      .eq('id', cycle.id)
+      .eq('user_id', userId);
 
     if (updateCycleErr) {
       console.error('[API Cycles Transition] Error updating completed cycle:', updateCycleErr);

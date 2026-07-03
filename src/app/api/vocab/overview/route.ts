@@ -350,6 +350,7 @@ export async function GET(request: NextRequest) {
                 .from('entries')
                 .select('id, content, created_at')
                 .in('id', entryIds)
+                .eq('user_id', userId)
                 .order('created_at', { ascending: false });
               relatedEntries = (entries || []).map(e => ({
                 id: e.id,

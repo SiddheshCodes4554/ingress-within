@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
       .from('reflections')
       .update(updateData)
       .eq('id', reflectionId)
+      .eq('user_id', authUser.userId)
       .select()
       .single();
 
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
         .from('threads')
         .select('id')
         .eq('reflection_id', reflectionId)
+        .eq('user_id', authUser.userId)
         .maybeSingle();
 
       if (thread) {
@@ -122,7 +124,8 @@ export async function POST(request: NextRequest) {
             answered_at: new Date().toISOString(),
             draft_response: null
           })
-          .eq('id', thread.id);
+          .eq('id', thread.id)
+          .eq('user_id', authUser.userId);
           
         if (threadUpdateErr) {
           console.warn('Failed to update corresponding thread to Answered:', threadUpdateErr);
@@ -134,7 +137,8 @@ export async function POST(request: NextRequest) {
         .update({
           draft_response: answer ? answer.trim() : ''
         })
-        .eq('reflection_id', reflectionId);
+        .eq('reflection_id', reflectionId)
+        .eq('user_id', authUser.userId);
         
       if (threadUpdateErr) {
         console.warn('Failed to update corresponding thread draft:', threadUpdateErr);

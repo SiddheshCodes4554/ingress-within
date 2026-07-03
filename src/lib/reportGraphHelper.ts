@@ -12,26 +12,48 @@ export async function overlayWeeklyReportGraphData(report: any, userId: string) 
     const dayStart = report.day_start || 1;
     const dayEnd = report.day_end || 7;
 
-    // 1. Fetch entries written during this week range with their scores
+    // 1. Fetch cycle details to get start date
+    const { data: cycle, error: cycleErr } = await supabase
+      .from('cycles')
+      .select('*')
+      .eq('id', cycleId)
+      .eq('user_id', userId)
+      .single();
+
+    if (cycleErr || !cycle) {
+      console.error(`[Overlay Graph Data] Failed to fetch cycle details: ${cycleErr?.message}`);
+      return report;
+    }
+
+    const startPart = (cycle.start_date || cycle.started_at || cycle.created_at).split('T')[0];
+    const [year, month, day] = startPart.split('-').map(Number);
+    const cycleStartDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+
+    const weekNumber = report.week_number || 1;
+    const week_start_date = new Date(cycleStartDate.getTime() + (weekNumber - 1) * 7 * 24 * 60 * 60 * 1000);
+    const week_next_start_date = new Date(cycleStartDate.getTime() + weekNumber * 7 * 24 * 60 * 60 * 1000);
+
+    // 2. Fetch entries written during this calendar week range with their scores
     const { data: dbEntries, error: entriesError } = await supabase
       .from('entries')
-      .select('cycle_day, day_ei, day_pr, day_sa, created_at')
+      .select('day_ei, day_pr, day_sa, created_at')
       .eq('cycle_id', cycleId)
       .eq('user_id', userId)
-      .gte('cycle_day', dayStart)
-      .lte('cycle_day', dayEnd);
+      .gte('created_at', week_start_date.toISOString())
+      .lt('created_at', week_next_start_date.toISOString());
 
     if (entriesError) {
       console.error(`[Overlay Graph Data] Error fetching entries: ${entriesError.message}`);
       return report;
     }
 
-    // 2. Group by cycle_day and select final entry (latest created_at)
-    const dailyMap = new Map<number, any>();
+    // 3. Group by date and select final entry (latest created_at)
+    const dailyMap = new Map<string, any>();
     (dbEntries || []).forEach((entry: any) => {
-      const existing = dailyMap.get(entry.cycle_day);
+      const entryDateStr = new Date(entry.created_at).toISOString().split('T')[0];
+      const existing = dailyMap.get(entryDateStr);
       if (!existing || new Date(entry.created_at) >= new Date(existing.created_at)) {
-        dailyMap.set(entry.cycle_day, entry);
+        dailyMap.set(entryDateStr, entry);
       }
     });
 
@@ -41,8 +63,9 @@ export async function overlayWeeklyReportGraphData(report: any, userId: string) 
     const sas: (number | null)[] = [];
 
     for (let i = 0; i < 7; i++) {
-      const targetDay = dayStart + i;
-      const entry = dailyMap.get(targetDay);
+      const targetDate = new Date(week_start_date.getTime() + i * 24 * 60 * 60 * 1000);
+      const targetDateStr = targetDate.toISOString().split('T')[0];
+      const entry = dailyMap.get(targetDateStr);
 
       if (entry && entry.day_ei !== null && entry.day_pr !== null && entry.day_sa !== null) {
         const ei = Number(entry.day_ei);

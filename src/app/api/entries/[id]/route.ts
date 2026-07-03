@@ -52,6 +52,7 @@ export async function GET(
       .from('reflections')
       .select('*')
       .eq('entry_id', entryId)
+      .eq('user_id', authUser.userId)
       .maybeSingle();
 
     if (reflectionError) {
@@ -75,6 +76,7 @@ export async function GET(
         .from('reflections')
         .select('*')
         .eq('entry_id', previousEntry.id)
+        .eq('user_id', authUser.userId)
         .maybeSingle();
       if (!prevRefError) {
         previousReflection = prevRef;

@@ -362,6 +362,23 @@ export async function processReflectionGeneration(jobData: { entry_id: string; u
 
     console.log(`[Reflection Engine] [7/8] [Entry: ${entry_id}] Saved reflection observation to Supabase reflections table.`);
 
+    if (entry.cycle_day === 7 || entry.cycle_day === 14 || entry.cycle_day === 21) {
+      try {
+        const { weeklyReportOrchestrator } = await import('../../weeklyReportOrchestrator');
+        await weeklyReportOrchestrator.emitEvent({
+          user_id,
+          entry_id,
+          cycle_id: entry.cycle_id,
+          week_number: entry.cycle_day / 7,
+          job_name: 'REFLECTION_COMPLETED',
+          completed_at: new Date().toISOString(),
+          status: 'success'
+        });
+      } catch (eventErr: any) {
+        console.error(`[Reflection Engine] Error emitting REFLECTION_COMPLETED event:`, eventErr.message);
+      }
+    }
+
     // 8. Handle reflection thread creation
     if (reflectionId && reflectionPayload.closing_question) {
       const { data: existingThread } = await supabase
@@ -390,6 +407,23 @@ export async function processReflectionGeneration(jobData: { entry_id: string; u
           .from('threads')
           .update({ closing_question: reflectionPayload.closing_question })
           .eq('id', existingThread.id);
+      }
+    }
+
+    if (entry.cycle_day === 7 || entry.cycle_day === 14 || entry.cycle_day === 21) {
+      try {
+        const { weeklyReportOrchestrator } = await import('../../weeklyReportOrchestrator');
+        await weeklyReportOrchestrator.emitEvent({
+          user_id,
+          entry_id,
+          cycle_id: entry.cycle_id,
+          week_number: entry.cycle_day / 7,
+          job_name: 'THREADS_COMPLETED',
+          completed_at: new Date().toISOString(),
+          status: 'success'
+        });
+      } catch (eventErr: any) {
+        console.error(`[Reflection Engine] Error emitting THREADS_COMPLETED event:`, eventErr.message);
       }
     }
 

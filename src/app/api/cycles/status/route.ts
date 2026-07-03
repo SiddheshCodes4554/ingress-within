@@ -138,6 +138,7 @@ export async function GET(request: NextRequest) {
           current_day: cycle.total_days // Cap at total days when completed
         })
         .eq('id', cycle.id)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -153,6 +154,7 @@ export async function GET(request: NextRequest) {
         .from('cycles')
         .update({ current_day: Math.min(cycle.total_days, currentDay) })
         .eq('id', cycle.id)
+        .eq('user_id', userId)
         .select()
         .single();
       if (syncRes) {
@@ -164,7 +166,8 @@ export async function GET(request: NextRequest) {
     const { data: cycleEntries, error: entriesErr } = await supabase
       .from('entries')
       .select('id, created_at, cycle_day')
-      .eq('cycle_id', updatedCycle.id);
+      .eq('cycle_id', updatedCycle.id)
+      .eq('user_id', userId);
 
     if (entriesErr) {
       console.error('[API Cycles Status] Error fetching cycle entries:', entriesErr);
@@ -194,7 +197,8 @@ export async function GET(request: NextRequest) {
         entries_count: entriesCount,
         days_completed: daysCompleted
       })
-      .eq('id', updatedCycle.id);
+      .eq('id', updatedCycle.id)
+      .eq('user_id', userId);
 
     // Compute progress details
     const activeDay = Math.min(updatedCycle.total_days, currentDay);

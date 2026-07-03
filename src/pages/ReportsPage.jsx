@@ -885,7 +885,16 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                             );
                           }
 
-                          if (report.status === 'pending') {
+                          if (report.status !== 'ready' && report.status !== 'failed') {
+                            let statusText = "Generating report in background...";
+                            if (report.status === 'grace_period') {
+                              statusText = "Almost ready...";
+                            } else if (report.status === 'generating_report') {
+                              statusText = "Finalizing your report...";
+                            } else if (report.status.startsWith('waiting_for_')) {
+                              statusText = "Your weekly insights are being compiled...";
+                            }
+
                             return (
                               <div key={report.id} className="p-3.5 flex items-center justify-between bg-white text-mid border-b border-[#1E2A2E]/5 last:border-b-0">
                                 <div className="flex items-center gap-3">
@@ -893,7 +902,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                                   <div>
                                     <div className="text-[13px] font-semibold text-primary">Week {weekNum} summary</div>
                                     <div className="text-[11px] text-[#4A6A64]">
-                                      Generating report in background... {formattedDate && `(${formattedDate})`}
+                                      {statusText} {formattedDate && `(${formattedDate})`}
                                     </div>
                                   </div>
                                 </div>

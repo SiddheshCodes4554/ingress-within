@@ -41,7 +41,7 @@ export class GroqProvider implements AIProvider {
           sentiment: "anxious",
           stressIndicators: ["work load", "avoidance"]
         };
-      } else if (systemPrompt.includes('clinical observation engine') || systemPrompt.includes('professional therapist observes')) {
+      } else if (systemPrompt.includes('clinical emotional observation engine') || systemPrompt.includes('clinical observation engine') || systemPrompt.includes('professional therapist observes')) {
         mockRes = {
           classification: "Open",
           reflection: "You tend to keep things fair, clapped in the meeting, and did what was reasonable even when you were exhausted. You are performing to expectations even in this journal where nobody else is looking.",
@@ -52,7 +52,7 @@ export class GroqProvider implements AIProvider {
           vocabulary: ["fair", "exhausted", "reasonable"],
           processing_notes: "Simulated clinical observation matching Prompt System v1.0 Open pattern rules."
         };
-      } else if (systemPrompt.includes('synthesizing')) {
+      } else if (systemPrompt.includes('clinical emotional insights engine') && systemPrompt.includes('Synthesize')) {
         mockRes = {
           title: "Composure vs. Suppression",
           body: "This week showed a pattern of high emotional intensity coupled with avoidance of direct communication.",
@@ -178,8 +178,12 @@ export class GroqProvider implements AIProvider {
             }
           ]
         };
-      } else if (systemPrompt.includes('specializing in semantic grouping and psychological concept discovery')) {
+      } else if (systemPrompt.includes('psychological concept discovery') || systemPrompt.includes('semantic grouping') || systemPrompt.includes('identify high-level emotional concepts')) {
         mockRes = {
+          concepts: [
+            { concept: "Responsibility", confidence: 0.95 },
+            { concept: "Pressure", confidence: 0.9 }
+          ],
           clusters: [
             {
               cluster_name: "Achievement Pressure",
@@ -196,7 +200,7 @@ export class GroqProvider implements AIProvider {
           ]
         };
       } else if (systemPrompt.includes('psychological and emotional analysis assistant') || systemPrompt.includes('psychological, emotional, and semantic analysis assistant')) {
-      } else if (systemPrompt.includes('psychologist reviewing the client') || systemPrompt.includes('thoughtful psychologist reviewing')) {
+      } else if (systemPrompt.includes('psychologist reviewing the client') || systemPrompt.includes('thoughtful psychologist reviewing') || systemPrompt.includes('clinical psychologist synthesizing a weekly report')) {
         mockRes = {
           title: "Composure vs. Suppression",
           why: "Underlying avoidance of direct emotional expression in favor of maintaining external expectations.",
@@ -290,6 +294,9 @@ export class GroqProvider implements AIProvider {
         });
 
         if (response.status === 429) {
+          if (attempt === attempts) {
+            throw new Error(`Groq API returned HTTP error 429 (Rate Limit Exceeded) after all attempts.`);
+          }
           console.warn(`[GroqProvider] Rate limit hit (429). Attempt ${attempt} of ${attempts}. Waiting ${delayMs}ms...`);
           await new Promise(resolve => setTimeout(resolve, delayMs));
           delayMs *= 2.0; // Exponential backoff
@@ -468,9 +475,15 @@ Schema:
     "summary": "1-2 sentences thread progress summary"
   },
   "crisis_review": {
-    "occurred": false,
-    "summary": "Factual 1-sentence summary or 'No crisis indicators were detected this week.'",
-    "events": []
+    "occurred": "boolean (true if any crisis events occurred this week in data.crisisEvents or if any entry has crisis_flag = true, false otherwise)",
+    "summary": "Factual 1-sentence summary of the crisis events or 'No crisis indicators were detected this week.'",
+    "events": [
+      {
+        "date": "YYYY-MM-DD",
+        "type": "crisis type",
+        "details": "1-sentence description of the crisis language/trigger"
+      }
+    ]
   },
   "growth_reflection": "1 thoughtful psychologist observation (no advice or motivation)",
   "reflection_question": "1 thoughtful closing question for next week (becomes new Open Thread)"
