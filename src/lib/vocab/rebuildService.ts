@@ -1,5 +1,6 @@
 import { supabase } from '../db';
 import { processVocabularyExtraction } from '../queue/workers/vocabWorker';
+import { VocabularyIntelligenceService } from './vocabIntelligenceService';
 
 export async function rebuildUserVocabulary(user_id: string): Promise<{
   success: boolean;
@@ -23,6 +24,7 @@ export async function rebuildUserVocabulary(user_id: string): Promise<{
     await supabase.from('vocab_words').delete().eq('user_id', user_id);
     await supabase.from('vocab_clusters').delete().eq('user_id', user_id);
     await supabase.from('vocab_concepts').delete().eq('user_id', user_id);
+    await supabase.from('vocab_snapshots').delete().eq('user_id', user_id);
 
     // 3. Reset processed flags
     console.log(`[Vocab Rebuild] Resetting processed flags...`);
@@ -69,7 +71,12 @@ export async function rebuildUserVocabulary(user_id: string): Promise<{
       await processVocabularyExtraction({ thread_response_id: respId, user_id });
     }
 
-    // 8. Count results
+    // 8. Trigger calculation of final snapshots for completed cycles and overview for active cycle
+    console.log(`[Vocab Rebuild] Precomputing snapshots and caching clusters via Intelligence Layer...`);
+    await VocabularyIntelligenceService.getVocabularyByCycle(user_id);
+    await VocabularyIntelligenceService.getVocabularyOverview(user_id);
+
+    // 9. Count results
     const { count: wordsCount } = await supabase
       .from('vocab_words')
       .select('id', { count: 'exact', head: true })
@@ -93,7 +100,7 @@ export async function rebuildUserVocabulary(user_id: string): Promise<{
     console.error(`[Vocab Rebuild] Error during vocabulary rebuild:`, err);
     throw err;
   } finally {
-    // 9. Reset rebuild flag
+    // 10. Reset rebuild flag
     await supabase
       .from('profiles')
       .update({ vocab_rebuild_in_progress: false })

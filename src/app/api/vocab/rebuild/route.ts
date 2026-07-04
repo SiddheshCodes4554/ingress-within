@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '../../../../lib/auth-helper';
-import { VocabularyIntelligenceService } from '../../../../lib/vocab/vocabIntelligenceService';
+import { rebuildUserVocabulary } from '../../../../lib/vocab/rebuildService';
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const authUser = await getAuthenticatedUser(request);
     if (!authUser) {
@@ -13,16 +13,15 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = authUser.userId;
-
-    const cycles = await VocabularyIntelligenceService.getVocabularyByCycle(userId);
+    const result = await rebuildUserVocabulary(userId);
 
     return NextResponse.json({
       success: true,
-      cycles
+      rebuild: result
     });
 
   } catch (error: any) {
-    console.error('Vocab By-Cycle GET Route Error:', error);
+    console.error('[API Vocab Rebuild POST] Error:', error);
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: error.message || 'An unexpected server error occurred.' } },
       { status: 500 }
