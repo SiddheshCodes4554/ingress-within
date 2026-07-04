@@ -1144,61 +1144,6 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                           Carry Question: {selectedReport.open_question || data.reflection_question}
                         </div>
                       </div>
-
-                      {/* DEVELOPMENT AUDIT MODE ACCORDION */}
-                      {(() => {
-                        const isDev = (typeof window !== 'undefined' && (
-                          window.location.hostname === 'localhost' || 
-                          window.location.hostname === '127.0.0.1' || 
-                          window.location.search.includes('audit=true')
-                        ));
-                        if (!isDev) return null;
-                        
-                        const audit = selectedReport.report_data?.audit || {};
-                        return (
-                          <details className="mt-6 p-4 bg-gray-50 border border-dashed border-gray-300 rounded-lg text-xs font-mono text-gray-700 cursor-pointer">
-                            <summary className="font-bold text-gray-900 list-none flex items-center justify-between outline-none select-none">
-                              <span>🛠️ COLLAPSIBLE DEVELOPER AUDIT DETAILS</span>
-                              <span className="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-sans uppercase">Audit Mode</span>
-                            </summary>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-3 cursor-default" onClick={(e) => e.stopPropagation()}>
-                              <div><strong>Week Start:</strong> {audit.week_start || 'N/A'}</div>
-                              <div><strong>Week End:</strong> {audit.week_end || 'N/A'}</div>
-                              
-                              <div className="col-span-2">
-                                <strong>Journal IDs Used ({audit.journal_ids_included?.length || 0}):</strong>
-                                <div className="bg-white p-1.5 border border-gray-200 rounded mt-0.5 max-h-[80px] overflow-y-auto break-all font-mono text-[10px]">
-                                  {audit.journal_ids_included?.join(', ') || 'None'}
-                                </div>
-                              </div>
-                              
-                              <div className="col-span-2">
-                                <strong>Journal Dates Used:</strong> {audit.journal_dates_included?.join(', ') || 'None'}
-                              </div>
-
-                              <div className="col-span-2">
-                                <strong>Crisis Entry IDs:</strong>
-                                <div className="bg-white p-1.5 border border-gray-200 rounded mt-0.5 max-h-[60px] overflow-y-auto break-all font-mono text-[10px]">
-                                  {audit.supporting_crisis_events?.map(c => `ID: ${c.id} (Entry: ${c.entry_id})`).join(', ') || 'None'}
-                                </div>
-                              </div>
-
-                              <div className="col-span-2">
-                                <strong>Vocabulary Entry IDs ({audit.vocab_sources?.length || 0}):</strong>
-                                <div className="bg-white p-1.5 border border-gray-200 rounded mt-0.5 max-h-[80px] overflow-y-auto break-all font-mono text-[10px]">
-                                  {audit.vocab_sources?.map(v => `${v.entry_id}`).join(', ') || 'None'}
-                                </div>
-                              </div>
-
-                              <div><strong>Reflection IDs:</strong> {audit.reflection_ids?.join(', ') || 'None'}</div>
-                              <div><strong>Score IDs:</strong> {audit.score_sources?.map(s => s.entry_id).join(', ') || 'None'}</div>
-                              
-                              <div><strong>Prompt Version:</strong> {selectedReport.prompt_version || '1.0'}</div>
-                              <div><strong>Engine Version:</strong> {selectedReport.engine_version || '2.0'}</div>
-                            </div>
-                          </details>
-                        );
-                      })()}
                     </div>
 
                     <div className="foot">

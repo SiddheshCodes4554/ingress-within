@@ -50,6 +50,11 @@ export default function FounderTestPage() {
   const [threadsError, setThreadsError] = useState(null);
   const [testThreadResponses, setTestThreadResponses] = useState({});
 
+  // Weekly Reports Audit Tab States
+  const [weeklyReports, setWeeklyReports] = useState([]);
+  const [isReportsLoading, setIsReportsLoading] = useState(false);
+  const [reportsError, setReportsError] = useState(null);
+
   const toggleCycleExpand = (cycleNum) => {
     setExpandedCycles(prev => ({
       ...prev,
@@ -108,11 +113,30 @@ export default function FounderTestPage() {
     }
   };
 
+  const fetchWeeklyReports = async () => {
+    setIsReportsLoading(true);
+    setReportsError(null);
+    try {
+      const res = await fetch('/api/reports/weekly');
+      if (!res.ok) throw new Error('Failed to fetch weekly reports.');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message || 'Failed to fetch weekly reports.');
+      setWeeklyReports(data.reports || []);
+    } catch (err) {
+      console.error(err);
+      setReportsError(err.message);
+    } finally {
+      setIsReportsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'history') {
       fetchHistoryEntries();
     } else if (activeTab === 'threads') {
       fetchTestThreadsAndResponses();
+    } else if (activeTab === 'reports') {
+      fetchWeeklyReports();
     }
   }, [activeTab]);
 
@@ -310,6 +334,16 @@ export default function FounderTestPage() {
             }`}
           >
             Reflection Threads
+          </button>
+          <button
+            onClick={() => setActiveTab('reports')}
+            className={`px-6 py-2.5 font-sans text-xs font-bold uppercase tracking-wider border-b-2 cursor-pointer transition-all ${
+              activeTab === 'reports'
+                ? 'border-secondary text-primary font-semibold'
+                : 'border-transparent text-mid hover:text-primary'
+            }`}
+          >
+            Weekly Reports Audit
           </button>
         </div>
 
@@ -1168,6 +1202,122 @@ export default function FounderTestPage() {
           </motion.div>
         )}
 
+        {activeTab === 'reports' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-6"
+          >
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="font-serif text-lg text-primary">Weekly Reports & Source Evidence Audit</h3>
+                <p className="text-xs text-mid">Inspect weekly report data inputs, verification status, and tracing identifiers.</p>
+              </div>
+              <button
+                onClick={fetchWeeklyReports}
+                disabled={isReportsLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-primary text-[#ECEFF0] hover:bg-primary/90 rounded-lg cursor-pointer transition-colors border-none disabled:opacity-50 select-none"
+              >
+                <RotateCw size={12} className={isReportsLoading ? 'animate-spin' : ''} />
+                Refresh Reports
+              </button>
+            </div>
+
+            {isReportsLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader className="animate-spin text-accent" size={24} />
+              </div>
+            ) : reportsError ? (
+              <div className="p-4 bg-accent/10 border border-accent/20 rounded-xl text-[#8a3020] text-xs">
+                Failed to load reports: {reportsError}
+              </div>
+            ) : weeklyReports.length === 0 ? (
+              <p className="text-xs text-mid italic text-center py-12 border border-dashed border-primary/10 rounded-xl">
+                No weekly reports generated yet for this user.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {weeklyReports.map((report) => {
+                  const audit = report.report_data?.audit || {};
+                  return (
+                    <div key={report.id} className="p-5 bg-white border border-primary/10 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-start border-b border-primary/5 pb-3 mb-4">
+                        <div>
+                          <h4 className="font-serif text-md text-primary font-semibold">
+                            {report.title || 'Untitled Report'}
+                          </h4>
+                          <p className="text-xs text-mid">
+                            Week {report.week_number} ({audit.week_start || 'N/A'} – {audit.week_end || 'N/A'})
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider font-sans ${
+                            report.status === 'READY'
+                              ? 'bg-[#8DBFB4]/12 text-secondary-dark'
+                              : report.status === 'FAILED'
+                              ? 'bg-accent/12 text-[#8a3020]'
+                              : 'bg-primary/5 text-mid'
+                          }`}>
+                            {report.status}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono text-gray-700">
+                        <div>
+                          <strong>Week Start:</strong> {audit.week_start || 'N/A'}
+                        </div>
+                        <div>
+                          <strong>Week End:</strong> {audit.week_end || 'N/A'}
+                        </div>
+                        
+                        <div className="col-span-1 md:col-span-2">
+                          <strong>Journal IDs Used ({audit.journal_ids_included?.length || 0}):</strong>
+                          <div className="bg-[#ECEFF0]/30 p-2 border border-primary/5 rounded mt-1 max-h-[80px] overflow-y-auto break-all text-[10px]">
+                            {audit.journal_ids_included?.join(', ') || 'None'}
+                          </div>
+                        </div>
+
+                        <div className="col-span-1 md:col-span-2">
+                          <strong>Journal Dates Used:</strong> {audit.journal_dates_included?.join(', ') || 'None'}
+                        </div>
+
+                        <div className="col-span-1 md:col-span-2">
+                          <strong>Crisis Entry IDs:</strong>
+                          <div className="bg-[#ECEFF0]/30 p-2 border border-primary/5 rounded mt-1 max-h-[60px] overflow-y-auto break-all text-[10px]">
+                            {audit.supporting_crisis_events?.map(c => `ID: ${c.id} (Entry: ${c.entry_id})`).join(', ') || 'None'}
+                          </div>
+                        </div>
+
+                        <div className="col-span-1 md:col-span-2">
+                          <strong>Vocabulary Entry IDs ({audit.vocab_sources?.length || 0}):</strong>
+                          <div className="bg-[#ECEFF0]/30 p-2 border border-primary/5 rounded mt-1 max-h-[80px] overflow-y-auto break-all text-[10px]">
+                            {audit.vocab_sources?.map(v => `${v.entry_id}`).join(', ') || 'None'}
+                          </div>
+                        </div>
+
+                        <div>
+                          <strong>Reflection IDs:</strong> {audit.reflection_ids?.join(', ') || 'None'}
+                        </div>
+                        <div>
+                          <strong>Score IDs:</strong> {audit.score_sources?.map(s => s.entry_id).join(', ') || 'None'}
+                        </div>
+
+                        <div>
+                          <strong>Prompt Version:</strong> {report.prompt_version || '1.0'}
+                        </div>
+                        <div>
+                          <strong>Engine Version:</strong> {report.engine_version || '2.0'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
+        )}
       </main>
     </div>
   );
