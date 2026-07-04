@@ -27,6 +27,10 @@ export async function processCrisisDetection(jobData: {
 
   if (!entryText || entryText.trim() === '') {
     console.log(`[Crisis Detection Worker] Entry ${entry_id} has empty text. Skipping crisis check.`);
+    await supabase
+      .from('entries')
+      .update({ crisis_checked: true })
+      .eq('id', entry_id);
     return;
   }
 

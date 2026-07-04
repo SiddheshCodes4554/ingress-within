@@ -72,7 +72,7 @@ async function runTests() {
   } else {
     testCycleId = cycles[0].id;
   }
-  const cycleNum = cycles && cycles.length > 0 ? (cycles[0].cycle_number || cycles[0].number || 1) : 1;
+  const cycleNum = cycles && cycles.length > 0 ? (cycles[0].cycle_number || 1) : 1;
 
   console.log(`User ID:  ${testUserId}`);
   console.log(`Cycle ID: ${testCycleId}\n`);
@@ -148,7 +148,7 @@ async function runTests() {
     'VOCABULARY_COMPLETED',
     'THREADS_COMPLETED',
     'CYCLE_METADATA_UPDATED'
-  ];
+  ] as const;
 
   for (const ev of requiredEvents) {
     await weeklyReportOrchestrator.emitEvent({

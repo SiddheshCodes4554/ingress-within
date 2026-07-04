@@ -38,9 +38,10 @@ class WeeklyReportOrchestrator {
       return;
     }
 
-    // READY is a terminal state. Abort any processing if already generated successfully.
-    if (summary.status === 'READY') {
-      console.log(`[WeeklyReportOrchestrator] Report already in terminal READY status. Bypassing event.`);
+    // READY, GENERATING, and FAILED are terminal/active states. Abort any processing to prevent race conditions.
+    const currentStatus = summary.status?.toUpperCase();
+    if (currentStatus === 'READY' || currentStatus === 'GENERATING' || currentStatus === 'FAILED') {
+      console.log(`[WeeklyReportOrchestrator] Report is in terminal/active status: ${summary.status}. Bypassing event.`);
       return;
     }
 
@@ -238,13 +239,40 @@ class WeeklyReportOrchestrator {
     const validationPassed = isScoringComplete && isReflectionComplete && isCrisisComplete && isVocabComplete && isCycleMetadataFinalized;
 
     if (!validationPassed) {
-      console.warn(`[WeeklyReportOrchestrator] Final validation failed for summary ${summaryId}. Rescheduling validation...`, {
+      console.warn(`[WeeklyReportOrchestrator] Final validation failed for summary ${summaryId}. Triggering missing pipeline jobs and rescheduling...`, {
         isScoringComplete,
         isReflectionComplete,
         isCrisisComplete,
         isVocabComplete,
         isCycleMetadataFinalized
       });
+
+      try {
+        if (!isScoringComplete) {
+          console.log(`[WeeklyReportOrchestrator] Triggering missing scoring for entry ${entry.id}`);
+          await queueRegistry.addJob('entry_scoring', `score_${entry.id}`, {
+            entry_id: entry.id,
+            user_id: userId
+          });
+        }
+        if (!isCrisisComplete) {
+          console.log(`[WeeklyReportOrchestrator] Triggering missing crisis check for entry ${entry.id}`);
+          await queueRegistry.addJob('crisis_detection', `crisis_${entry.id}`, {
+            entry_id: entry.id,
+            user_id: userId
+          });
+        }
+        if (!isVocabComplete) {
+          console.log(`[WeeklyReportOrchestrator] Triggering missing vocab check for entry ${entry.id}`);
+          await queueRegistry.addJob('vocab_processing', `vocab_${entry.id}`, {
+            entry_id: entry.id,
+            user_id: userId
+          });
+        }
+      } catch (err: any) {
+        console.error(`[WeeklyReportOrchestrator] Failed to enqueue self-healing jobs:`, err.message);
+      }
+
       await this.rescheduleValidation(summaryId, userId, cycleId, weekNumber);
       return;
     }

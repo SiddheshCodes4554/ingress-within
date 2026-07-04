@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
         throw new Error(`Failed to fetch users: ${usersErr.message}`);
       }
 
-      const results = [];
+      const results: any[] = [];
       for (const u of users || []) {
         console.log(`[API Reports Backfill] Scanning user ${u.id}`);
         const result = await backfillWeeklyReports(u.id);
