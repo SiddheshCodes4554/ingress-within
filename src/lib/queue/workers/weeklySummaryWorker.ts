@@ -189,7 +189,7 @@ export async function processWeeklySummary(jobData: {
     console.error(`[Weekly Summary Worker] Error collecting weekly data:`, err.message);
     await supabase
       .from('weekly_summaries')
-      .update({ status: 'failed' })
+      .update({ status: 'FAILED' })
       .eq('id', actualSummaryId);
     throw err;
   }
@@ -199,7 +199,7 @@ export async function processWeeklySummary(jobData: {
     await supabase
       .from('weekly_summaries')
       .update({
-        status: 'failed',
+        status: 'FAILED',
         body: 'No entries written this week.',
         open_question: 'Please write a journal entry to start.'
       })
@@ -271,7 +271,7 @@ export async function processWeeklySummary(jobData: {
     console.error(`[Weekly Summary Worker] Error in weekly report generation:`, err);
     await supabase
       .from('weekly_summaries')
-      .update({ status: 'failed' })
+      .update({ status: 'FAILED' })
       .eq('id', actualSummaryId);
     throw err;
   }

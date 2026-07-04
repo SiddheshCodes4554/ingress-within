@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '../../../../lib/auth-helper';
 import { backfillWeeklyReports } from '../../../../lib/weeklyReportBackfill';
+import { supabase } from '../../../../lib/db';
 
 /**
  * POST /api/reports/backfill: Manually triggers the backfill orchestrator to scan and backfill missing reports.
+ * Supports ?all=true query parameter to scan and regenerate for all users.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -15,9 +17,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { searchParams } = new URL(request.url);
+    const allUsers = searchParams.get('all') === 'true';
+
+    if (allUsers) {
+      console.log(`[API Reports Backfill] Triggered backfill for all users`);
+      const { data: users, error: usersErr } = await supabase
+        .from('users')
+        .select('id');
+
+      if (usersErr) {
+        throw new Error(`Failed to fetch users: ${usersErr.message}`);
+      }
+
+      const results = [];
+      for (const u of users || []) {
+        console.log(`[API Reports Backfill] Scanning user ${u.id}`);
+        const result = await backfillWeeklyReports(u.id);
+        results.push({ userId: u.id, ...result });
+      }
+
+      return NextResponse.json({
+        success: true,
+        backfill: results
+      });
+    }
+
     const userId = authUser.userId;
 
-    // Run the backfill audit programmatically
+    // Run the backfill audit programmatically for a single user
     const backfillResult = await backfillWeeklyReports(userId);
 
     return NextResponse.json({

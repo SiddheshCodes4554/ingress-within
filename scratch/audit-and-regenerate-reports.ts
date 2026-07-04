@@ -81,7 +81,7 @@ async function run() {
     let mismatchReason = '';
 
     const reportData = summary.report_data;
-    if (summary.status === 'failed' || !reportData || typeof reportData !== 'object') {
+    if (summary.status?.toUpperCase() === 'FAILED' || !reportData || typeof reportData !== 'object') {
       isIncorrect = true;
       mismatchReason = `Status is "${summary.status}" or report_data is missing.`;
     } else {
@@ -127,7 +127,7 @@ async function run() {
       const { error: resetErr } = await supabase
         .from('weekly_summaries')
         .update({
-          status: 'pending',
+          status: 'PENDING',
           title: null,
           why: null,
           body: null,

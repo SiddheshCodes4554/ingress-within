@@ -21,13 +21,33 @@ try {
   console.error('Could not read .env file:', e.message);
 }
 
-const userId = 'f36d91ed-d484-4ecb-9078-1dfba35ff7c7';
-
 async function runBackfill() {
+  const { supabase } = await import('../src/lib/db');
   const { backfillWeeklyReports } = await import('../src/lib/weeklyReportBackfill');
-  console.log('Running backfill for user...');
-  const result = await backfillWeeklyReports(userId);
-  console.log('Backfill results:', result);
+
+  console.log('Fetching all users in the system...');
+  const { data: users, error: usersErr } = await supabase.from('users').select('id, name');
+  if (usersErr || !users) {
+    console.error('Failed to fetch users:', usersErr?.message);
+    return;
+  }
+
+  console.log(`Found ${users.length} users in the database. Starting weekly summaries backfill audit...\n`);
+
+  for (const user of users) {
+    console.log(`===============================================`);
+    console.log(`Processing User: ${user.name || 'Anonymous'} (${user.id})`);
+    console.log(`===============================================`);
+    try {
+      const result = await backfillWeeklyReports(user.id);
+      console.log(`Result:`, result);
+    } catch (e: any) {
+      console.error(`Failed to backfill user ${user.id}:`, e.message || e);
+    }
+    console.log('\n');
+  }
+
+  console.log('Weekly summary backfill audit completed for all users.');
 }
 
 runBackfill().catch(console.error);
