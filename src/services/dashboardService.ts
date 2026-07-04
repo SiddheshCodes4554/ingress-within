@@ -56,8 +56,29 @@ export class DashboardService {
   private static listeners: Record<string, Set<(data: any) => void>> = {};
   private static latencies: Record<string, number[]> = {};
 
+  private static sessionContext: {
+    userId?: string;
+    cycleId?: string;
+    engineVersion?: string;
+    promptVersion?: string;
+  } = {};
+
+  public static setSessionContext(ctx: Partial<typeof DashboardService.sessionContext>) {
+    this.sessionContext = { ...this.sessionContext, ...ctx };
+  }
+
+  public static invalidateUserCache(userId: string) {
+    Object.keys(this.cache).forEach((k) => {
+      if (k.startsWith(`${userId}_`)) {
+        delete this.cache[k];
+      }
+    });
+  }
+
   private static getCached<T>(key: string): T | null {
-    const cached = this.cache[key];
+    const { userId, cycleId, engineVersion, promptVersion } = this.sessionContext;
+    const scopedKey = `${userId || 'anon'}_${cycleId || 'default'}_${engineVersion || '1.0'}_${promptVersion || '1.0'}_${key}`;
+    const cached = this.cache[scopedKey];
     if (cached && (Date.now() - cached.timestamp < this.STALE_TIME)) {
       return cached.data as T;
     }
@@ -65,14 +86,16 @@ export class DashboardService {
   }
 
   private static setCached(key: string, data: any) {
-    this.cache[key] = { data, timestamp: Date.now() };
-    const keyListeners = this.listeners[key];
+    const { userId, cycleId, engineVersion, promptVersion } = this.sessionContext;
+    const scopedKey = `${userId || 'anon'}_${cycleId || 'default'}_${engineVersion || '1.0'}_${promptVersion || '1.0'}_${key}`;
+    this.cache[scopedKey] = { data, timestamp: Date.now() };
+    const keyListeners = this.listeners[scopedKey];
     if (keyListeners) {
       keyListeners.forEach(cb => {
         try {
           cb(data);
         } catch (err) {
-          console.error(`Error in cache listener for key ${key}:`, err);
+          console.error(`Error in cache listener for key ${scopedKey}:`, err);
         }
       });
     }
@@ -191,10 +214,18 @@ export class DashboardService {
 
         // Fetch active session state to compute hasWrittenToday
         let hasWrittenToday = false;
+        let userId = 'anon';
+        let cycleId = 'default';
         if (sessionRes && sessionRes.ok) {
           const sessionData = await sessionRes.json().catch(() => null);
-          if (sessionData && sessionData.isCompletedToday) {
-            hasWrittenToday = true;
+          if (sessionData) {
+            if (sessionData.isCompletedToday) {
+              hasWrittenToday = true;
+            }
+            if (sessionData.session) {
+              userId = sessionData.session.user_id || userId;
+              cycleId = sessionData.session.cycle_id || cycleId;
+            }
           }
         }
 
@@ -213,6 +244,8 @@ export class DashboardService {
             currentDay = cycle.currentDay || 1;
             totalDays = cycle.totalDays || 30;
             daysRemaining = cycle.daysRemaining !== undefined ? cycle.daysRemaining : (totalDays - currentDay);
+            userId = cycle.userId || cycle.user_id || userId;
+            cycleId = cycle.id || cycleId;
             
             if (cycle.startDate) {
               const startDateObj = new Date(cycle.startDate);
@@ -248,6 +281,13 @@ export class DashboardService {
           entries: mappedEntries,
           threads: mappedThreads
         };
+
+        this.setSessionContext({
+          userId,
+          cycleId,
+          engineVersion: '2.0',
+          promptVersion: '1.0'
+        });
 
         const duration = performance.now() - startTime;
         this.trackLatency('fetchDashboardData', duration);
@@ -472,6 +512,7 @@ export class DashboardService {
    */
   static resetState() {
     this.cache = {};
+    this.sessionContext = {};
     if (typeof window !== 'undefined') {
       localStorage.removeItem('iw_dashboard_data_v1');
     }

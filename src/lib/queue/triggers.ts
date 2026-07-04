@@ -35,7 +35,7 @@ export async function checkWeeklyAndMonthlySummary(userId: string, cycleId: stri
           .eq('week_number', w.weekNum)
           .maybeSingle();
 
-        if (!existing || existing.status === 'failed') {
+        if (!existing || existing.status === 'FAILED' || existing.status === 'failed') {
           // Query the final entry in the week's day range to associate with orchestration state
           const { data: entry } = await supabase
             .from('entries')
@@ -56,7 +56,7 @@ export async function checkWeeklyAndMonthlySummary(userId: string, cycleId: stri
 
           const initialOrchestration = {
             orchestration: {
-              status: 'waiting_for_scoring',
+              status: 'WAITING_FOR_PROCESSING',
               entry_id: entryId,
               completed_events: {
                 'SCORING_COMPLETED': false,
@@ -67,7 +67,7 @@ export async function checkWeeklyAndMonthlySummary(userId: string, cycleId: stri
                 'CYCLE_METADATA_UPDATED': false
               },
               history: [
-                { stage: 'waiting_for_scoring', timestamp: new Date().toISOString() }
+                { stage: 'WAITING_FOR_PROCESSING', timestamp: new Date().toISOString() }
               ],
               updated_at: new Date().toISOString()
             }
@@ -84,7 +84,7 @@ export async function checkWeeklyAndMonthlySummary(userId: string, cycleId: stri
                 week_number: w.weekNum,
                 day_start: w.startDay,
                 day_end: w.endDay,
-                status: 'pending',
+                status: 'PENDING',
                 report_data: initialOrchestration
               })
               .select()
@@ -94,14 +94,14 @@ export async function checkWeeklyAndMonthlySummary(userId: string, cycleId: stri
               console.error(`[Queue Trigger] Failed to insert weekly_summaries row for Week ${w.weekNum}:`, insertError.message);
             } else if (summary) {
               targetSummaryId = summary.id;
-              console.log(`[Queue Trigger] Created weekly summary row ${summary.id} for Week ${w.weekNum} in status pending. Triggering validation...`);
+              console.log(`[Queue Trigger] Created weekly summary row ${summary.id} for Week ${w.weekNum} in status PENDING. Triggering validation...`);
             }
           } else {
-            // Reset existing failed summary to pending to allow re-triggering
+            // Reset existing failed summary to PENDING to allow re-triggering
             const { error: updateError } = await supabase
               .from('weekly_summaries')
               .update({
-                status: 'pending',
+                status: 'PENDING',
                 report_data: initialOrchestration,
                 title: null,
                 why: null,
@@ -115,7 +115,7 @@ export async function checkWeeklyAndMonthlySummary(userId: string, cycleId: stri
               console.error(`[Queue Trigger] Failed to reset failed weekly summary row ${existing.id}:`, updateError.message);
             } else {
               targetSummaryId = existing.id;
-              console.log(`[Queue Trigger] Reset failed weekly summary row ${existing.id} to pending for re-triggering. Triggering validation...`);
+              console.log(`[Queue Trigger] Reset failed weekly summary row ${existing.id} to PENDING for re-triggering. Triggering validation...`);
             }
           }
 

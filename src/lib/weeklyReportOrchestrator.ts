@@ -38,13 +38,19 @@ class WeeklyReportOrchestrator {
       return;
     }
 
+    // READY is a terminal state. Abort any processing if already generated successfully.
+    if (summary.status === 'READY') {
+      console.log(`[WeeklyReportOrchestrator] Report already in terminal READY status. Bypassing event.`);
+      return;
+    }
+
     // 2. Parse or initialize orchestration state inside report_data JSONB
     let reportData: any = summary.report_data;
     if (!reportData || typeof reportData !== 'object' || !reportData.orchestration) {
       reportData = {
         ...(typeof reportData === 'object' ? reportData : {}),
         orchestration: {
-          status: 'waiting_for_scoring',
+          status: 'WAITING_FOR_PROCESSING',
           entry_id,
           completed_events: {
             'SCORING_COMPLETED': false,
@@ -72,7 +78,7 @@ class WeeklyReportOrchestrator {
     // 3. Determine next orchestration status based on completed events
     const completedEvents = reportData.orchestration.completed_events;
     
-    // Extensible event checker (Adding new engines requires adding to this array)
+    // Extensible event checker
     const requiredEvents = [
       'SCORING_COMPLETED',
       'REFLECTION_COMPLETED',
@@ -83,25 +89,10 @@ class WeeklyReportOrchestrator {
     ];
 
     const missingEvents = requiredEvents.filter(ev => !completedEvents[ev]);
-    let nextStatus = summary.status;
+    let nextStatus: 'WAITING_FOR_PROCESSING' | 'GRACE_PERIOD' = 'WAITING_FOR_PROCESSING';
 
-    if (missingEvents.length > 0) {
-      // Map current waiting state logically
-      if (!completedEvents['SCORING_COMPLETED']) {
-        nextStatus = 'waiting_for_scoring';
-      } else if (!completedEvents['REFLECTION_COMPLETED']) {
-        nextStatus = 'waiting_for_reflection';
-      } else if (!completedEvents['CRISIS_COMPLETED']) {
-        nextStatus = 'waiting_for_crisis';
-      } else if (!completedEvents['VOCABULARY_COMPLETED']) {
-        nextStatus = 'waiting_for_vocabulary';
-      } else if (!completedEvents['THREADS_COMPLETED']) {
-        nextStatus = 'waiting_for_threads';
-      } else if (!completedEvents['CYCLE_METADATA_UPDATED']) {
-        nextStatus = 'waiting_for_cycle_metadata';
-      }
-    } else {
-      nextStatus = 'grace_period';
+    if (missingEvents.length === 0) {
+      nextStatus = 'GRACE_PERIOD';
     }
 
     reportData.orchestration.status = nextStatus;
@@ -110,17 +101,16 @@ class WeeklyReportOrchestrator {
     console.log(`[WeeklyReportOrchestrator] Summary ${summary.id} transitioning to status: ${nextStatus}. Missing events:`, missingEvents);
 
     // Save updated status and orchestration data to database
-    // The DB column status remains 'pending' during orchestration
     await supabase
       .from('weekly_summaries')
       .update({
-        status: 'pending',
+        status: nextStatus,
         report_data: reportData
       })
       .eq('id', summary.id);
 
-    // 4. Trigger grace timer if we transitioned to grace_period
-    if (nextStatus === 'grace_period' && summary.status !== 'grace_period') {
+    // 4. Trigger grace timer if we transitioned to GRACE_PERIOD
+    if (nextStatus === 'GRACE_PERIOD' && summary.status !== 'GRACE_PERIOD') {
       await this.startGraceTimer(summary.id, user_id, cycle_id, week_number);
     }
   }
@@ -129,6 +119,18 @@ class WeeklyReportOrchestrator {
    * Starts the grace period timer before performing final audits and generation.
    */
   private async startGraceTimer(summaryId: string, userId: string, cycleId: string, weekNumber: number) {
+    // Audit check: Check if report was already generated
+    const { data: summary } = await supabase
+      .from('weekly_summaries')
+      .select('status')
+      .eq('id', summaryId)
+      .single();
+
+    if (summary && summary.status === 'READY') {
+      console.log(`[WeeklyReportOrchestrator] Summary ${summaryId} is already READY. Skipping grace timer.`);
+      return;
+    }
+
     const gracePeriodMs = process.env.WEEKLY_REPORT_GRACE_PERIOD_MS 
       ? parseInt(process.env.WEEKLY_REPORT_GRACE_PERIOD_MS) 
       : 5 * 60 * 1000; // Default 5 minutes
@@ -147,6 +149,7 @@ class WeeklyReportOrchestrator {
       }, gracePeriodMs);
     } else {
       // In production mode, schedule a delayed BullMQ job to run when the grace timer expires
+      // Assign deterministic jobId to avoid duplicate processing jobs
       await queueRegistry.addJob(
         'weekly_summary_generation',
         `weekly_validate_${summaryId}`,
@@ -157,7 +160,7 @@ class WeeklyReportOrchestrator {
           week_number: weekNumber,
           is_validation_job: true
         },
-        undefined, // jobId
+        `weekly_validate_${summaryId}`, // jobId
         { delay: gracePeriodMs } // BullMQ delayed options
       );
     }
@@ -181,9 +184,9 @@ class WeeklyReportOrchestrator {
       return;
     }
 
-    // 1. Immutability & Duplicate check (Steps 8 & 9)
-    if (summary.status === 'ready' && summary.report_data !== null && !summary.report_data.orchestration) {
-      console.log(`[WeeklyReportOrchestrator] Report already exists and is finalized. Cancelling duplicate generation.`);
+    // 1. Immutability & Duplicate check (Strict state guard)
+    if (summary.status === 'READY') {
+      console.log(`[WeeklyReportOrchestrator] Report ${summaryId} already exists (status READY). Cancelling duplicate generation.`);
       return;
     }
 
@@ -213,7 +216,7 @@ class WeeklyReportOrchestrator {
       .eq('entry_id', entry.id)
       .maybeSingle();
 
-    // 2. Perform Final Audit (Step 6)
+    // 2. Perform Final Audit
     const isScoringComplete = entry.scoring_status === 'scored';
     const isReflectionComplete = !!reflection || entry.crisis_flag || entry.reflection_suppressed;
     const isCrisisComplete = entry.crisis_checked === true;
@@ -248,12 +251,14 @@ class WeeklyReportOrchestrator {
 
     console.log(`[WeeklyReportOrchestrator] Final validation PASSED for summary ${summaryId}. Proceeding to report generation.`);
 
-    // 3. Update status to generating_report in orchestration state, keep DB status as pending
-    summary.report_data.orchestration.status = 'generating_report';
+    // 3. Update status to GENERATING in DB
+    if (summary.report_data && summary.report_data.orchestration) {
+      summary.report_data.orchestration.status = 'GENERATING';
+    }
     await supabase
       .from('weekly_summaries')
       .update({
-        status: 'pending',
+        status: 'GENERATING',
         report_data: summary.report_data
       })
       .eq('id', summaryId);
@@ -276,19 +281,18 @@ class WeeklyReportOrchestrator {
     } catch (err: any) {
       console.error(`[WeeklyReportOrchestrator] Report generation failed:`, err.message || err);
       
-      // Update status to failed
+      // Update status to FAILED
       if (summary.report_data && summary.report_data.orchestration) {
-        summary.report_data.orchestration.status = 'failed';
+        summary.report_data.orchestration.status = 'FAILED';
       }
       await supabase
         .from('weekly_summaries')
         .update({
-          status: 'failed',
+          status: 'FAILED',
           report_data: summary.report_data
         })
         .eq('id', summaryId);
 
-      // Trigger exponential backoff retry (Step 10)
       throw err;
     }
   }
@@ -308,14 +312,17 @@ class WeeklyReportOrchestrator {
       .single();
 
     if (summary) {
+      // Abort if already completed
+      if (summary.status === 'READY') return;
+
       const reportData = summary.report_data || {};
       if (reportData.orchestration) {
-        reportData.orchestration.status = 'waiting_for_retry';
+        reportData.orchestration.status = 'WAITING_FOR_PROCESSING';
       }
       await supabase
         .from('weekly_summaries')
         .update({
-          status: 'pending',
+          status: 'WAITING_FOR_PROCESSING',
           report_data: reportData
         })
         .eq('id', summaryId);
@@ -330,6 +337,7 @@ class WeeklyReportOrchestrator {
         }
       }, retryDelayMs);
     } else {
+      // Use deterministic jobId to overwrite/ignore duplicate reschedule events
       await queueRegistry.addJob(
         'weekly_summary_generation',
         `weekly_validate_${summaryId}`,
@@ -340,7 +348,7 @@ class WeeklyReportOrchestrator {
           week_number: weekNumber,
           is_validation_job: true
         },
-        undefined, // jobId
+        `weekly_validate_${summaryId}`, // jobId
         { delay: retryDelayMs }
       );
     }

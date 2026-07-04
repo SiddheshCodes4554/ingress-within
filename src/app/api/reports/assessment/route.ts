@@ -36,6 +36,31 @@ export async function GET(request: NextRequest) {
       throw new Error(`Failed to fetch cycle assessment: ${error.message}`);
     }
 
+    // Version check and rebuild scheduling
+    const { data: userVersions } = await supabase
+      .from('user_intelligence_versions')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const currentEngine = '1.0';
+    const currentPrompt = '1.0';
+
+    const versionMismatch = !userVersions || 
+      userVersions.assessment_engine_version !== currentEngine || 
+      userVersions.assessment_prompt_version !== currentPrompt;
+
+    if (versionMismatch) {
+      console.log(`[Assessment API] Rebuild needed. Scheduling async rebuild...`);
+      const { queueRegistry } = await import('../../../../lib/queue/registry');
+      await queueRegistry.addJob(
+        'intelligence_rebuild',
+        `rebuild_assessment_${userId}`,
+        { user_id: userId, subsystem: 'assessment' },
+        `rebuild_assessment_${userId}`
+      );
+    }
+
     return NextResponse.json({
       success: true,
       assessment

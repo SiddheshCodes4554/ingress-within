@@ -45,8 +45,8 @@ export async function processWeeklySummary(jobData: {
   const { id: actualSummaryId, day_start, day_end } = summaryRow;
 
   // Immutability Guard: Never overwrite a completed report
-  if (summaryRow.status === 'ready' && summaryRow.report_data !== null) {
-    console.log(`[Weekly Summary Worker] Weekly report for summary ID ${actualSummaryId} already exists and is immutable. Skipping.`);
+  if (summaryRow.status === 'READY') {
+    console.log(`[Weekly Summary Worker] Weekly report for summary ID ${actualSummaryId} is already READY and immutable. Skipping.`);
     return;
   }
 
@@ -211,6 +211,10 @@ export async function processWeeklySummary(jobData: {
     // 4. Call AI Provider with fully collected report context
     const result = await aiProvider.generateWeeklyReport(collectedData);
 
+    const updatedOrchestration = summaryRow.report_data?.orchestration || {};
+    updatedOrchestration.status = 'READY';
+    updatedOrchestration.completed_at = new Date().toISOString();
+
     // 5. Update weekly_summaries table with full 11-section report_data
     const { error: updateError } = await supabase
       .from('weekly_summaries')
@@ -221,10 +225,12 @@ export async function processWeeklySummary(jobData: {
         open_question: result.reflection_question,
         report_data: {
           ...result,
-          audit: collectedData.audit
+          audit: collectedData.audit,
+          orchestration: updatedOrchestration
         },
-        status: 'ready',
-        engine_version: 'v2.0',
+        status: 'READY',
+        engine_version: '2.0',
+        prompt_version: '1.0',
         generated_at: new Date().toISOString()
       })
       .eq('id', actualSummaryId);

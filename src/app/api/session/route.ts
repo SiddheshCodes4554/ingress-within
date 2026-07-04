@@ -17,6 +17,30 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // 0. Version check for exercises
+    const { data: userVersions } = await supabase
+      .from('user_intelligence_versions')
+      .select('*')
+      .eq('user_id', authUser.userId)
+      .maybeSingle();
+
+    const currentEngine = '1.0';
+    const currentPrompt = '1.0';
+
+    const versionMismatch = !userVersions || 
+      userVersions.exercise_engine_version !== currentEngine || 
+      userVersions.exercise_prompt_version !== currentPrompt;
+
+    if (versionMismatch) {
+      console.log(`[Exercise API] Rebuild needed. Scheduling async rebuild...`);
+      await queueRegistry.addJob(
+        'intelligence_rebuild',
+        `rebuild_exercise_${authUser.userId}`,
+        { user_id: authUser.userId, subsystem: 'exercise' },
+        `rebuild_exercise_${authUser.userId}`
+      );
+    }
+
     // 1. Look for an active session in progress (status !== 'complete')
     const { data: activeSessions, error: activeError } = await supabase
       .from('daily_sessions')

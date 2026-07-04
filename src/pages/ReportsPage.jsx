@@ -847,7 +847,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                           }
                           return weeksList.map(weekNum => {
                             const report = cycleReports.find(r => r.week_number === weekNum);
-                            const isWeekCompleted = (cycle.current_day || 1) > (weekNum * 7) || (report && report.status === 'ready');
+                            const isWeekCompleted = (cycle.current_day || 1) > (weekNum * 7) || (report && report.status?.toUpperCase() === 'READY');
 
                             // Calculate completion date based on cycle start_date
                             const startDate = cycle.start_date ? new Date(cycle.start_date) : null;
@@ -892,32 +892,33 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                             );
                           }
 
-                          if (report.status !== 'ready' && report.status !== 'failed') {
-                            let statusText = "Generating report in background...";
-                            if (report.status === 'grace_period') {
-                              statusText = "Almost ready...";
-                            } else if (report.status === 'generating_report') {
-                              statusText = "Finalizing your report...";
-                            } else if (report.status.startsWith('waiting_for_')) {
-                              statusText = "Your weekly insights are being compiled...";
-                            }
+                           const status = report.status?.toUpperCase() || 'PENDING';
+                           if (status !== 'READY' && status !== 'FAILED') {
+                             let statusText = "Generating report in background...";
+                             if (status === 'GRACE_PERIOD') {
+                               statusText = "Almost ready...";
+                             } else if (status === 'GENERATING') {
+                               statusText = "Finalizing your report...";
+                             } else if (status === 'WAITING_FOR_PROCESSING' || status.startsWith('WAITING_FOR_')) {
+                               statusText = "Your weekly insights are being compiled...";
+                             }
 
-                            return (
-                              <div key={report.id} className="p-3.5 flex items-center justify-between bg-white text-mid border-b border-[#1E2A2E]/5 last:border-b-0">
-                                <div className="flex items-center gap-3">
-                                  <Loader2 className="animate-spin text-secondary" size={14} />
-                                  <div>
-                                    <div className="text-[13px] font-semibold text-primary">Week {weekNum} summary</div>
-                                    <div className="text-[11px] text-[#4A6A64]">
-                                      {statusText} {formattedDate && `(${formattedDate})`}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          }
+                             return (
+                               <div key={report.id} className="p-3.5 flex items-center justify-between bg-white text-mid border-b border-[#1E2A2E]/5 last:border-b-0">
+                                 <div className="flex items-center gap-3">
+                                   <Loader2 className="animate-spin text-secondary" size={14} />
+                                   <div>
+                                     <div className="text-[13px] font-semibold text-primary">Week {weekNum} summary</div>
+                                     <div className="text-[11px] text-[#4A6A64]">
+                                       {statusText} {formattedDate && `(${formattedDate})`}
+                                     </div>
+                                   </div>
+                                 </div>
+                               </div>
+                             );
+                           }
 
-                          if (report.status === 'failed') {
+                           if (status === 'FAILED') {
                             return (
                               <div key={report.id} className="p-3.5 flex items-center justify-between bg-white text-[#8a3020] border-b border-[#1E2A2E]/5 last:border-b-0">
                                 <div className="flex items-center gap-3">

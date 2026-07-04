@@ -93,6 +93,15 @@ class WorkerRegistry {
       }, defaultWorkerOptions)
     );
 
+    // 9. Intelligence Rebuild Worker
+    this.workers.set(
+      'intelligence_rebuild',
+      new Worker('intelligence_rebuild', async (job) => {
+        const { processIntelligenceRebuild } = await import('./workers/intelligenceRebuildWorker');
+        await processIntelligenceRebuild(job.data);
+      }, defaultWorkerOptions)
+    );
+
     // Add event listeners for logging
     for (const [name, worker] of this.workers.entries()) {
       worker.on('failed', (job, err) => {

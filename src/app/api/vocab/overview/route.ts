@@ -16,7 +16,16 @@ export async function GET(request: NextRequest) {
 
     const userId = authUser.userId;
 
-    // 1. Check if backfill/rebuild is needed for unprocessed historical records
+    // 1. Fetch user's processed intelligence versions
+    const { data: userVersions } = await supabase
+      .from('user_intelligence_versions')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const currentEngine = '2.0';
+    const currentPrompt = '1.0';
+
     const { count: unprocessedEntries } = await supabase
       .from('entries')
       .select('id', { count: 'exact', head: true })
@@ -29,9 +38,21 @@ export async function GET(request: NextRequest) {
       .eq('user_id', userId)
       .eq('vocab_processed', false);
 
-    if ((unprocessedEntries || 0) > 0 || (unprocessedResponses || 0) > 0) {
-      console.log(`[Vocab API] Unprocessed documents detected (entries: ${unprocessedEntries}, responses: ${unprocessedResponses}). Triggering historical backfill...`);
-      await rebuildUserVocabulary(userId);
+    const versionMismatch = !userVersions || 
+      userVersions.vocab_engine_version !== currentEngine || 
+      userVersions.vocab_prompt_version !== currentPrompt;
+
+    const needsRebuild = versionMismatch || (unprocessedEntries || 0) > 0 || (unprocessedResponses || 0) > 0;
+
+    if (needsRebuild) {
+      console.log(`[Vocab API] Rebuild needed (versionMismatch: ${versionMismatch}, unprocessed: ${(unprocessedEntries || 0) + (unprocessedResponses || 0)}). Scheduling async rebuild...`);
+      const { queueRegistry } = await import('../../../../lib/queue/registry');
+      await queueRegistry.addJob(
+        'intelligence_rebuild',
+        `rebuild_vocabulary_${userId}`,
+        { user_id: userId, subsystem: 'vocabulary' },
+        `rebuild_vocabulary_${userId}`
+      );
     }
 
     // 2. Fetch stats via VocabularyIntelligenceService

@@ -44,6 +44,31 @@ export async function GET(request: NextRequest) {
       throw new Error(`Failed to fetch weekly summaries: ${reportsErr.message}`);
     }
 
+    // 2. Perform version check & trigger background rebuild if versions differ
+    const { data: userVersions } = await supabase
+      .from('user_intelligence_versions')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const currentEngine = '2.0';
+    const currentPrompt = '1.0';
+
+    const versionMismatch = !userVersions || 
+      userVersions.reports_engine_version !== currentEngine || 
+      userVersions.reports_prompt_version !== currentPrompt;
+
+    if (versionMismatch) {
+      console.log(`[Reports API] Rebuild/Backfill needed. Scheduling async rebuild...`);
+      const { queueRegistry } = await import('../../../../lib/queue/registry');
+      await queueRegistry.addJob(
+        'intelligence_rebuild',
+        `rebuild_reports_${userId}`,
+        { user_id: userId, subsystem: 'reports' },
+        `rebuild_reports_${userId}`
+      );
+    }
+
     // Recalculate/overlay Reflection Depth and consistency dynamically
     const processedReports: any[] = [];
     if (reports) {

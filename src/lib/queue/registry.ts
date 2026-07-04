@@ -10,6 +10,7 @@ export const QUEUE_NAMES = {
   EXERCISE_INSIGHT_GENERATION: 'exercise_insight_generation',
   CRISIS_DETECTION: 'crisis_detection',
   VOCAB_PROCESSING: 'vocab_processing',
+  INTELLIGENCE_REBUILD: 'intelligence_rebuild',
 } as const;
 
 export type QueueName = typeof QUEUE_NAMES[keyof typeof QUEUE_NAMES];
@@ -44,7 +45,7 @@ class QueueRegistry {
   }
 
   public async addJob(
-    queueName: QueueName,
+    queueName: QueueName | 'intelligence_rebuild',
     jobName: string,
     data: any,
     jobId?: string,
@@ -77,16 +78,20 @@ class QueueRegistry {
         } else if (queueName === 'vocab_processing') {
           const { processVocabularyExtraction } = await import('./workers/vocabWorker');
           await processVocabularyExtraction(data);
+        } else if (queueName === 'intelligence_rebuild') {
+          const { processIntelligenceRebuild } = await import('./workers/intelligenceRebuildWorker');
+          await processIntelligenceRebuild(data);
         }
       } catch (err: any) {
         console.error(`[Queue Registry] Inline job execution error for ${queueName}:`, err.message || err);
       }
-      return { id: jobId || `mock_${Date.now()}` } as any;
+      return { id: jobId || jobName || `mock_${Date.now()}` } as any;
     }
 
-    const queue = this.getQueue(queueName);
+    const finalJobId = jobId || jobName;
+    const queue = this.getQueue(queueName as QueueName);
     const jobOptions = {
-      ...(jobId ? { jobId } : {}),
+      jobId: finalJobId,
       ...(options || {})
     };
     return queue.add(jobName, data, jobOptions);
