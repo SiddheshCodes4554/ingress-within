@@ -131,28 +131,63 @@ export class ClaudeProvider implements AIProvider {
         mockRes = {
           summary: "You tend to process things internally and find direct conflict uncomfortable. That means things often pile up quietly before they surface. This space is designed for exactly that."
         };
-      } else if (systemPrompt.includes('extract emotional, stress, relationship, and self-descriptive vocabulary')) {
+      } else if (systemPrompt.includes('emotional-vocabulary engine') || systemPrompt.includes('extract only meaningful emotional vocabulary')) {
         mockRes = {
-          words: [
-            { word: "tired", normalized_word: "tired" },
-            { word: "exhausted", normalized_word: "exhausted" },
-            { word: "fine", normalized_word: "fine" },
-            { word: "managing", normalized_word: "managing" }
+          expressions: [
+            {
+              word: "tired",
+              normalized: "tired",
+              semantic_meaning: "Feeling physically or mentally exhausted.",
+              context: "I felt very tired this morning.",
+              confidence: 0.95
+            },
+            {
+              word: "exhausted",
+              normalized: "exhausted",
+              semantic_meaning: "A state of extreme physical or mental fatigue.",
+              context: "I was exhausted after work.",
+              confidence: 0.95
+            },
+            {
+              word: "fine",
+              normalized: "fine",
+              semantic_meaning: "A conversational buffer representing compliance or suppression.",
+              context: "Everything is fine.",
+              confidence: 0.9
+            },
+            {
+              word: "managing",
+              normalized: "managing",
+              semantic_meaning: "Coping with difficulties or stress.",
+              context: "I am managing my work.",
+              confidence: 0.85
+            }
           ]
         };
-      } else if (systemPrompt.includes('group the following vocabulary words into thematic clusters')) {
+      } else if (systemPrompt.includes("reflects a person's own word choices back to them")) {
         mockRes = {
           clusters: [
             {
               cluster_name: "depletion",
-              cluster_type: "stress",
+              description: "Tired is about energy. Exhausted implies recovery needed. Depleted implies something was taken. Worth sitting with which one is actually true.",
+              confidence: 0.95,
               words: ["tired", "exhausted"]
             },
             {
               cluster_name: "avoidance",
-              cluster_type: "emotional",
+              description: "\"Fine\" almost always appears when describing yourself — never about situations or other people. That pattern is worth noticing.",
+              confidence: 0.95,
               words: ["fine", "managing"]
             }
+          ]
+        };
+      } else if (systemPrompt.includes('psychological, emotional, and semantic analysis assistant')) {
+        mockRes = {
+          validatedWords: [
+            { word: "tired", category: "emotional", is_emotional: true, score: 0.95 },
+            { word: "exhausted", category: "emotional", is_emotional: true, score: 0.95 },
+            { word: "fine", category: "emotional", is_emotional: true, score: 0.9 },
+            { word: "managing", category: "emotional", is_emotional: true, score: 0.85 }
           ]
         };
       } else if (systemPrompt.includes('psychologist reviewing the client') || systemPrompt.includes('thoughtful psychologist reviewing')) {

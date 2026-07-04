@@ -138,12 +138,31 @@ export async function processVocabularyExtraction(jobData: {
   }
 
   try {
-    // 2. Extract Vocabulary using AI
-    console.log(`[Vocab Worker] Extracting expressions using AI...`);
-    const aiResult = await aiProvider.extractVocabulary(fullText);
-    const expressions = aiResult?.expressions || [];
-
-    console.log(`[Vocab Worker] AI extracted ${expressions.length} expressions.`);
+    let expressions: any[] = [];
+    try {
+      // 2. Extract Vocabulary using AI
+      console.log(`[Vocab Worker] Extracting expressions using AI...`);
+      const aiResult = await aiProvider.extractVocabulary(fullText);
+      expressions = aiResult?.expressions || [];
+      console.log(`[Vocab Worker] AI extracted ${expressions.length} expressions.`);
+    } catch (aiErr: any) {
+      console.warn(`[Vocab Worker] AI vocabulary extraction failed: ${aiErr.message}. Falling back to deterministic NLP extraction.`);
+      try {
+        const { extractVocabularyDeterministic } = await import('../../vocabEngine');
+        const detResult = extractVocabularyDeterministic(fullText);
+        expressions = (detResult.extracted || []).map(item => ({
+          word: item.word,
+          normalized: item.normalized_word,
+          semantic_meaning: 'Extracted deterministically via local NLP engine.',
+          context: getVerbatimSentence(item.word, item.normalized_word, fullText) || '',
+          confidence: 0.7
+        }));
+        console.log(`[Vocab Worker] Deterministic local NLP engine extracted ${expressions.length} expressions.`);
+      } catch (detErr: any) {
+        console.error(`[Vocab Worker] Deterministic local NLP fallback failed:`, detErr.message || detErr);
+        throw aiErr; // rethrow original AI error if fallback fails too
+      }
+    }
 
     let sourceCreatedAt = new Date().toISOString();
     if (entry_id && entry) {
@@ -251,8 +270,7 @@ export async function processVocabularyExtraction(jobData: {
           semantic_meaning: ext.sentence_reasoning || '',
           context: ext.sentence_context || '',
           entry_ids: uniqueEntryIds,
-          raw_tokens: Array.from(new Set([...(existingWord?.raw_tokens || []), matchedWord])),
-          category: 'emotional'
+          raw_tokens: Array.from(new Set([...(existingWord?.raw_tokens || []), matchedWord]))
         };
 
         if (existingWord) {

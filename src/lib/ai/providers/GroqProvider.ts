@@ -131,7 +131,7 @@ export class GroqProvider implements AIProvider {
         mockRes = {
           summary: "You tend to process things internally and find direct conflict uncomfortable. That means things often pile up quietly before they surface. This space is designed for exactly that."
         };
-      } else if (systemPrompt.includes('extract emotionally meaningful expressions and psychologically relevant vocabulary')) {
+      } else if (systemPrompt.includes('emotional-vocabulary engine') || systemPrompt.includes('extract only meaningful emotional vocabulary')) {
         mockRes = {
           expressions: [
             {
@@ -176,6 +176,34 @@ export class GroqProvider implements AIProvider {
               context: "I need to establish better boundaries and habits.",
               confidence: 0.9
             }
+          ]
+        };
+      } else if (systemPrompt.includes("reflects a person's own word choices back to them")) {
+        mockRes = {
+          clusters: [
+            {
+              cluster_name: "Achievement Pressure",
+              description: "A recurring feeling of tension and high expectations around career progress and daily tasks.",
+              confidence: 0.9,
+              words: ["pressure", "work", "task", "project", "career"]
+            },
+            {
+              cluster_name: "Self-Regulation Needs",
+              description: "Focusing on establishing healthier habits and boundaries to manage mental load.",
+              confidence: 0.85,
+              words: ["boundary", "habit", "support", "establish"]
+            }
+          ]
+        };
+      } else if (systemPrompt.includes('psychological, emotional, and semantic analysis assistant')) {
+        mockRes = {
+          validatedWords: [
+            { word: "anxious", category: "emotional", is_emotional: true, score: 0.95 },
+            { word: "sad", category: "emotional", is_emotional: true, score: 0.95 },
+            { word: "pressure", category: "emotional", is_emotional: true, score: 0.9 },
+            { word: "work", category: "theme", is_emotional: false, score: 0.8 },
+            { word: "boundaries", category: "theme", is_emotional: false, score: 0.85 },
+            { word: "habits", category: "theme", is_emotional: false, score: 0.9 }
           ]
         };
       } else if (systemPrompt.includes('psychological concept discovery') || systemPrompt.includes('semantic grouping') || systemPrompt.includes('identify high-level emotional concepts')) {
