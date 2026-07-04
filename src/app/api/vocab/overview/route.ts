@@ -42,7 +42,15 @@ export async function GET(request: NextRequest) {
       userVersions.vocab_engine_version !== currentEngine || 
       userVersions.vocab_prompt_version !== currentPrompt;
 
-    const needsRebuild = versionMismatch || (unprocessedEntries || 0) > 0 || (unprocessedResponses || 0) > 0;
+    // Check if a vocabulary rebuild is already running to avoid duplicate triggers
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('vocab_rebuild_in_progress')
+      .eq('id', userId)
+      .maybeSingle();
+    const rebuildInProgress = profile?.vocab_rebuild_in_progress || false;
+
+    const needsRebuild = (versionMismatch || (unprocessedEntries || 0) > 0 || (unprocessedResponses || 0) > 0) && !rebuildInProgress;
 
     if (needsRebuild) {
       console.log(`[Vocab API] Rebuild needed (versionMismatch: ${versionMismatch}, unprocessed: ${(unprocessedEntries || 0) + (unprocessedResponses || 0)}). Scheduling async rebuild...`);
@@ -53,6 +61,8 @@ export async function GET(request: NextRequest) {
         { user_id: userId, subsystem: 'vocabulary' },
         `rebuild_vocabulary_${userId}`
       );
+    } else if (rebuildInProgress) {
+      console.log(`[Vocab API] Vocabulary rebuild is already in progress for user ${userId}. Skipping duplicate schedule.`);
     }
 
     // 2. Fetch stats via VocabularyIntelligenceService

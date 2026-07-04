@@ -52,39 +52,44 @@ class QueueRegistry {
     options?: any
   ) {
     if (process.env.BYPASS_REDIS === 'true') {
-      console.log(`[Queue Registry] [BYPASS_REDIS] Running job "${jobName}" on queue "${queueName}" inline.`);
-      try {
-        if (queueName === 'entry_scoring') {
-          const { processEntryScoring } = await import('./workers/entryScoringWorker');
-          await processEntryScoring(data);
-        } else if (queueName === 'crisis_detection') {
-          const { processCrisisDetection } = await import('./workers/crisisDetectionWorker');
-          await processCrisisDetection(data);
-        } else if (queueName === 'reflection_generation') {
-          const { processReflectionGeneration } = await import('./workers/reflectionWorker');
-          await processReflectionGeneration(data);
-        } else if (queueName === 'weekly_summary_generation') {
-          const { processWeeklySummary } = await import('./workers/weeklySummaryWorker');
-          await processWeeklySummary(data);
-        } else if (queueName === 'monthly_report_generation') {
-          const { processMonthlyReport } = await import('./workers/monthlyReportWorker');
-          await processMonthlyReport(data);
-        } else if (queueName === 'ocean_summary_generation') {
-          const { processOceanSummary } = await import('./workers/oceanSummaryWorker');
-          await processOceanSummary(data);
-        } else if (queueName === 'exercise_insight_generation') {
-          const { processExerciseInsight } = await import('./workers/exerciseInsightWorker');
-          await processExerciseInsight(data);
-        } else if (queueName === 'vocab_processing') {
-          const { processVocabularyExtraction } = await import('./workers/vocabWorker');
-          await processVocabularyExtraction(data);
-        } else if (queueName === 'intelligence_rebuild') {
-          const { processIntelligenceRebuild } = await import('./workers/intelligenceRebuildWorker');
-          await processIntelligenceRebuild(data);
+      console.log(`[Queue Registry] [BYPASS_REDIS] Spawning job "${jobName}" on queue "${queueName}" inline asynchronously.`);
+      
+      // Run the worker asynchronously in the background without blocking the request
+      (async () => {
+        try {
+          if (queueName === 'entry_scoring') {
+            const { processEntryScoring } = await import('./workers/entryScoringWorker');
+            await processEntryScoring(data);
+          } else if (queueName === 'crisis_detection') {
+            const { processCrisisDetection } = await import('./workers/crisisDetectionWorker');
+            await processCrisisDetection(data);
+          } else if (queueName === 'reflection_generation') {
+            const { processReflectionGeneration } = await import('./workers/reflectionWorker');
+            await processReflectionGeneration(data);
+          } else if (queueName === 'weekly_summary_generation') {
+            const { processWeeklySummary } = await import('./workers/weeklySummaryWorker');
+            await processWeeklySummary(data);
+          } else if (queueName === 'monthly_report_generation') {
+            const { processMonthlyReport } = await import('./workers/monthlyReportWorker');
+            await processMonthlyReport(data);
+          } else if (queueName === 'ocean_summary_generation') {
+            const { processOceanSummary } = await import('./workers/oceanSummaryWorker');
+            await processOceanSummary(data);
+          } else if (queueName === 'exercise_insight_generation') {
+            const { processExerciseInsight } = await import('./workers/exerciseInsightWorker');
+            await processExerciseInsight(data);
+          } else if (queueName === 'vocab_processing') {
+            const { processVocabularyExtraction } = await import('./workers/vocabWorker');
+            await processVocabularyExtraction(data);
+          } else if (queueName === 'intelligence_rebuild') {
+            const { processIntelligenceRebuild } = await import('./workers/intelligenceRebuildWorker');
+            await processIntelligenceRebuild(data);
+          }
+        } catch (err: any) {
+          console.error(`[Queue Registry] Inline background job execution error for ${queueName}:`, err.message || err);
         }
-      } catch (err: any) {
-        console.error(`[Queue Registry] Inline job execution error for ${queueName}:`, err.message || err);
-      }
+      })();
+
       return { id: jobId || jobName || `mock_${Date.now()}` } as any;
     }
 

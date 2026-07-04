@@ -57,28 +57,24 @@ export async function GET(request: NextRequest) {
         const status = report.status?.toUpperCase();
         if (status !== 'READY' && status !== 'FAILED') {
           const timeSinceUpdate = Date.now() - new Date(report.report_data?.orchestration?.updated_at || report.updated_at || report.created_at).getTime();
-          // If stuck for more than 15 seconds, heal inline
+          // If stuck for more than 15 seconds, heal asynchronously in the background
           if (timeSinceUpdate > 15 * 1000) {
-            console.log(`[Reports API] Report ${report.id} is stuck in status ${status} for ${timeSinceUpdate}ms. Healing inline...`);
+            console.log(`[Reports API] Report ${report.id} is stuck in status ${status} for ${timeSinceUpdate}ms. Scheduling background heal...`);
             try {
-              const { processWeeklySummary } = await import('../../../../lib/queue/workers/weeklySummaryWorker');
-              await processWeeklySummary({
-                cycle_id: report.cycle_id,
-                user_id: userId,
-                week_number: report.week_number,
-                summary_id: report.id
-              });
-              // Reload/refresh this report row from database
-              const { data: refreshed } = await supabase
-                .from('weekly_summaries')
-                .select('*')
-                .eq('id', report.id)
-                .single();
-              if (refreshed) {
-                Object.assign(report, refreshed);
-              }
+              const { queueRegistry } = await import('../../../../lib/queue/registry');
+              await queueRegistry.addJob(
+                'weekly_summary_generation',
+                `weekly_heal_${report.id}`,
+                {
+                  cycle_id: report.cycle_id,
+                  user_id: userId,
+                  week_number: report.week_number,
+                  summary_id: report.id
+                },
+                `weekly_heal_${report.id}`
+              );
             } catch (healErr: any) {
-              console.error(`[Reports API] Failed to heal stuck report inline:`, healErr.message);
+              console.error(`[Reports API] Failed to queue heal job for stuck report:`, healErr.message);
             }
           }
         }
