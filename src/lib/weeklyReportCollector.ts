@@ -36,6 +36,7 @@ export interface CollectedCrisisEvent {
   id: string;
   crisis_type: string;
   timestamp: string;
+  entry_id?: string;
 }
 
 export interface CollectedOpenThread {

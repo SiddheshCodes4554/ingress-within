@@ -78,7 +78,7 @@ async function runTests() {
 
   // 2. Insert test entries for user in week 2
   // We want to verify that cycleStartDate aligns correctly
-  const testEntryDate = new Date();
+  const testEntryDate = new Date(Date.UTC(2026, 5, 22, 10, 0, 0));
   
   // Remove existing entries for this week range to start fresh
   await supabase.from('entries').delete().eq('cycle_id', testCycleId).eq('cycle_day', 8);
@@ -90,13 +90,14 @@ async function runTests() {
       cycle_id: testCycleId,
       cycle_day: 8,
       content: 'I felt some mild tension today, but generally kept my composure.',
-      entry_type: 'journal',
+      entry_type: 'new_only',
       scoring_status: 'scored',
       crisis_checked: true,
       vocab_processed: true,
       day_ei: 4,
       day_pr: 5,
       day_sa: 6,
+      word_count: 10,
       created_at: testEntryDate.toISOString()
     })
     .select()
@@ -124,17 +125,42 @@ async function runTests() {
   // Test 1: Verification failure (Integrity Violation)
   console.log('\n--- TEST 1: Source Validation Fails on Foreign/Mismatched Crisis Log ---');
   
+  // Create a week 1 entry to satisfy the foreign key constraint
+  const { data: week1Entry, error: week1Err } = await supabase
+    .from('entries')
+    .insert({
+      user_id: testUserId,
+      cycle_id: testCycleId,
+      cycle_day: 1, // Week 1 range
+      content: 'I felt some mild tension today, but generally kept my composure.',
+      entry_type: 'new_only',
+      scoring_status: 'scored',
+      crisis_checked: true,
+      vocab_processed: true,
+      day_ei: 3,
+      day_pr: 4,
+      day_sa: 5,
+      word_count: 10,
+      created_at: new Date(Date.UTC(2026, 5, 13, 10, 0, 0)).toISOString() // Week 1
+    })
+    .select()
+    .single();
+
+  if (week1Err || !week1Entry) {
+    throw new Error(`Failed to create week 1 test entry: ${week1Err?.message}`);
+  }
+
   // Insert a crisis event belonging to a foreign user/entry ID or wrong week
   const { data: badCrisisLog } = await supabase
     .from('crisis_log')
     .insert({
       user_id: testUserId,
-      entry_id: '00000000-0000-0000-0000-000000000000', // Foreign/non-existent entry ID!
+      entry_id: week1Entry.id, // Reference the valid week 1 entry ID (so FK passes)
       cycle_id: testCycleId,
-      week_number: weekNum,
-      journal_date: new Date().toISOString().split('T')[0],
+      week_number: weekNum, // Set week_number to week 2
+      journal_date: new Date(testEntryDate).toISOString().split('T')[0],
       crisis_type: 'Immediate',
-      timestamp: testEntryDate.toISOString()
+      timestamp: testEntryDate.toISOString() // Set timestamp to week 2 range
     })
     .select()
     .single();
@@ -168,9 +194,12 @@ async function runTests() {
   }
   console.log('PASS: Mismatched crisis log successfully blocked report generation.');
 
-  // Clean up bad crisis log
+  // Clean up bad crisis log and week 1 entry
   if (badCrisisLog) {
     await supabase.from('crisis_log').delete().eq('id', badCrisisLog.id);
+  }
+  if (week1Entry) {
+    await supabase.from('entries').delete().eq('id', week1Entry.id);
   }
 
   // Test 2: Successful validation when all evidence belongs to the week
