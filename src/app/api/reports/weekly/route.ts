@@ -22,6 +22,13 @@ export async function GET(request: NextRequest) {
     const cycleId = request.nextUrl.searchParams.get('cycleId');
     const weekNumber = request.nextUrl.searchParams.get('weekNumber');
 
+    // 0. Automatically backfill/heal missing weekly summaries for this user
+    try {
+      await backfillWeeklyReports(userId);
+    } catch (backfillErr: any) {
+      console.error('[API Weekly Reports GET] Backfill warning:', backfillErr.message);
+    }
+
     // 1. Fetch all reports from weekly_summaries directly (Read-only)
     let query = supabase
       .from('weekly_summaries')
@@ -42,6 +49,40 @@ export async function GET(request: NextRequest) {
 
     if (reportsErr) {
       throw new Error(`Failed to fetch weekly summaries: ${reportsErr.message}`);
+    }
+
+    // 1.5. Self-healing check: find any reports that are stuck in PENDING / GENERATING / WAITING_FOR_PROCESSING
+    if (reports) {
+      for (const report of reports) {
+        const status = report.status?.toUpperCase();
+        if (status !== 'READY' && status !== 'FAILED') {
+          const timeSinceUpdate = Date.now() - new Date(report.report_data?.orchestration?.updated_at || report.updated_at || report.created_at).getTime();
+          // If stuck for more than 15 seconds, heal inline
+          if (timeSinceUpdate > 15 * 1000) {
+            console.log(`[Reports API] Report ${report.id} is stuck in status ${status} for ${timeSinceUpdate}ms. Healing inline...`);
+            try {
+              const { processWeeklySummary } = await import('../../../../lib/queue/workers/weeklySummaryWorker');
+              await processWeeklySummary({
+                cycle_id: report.cycle_id,
+                user_id: userId,
+                week_number: report.week_number,
+                summary_id: report.id
+              });
+              // Reload/refresh this report row from database
+              const { data: refreshed } = await supabase
+                .from('weekly_summaries')
+                .select('*')
+                .eq('id', report.id)
+                .single();
+              if (refreshed) {
+                Object.assign(report, refreshed);
+              }
+            } catch (healErr: any) {
+              console.error(`[Reports API] Failed to heal stuck report inline:`, healErr.message);
+            }
+          }
+        }
+      }
     }
 
     // 2. Perform version check & trigger background rebuild if versions differ
