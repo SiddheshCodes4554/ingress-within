@@ -112,15 +112,16 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
   const loadSession = async () => {
     setIsLoading(true);
     try {
-      const data = await DashboardService.fetchActiveSession();
-      
       // Load general dashboard context (for yesterday's entry and open threads)
+      let dData = null;
       try {
-        const dData = await DashboardService.fetchDashboardData();
+        dData = await DashboardService.fetchDashboardData();
         setDashboardData(dData);
       } catch (dErr) {
         console.warn('Could not load dashboard context:', dErr);
       }
+
+      const data = dData?.sessionState || await DashboardService.fetchActiveSession();
       
       let initialStage = 'start';
       if (data.exists) {
@@ -188,7 +189,9 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
 
   useEffect(() => {
     loadSession();
+  }, [user?.sustained_distress_flag]);
 
+  useEffect(() => {
     // Listen to history popstate changes
     const handlePopState = () => {
       const subpath = window.location.pathname.replace('/session/', '');
@@ -301,7 +304,7 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [currentStage, breathPhase]);
+  }, [currentStage]);
 
   // 3. Live linguistic analysis for Writing step
   useEffect(() => {
@@ -504,7 +507,7 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
               setCurrentStage('complete');
             }
           }
-        }, 800);
+        }, 4000);
       } else {
         setIsSaving(false);
         window.history.pushState({}, '', '/session/complete');

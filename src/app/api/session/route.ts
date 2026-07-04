@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../lib/db';
 import { getAuthenticatedUser } from '../../../lib/auth-helper';
-import { queueRegistry } from '../../../lib/queue/registry';
 import { triggerAIProcessing, checkWeeklyAndMonthlySummary } from '../../../lib/queue/triggers';
+import { queueRegistry } from '../../../lib/queue/registry';
 
 /**
  * GET: Fetches the active daily session or check if today's session is complete.
@@ -14,30 +14,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: { code: 'AUTH_REQUIRED', message: 'Authentication is required.' } },
         { status: 401 }
-      );
-    }
-
-    // 0. Version check for exercises
-    const { data: userVersions } = await supabase
-      .from('user_intelligence_versions')
-      .select('*')
-      .eq('user_id', authUser.userId)
-      .maybeSingle();
-
-    const currentEngine = '1.0';
-    const currentPrompt = '1.0';
-
-    const versionMismatch = !userVersions || 
-      userVersions.exercise_engine_version !== currentEngine || 
-      userVersions.exercise_prompt_version !== currentPrompt;
-
-    if (versionMismatch) {
-      console.log(`[Exercise API] Rebuild needed. Scheduling async rebuild...`);
-      await queueRegistry.addJob(
-        'intelligence_rebuild',
-        `rebuild_exercise_${authUser.userId}`,
-        { user_id: authUser.userId, subsystem: 'exercise' },
-        `rebuild_exercise_${authUser.userId}`
       );
     }
 

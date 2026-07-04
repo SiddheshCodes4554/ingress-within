@@ -401,8 +401,62 @@ export class VocabularyIntelligenceService {
       }
     }
 
-    if (!needsRegen && cachedClusters && cachedClusters.length > 0) {
-      // Format database clusters to match UI layout
+    const performRegen = async () => {
+      console.log(`[Vocab Clusters] Generating AI word clusters in the background for top words: ${currentTop3Words.join(', ')}`);
+      try {
+        const wordsToGenerate = sortedWords.slice(0, 3).map(w => ({
+          word: w.word,
+          normalized_word: w.normalized_word,
+          frequency: w.frequency,
+          semantic_meaning: w.semantic_meaning
+        }));
+
+        const aiResponse = await aiProvider.groupClusters(wordsToGenerate);
+        const generatedClusters = aiResponse.clusters || [];
+
+        // Clear existing clusters for this cycle
+        await supabase
+          .from('vocab_clusters')
+          .delete()
+          .eq('user_id', userId)
+          .eq('cycle_id', cycleId);
+
+        for (const cl of generatedClusters) {
+          const clusterName = cl.cluster_name || '';
+          if (!clusterName) continue;
+
+          const clusterWords = cl.words || [];
+
+          const { error: insErr } = await supabase
+            .from('vocab_clusters')
+            .insert({
+              user_id: userId,
+              cycle_id: cycleId,
+              cluster_name: clusterName,
+              cluster_type: 'emotional',
+              words: clusterWords,
+              description: cl.description,
+              confidence: cl.confidence || 0.9,
+              word_count: clusterWords.length
+            });
+
+          if (insErr) {
+            console.error(`[Vocab Clusters] Failed to cache cluster "${clusterName}":`, insErr.message);
+          }
+        }
+        console.log(`[Vocab Clusters] AI word clusters cached successfully in the background.`);
+      } catch (err: any) {
+        console.error(`[Vocab Clusters] Background AI generation failed:`, err.message || err);
+      }
+    };
+
+    if (needsRegen && currentTop3Words.length > 0) {
+      // Trigger background generation (floating promise, don't await)
+      performRegen();
+    }
+
+    // Return currently cached clusters immediately if any
+    if (cachedClusters && cachedClusters.length > 0) {
       return cachedClusters.map(cl => ({
         id: cl.id,
         cluster_name: cl.cluster_name,
@@ -412,78 +466,7 @@ export class VocabularyIntelligenceService {
       }));
     }
 
-    // 3. Generate clusters for top 3 words
-    if (currentTop3Words.length === 0) return [];
-
-    console.log(`[Vocab Clusters] Generating AI word clusters for top words: ${currentTop3Words.join(', ')}`);
-    try {
-      const wordsToGenerate = sortedWords.slice(0, 3).map(w => ({
-        word: w.word,
-        normalized_word: w.normalized_word,
-        frequency: w.frequency,
-        semantic_meaning: w.semantic_meaning
-      }));
-
-      const aiResponse = await aiProvider.groupClusters(wordsToGenerate);
-      const generatedClusters = aiResponse.clusters || [];
-
-      // Clear existing clusters for this cycle
-      await supabase
-        .from('vocab_clusters')
-        .delete()
-        .eq('user_id', userId)
-        .eq('cycle_id', cycleId);
-
-      const insertedClusters: any[] = [];
-
-      for (const cl of generatedClusters) {
-        const clusterName = cl.cluster_name || '';
-        if (!clusterName) continue;
-
-        const clusterWords = cl.words || [];
-        // Calculate frequency as total count of these words in this cycle
-        const matchingWordsObj = sortedWords.filter(w => clusterWords.includes(w.normalized_word));
-        const totalFreq = matchingWordsObj.reduce((sum, w) => sum + w.frequency, 0);
-
-        const { data: newCluster, error: insErr } = await supabase
-          .from('vocab_clusters')
-          .insert({
-            user_id: userId,
-            cycle_id: cycleId,
-            cluster_name: clusterName,
-            cluster_type: 'emotional',
-            words: clusterWords,
-            description: cl.description,
-            confidence: cl.confidence || 0.9,
-            word_count: clusterWords.length
-          })
-          .select()
-          .single();
-
-        if (insErr) {
-          console.error(`[Vocab Clusters] Failed to cache cluster "${clusterName}":`, insErr.message);
-        } else if (newCluster) {
-          insertedClusters.push({
-            id: newCluster.id,
-            cluster_name: newCluster.cluster_name,
-            description: newCluster.description,
-            confidence: newCluster.confidence,
-            words: newCluster.words
-          });
-        }
-      }
-
-      return insertedClusters;
-    } catch (err: any) {
-      console.error(`[Vocab Clusters] AI generation failed, falling back to cached or empty list:`, err.message || err);
-      return (cachedClusters || []).map(cl => ({
-        id: cl.id,
-        cluster_name: cl.cluster_name,
-        description: cl.description || '',
-        confidence: cl.confidence || 0.9,
-        words: cl.words || []
-      }));
-    }
+    return [];
   }
 
   /**

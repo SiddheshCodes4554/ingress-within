@@ -84,19 +84,16 @@ export default function DashboardPage({ user, profile, onSignOut }) {
     setIsLoading(true);
     setError(null);
     try {
-      const [result, sessionData, threads, vStats, cycleStatus, cycles, reports] = await Promise.all([
+      const [result, vStats, cycles, reports] = await Promise.all([
         DashboardService.fetchDashboardData(),
-        DashboardService.fetchActiveSession().catch(() => ({ exists: false })),
-        DashboardService.fetchActiveThreads().catch(() => []),
         DashboardService.fetchVocabOverview().catch(() => null),
-        DashboardService.fetchCycleStatus().catch(() => ({ success: false })),
         DashboardService.fetchCyclesList().catch(() => []),
         DashboardService.fetchWeeklyReports().catch(() => [])
       ]);
 
       setData(result);
-      setDailySessionState(sessionData);
-      setThreadsList(threads);
+      setDailySessionState(result?.sessionState || null);
+      setThreadsList(result?.threads || []);
       setVocabStats(vStats);
       setWeeklyReports(reports);
 
@@ -118,9 +115,9 @@ export default function DashboardPage({ user, profile, onSignOut }) {
         setReflectionEntry(null);
       }
 
-      if (cycleStatus.success && cycleStatus.hasCycle) {
-        setCycleInfo(cycleStatus.cycle);
-        setIsAssessmentGate(cycleStatus.isAssessmentGate);
+      if (result?.cycleStatus?.success && result?.cycleStatus?.hasCycle) {
+        setCycleInfo(result.cycleStatus.cycle);
+        setIsAssessmentGate(result.cycleStatus.isAssessmentGate);
       } else {
         setCycleInfo(null);
         setIsAssessmentGate(false);
@@ -180,6 +177,14 @@ export default function DashboardPage({ user, profile, onSignOut }) {
       }
     });
 
+    const unsubSessionState = DashboardService.subscribe('session_state', (freshSession) => {
+      setDailySessionState(freshSession);
+    });
+
+    const unsubThreads = DashboardService.subscribe('active_threads', (freshThreads) => {
+      setThreadsList(freshThreads || []);
+    });
+
     const unsubCyclesList = DashboardService.subscribe('cycles_list', (freshCycles) => {
       setCyclesList((prevList) => {
         return freshCycles.map((freshCycle) => {
@@ -200,6 +205,8 @@ export default function DashboardPage({ user, profile, onSignOut }) {
       unsubDashboard();
       unsubVocab();
       unsubCycleStatus();
+      unsubSessionState();
+      unsubThreads();
       unsubCyclesList();
       unsubWeeklyReports();
     };

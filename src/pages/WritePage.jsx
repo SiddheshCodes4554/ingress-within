@@ -256,7 +256,7 @@ export default function WritePage({ user, profile, onSignOut }) {
             setScreenState('reflection');
           }
         }
-      }, 800);
+      }, 4000);
 
     } catch (err) {
       console.error('Failed to save entry:', err);

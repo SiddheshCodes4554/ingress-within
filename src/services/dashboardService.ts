@@ -37,6 +37,8 @@ export interface DashboardData {
   };
   entries: JournalEntry[];
   threads: ReflectionThread[];
+  sessionState?: any;
+  cycleStatus?: any;
 }
 
 function getAgeString(createdAt: string | null | undefined): string {
@@ -52,6 +54,7 @@ function getAgeString(createdAt: string | null | undefined): string {
 
 export class DashboardService {
   private static cache: Record<string, { data: any; timestamp: number }> = {};
+  private static inFlight: Record<string, Promise<any>> = {};
   private static STALE_TIME = 15000; // 15 seconds stale limit
   private static listeners: Record<string, Set<(data: any) => void>> = {};
   private static latencies: Record<string, number[]> = {};
@@ -67,6 +70,11 @@ export class DashboardService {
     this.sessionContext = { ...this.sessionContext, ...ctx };
   }
 
+  private static getScopedCacheKey(key: string) {
+    const { userId, cycleId, engineVersion, promptVersion } = this.sessionContext;
+    return `${userId || 'anon'}_${cycleId || 'default'}_${engineVersion || '1.0'}_${promptVersion || '1.0'}_${key}`;
+  }
+
   public static invalidateUserCache(userId: string) {
     Object.keys(this.cache).forEach((k) => {
       if (k.startsWith(`${userId}_`)) {
@@ -75,9 +83,22 @@ export class DashboardService {
     });
   }
 
+  private static invalidateScopedCache() {
+    const scopedPrefix = this.getScopedCacheKey('');
+    Object.keys(this.cache).forEach((key) => {
+      if (key.startsWith(scopedPrefix)) {
+        delete this.cache[key];
+      }
+    });
+    Object.keys(this.inFlight).forEach((key) => {
+      if (key.startsWith(scopedPrefix)) {
+        delete this.inFlight[key];
+      }
+    });
+  }
+
   private static getCached<T>(key: string): T | null {
-    const { userId, cycleId, engineVersion, promptVersion } = this.sessionContext;
-    const scopedKey = `${userId || 'anon'}_${cycleId || 'default'}_${engineVersion || '1.0'}_${promptVersion || '1.0'}_${key}`;
+    const scopedKey = this.getScopedCacheKey(key);
     const cached = this.cache[scopedKey];
     if (cached && (Date.now() - cached.timestamp < this.STALE_TIME)) {
       return cached.data as T;
@@ -86,19 +107,57 @@ export class DashboardService {
   }
 
   private static setCached(key: string, data: any) {
-    const { userId, cycleId, engineVersion, promptVersion } = this.sessionContext;
-    const scopedKey = `${userId || 'anon'}_${cycleId || 'default'}_${engineVersion || '1.0'}_${promptVersion || '1.0'}_${key}`;
+    const scopedKey = this.getScopedCacheKey(key);
     this.cache[scopedKey] = { data, timestamp: Date.now() };
-    const keyListeners = this.listeners[scopedKey];
+    const keyListeners = this.listeners[key];
     if (keyListeners) {
       keyListeners.forEach(cb => {
         try {
           cb(data);
         } catch (err) {
-          console.error(`Error in cache listener for key ${scopedKey}:`, err);
+          console.error(`Error in cache listener for key ${key}:`, err);
         }
       });
     }
+  }
+
+  private static runDedupedRequest<T>(key: string, fetchFresh: () => Promise<T>): Promise<T> {
+    const scopedKey = this.getScopedCacheKey(key);
+    if (this.inFlight[scopedKey]) {
+      return this.inFlight[scopedKey] as Promise<T>;
+    }
+
+    const requestPromise = (async () => {
+      try {
+        const data = await fetchFresh();
+        this.setCached(key, data);
+        return data;
+      } finally {
+        delete this.inFlight[scopedKey];
+      }
+    })();
+
+    this.inFlight[scopedKey] = requestPromise;
+    return requestPromise;
+  }
+
+  private static getCachedOrFetch<T>(key: string, fetchFresh: () => Promise<T>, revalidateOnCache = false): Promise<T> {
+    const cached = this.getCached<T>(key);
+    const scopedKey = this.getScopedCacheKey(key);
+    const inFlight = this.inFlight[scopedKey];
+
+    if (cached !== null) {
+      if (revalidateOnCache && !inFlight) {
+        void this.runDedupedRequest(key, fetchFresh).catch(() => {});
+      }
+      return Promise.resolve(cached);
+    }
+
+    if (inFlight) {
+      return inFlight as Promise<T>;
+    }
+
+    return this.runDedupedRequest(key, fetchFresh);
   }
 
   public static subscribe(key: string, callback: (data: any) => void): () => void {
@@ -152,9 +211,7 @@ export class DashboardService {
    */
   static async fetchDashboardData(): Promise<DashboardData> {
     const cacheKey = 'dashboard_data';
-    const cached = this.getCached<DashboardData>(cacheKey);
-
-    const fetchFresh = async () => {
+    return this.getCachedOrFetch<DashboardData>(cacheKey, async () => {
       const startTime = performance.now();
       try {
         const [entriesRes, threadsRes, sessionRes, cycleStatusRes] = await Promise.all([
@@ -212,19 +269,24 @@ export class DashboardService {
           };
         });
 
+        this.setCached('active_threads', mappedThreads);
+
         // Fetch active session state to compute hasWrittenToday
         let hasWrittenToday = false;
         let userId = 'anon';
         let cycleId = 'default';
+        let sessionState: any = null;
+        let cycleStatusData: any = null;
         if (sessionRes && sessionRes.ok) {
-          const sessionData = await sessionRes.json().catch(() => null);
-          if (sessionData) {
-            if (sessionData.isCompletedToday) {
+          sessionState = await sessionRes.json().catch(() => null);
+          if (sessionState) {
+            this.setCached('session_state', sessionState);
+            if (sessionState.isCompletedToday) {
               hasWrittenToday = true;
             }
-            if (sessionData.session) {
-              userId = sessionData.session.user_id || userId;
-              cycleId = sessionData.session.cycle_id || cycleId;
+            if (sessionState.session) {
+              userId = sessionState.session.user_id || userId;
+              cycleId = sessionState.session.cycle_id || cycleId;
             }
           }
         }
@@ -237,7 +299,10 @@ export class DashboardService {
         let daysRemaining = 29;
 
         if (cycleStatusRes && cycleStatusRes.ok) {
-          const cycleStatusData = await cycleStatusRes.json().catch(() => null);
+          cycleStatusData = await cycleStatusRes.json().catch(() => null);
+          if (cycleStatusData) {
+            this.setCached('cycle_status', cycleStatusData);
+          }
           if (cycleStatusData && cycleStatusData.hasCycle && cycleStatusData.cycle) {
             const cycle = cycleStatusData.cycle;
             cycleNumber = cycle.cycleNumber || 1;
@@ -279,7 +344,9 @@ export class DashboardService {
             hasWrittenToday
           },
           entries: mappedEntries,
-          threads: mappedThreads
+          threads: mappedThreads,
+          sessionState,
+          cycleStatus: cycleStatusData
         };
 
         this.setSessionContext({
@@ -292,21 +359,12 @@ export class DashboardService {
         const duration = performance.now() - startTime;
         this.trackLatency('fetchDashboardData', duration);
 
-        this.setCached(cacheKey, dashboardDataResult);
         return dashboardDataResult;
       } catch (err) {
         console.error('Error in fetchDashboardData background fetch:', err);
         throw err;
       }
-    };
-
-    if (cached) {
-      // Async revalidate
-      fetchFresh().catch(() => {});
-      return cached;
-    }
-
-    return fetchFresh();
+    });
   }
 
   /**
@@ -324,8 +382,8 @@ export class DashboardService {
       throw new Error(data?.error?.message || 'Failed to save journal entry.');
     }
     
-    // Invalidate dashboard caches on write
-    this.cache = {};
+    // Invalidate only the current user/cycle scope on write.
+    this.invalidateScopedCache();
 
     const entry = data.entry;
     const duration = performance.now() - startTime;
@@ -366,18 +424,19 @@ export class DashboardService {
    * Fetches active threads for the user from Supabase.
    */
   static async fetchActiveThreads(): Promise<any> {
-    const startTime = performance.now();
-    const res = await fetch('/api/threads', {
-      headers: DashboardService.getHeaders()
+    return this.getCachedOrFetch<any>('active_threads', async () => {
+      const startTime = performance.now();
+      const res = await fetch('/api/threads', {
+        headers: DashboardService.getHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error?.message || 'Failed to fetch active threads.');
+      }
+      const duration = performance.now() - startTime;
+      this.trackLatency('fetchActiveThreads', duration);
+      return data.threads;
     });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data?.error?.message || 'Failed to fetch active threads.');
-    }
-    const duration = performance.now() - startTime;
-    this.trackLatency('fetchActiveThreads', duration);
-
-    return data.threads;
   }
 
   /**
@@ -408,7 +467,7 @@ export class DashboardService {
       throw new Error(data?.error?.message || 'Failed to submit thread response.');
     }
     // Invalidate caches
-    this.cache = {};
+    this.invalidateScopedCache();
     return data.response;
   }
 
@@ -425,6 +484,7 @@ export class DashboardService {
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Failed to save thread draft.');
     }
+    this.invalidateScopedCache();
     return data.draft_response;
   }
 
@@ -432,18 +492,19 @@ export class DashboardService {
    * Fetches the user's active or completed daily session for today.
    */
   static async fetchActiveSession(): Promise<any> {
-    const startTime = performance.now();
-    const res = await fetch('/api/session', {
-      headers: DashboardService.getHeaders()
+    return this.getCachedOrFetch<any>('session_state', async () => {
+      const startTime = performance.now();
+      const res = await fetch('/api/session', {
+        headers: DashboardService.getHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error?.message || 'Failed to fetch active session.');
+      }
+      const duration = performance.now() - startTime;
+      this.trackLatency('fetchActiveSession', duration);
+      return data;
     });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data?.error?.message || 'Failed to fetch active session.');
-    }
-    const duration = performance.now() - startTime;
-    this.trackLatency('fetchActiveSession', duration);
-
-    return data;
   }
 
   /**
@@ -459,6 +520,7 @@ export class DashboardService {
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Failed to start session.');
     }
+    this.invalidateScopedCache();
     return data;
   }
 
@@ -475,6 +537,7 @@ export class DashboardService {
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Failed to save session step.');
     }
+    this.invalidateScopedCache();
     return data;
   }
 
@@ -502,8 +565,8 @@ export class DashboardService {
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Failed to complete session.');
     }
-    // Invalidate caches
-    this.cache = {};
+    // Invalidate only the current user/cycle scope on complete.
+    this.invalidateScopedCache();
     return data;
   }
 
@@ -512,6 +575,7 @@ export class DashboardService {
    */
   static resetState() {
     this.cache = {};
+    this.inFlight = {};
     this.sessionContext = {};
     if (typeof window !== 'undefined') {
       localStorage.removeItem('iw_dashboard_data_v1');
@@ -519,10 +583,7 @@ export class DashboardService {
   }
 
   static async fetchVocabOverview(): Promise<any> {
-    const cacheKey = 'vocab_overview';
-    const cached = this.getCached<any>(cacheKey);
-
-    const fetchFresh = async () => {
+    return this.getCachedOrFetch<any>('vocab_overview', async () => {
       const startTime = performance.now();
       const res = await fetch('/api/vocab/overview', {
         headers: DashboardService.getHeaders()
@@ -533,22 +594,12 @@ export class DashboardService {
       }
       const duration = performance.now() - startTime;
       this.trackLatency('fetchVocabOverview', duration);
-      this.setCached(cacheKey, data.data);
       return data.data;
-    };
-
-    if (cached) {
-      fetchFresh().catch(() => {});
-      return cached;
-    }
-    return fetchFresh();
+    });
   }
 
   static async fetchVocabByCycle(): Promise<any> {
-    const cacheKey = 'vocab_by_cycle';
-    const cached = this.getCached<any>(cacheKey);
-
-    const fetchFresh = async () => {
+    return this.getCachedOrFetch<any>('vocab_by_cycle', async () => {
       const startTime = performance.now();
       const res = await fetch('/api/vocab/by-cycle', {
         headers: DashboardService.getHeaders()
@@ -559,15 +610,8 @@ export class DashboardService {
       }
       const duration = performance.now() - startTime;
       this.trackLatency('fetchVocabByCycle', duration);
-      this.setCached(cacheKey, data.cycles);
       return data.cycles;
-    };
-
-    if (cached) {
-      fetchFresh().catch(() => {});
-      return cached;
-    }
-    return fetchFresh();
+    });
   }
 
   static async fetchVocabThreadResponses(): Promise<any> {
@@ -595,7 +639,7 @@ export class DashboardService {
       throw new Error(data?.error?.message || 'Failed to submit reflection response.');
     }
     // Invalidate caches
-    this.cache = {};
+    this.invalidateScopedCache();
     return data.reflection;
   }
 
@@ -603,10 +647,7 @@ export class DashboardService {
    * Fetches active cycle status and progression metrics.
    */
   static async fetchCycleStatus(): Promise<any> {
-    const cacheKey = 'cycle_status';
-    const cached = this.getCached<any>(cacheKey);
-
-    const fetchFresh = async () => {
+    return this.getCachedOrFetch<any>('cycle_status', async () => {
       const startTime = performance.now();
       const res = await fetch('/api/cycles/status', {
         headers: DashboardService.getHeaders()
@@ -617,15 +658,8 @@ export class DashboardService {
       }
       const duration = performance.now() - startTime;
       this.trackLatency('fetchCycleStatus', duration);
-      this.setCached(cacheKey, data);
       return data;
-    };
-
-    if (cached) {
-      fetchFresh().catch(() => {});
-      return cached;
-    }
-    return fetchFresh();
+    });
   }
 
   /**
@@ -642,7 +676,7 @@ export class DashboardService {
       throw new Error(data?.error?.message || 'Failed to submit cycle transition assessment.');
     }
     // Invalidate caches on transition
-    this.cache = {};
+    this.invalidateScopedCache();
     return data;
   }
 
@@ -659,8 +693,8 @@ export class DashboardService {
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Failed to execute cycle simulation.');
     }
-    // Invalidate caches on simulation
-    this.cache = {};
+    // Invalidate only the current user/cycle scope on simulation.
+    this.invalidateScopedCache();
     return data;
   }
 
@@ -668,10 +702,7 @@ export class DashboardService {
    * Fetches the complete, cycle-centric timeline list.
    */
   static async fetchCyclesList(): Promise<any[]> {
-    const cacheKey = 'cycles_list';
-    const cached = this.getCached<any[]>(cacheKey);
-
-    const fetchFresh = async () => {
+    return this.getCachedOrFetch<any[]>('cycles_list', async () => {
       const startTime = performance.now();
       const res = await fetch('/api/cycles', {
         headers: DashboardService.getHeaders()
@@ -682,17 +713,8 @@ export class DashboardService {
       }
       const duration = performance.now() - startTime;
       this.trackLatency('fetchCyclesList', duration);
-      
-      const cycles = data.cycles || [];
-      this.setCached(cacheKey, cycles);
-      return cycles;
-    };
-
-    if (cached) {
-      fetchFresh().catch(() => {});
-      return cached;
-    }
-    return fetchFresh();
+      return data.cycles || [];
+    });
   }
 
   /**
@@ -718,9 +740,7 @@ export class DashboardService {
    */
   static async fetchWeeklyReports(cycleId?: string): Promise<any[]> {
     const cacheKey = `weekly_reports_${cycleId || 'all'}`;
-    const cached = this.getCached<any[]>(cacheKey);
-
-    const fetchFresh = async () => {
+    return this.getCachedOrFetch<any[]>(cacheKey, async () => {
       const startTime = performance.now();
       const url = cycleId ? `/api/reports/weekly?cycleId=${cycleId}` : '/api/reports/weekly';
       const res = await fetch(url, {
@@ -732,15 +752,8 @@ export class DashboardService {
       }
       const duration = performance.now() - startTime;
       this.trackLatency('fetchWeeklyReports', duration);
-      this.setCached(cacheKey, data.reports);
       return data.reports;
-    };
-
-    if (cached) {
-      fetchFresh().catch(() => {});
-      return cached;
-    }
-    return fetchFresh();
+    });
   }
 
   /**
@@ -748,9 +761,7 @@ export class DashboardService {
    */
   static async fetchWeeklyReportDetail(reportId: string): Promise<any> {
     const cacheKey = `weekly_report_detail_${reportId}`;
-    const cached = this.getCached<any>(cacheKey);
-
-    const fetchFresh = async () => {
+    return this.getCachedOrFetch<any>(cacheKey, async () => {
       const startTime = performance.now();
       const res = await fetch(`/api/reports/weekly/${reportId}`, {
         headers: DashboardService.getHeaders()
@@ -761,15 +772,8 @@ export class DashboardService {
       }
       const duration = performance.now() - startTime;
       this.trackLatency('fetchWeeklyReportDetail', duration);
-      this.setCached(cacheKey, data.report);
       return data.report;
-    };
-
-    if (cached) {
-      fetchFresh().catch(() => {});
-      return cached;
-    }
-    return fetchFresh();
+    });
   }
 
   /**
@@ -777,9 +781,7 @@ export class DashboardService {
    */
   static async fetchCycleAssessment(cycleId: string): Promise<any> {
     const cacheKey = `cycle_assessment_${cycleId}`;
-    const cached = this.getCached<any>(cacheKey);
-
-    const fetchFresh = async () => {
+    return this.getCachedOrFetch<any>(cacheKey, async () => {
       const startTime = performance.now();
       const res = await fetch(`/api/reports/assessment?cycleId=${cycleId}`, {
         headers: DashboardService.getHeaders()
@@ -790,15 +792,8 @@ export class DashboardService {
       }
       const duration = performance.now() - startTime;
       this.trackLatency('fetchCycleAssessment', duration);
-      this.setCached(cacheKey, data.assessment);
       return data.assessment;
-    };
-
-    if (cached) {
-      fetchFresh().catch(() => {});
-      return cached;
-    }
-    return fetchFresh();
+    });
   }
 }
 

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../../lib/db';
 import { getAuthenticatedUser } from '../../../../lib/auth-helper';
 import { VocabularyIntelligenceService } from '../../../../lib/vocab/vocabIntelligenceService';
-import { rebuildUserVocabulary } from '../../../../lib/vocab/rebuildService';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,16 +15,6 @@ export async function GET(request: NextRequest) {
 
     const userId = authUser.userId;
 
-    // 1. Fetch user's processed intelligence versions
-    const { data: userVersions } = await supabase
-      .from('user_intelligence_versions')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    const currentEngine = '2.0';
-    const currentPrompt = '1.0';
-
     const { count: unprocessedEntries } = await supabase
       .from('entries')
       .select('id', { count: 'exact', head: true })
@@ -37,33 +26,6 @@ export async function GET(request: NextRequest) {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('vocab_processed', false);
-
-    const versionMismatch = !userVersions || 
-      userVersions.vocab_engine_version !== currentEngine || 
-      userVersions.vocab_prompt_version !== currentPrompt;
-
-    // Check if a vocabulary rebuild is already running to avoid duplicate triggers
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('vocab_rebuild_in_progress')
-      .eq('id', userId)
-      .maybeSingle();
-    const rebuildInProgress = profile?.vocab_rebuild_in_progress || false;
-
-    const needsRebuild = (versionMismatch || (unprocessedEntries || 0) > 0 || (unprocessedResponses || 0) > 0) && !rebuildInProgress;
-
-    if (needsRebuild) {
-      console.log(`[Vocab API] Rebuild needed (versionMismatch: ${versionMismatch}, unprocessed: ${(unprocessedEntries || 0) + (unprocessedResponses || 0)}). Scheduling async rebuild...`);
-      const { queueRegistry } = await import('../../../../lib/queue/registry');
-      await queueRegistry.addJob(
-        'intelligence_rebuild',
-        `rebuild_vocabulary_${userId}`,
-        { user_id: userId, subsystem: 'vocabulary' },
-        `rebuild_vocabulary_${userId}`
-      );
-    } else if (rebuildInProgress) {
-      console.log(`[Vocab API] Vocabulary rebuild is already in progress for user ${userId}. Skipping duplicate schedule.`);
-    }
 
     // 2. Fetch stats via VocabularyIntelligenceService
     const auditParam = request.nextUrl.searchParams.get('vocabAudit') === 'true';

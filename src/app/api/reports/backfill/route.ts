@@ -21,6 +21,18 @@ export async function POST(request: NextRequest) {
     const allUsers = searchParams.get('all') === 'true';
 
     if (allUsers) {
+      if (process.env.ENABLE_ADMIN_MAINTENANCE !== 'true') {
+        return NextResponse.json(
+          {
+            error: {
+              code: 'FORBIDDEN',
+              message: 'Global backfill is disabled. Use the single-user backfill path or enable admin maintenance explicitly.'
+            }
+          },
+          { status: 403 }
+        );
+      }
+
       console.log(`[API Reports Backfill] Triggered backfill for all users`);
       const { data: users, error: usersErr } = await supabase
         .from('users')

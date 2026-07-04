@@ -71,7 +71,6 @@ export async function GET(request: NextRequest) {
     }
 
     let isAssessmentGate = false;
-    let finishedCycle = null;
 
     // If no active cycle, check if there's a completed cycle requiring assessment
     if (!cycle) {
@@ -113,7 +112,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 2. Perform day calculation and check duration
+    // 2. Perform day calculation and check duration without mutating stored cycle state.
     const startDate = new Date(cycle.start_date || cycle.started_at);
     const today = new Date();
     
@@ -124,49 +123,16 @@ export async function GET(request: NextRequest) {
     const calculatedDay = Math.floor(diffTime / (24 * 60 * 60 * 1000)) + 1;
     const currentDay = Math.max(1, calculatedDay);
 
-    let updatedCycle = { ...cycle };
-
-    // Auto-complete cycle if it has reached or exceeded configured total_days (default 30)
-    if (calculatedDay > cycle.total_days && cycle.status === 'ACTIVE') {
-      console.log(`[API Cycles Status] Cycle ${cycle.cycle_number} duration reached. Transitioning to COMPLETED.`);
-      const { data: completedRes, error: completeErr } = await supabase
-        .from('cycles')
-        .update({
-          status: 'COMPLETED',
-          assessment_available: true,
-          completed_at: new Date().toISOString(),
-          current_day: cycle.total_days // Cap at total days when completed
-        })
-        .eq('id', cycle.id)
-        .eq('user_id', userId)
-        .select()
-        .single();
-
-      if (completeErr) {
-        console.error('[API Cycles Status] Error marking cycle completed:', completeErr);
-      } else if (completedRes) {
-        updatedCycle = completedRes;
-        isAssessmentGate = true;
-      }
-    } else if (cycle.status === 'ACTIVE') {
-      // Otherwise, update current_day column in db to keep it in sync
-      const { data: syncRes } = await supabase
-        .from('cycles')
-        .update({ current_day: Math.min(cycle.total_days, currentDay) })
-        .eq('id', cycle.id)
-        .eq('user_id', userId)
-        .select()
-        .single();
-      if (syncRes) {
-        updatedCycle = syncRes;
-      }
-    }
+    const activeDay = Math.min(cycle.total_days, currentDay);
+    const progressPercentage = Math.round((activeDay / cycle.total_days) * 100);
+    const daysRemaining = Math.max(0, cycle.total_days - activeDay);
+    const isCycleExpired = calculatedDay > cycle.total_days && cycle.status === 'ACTIVE';
 
     // 3. Count entries written in this cycle
     const { data: cycleEntries, error: entriesErr } = await supabase
       .from('entries')
       .select('id, created_at, cycle_day')
-      .eq('cycle_id', updatedCycle.id)
+      .eq('cycle_id', cycle.id)
       .eq('user_id', userId);
 
     if (entriesErr) {
@@ -190,43 +156,35 @@ export async function GET(request: NextRequest) {
 
     const streak = calculateStreak(allUserEntries || []);
 
-    // Save counts back to DB
-    await supabase
-      .from('cycles')
-      .update({
-        entries_count: entriesCount,
-        days_completed: daysCompleted
-      })
-      .eq('id', updatedCycle.id)
-      .eq('user_id', userId);
-
-    // Compute progress details
-    const activeDay = Math.min(updatedCycle.total_days, currentDay);
-    const progressPercentage = Math.round((activeDay / updatedCycle.total_days) * 100);
-    const daysRemaining = Math.max(0, updatedCycle.total_days - activeDay);
     const writingConsistency = activeDay > 0 ? Math.round((daysCompleted / activeDay) * 100) : 0;
+
+    if (isCycleExpired) {
+      isAssessmentGate = true;
+    }
+
+    const cyclePayload = {
+      id: cycle.id,
+      cycleNumber: cycle.cycle_number || cycle.number,
+      status: cycle.status,
+      startDate: cycle.start_date || cycle.started_at,
+      endDate: cycle.end_date || cycle.ended_at,
+      totalDays: cycle.total_days,
+      currentDay: activeDay,
+      daysCompleted,
+      entriesCount,
+      assessmentCompleted: cycle.assessment_completed,
+      assessmentAvailable: cycle.assessment_available,
+      progressPercentage,
+      daysRemaining,
+      streak,
+      writingConsistency
+    };
 
     return NextResponse.json({
       success: true,
       hasCycle: true,
       isAssessmentGate,
-      cycle: {
-        id: updatedCycle.id,
-        cycleNumber: updatedCycle.cycle_number || updatedCycle.number,
-        status: updatedCycle.status,
-        startDate: updatedCycle.start_date || updatedCycle.started_at,
-        endDate: updatedCycle.end_date || updatedCycle.ended_at,
-        totalDays: updatedCycle.total_days,
-        currentDay: activeDay,
-        daysCompleted: daysCompleted,
-        entriesCount: entriesCount,
-        assessmentCompleted: updatedCycle.assessment_completed,
-        assessmentAvailable: updatedCycle.assessment_available,
-        progressPercentage,
-        daysRemaining,
-        streak,
-        writingConsistency
-      }
+      cycle: cyclePayload
     });
 
   } catch (error) {

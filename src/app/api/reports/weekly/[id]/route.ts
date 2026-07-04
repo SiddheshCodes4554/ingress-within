@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../../../lib/db';
 import { getAuthenticatedUser } from '../../../../../lib/auth-helper';
-import { overlayWeeklyReportGraphData } from '../../../../../lib/reportGraphHelper';
 
 /**
  * GET /api/reports/weekly/[id]: Fetches a single weekly report by summary ID.
@@ -46,11 +45,9 @@ export async function GET(
       );
     }
 
-    const processedReport = await overlayWeeklyReportGraphData(report, userId);
-
     return NextResponse.json({
       success: true,
-      report: processedReport
+      report
     });
 
   } catch (error: any) {
