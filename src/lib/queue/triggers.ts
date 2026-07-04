@@ -18,93 +18,141 @@ export async function checkWeeklyAndMonthlySummary(userId: string, cycleId: stri
 
   console.log(`[Queue Trigger] Checking cycle day milestones for user ${userId}, day ${cycleDay}`);
 
-  // 1. Check Weekly Summary (Day 7, 14, 21)
-  const targetDays = [7, 14, 21];
-  if (targetDays.includes(cycleDay)) {
-    const weekNum = cycleDay / 7;
-    try {
-      const { data: existing } = await supabase
-        .from('weekly_summaries')
-        .select('id, status')
-        .eq('cycle_id', cycleId)
-        .eq('week_number', weekNum)
-        .maybeSingle();
+  // 1. Check Weekly Summaries (Trigger Week 1 at Day 8+, Week 2 at Day 15+, Week 3 at Day 22+)
+  const weeksToCheck = [
+    { weekNum: 1, triggerDay: 8, startDay: 1, endDay: 7 },
+    { weekNum: 2, triggerDay: 15, startDay: 8, endDay: 14 },
+    { weekNum: 3, triggerDay: 22, startDay: 15, endDay: 21 }
+  ];
 
-      if (!existing || existing.status === 'failed') {
-        // Query the final entry ID to associate with orchestration state
-        const { data: entry } = await supabase
-          .from('entries')
-          .select('id')
+  for (const w of weeksToCheck) {
+    if (cycleDay >= w.triggerDay) {
+      try {
+        const { data: existing } = await supabase
+          .from('weekly_summaries')
+          .select('id, status')
           .eq('cycle_id', cycleId)
-          .eq('cycle_day', cycleDay)
-          .order('created_at', { ascending: false })
-          .limit(1)
+          .eq('week_number', w.weekNum)
           .maybeSingle();
-        const entryId = entry?.id || '';
 
-        const initialOrchestration = {
-          orchestration: {
-            status: 'waiting_for_scoring',
-            entry_id: entryId,
-            completed_events: {
-              'SCORING_COMPLETED': false,
-              'REFLECTION_COMPLETED': false,
-              'CRISIS_COMPLETED': false,
-              'VOCABULARY_COMPLETED': false,
-              'THREADS_COMPLETED': false,
-              'CYCLE_METADATA_UPDATED': false
-            },
-            history: [
-              { stage: 'waiting_for_scoring', timestamp: new Date().toISOString() }
-            ],
-            updated_at: new Date().toISOString()
+        if (!existing || existing.status === 'failed') {
+          // Query the final entry in the week's day range to associate with orchestration state
+          const { data: entry } = await supabase
+            .from('entries')
+            .select('id')
+            .eq('cycle_id', cycleId)
+            .gte('cycle_day', w.startDay)
+            .lte('cycle_day', w.endDay)
+            .order('cycle_day', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (!entry) {
+            console.log(`[Queue Trigger] No entries found for Week ${w.weekNum} in range [${w.startDay}, ${w.endDay}]. Skipping.`);
+            continue;
           }
-        };
 
-        if (!existing) {
-          const { data: summary, error: insertError } = await supabase
-            .from('weekly_summaries')
-            .insert({
-              user_id: userId,
-              cycle_id: cycleId,
-              week_number: weekNum,
-              day_start: cycleDay - 6,
-              day_end: cycleDay,
-              status: 'pending',
-              report_data: initialOrchestration
-            })
-            .select()
-            .single();
+          const entryId = entry.id;
 
-          if (insertError) {
-            console.error(`[Queue Trigger] Failed to insert weekly_summaries row:`, insertError.message);
-          } else if (summary) {
-            console.log(`[Queue Trigger] Created weekly summary row ${summary.id} in status pending (waiting_for_scoring). Waiting for intelligence engines...`);
-          }
-        } else {
-          // Reset existing failed summary to pending to allow re-triggering
-          const { error: updateError } = await supabase
-            .from('weekly_summaries')
-            .update({
-              status: 'pending',
-              report_data: initialOrchestration,
-              title: null,
-              why: null,
-              body: null,
-              open_question: null,
-              generated_at: null
-            })
-            .eq('id', existing.id);
+          const initialOrchestration = {
+            orchestration: {
+              status: 'waiting_for_scoring',
+              entry_id: entryId,
+              completed_events: {
+                'SCORING_COMPLETED': false,
+                'REFLECTION_COMPLETED': false,
+                'CRISIS_COMPLETED': false,
+                'VOCABULARY_COMPLETED': false,
+                'THREADS_COMPLETED': false,
+                'CYCLE_METADATA_UPDATED': false
+              },
+              history: [
+                { stage: 'waiting_for_scoring', timestamp: new Date().toISOString() }
+              ],
+              updated_at: new Date().toISOString()
+            }
+          };
 
-          if (updateError) {
-            console.error(`[Queue Trigger] Failed to reset failed weekly summary row:`, updateError.message);
+          let targetSummaryId = existing?.id || '';
+
+          if (!existing) {
+            const { data: summary, error: insertError } = await supabase
+              .from('weekly_summaries')
+              .insert({
+                user_id: userId,
+                cycle_id: cycleId,
+                week_number: w.weekNum,
+                day_start: w.startDay,
+                day_end: w.endDay,
+                status: 'pending',
+                report_data: initialOrchestration
+              })
+              .select()
+              .single();
+
+            if (insertError) {
+              console.error(`[Queue Trigger] Failed to insert weekly_summaries row for Week ${w.weekNum}:`, insertError.message);
+            } else if (summary) {
+              targetSummaryId = summary.id;
+              console.log(`[Queue Trigger] Created weekly summary row ${summary.id} for Week ${w.weekNum} in status pending. Triggering validation...`);
+            }
           } else {
-            console.log(`[Queue Trigger] Reset failed weekly summary row ${existing.id} to pending for re-triggering.`);
+            // Reset existing failed summary to pending to allow re-triggering
+            const { error: updateError } = await supabase
+              .from('weekly_summaries')
+              .update({
+                status: 'pending',
+                report_data: initialOrchestration,
+                title: null,
+                why: null,
+                body: null,
+                open_question: null,
+                generated_at: null
+              })
+              .eq('id', existing.id);
+
+            if (updateError) {
+              console.error(`[Queue Trigger] Failed to reset failed weekly summary row ${existing.id}:`, updateError.message);
+            } else {
+              targetSummaryId = existing.id;
+              console.log(`[Queue Trigger] Reset failed weekly summary row ${existing.id} to pending for re-triggering. Triggering validation...`);
+            }
+          }
+
+          if (targetSummaryId) {
+            // Trigger validation/generation orchestrator
+            if (process.env.BYPASS_REDIS === 'true') {
+              try {
+                const { weeklyReportOrchestrator } = await import('../weeklyReportOrchestrator');
+                setTimeout(async () => {
+                  try {
+                    console.log(`[Queue Trigger] [BYPASS_REDIS] Running validation/generation for summary ${targetSummaryId}...`);
+                    await weeklyReportOrchestrator.validateAndGenerateReport(targetSummaryId, userId, cycleId, w.weekNum);
+                  } catch (err: any) {
+                    console.error(`[Queue Trigger] Error during validation/generation:`, err.message);
+                  }
+                }, 1000);
+              } catch (importErr: any) {
+                console.error(`[Queue Trigger] Failed to import weeklyReportOrchestrator:`, importErr.message);
+              }
+            } else {
+              await queueRegistry.addJob(
+                'weekly_summary_generation',
+                `weekly_validate_${targetSummaryId}`,
+                {
+                  summary_id: targetSummaryId,
+                  cycle_id: cycleId,
+                  user_id: userId,
+                  week_number: w.weekNum,
+                  is_validation_job: true
+                }
+              );
+            }
           }
         }
+      } catch (err: any) {
+        console.error(`[Queue Trigger] Error checking weekly summary for Week ${w.weekNum}:`, err.message);
       }
-    } catch (err: any) {
-      console.error(`[Queue Trigger] Error checking weekly summary:`, err.message);
     }
   }
 

@@ -39,7 +39,17 @@ export async function GET(request: NextRequest) {
     }
 
     const cyclesMetadata = cyclesToProcess.map((cy: any) => {
-      const activeDay = cy.current_day || 1;
+      let activeDay = cy.current_day || 1;
+      const isCycleActive = cy.status?.toUpperCase() === 'ACTIVE' || cy.status?.toUpperCase() === 'ARCHIVED';
+      if (isCycleActive && cy.start_date && !cy.end_date) {
+        const started = new Date(cy.start_date);
+        const today = new Date();
+        const startMidnight = new Date(started.getFullYear(), started.getMonth(), started.getDate());
+        const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const diffTime = todayMidnight.getTime() - startMidnight.getTime();
+        const calculatedDay = Math.floor(diffTime / (24 * 60 * 60 * 1000)) + 1;
+        activeDay = Math.min(cy.total_days || 30, Math.max(cy.current_day || 1, calculatedDay));
+      }
       const progressPercentage = Math.round((activeDay / (cy.total_days || 30)) * 100);
       
       return {

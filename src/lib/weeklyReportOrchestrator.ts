@@ -187,19 +187,21 @@ class WeeklyReportOrchestrator {
       return;
     }
 
-    // Fetch the final entry of the week (day 7, 14, or 21)
-    const cycleDay = weekNumber * 7;
+    // Fetch the final entry of the week (highest cycle_day within the week's range)
+    const maxDay = weekNumber * 7;
+    const minDay = (weekNumber - 1) * 7 + 1;
     const { data: entry } = await supabase
       .from('entries')
       .select('*')
       .eq('cycle_id', cycleId)
-      .eq('cycle_day', cycleDay)
-      .order('created_at', { ascending: false })
+      .gte('cycle_day', minDay)
+      .lte('cycle_day', maxDay)
+      .order('cycle_day', { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (!entry) {
-      console.error(`[WeeklyReportOrchestrator] Final entry for day ${cycleDay} not found. Rescheduling validation...`);
+      console.error(`[WeeklyReportOrchestrator] Final entry for week range [${minDay}, ${maxDay}] not found. Rescheduling validation...`);
       await this.rescheduleValidation(summaryId, userId, cycleId, weekNumber);
       return;
     }
@@ -227,7 +229,7 @@ class WeeklyReportOrchestrator {
       cycle.status?.toLowerCase() === 'archived' ||
       cycle.status?.toLowerCase() === 'completed' ||
       cycle.status?.toLowerCase() === 'complete' ||
-      (cycle.current_day || 1) >= cycleDay
+      (cycle.current_day || 1) >= maxDay
     );
 
     const validationPassed = isScoringComplete && isReflectionComplete && isCrisisComplete && isVocabComplete && isCycleMetadataFinalized;

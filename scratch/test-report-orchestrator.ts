@@ -117,7 +117,7 @@ async function testOrchestrator() {
 
   // Test Step 1: Detect Week Completion and initialize orchestration state
   console.log('\n--- Step 1: Running Milestone Check ---');
-  await checkWeeklyAndMonthlySummary(testUserId, testCycleId, testCycleDay);
+  await checkWeeklyAndMonthlySummary(testUserId, testCycleId, 8); // Triggered by entry on Day 8 (next week)
 
   // Fetch the summary row to inspect status
   const { data: summary, error: fetchErr } = await supabase

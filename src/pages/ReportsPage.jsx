@@ -838,17 +838,24 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                           Weekly summaries
                         </div>
 
-                        {[1, 2, 3].map(weekNum => {
-                          const report = cycleReports.find(r => r.week_number === weekNum);
-                          const isWeekCompleted = (cycle.current_day || 1) > (weekNum * 7) || (report && report.status === 'ready');
+                        {(() => {
+                          const weeksList = [1, 2, 3];
+                          const currentWeek = Math.floor(((cycle.current_day || 1) - 1) / 7) + 1;
+                          const isActiveCycle = cycle.status?.toUpperCase() !== 'COMPLETED' && cycle.status?.toUpperCase() !== 'COMPLETE';
+                          if (currentWeek > 3 && currentWeek <= 4 && isActiveCycle) {
+                            weeksList.push(currentWeek);
+                          }
+                          return weeksList.map(weekNum => {
+                            const report = cycleReports.find(r => r.week_number === weekNum);
+                            const isWeekCompleted = (cycle.current_day || 1) > (weekNum * 7) || (report && report.status === 'ready');
 
-                          // Calculate completion date based on cycle start_date
-                          const startDate = cycle.start_date ? new Date(cycle.start_date) : null;
-                          const formattedDate = startDate
-                            ? new Date(startDate.getTime() + (weekNum * 7) * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-                            : (report?.generated_at ? new Date(report.generated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '');
+                            // Calculate completion date based on cycle start_date
+                            const startDate = cycle.start_date ? new Date(cycle.start_date) : null;
+                            const formattedDate = startDate
+                              ? new Date(startDate.getTime() + (weekNum * 7) * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                              : (report?.generated_at ? new Date(report.generated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '');
 
-                          if (!isWeekCompleted) {
+                            if (!isWeekCompleted) {
                             return (
                               <div key={`locked-week-${weekNum}`} className="p-3.5 flex items-center justify-between bg-white text-mid border-b border-[#1E2A2E]/5 last:border-b-0 opacity-70">
                                 <div className="flex items-center gap-3">
@@ -967,7 +974,8 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                               </div>
                             </div>
                           );
-                        })}
+                        });
+                      })()}
                       </div>
                     )}
                   </div>

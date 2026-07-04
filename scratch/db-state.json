@@ -1,0 +1,880 @@
+{
+  "cycles": [
+    {
+      "id": "e92a52a6-fa6a-4b7b-bcd6-0ad622e422da",
+      "user_id": "f36d91ed-d484-4ecb-9078-1dfba35ff7c7",
+      "cycle_number": 1,
+      "start_date": "2026-06-12",
+      "end_date": null,
+      "status": "ARCHIVED",
+      "total_days": 30,
+      "insight": null,
+      "created_at": "2026-06-16T12:42:26.451361+00:00",
+      "current_day": 18,
+      "days_completed": 18,
+      "entries_count": 18,
+      "assessment_completed": false,
+      "assessment_available": false,
+      "completed_at": null,
+      "updated_at": "2026-07-04T07:15:37.747+00:00"
+    }
+  ],
+  "entries": [
+    {
+      "id": "0fd8f79a-14e3-4981-964a-5c5e8eb4c316",
+      "cycle_day": 1,
+      "created_at": "2026-06-30T06:54:54.065146+00:00",
+      "content": "Today everything feels unbearable. I don't think I can keep carrying this pain anymore. I've been trying to convince everyone that I'm okay, but I'm not. I feel completely overwhelmed, hopeless, and disconnected from the people around me. It feels like nothing is going to get better, and I can't imagine a future where I feel differently. Right now, I don't feel safe with my own thoughts. I don't know how much longer I can keep pretending everything is fine, and I desperately need someone to notice how much I'm struggling."
+    },
+    {
+      "id": "10000000-0000-4000-a000-000000000001",
+      "cycle_day": 1,
+      "created_at": "2026-06-12T09:00:00+00:00",
+      "content": "I woke up feeling heavy and sad today. There is so much pressure at the office about my career project, and I feel overwhelmed. I need to establish better boundaries and healthy habits to support my growth, but it feels so hard to start."
+    },
+    {
+      "id": "10000000-0000-4000-a000-000000000002",
+      "cycle_day": 2,
+      "created_at": "2026-06-13T09:00:00+00:00",
+      "content": "Today was a peaceful and relaxing Saturday. I went for a long walk in nature, and the fresh air made me feel grounded and calm. It was a nice relief from the stress of the past week. I feel quiet and clear."
+    },
+    {
+      "id": "10000000-0000-4000-a000-000000000003",
+      "cycle_day": 3,
+      "created_at": "2026-06-14T09:00:00+00:00",
+      "content": "I met up with an old friend for coffee today. We talked for hours, laughed so much, and shared warm memories of our college days. I felt so happy and connected. It reminded me of who I am outside of my career."
+    },
+    {
+      "id": "10000000-0000-4000-a000-000000000004",
+      "cycle_day": 4,
+      "created_at": "2026-06-15T09:00:00+00:00",
+      "content": "Back to work, and the Monday backlog is overwhelming. I feel rushed and stressed already. I have so many meetings and a tight deadline that makes me feel tense and tired. I feel depleted before the week has even fully started."
+    },
+    {
+      "id": "10000000-0000-4000-a000-000000000005",
+      "cycle_day": 5,
+      "created_at": "2026-06-16T09:00:00+00:00",
+      "content": "I solved a very difficult technical problem at work today! I spent hours focused on it, and when the solution finally worked, I felt so confident and motivated. I feel capable, clear, and proud of my progress."
+    },
+    {
+      "id": "10000000-0000-4000-a000-000000000006",
+      "cycle_day": 6,
+      "created_at": "2026-06-17T09:00:00+00:00",
+      "content": "I am feeling so tired and drained tonight. The exhaustion is physical as well as mental. I didn't have any energy left after work, so I just ate a quiet dinner and stayed in bed. I feel a bit empty and low."
+    },
+    {
+      "id": "10000000-0000-4000-a000-000000000008",
+      "cycle_day": 8,
+      "created_at": "2026-06-19T09:00:00+00:00",
+      "content": "It is a rainy Friday night and I feel quite sad and lonely. I am missing my family and feeling very alone in this apartment. The silence in the room feels heavy, and I have a low-grade ache in my chest."
+    },
+    {
+      "id": "10000000-0000-4000-a000-000000000009",
+      "cycle_day": 9,
+      "created_at": "2026-06-20T09:00:00+00:00",
+      "content": "I completed a major personal project milestone today! I worked on it all morning and it turned out beautifully. I feel so joyful, inspired, and proud of my consistency. It is satisfying to create something of my own."
+    },
+    {
+      "id": "10000000-0000-4000-a000-000000000010",
+      "cycle_day": 10,
+      "created_at": "2026-06-21T09:00:00+00:00",
+      "content": "I had a minor setback today and felt so frustrated and irritated. A tool I was using crashed and I lost an hour of work. I felt angry and tense. I need to restore my balance and not let small things ruin my day."
+    },
+    {
+      "id": "10000000-0000-4000-a000-000000000011",
+      "cycle_day": 11,
+      "created_at": "2026-06-22T09:00:00+00:00",
+      "content": "I have a big presentation tomorrow and I am overthinking everything. My thoughts are racing, and I feel anxious and tense in my shoulders. I am trying to use deep breathing to stay grounded, but the dread is strong."
+    },
+    {
+      "id": "10000000-0000-4000-a000-000000000012",
+      "cycle_day": 12,
+      "created_at": "2026-06-23T09:00:00+00:00",
+      "content": "The presentation went really well! The feedback was positive, and I feel a huge wave of relief. I feel grounded and relaxed now. The dread is gone, and I realize I was worrying far too much. I can finally breathe."
+    },
+    {
+      "id": "10000000-0000-4000-a000-000000000013",
+      "cycle_day": 13,
+      "created_at": "2026-06-24T09:00:00+00:00",
+      "content": "A colleague sent me a very kind message today thanking me for my help on their task. It was unexpected and made me feel so warm and supported. I feel grateful for the good relationships I have here."
+    },
+    {
+      "id": "10000000-0000-4000-a000-000000000014",
+      "cycle_day": 14,
+      "created_at": "2026-06-25T09:00:00+00:00",
+      "content": "I spent the afternoon writing code and brainstorming a new design. I was in a complete flow state, where time just flew by. I felt creative, inspired, and excited. This is the kind of work that makes me feel alive."
+    },
+    {
+      "id": "10000000-0000-4000-a000-000000000015",
+      "cycle_day": 15,
+      "created_at": "2026-06-26T09:00:00+00:00",
+      "content": "It is Friday evening and I feel very content and relaxed. I had a busy week, but I managed my boundaries well. I am winding down now, watching a film, and looking forward to the weekend. I feel peaceful."
+    },
+    {
+      "id": "10000000-0000-4000-a000-000000000016",
+      "cycle_day": 16,
+      "created_at": "2026-06-27T09:00:00+00:00",
+      "content": "I played football with some colleagues today. It was exhausting but so much fun! The physical exercise made me feel energetic, playful, and alive. I feel a great release of physical tension and stress."
+    },
+    {
+      "id": "10000000-0000-4000-a000-000000000017",
+      "cycle_day": 17,
+      "created_at": "2026-06-28T09:00:00+00:00",
+      "content": "Today was a quiet Sunday of peaceful solitude. I read a book, prepared my meals, and organized my space for the next week. I feel calm, serene, and ready for whatever comes. I am in a good place."
+    },
+    {
+      "id": "f91daada-1b9a-494e-a260-f29f017b2652",
+      "cycle_day": 18,
+      "created_at": "2026-06-29T10:14:37.705535+00:00",
+      "content": "Today left me feeling genuinely happy and optimistic. I stayed focused on the things that mattered, made steady progress, and even found time to enjoy the little moments throughout the day. Instead of stressing over everything I still need to accomplish, I appreciated how much I've already learned and how far I've come. I felt more present, more confident, and more connected to my goals. Ending the day with a sense of gratitude reminds me that success isn't just about reaching the destination—it's also about enjoying the journey along the way."
+    },
+    {
+      "id": "be3138ba-ad27-40fa-a238-f3caf4948236",
+      "cycle_day": 20,
+      "created_at": "2026-07-01T08:24:58.392779+00:00",
+      "content": "Today felt balanced in the best way. I was able to stay focused on my work while also taking a few moments to slow down and appreciate where I am. I had a couple of small wins that reminded me how consistent effort eventually pays off. I felt more confident making decisions and didn't spend as much time overthinking every little detail. There's still plenty I want to achieve, but today I felt content with the progress I'm making. I'm ending the day feeling grateful, hopeful, and excited to see what tomorrow brings."
+    },
+    {
+      "id": "7dd8ab79-eac7-46da-a0e5-cba32a3db252",
+      "cycle_day": 21,
+      "created_at": "2026-07-02T04:41:34.568169+00:00",
+      "content": "Today reminded me that not every productive day has to feel exciting. I made steady progress on my responsibilities, even though my motivation came and went throughout the day. Instead of waiting to feel inspired, I focused on completing one task at a time. By the evening, I realized that consistency often creates a stronger sense of accomplishment than short bursts of motivation. I'm ending today feeling calm, satisfied, and a little more confident in my ability to trust the process rather than chase perfection."
+    },
+    {
+      "id": "59b7ce57-2098-482c-8ea8-6b7b7f4a694e",
+      "cycle_day": 22,
+      "created_at": "2026-07-03T09:07:23.590835+00:00",
+      "content": "Today felt like a step in the right direction. I wasn't constantly chasing the perfect outcome, and that made the day feel less stressful. I focused on what I could control and tried to stay present instead of worrying about everything that's still ahead. There were a few moments of uncertainty, but they didn't stop me from moving forward. Looking back, I'm proud that I stayed consistent even without feeling completely confident. I'm ending the day feeling lighter, more patient with myself, and hopeful about the progress that comes from simply showing up."
+    },
+    {
+      "id": "53a32dfe-7cae-40cd-9283-9302909e8b11",
+      "cycle_day": 23,
+      "created_at": "2026-07-04T07:09:33.865671+00:00",
+      "content": "Today felt more peaceful than I expected. I noticed myself making decisions without overanalyzing every possible outcome, and it gave me a quiet sense of confidence. I still had moments where uncertainty showed up, but instead of resisting it, I let it be there while I continued with my day. That small shift made everything feel a little lighter. I'm realizing that trusting myself isn't about always knowing the right answer—it's about believing I can handle whatever comes next. I'm ending the day feeling grateful for that reminder and excited to keep growing, one step at a time."
+    }
+  ],
+  "summaries": [
+    {
+      "id": "18205cb1-381d-4d36-9d53-bc62b2e1bf53",
+      "user_id": "f36d91ed-d484-4ecb-9078-1dfba35ff7c7",
+      "cycle_id": "e92a52a6-fa6a-4b7b-bcd6-0ad622e422da",
+      "week_number": 2,
+      "day_start": 8,
+      "day_end": 14,
+      "body": "This week, you navigated a range of emotions, from feeling anxious and lonely to experiencing joy and inspiration. You demonstrated resilience in the face of challenges and successfully completed a big presentation. Your writing also showed growth in exploring your emotions and developing coping strategies.",
+      "open_question": "What are some potential obstacles that might arise in the upcoming week, and how can you prepare yourself to overcome them while staying true to your goals and values?",
+      "status": "ready",
+      "is_pinned": true,
+      "generated_at": "2026-07-03T12:29:45.612+00:00",
+      "created_at": "2026-06-26T14:14:21.753501+00:00",
+      "title": "Emotional Resilience and Growth",
+      "why": "This week, you demonstrated emotional resilience in the face of challenges, such as feeling anxious and lonely, and successfully navigating a big presentation. Your writing also showed growth in exploring your emotions and developing coping strategies.",
+      "report_data": {
+        "why": "This week, you demonstrated emotional resilience in the face of challenges, such as feeling anxious and lonely, and successfully navigating a big presentation. Your writing also showed growth in exploring your emotions and developing coping strategies.",
+        "audit": {
+          "week_end": "2026-06-25",
+          "week_start": "2026-06-19",
+          "week_number": 2,
+          "score_sources": [
+            {
+              "ei": 6,
+              "pr": 2,
+              "sa": 2,
+              "date": "2026-06-19",
+              "entry_id": "10000000-0000-4000-a000-000000000008"
+            },
+            {
+              "ei": 8,
+              "pr": 2,
+              "sa": 9,
+              "date": "2026-06-20",
+              "entry_id": "10000000-0000-4000-a000-000000000009"
+            },
+            {
+              "ei": 6,
+              "pr": 4,
+              "sa": 6,
+              "date": "2026-06-21",
+              "entry_id": "10000000-0000-4000-a000-000000000010"
+            },
+            {
+              "ei": 8,
+              "pr": 4,
+              "sa": 5,
+              "date": "2026-06-22",
+              "entry_id": "10000000-0000-4000-a000-000000000011"
+            },
+            {
+              "ei": 8,
+              "pr": 2,
+              "sa": 8,
+              "date": "2026-06-23",
+              "entry_id": "10000000-0000-4000-a000-000000000012"
+            },
+            {
+              "ei": 6,
+              "pr": 2,
+              "sa": 8,
+              "date": "2026-06-24",
+              "entry_id": "10000000-0000-4000-a000-000000000013"
+            },
+            {
+              "ei": 8,
+              "pr": 2,
+              "sa": 9,
+              "date": "2026-06-25",
+              "entry_id": "10000000-0000-4000-a000-000000000014"
+            }
+          ],
+          "skipped_dates": [],
+          "vocab_sources": [
+            {
+              "date": "2026-06-19",
+              "words": [
+                "sad and lonely",
+                "missing my family",
+                "feeling very alone",
+                "feels heavy",
+                "low-grade ache"
+              ],
+              "entry_id": "10000000-0000-4000-a000-000000000008"
+            },
+            {
+              "date": "2026-06-20",
+              "words": [
+                "joyful",
+                "inspired",
+                "proud",
+                "consistency",
+                "satisfying"
+              ],
+              "entry_id": "10000000-0000-4000-a000-000000000009"
+            },
+            {
+              "date": "2026-06-21",
+              "words": [
+                "frustrated",
+                "irritated",
+                "angry",
+                "tense",
+                "restore",
+                "balance"
+              ],
+              "entry_id": "10000000-0000-4000-a000-000000000010"
+            },
+            {
+              "date": "2026-06-22",
+              "words": [
+                "overthinking",
+                "racing",
+                "anxious",
+                "tense",
+                "dread"
+              ],
+              "entry_id": "10000000-0000-4000-a000-000000000011"
+            },
+            {
+              "date": "2026-06-23",
+              "words": [
+                "huge wave of relief",
+                "grounded",
+                "relaxed",
+                "dread",
+                "worrying",
+                "breathe"
+              ],
+              "entry_id": "10000000-0000-4000-a000-000000000012"
+            },
+            {
+              "date": "2026-06-24",
+              "words": [
+                "kind",
+                "warm",
+                "supported",
+                "grateful"
+              ],
+              "entry_id": "10000000-0000-4000-a000-000000000013"
+            },
+            {
+              "date": "2026-06-25",
+              "words": [
+                "flow state",
+                "creative",
+                "inspired",
+                "excited",
+                "alive"
+              ],
+              "entry_id": "10000000-0000-4000-a000-000000000014"
+            }
+          ],
+          "expected_dates": [
+            "2026-06-19",
+            "2026-06-20",
+            "2026-06-21",
+            "2026-06-22",
+            "2026-06-23",
+            "2026-06-24",
+            "2026-06-25"
+          ],
+          "journal_ids_included": [
+            "10000000-0000-4000-a000-000000000008",
+            "10000000-0000-4000-a000-000000000009",
+            "10000000-0000-4000-a000-000000000010",
+            "10000000-0000-4000-a000-000000000011",
+            "10000000-0000-4000-a000-000000000012",
+            "10000000-0000-4000-a000-000000000013",
+            "10000000-0000-4000-a000-000000000014"
+          ],
+          "journal_dates_included": [
+            "2026-06-19",
+            "2026-06-20",
+            "2026-06-21",
+            "2026-06-22",
+            "2026-06-23",
+            "2026-06-24",
+            "2026-06-25"
+          ]
+        },
+        "title": "Emotional Resilience and Growth",
+        "weekly_stats": {
+          "week_range": "19 Jun – 25 Jun",
+          "week_number": 2,
+          "cycle_number": 1,
+          "missed_dates": [],
+          "skipped_days": 0,
+          "expected_days": 7,
+          "completed_days": 7,
+          "perfect_streak": true,
+          "total_possible": 7,
+          "writing_streak": 7,
+          "entries_completed": 7,
+          "skipped_day_numbers": [],
+          "thread_responses_completed": 5
+        },
+        "crisis_review": {
+          "events": [],
+          "summary": "No crisis indicators were detected this week.",
+          "occurred": false
+        },
+        "week_narrative": "This week, you navigated a range of emotions, from feeling anxious and lonely to experiencing joy and inspiration. You demonstrated resilience in the face of challenges and successfully completed a big presentation. Your writing also showed growth in exploring your emotions and developing coping strategies.",
+        "score_evolution": {
+          "ei": {
+            "avg": 6.86,
+            "lowest": {
+              "day": 8,
+              "score": 6
+            },
+            "highest": {
+              "day": 9,
+              "score": 8
+            },
+            "interpretation": "Your emotional intelligence scores indicate a consistent level of emotional awareness and regulation throughout the week, with a slight increase in emotional intelligence on day 9."
+          },
+          "pr": {
+            "avg": 2.86,
+            "lowest": {
+              "day": 10,
+              "score": 4
+            },
+            "highest": {
+              "day": 9,
+              "score": 2
+            },
+            "interpretation": "Your personal responsibility scores indicate a consistent level of self-awareness and accountability throughout the week, with a slight decrease on day 10."
+          },
+          "sa": {
+            "avg": 6.14,
+            "lowest": {
+              "day": 11,
+              "score": 5
+            },
+            "highest": {
+              "day": 14,
+              "score": 9
+            },
+            "interpretation": "Your social awareness scores indicate a consistent level of emotional awareness and empathy throughout the week, with a significant increase on day 14."
+          }
+        },
+        "growth_reflection": "Your writing this week demonstrated a growing awareness of your emotions and a developing ability to navigate challenges with resilience. You also showed a willingness to explore your thoughts and feelings in a reflective and self-compassionate way.",
+        "pattern_evolution": {
+          "recurring_themes": [
+            "anxiety",
+            "inspiration",
+            "resilience"
+          ],
+          "coping_strategies": [
+            "deep breathing",
+            "reflection",
+            "self-compassion"
+          ],
+          "repeated_strengths": [
+            "creativity",
+            "problem-solving"
+          ],
+          "repeated_stressors": [
+            "presentation",
+            "overthinking"
+          ]
+        },
+        "writing_behaviour": {
+          "consistency": "Your reflections became progressively deeper throughout the week.",
+          "skipped_days": [],
+          "entry_lengths": [
+            21,
+            41,
+            34,
+            36,
+            38,
+            34,
+            41
+          ],
+          "writing_times": [
+            "14:30",
+            "14:30",
+            "14:30",
+            "14:30",
+            "14:30",
+            "14:30",
+            "14:30"
+          ],
+          "avg_entry_length": 40,
+          "thread_completion_rate": 1,
+          "reflection_completion_rate": 0
+        },
+        "emotional_language": [
+          {
+            "context": "You expressed feelings of anxiety and dread throughout the week, particularly in relation to the presentation and overthinking.",
+            "related": [
+              "apprehensive",
+              "worried"
+            ],
+            "frequency": 2,
+            "expression": "anxious",
+            "importance": "high"
+          },
+          {
+            "context": "You felt inspired and creative when working on your personal project and during the presentation.",
+            "related": [
+              "motivated",
+              "enthusiastic"
+            ],
+            "frequency": 2,
+            "expression": "inspired",
+            "importance": "high"
+          },
+          {
+            "context": "You acknowledged overthinking as a challenge, particularly in relation to the presentation.",
+            "related": [
+              "ruminating",
+              "dwelling"
+            ],
+            "frequency": 1,
+            "expression": "overthinking",
+            "importance": "medium"
+          }
+        ],
+        "open_threads_review": {
+          "active": [
+            "What are some potential obstacles that might arise in the upcoming week, and how can you prepare yourself to overcome them while staying true to your goals and values?",
+            "What would it look like to actually say the thing instead of absorbing it?",
+            "What are some specific, small steps you can take in the upcoming week to move closer to your goals, and how will you acknowledge and celebrate your progress along the way?"
+          ],
+          "summary": "You have several open threads that you can continue to explore in the upcoming week, including preparing for potential obstacles and developing strategies for staying true to your goals and values.",
+          "resolved_this_week": [],
+          "continued_throughout": []
+        },
+        "reflection_question": "What are some potential obstacles that might arise in the upcoming week, and how can you prepare yourself to overcome them while staying true to your goals and values?",
+        "vocabulary_evolution": {
+          "new_expressions": [
+            "anxious",
+            "inspired",
+            "overthinking",
+            "racing",
+            "dread"
+          ],
+          "growing_expressions": [],
+          "declining_expressions": [
+            "rush",
+            "stress",
+            "difficult",
+            "anxious",
+            "quiet"
+          ]
+        }
+      },
+      "engine_version": "v2.0"
+    },
+    {
+      "id": "1afffa32-4a13-4c16-8e11-035f56dedafa",
+      "user_id": "f36d91ed-d484-4ecb-9078-1dfba35ff7c7",
+      "cycle_id": "e92a52a6-fa6a-4b7b-bcd6-0ad622e422da",
+      "week_number": 3,
+      "day_start": 15,
+      "day_end": 21,
+      "body": "This week, you've been on a journey of self-discovery, exploring the complexities of your emotions and the importance of balance in your life. You've been grappling with perfectionism, recognizing its impact on your mental well-being, and seeking to find a more authentic and compassionate approach to life. Through your reflections, you've come to understand the value of self-care, gratitude, and imperfection, and are beginning to let go of unrealistic expectations and focus on progress, not perfection.",
+      "open_question": "What are some potential obstacles that might arise in the upcoming week, and how can you prepare yourself to overcome them while staying true to your goals and values?",
+      "status": "ready",
+      "is_pinned": true,
+      "generated_at": "2026-07-03T12:15:31.737+00:00",
+      "created_at": "2026-07-02T04:41:35.141463+00:00",
+      "title": "Embracing Imperfection and Finding Balance",
+      "why": "This week, you've been grappling with the idea of perfectionism and its impact on your mental well-being, while also exploring the importance of balance and self-care in your daily life.",
+      "report_data": {
+        "why": "This week, you've been grappling with the idea of perfectionism and its impact on your mental well-being, while also exploring the importance of balance and self-care in your daily life.",
+        "audit": {
+          "week_end": "2026-07-02",
+          "week_start": "2026-06-26",
+          "week_number": 3,
+          "score_sources": [
+            {
+              "ei": 6,
+              "pr": 2,
+              "sa": 8,
+              "date": "2026-06-26",
+              "entry_id": "10000000-0000-4000-a000-000000000015"
+            },
+            {
+              "ei": 8,
+              "pr": 2,
+              "sa": 9,
+              "date": "2026-06-27",
+              "entry_id": "10000000-0000-4000-a000-000000000016"
+            },
+            {
+              "ei": 4,
+              "pr": 2,
+              "sa": 8,
+              "date": "2026-06-28",
+              "entry_id": "10000000-0000-4000-a000-000000000017"
+            },
+            {
+              "ei": 5,
+              "pr": 1.75,
+              "sa": 8.75,
+              "date": "2026-06-29",
+              "entry_id": "f91daada-1b9a-494e-a260-f29f017b2652"
+            },
+            {
+              "ei": 7.75,
+              "pr": 7,
+              "sa": 3.5,
+              "date": "2026-06-30",
+              "entry_id": "0fd8f79a-14e3-4981-964a-5c5e8eb4c316"
+            },
+            {
+              "ei": 5.25,
+              "pr": 3.25,
+              "sa": 7.75,
+              "date": "2026-07-01",
+              "entry_id": "be3138ba-ad27-40fa-a238-f3caf4948236"
+            },
+            {
+              "ei": 4.5,
+              "pr": 4.25,
+              "sa": 7.75,
+              "date": "2026-07-02",
+              "entry_id": "7dd8ab79-eac7-46da-a0e5-cba32a3db252"
+            }
+          ],
+          "skipped_dates": [],
+          "vocab_sources": [
+            {
+              "date": "2026-06-26",
+              "words": [
+                "content",
+                "relaxed",
+                "boundaries",
+                "winding down",
+                "peaceful"
+              ],
+              "entry_id": "10000000-0000-4000-a000-000000000015"
+            },
+            {
+              "date": "2026-06-27",
+              "words": [
+                "exhausting",
+                "energetic",
+                "playful",
+                "alive",
+                "release",
+                "stress"
+              ],
+              "entry_id": "10000000-0000-4000-a000-000000000016"
+            },
+            {
+              "date": "2026-06-28",
+              "words": [
+                "peaceful solitude",
+                "calm",
+                "serene",
+                "good place"
+              ],
+              "entry_id": "10000000-0000-4000-a000-000000000017"
+            },
+            {
+              "date": "2026-06-29",
+              "words": [
+                "genuinely happy",
+                "optimistic",
+                "stressing",
+                "appreciated",
+                "present",
+                "confident",
+                "gratitude",
+                "journey"
+              ],
+              "entry_id": "f91daada-1b9a-494e-a260-f29f017b2652"
+            },
+            {
+              "date": "2026-06-30",
+              "words": [
+                "unbearable",
+                "pain",
+                "overwhelmed",
+                "hopeless",
+                "disconnected",
+                "pretending",
+                "struggling"
+              ],
+              "entry_id": "0fd8f79a-14e3-4981-964a-5c5e8eb4c316"
+            },
+            {
+              "date": "2026-07-01",
+              "words": [
+                "balanced",
+                "focused",
+                "slow down",
+                "consistent effort",
+                "confident",
+                "content",
+                "grateful",
+                "hopeful",
+                "excited"
+              ],
+              "entry_id": "be3138ba-ad27-40fa-a238-f3caf4948236"
+            },
+            {
+              "date": "2026-07-02",
+              "words": [
+                "motivation",
+                "exciting",
+                "inspired",
+                "consistency",
+                "accomplishment",
+                "calm",
+                "satisfied",
+                "confident",
+                "trust the process",
+                "perfection"
+              ],
+              "entry_id": "7dd8ab79-eac7-46da-a0e5-cba32a3db252"
+            }
+          ],
+          "expected_dates": [
+            "2026-06-26",
+            "2026-06-27",
+            "2026-06-28",
+            "2026-06-29",
+            "2026-06-30",
+            "2026-07-01",
+            "2026-07-02"
+          ],
+          "journal_ids_included": [
+            "10000000-0000-4000-a000-000000000015",
+            "10000000-0000-4000-a000-000000000016",
+            "10000000-0000-4000-a000-000000000017",
+            "f91daada-1b9a-494e-a260-f29f017b2652",
+            "0fd8f79a-14e3-4981-964a-5c5e8eb4c316",
+            "be3138ba-ad27-40fa-a238-f3caf4948236",
+            "7dd8ab79-eac7-46da-a0e5-cba32a3db252"
+          ],
+          "journal_dates_included": [
+            "2026-06-26",
+            "2026-06-27",
+            "2026-06-28",
+            "2026-06-29",
+            "2026-06-30",
+            "2026-07-01",
+            "2026-07-02"
+          ]
+        },
+        "title": "Embracing Imperfection and Finding Balance",
+        "weekly_stats": {
+          "week_range": "26 Jun – 2 Jul",
+          "week_number": 3,
+          "cycle_number": 1,
+          "missed_dates": [],
+          "skipped_days": 0,
+          "expected_days": 7,
+          "completed_days": 7,
+          "perfect_streak": false,
+          "total_possible": 7,
+          "writing_streak": 7,
+          "entries_completed": 7,
+          "skipped_day_numbers": [],
+          "thread_responses_completed": 5
+        },
+        "crisis_review": {
+          "events": [
+            {
+              "date": "2026-06-30",
+              "type": "Risk_Language",
+              "details": "You've been using risk language, which has triggered a crisis event."
+            }
+          ],
+          "summary": "You've experienced a crisis event this week, related to risk language, which has impacted your emotional well-being.",
+          "occurred": true
+        },
+        "week_narrative": "This week, you've been on a journey of self-discovery, exploring the complexities of your emotions and the importance of balance in your life. You've been grappling with perfectionism, recognizing its impact on your mental well-being, and seeking to find a more authentic and compassionate approach to life. Through your reflections, you've come to understand the value of self-care, gratitude, and imperfection, and are beginning to let go of unrealistic expectations and focus on progress, not perfection.",
+        "score_evolution": {
+          "ei": {
+            "avg": 5.43,
+            "lowest": {
+              "day": 19,
+              "score": 3.5
+            },
+            "highest": {
+              "day": 16,
+              "score": 8
+            },
+            "interpretation": "Your emotional intelligence has been fluctuating throughout the week, with a slight decline on day 19, but overall, you've been showing a good understanding of your emotions and their impact on your life."
+          },
+          "pr": {
+            "avg": 3.43,
+            "lowest": {
+              "day": 19,
+              "score": 7
+            },
+            "highest": {
+              "day": 18,
+              "score": 1.75
+            },
+            "interpretation": "Your problem-solving skills have been improving throughout the week, with a slight decline on day 19, but overall, you've been showing a good ability to tackle challenges and find solutions."
+          },
+          "sa": {
+            "avg": 7.14,
+            "lowest": {
+              "day": 19,
+              "score": 3.5
+            },
+            "highest": {
+              "day": 17,
+              "score": 8
+            },
+            "interpretation": "Your social awareness has been good throughout the week, with a slight decline on day 19, but overall, you've been showing a good understanding of social cues and relationships."
+          }
+        },
+        "growth_reflection": "You've been on a journey of self-discovery this week, exploring the complexities of your emotions and the importance of balance in your life. You've been grappling with perfectionism, recognizing its impact on your mental well-being, and seeking to find a more authentic and compassionate approach to life. Through your reflections, you've come to understand the value of self-care, gratitude, and imperfection, and are beginning to let go of unrealistic expectations and focus on progress, not perfection.",
+        "pattern_evolution": {
+          "recurring_themes": [
+            "perfectionism",
+            "self-care",
+            "balance",
+            "gratitude"
+          ],
+          "coping_strategies": [
+            "self-reflection",
+            "self-care"
+          ],
+          "repeated_strengths": [
+            "resilience",
+            "self-awareness"
+          ],
+          "repeated_stressors": [
+            "perfectionism",
+            "self-doubt"
+          ]
+        },
+        "writing_behaviour": {
+          "consistency": "Your writing consistency has been good, with a few fluctuations in entry length and writing time.",
+          "skipped_days": [],
+          "entry_lengths": [
+            39,
+            34,
+            38,
+            91,
+            91,
+            93,
+            85
+          ],
+          "writing_times": [
+            "14:30",
+            "14:30",
+            "14:30",
+            "15:44",
+            "12:24",
+            "13:54",
+            "10:11"
+          ],
+          "avg_entry_length": 67,
+          "thread_completion_rate": 0,
+          "reflection_completion_rate": 0.33
+        },
+        "emotional_language": [
+          {
+            "context": "You've been feeling exhausted, but also energetic and playful, highlighting the importance of self-care and finding balance in your life.",
+            "related": [
+              "tired",
+              "drained"
+            ],
+            "frequency": 1,
+            "expression": "exhausting",
+            "importance": "high"
+          },
+          {
+            "context": "You've been reflecting on the importance of gratitude and appreciation in your life, recognizing the value of small wins and everyday moments.",
+            "related": [
+              "appreciation",
+              "thankful"
+            ],
+            "frequency": 2,
+            "expression": "gratitude",
+            "importance": "high"
+          },
+          {
+            "context": "You've been struggling with perfectionism and its impact on your mental well-being, recognizing the need to let go of unrealistic expectations and focus on progress, not perfection.",
+            "related": [
+              "flawless",
+              "ideal"
+            ],
+            "frequency": 2,
+            "expression": "perfection",
+            "importance": "high"
+          }
+        ],
+        "open_threads_review": {
+          "active": [
+            "What are some potential obstacles that might arise in the upcoming week, and how can you prepare yourself to overcome them while staying true to your goals and values?",
+            "What would it look like to actually say the thing instead of absorbing it?",
+            "What are some specific, small steps you can take in the upcoming week to move closer to your goals, and how will you acknowledge and celebrate your progress along the way?"
+          ],
+          "summary": "You've been exploring several open threads this week, including the importance of self-care, the impact of perfectionism, and the value of small wins and everyday moments.",
+          "resolved_this_week": [],
+          "continued_throughout": []
+        },
+        "reflection_question": "What are some potential obstacles that might arise in the upcoming week, and how can you prepare yourself to overcome them while staying true to your goals and values?",
+        "vocabulary_evolution": {
+          "new_expressions": [
+            "gratitude",
+            "perfection",
+            "exhausting",
+            "energetic",
+            "playful"
+          ],
+          "growing_expressions": [
+            "calm",
+            "consistency"
+          ],
+          "declining_expressions": [
+            "rush",
+            "tension",
+            "anxiety",
+            "difficult",
+            "proud"
+          ]
+        }
+      },
+      "engine_version": "v2.0"
+    }
+  ]
+}
