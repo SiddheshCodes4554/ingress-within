@@ -113,12 +113,17 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. Perform day calculation and check duration without mutating stored cycle state.
-    const startDate = new Date(cycle.start_date || cycle.started_at);
-    const today = new Date();
-    
-    // Normalize dates to midnight for accurate day difference
-    const startMidnight = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const clientDateStr = request.headers.get('x-client-date');
+    let todayMidnight: Date;
+    if (clientDateStr) {
+      todayMidnight = new Date(clientDateStr + 'T00:00:00Z');
+    } else {
+      const today = new Date();
+      todayMidnight = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    }
+
+    const startDateStr = (cycle.start_date || cycle.started_at || '').split('T')[0];
+    const startMidnight = new Date(startDateStr + 'T00:00:00Z');
     const diffTime = todayMidnight.getTime() - startMidnight.getTime();
     const calculatedDay = Math.floor(diffTime / (24 * 60 * 60 * 1000)) + 1;
     const currentDay = Math.max(1, calculatedDay);

@@ -175,7 +175,9 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
   // Map entries by YYYY-MM-DD string to ensure exactly one entry per calendar day
   const dateToEntry = new Map<string, any>();
   (dbEntries || []).forEach(entry => {
-    const entryDateStr = new Date(entry.created_at).toISOString().split('T')[0];
+    const entryCycleDay = entry.cycle_day || 1;
+    const entryLocalDate = new Date(cycleStartDate.getTime() + (entryCycleDay - 1) * 24 * 60 * 60 * 1000);
+    const entryDateStr = entryLocalDate.toISOString().split('T')[0];
     const existing = dateToEntry.get(entryDateStr);
     // Dedup: keep the latest entry for each day
     if (!existing || new Date(entry.created_at) >= new Date(existing.created_at)) {
@@ -228,14 +230,18 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
   // Calculate Streak using calendar dates up to the end of the week (scoped by user_id)
   const { data: allCycleEntries } = await supabase
     .from('entries')
-    .select('created_at')
+    .select('created_at, cycle_day')
     .eq('user_id', userId)
     .eq('cycle_id', cycleId)
     .lt('created_at', week_next_start_date.toISOString())
     .order('created_at', { ascending: false });
 
   const cycleDatesWritten = new Set(
-    (allCycleEntries || []).map(e => new Date(e.created_at).toISOString().split('T')[0])
+    (allCycleEntries || []).map(e => {
+      const entryCycleDay = e.cycle_day || 1;
+      const entryLocalDate = new Date(cycleStartDate.getTime() + (entryCycleDay - 1) * 24 * 60 * 60 * 1000);
+      return entryLocalDate.toISOString().split('T')[0];
+    })
   );
 
   let writingStreak = 0;
@@ -504,9 +510,11 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
   // 11. Populate Audit Log metadata
   const vocabSourcesMap = new Map<string, { entry_id: string; date: string; words: string[] }>();
   dbEntries.forEach(e => {
+    const entryCycleDay = e.cycle_day || 1;
+    const entryLocalDate = new Date(cycleStartDate.getTime() + (entryCycleDay - 1) * 24 * 60 * 60 * 1000);
     vocabSourcesMap.set(e.id, {
       entry_id: e.id,
-      date: new Date(e.created_at).toISOString().split('T')[0],
+      date: entryLocalDate.toISOString().split('T')[0],
       words: []
     });
   });
@@ -550,18 +558,26 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
     week_end: week_end_date.toISOString().split('T')[0],
     expected_dates: weekDates.map(d => d.toISOString().split('T')[0]),
     journal_ids_included: dbEntries.map(e => e.id),
-    journal_dates_included: dbEntries.map(e => new Date(e.created_at).toISOString().split('T')[0]),
+    journal_dates_included: dbEntries.map(e => {
+      const entryCycleDay = e.cycle_day || 1;
+      const entryLocalDate = new Date(cycleStartDate.getTime() + (entryCycleDay - 1) * 24 * 60 * 60 * 1000);
+      return entryLocalDate.toISOString().split('T')[0];
+    }),
     skipped_dates: missedDates,
     reflection_ids: reflectionIds,
     supporting_crisis_events: crisisEvents.map(ce => ({ id: ce.id, entry_id: ce.entry_id || ce.id })),
     supporting_sentences: supportingSentences,
-    score_sources: dbEntries.map(e => ({
-      entry_id: e.id,
-      date: new Date(e.created_at).toISOString().split('T')[0],
-      ei: e.day_ei,
-      pr: e.day_pr,
-      sa: e.day_sa
-    })),
+    score_sources: dbEntries.map(e => {
+      const entryCycleDay = e.cycle_day || 1;
+      const entryLocalDate = new Date(cycleStartDate.getTime() + (entryCycleDay - 1) * 24 * 60 * 60 * 1000);
+      return {
+        entry_id: e.id,
+        date: entryLocalDate.toISOString().split('T')[0],
+        ei: e.day_ei,
+        pr: e.day_pr,
+        sa: e.day_sa
+      };
+    }),
     vocab_sources: Array.from(vocabSourcesMap.values())
   };
 

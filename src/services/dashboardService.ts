@@ -199,9 +199,17 @@ export class DashboardService {
     }
     const localMidnight = new Date();
     localMidnight.setHours(0, 0, 0, 0);
+
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const localDateStr = `${year}-${month}-${day}`;
+
     return {
       'Content-Type': 'application/json',
       'x-client-today-start': localMidnight.toISOString(),
+      'x-client-date': localDateStr,
       ...extraHeaders
     };
   }

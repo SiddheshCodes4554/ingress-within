@@ -38,14 +38,21 @@ export async function GET(request: NextRequest) {
       cyclesToProcess = fallbackRes.data || [];
     }
 
+    const clientDateStr = request.headers.get('x-client-date');
+    let todayMidnight: Date;
+    if (clientDateStr) {
+      todayMidnight = new Date(clientDateStr + 'T00:00:00Z');
+    } else {
+      const today = new Date();
+      todayMidnight = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    }
+
     const cyclesMetadata = cyclesToProcess.map((cy: any) => {
       let activeDay = cy.current_day || 1;
       const isCycleActive = cy.status?.toUpperCase() === 'ACTIVE' || cy.status?.toUpperCase() === 'ARCHIVED';
       if (isCycleActive && cy.start_date && !cy.end_date) {
-        const started = new Date(cy.start_date);
-        const today = new Date();
-        const startMidnight = new Date(started.getFullYear(), started.getMonth(), started.getDate());
-        const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const startDateStr = cy.start_date.split('T')[0];
+        const startMidnight = new Date(startDateStr + 'T00:00:00Z');
         const diffTime = todayMidnight.getTime() - startMidnight.getTime();
         const calculatedDay = Math.floor(diffTime / (24 * 60 * 60 * 1000)) + 1;
         activeDay = Math.min(cy.total_days || 30, Math.max(cy.current_day || 1, calculatedDay));

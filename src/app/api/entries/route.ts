@@ -280,11 +280,18 @@ export async function POST(request: NextRequest) {
     let cycleId = activeCycle?.id || null;
     let cycleDay = 1;
     
-    if (activeCycle) {
-      const started = new Date(activeCycle.start_date);
+    const clientDateStr = request.headers.get('x-client-date');
+    let todayMidnight: Date;
+    if (clientDateStr) {
+      todayMidnight = new Date(clientDateStr + 'T00:00:00Z');
+    } else {
       const today = new Date();
-      const startMidnight = new Date(started.getFullYear(), started.getMonth(), started.getDate());
-      const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      todayMidnight = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    }
+
+    if (activeCycle) {
+      const startDateStr = (activeCycle.start_date || '').split('T')[0];
+      const startMidnight = new Date(startDateStr + 'T00:00:00Z');
       const diffTime = todayMidnight.getTime() - startMidnight.getTime();
       const calculatedDay = Math.floor(diffTime / (24 * 60 * 60 * 1000)) + 1;
       cycleDay = Math.min(activeCycle.total_days || 30, Math.max(1, calculatedDay));
@@ -300,10 +307,8 @@ export async function POST(request: NextRequest) {
 
       if (mostRecentCycle) {
         cycleId = mostRecentCycle.id;
-        const started = new Date(mostRecentCycle.start_date);
-        const today = new Date();
-        const startMidnight = new Date(started.getFullYear(), started.getMonth(), started.getDate());
-        const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const startDateStr = (mostRecentCycle.start_date || '').split('T')[0];
+        const startMidnight = new Date(startDateStr + 'T00:00:00Z');
         const diffTime = todayMidnight.getTime() - startMidnight.getTime();
         const calculatedDay = Math.floor(diffTime / (24 * 60 * 60 * 1000)) + 1;
         cycleDay = Math.min(mostRecentCycle.total_days || 30, Math.max(1, calculatedDay));
