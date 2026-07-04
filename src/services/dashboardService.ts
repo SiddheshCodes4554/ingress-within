@@ -54,7 +54,7 @@ function getAgeString(createdAt: string | null | undefined): string {
 
 export class DashboardService {
   private static cache: Record<string, { data: any; timestamp: number }> = {};
-  private static inFlight: Record<string, Promise<any>> = {};
+  private static inFlight: Record<string, Promise<any> | undefined> = {};
   private static STALE_TIME = 15000; // 15 seconds stale limit
   private static listeners: Record<string, Set<(data: any) => void>> = {};
   private static latencies: Record<string, number[]> = {};
