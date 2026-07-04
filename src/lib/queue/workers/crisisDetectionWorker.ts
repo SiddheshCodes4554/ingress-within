@@ -61,11 +61,15 @@ export async function processCrisisDetection(jobData: {
       updatePayload.reflection_suppressed = true;
       updatePayload.risk_language_quote = result.riskQuote || 'AI crisis detection engine match';
 
-      // 4. Log to crisis_log table
+      // 4. Log to crisis_log table with full audit context
       const { error: logError } = await supabase
         .from('crisis_log')
         .insert({
           user_id,
+          entry_id,
+          cycle_id: entry.cycle_id,
+          week_number: Math.ceil((entry.cycle_day || 1) / 7.0),
+          journal_date: new Date(entry.created_at).toISOString().split('T')[0],
           crisis_type: result.crisisType,
           timestamp: new Date().toISOString()
         });

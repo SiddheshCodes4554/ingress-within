@@ -100,11 +100,12 @@ export interface WeeklyReportData {
 export async function collectWeeklyReportData(input: WeeklyReportCollectorInput): Promise<WeeklyReportData> {
   const { userId, cycleId, weekNumber, dayStart } = input;
 
-  // 1. Fetch Cycle Information
+  // 1. Fetch Cycle Information (Scoped by user_id)
   const { data: cycle, error: cycleErr } = await supabase
     .from('cycles')
     .select('*')
     .eq('id', cycleId)
+    .eq('user_id', userId)
     .single();
 
   if (cycleErr || !cycle) {
@@ -113,10 +114,28 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
 
   const cycleNumber = cycle.cycle_number !== undefined ? cycle.cycle_number : (cycle.number || 1);
   
-  // Parse cycle start date as a clean UTC midnight Date
-  const startPart = (cycle.start_date || cycle.started_at || cycle.created_at).split('T')[0];
-  const [year, month, day] = startPart.split('-').map(Number);
-  const cycleStartDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  // Find the timestamp of the user's first completed journal entry in this cycle
+  const { data: firstEntry } = await supabase
+    .from('entries')
+    .select('created_at')
+    .eq('user_id', userId)
+    .eq('cycle_id', cycleId)
+    .neq('entry_type', 'empty')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  let cycleStartDate: Date;
+  if (firstEntry && firstEntry.created_at) {
+    const startPart = firstEntry.created_at.split('T')[0];
+    const [year, month, day] = startPart.split('-').map(Number);
+    cycleStartDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  } else {
+    // Fallback if no entries yet (never sign up/login/onboarding)
+    const startPart = (cycle.start_date || cycle.started_at || cycle.created_at).split('T')[0];
+    const [year, month, day] = startPart.split('-').map(Number);
+    cycleStartDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  }
 
   // Compute fixed 7-day calendar window boundaries
   const week_start_date = new Date(cycleStartDate.getTime() + (weekNumber - 1) * 7 * 24 * 60 * 60 * 1000);
@@ -205,10 +224,11 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
   const totalPossible = 7;
   const skippedDays = skippedDayNumbers.length;
 
-  // Calculate Streak using calendar dates up to the end of the week
+  // Calculate Streak using calendar dates up to the end of the week (scoped by user_id)
   const { data: allCycleEntries } = await supabase
     .from('entries')
     .select('created_at')
+    .eq('user_id', userId)
     .eq('cycle_id', cycleId)
     .lt('created_at', week_next_start_date.toISOString())
     .order('created_at', { ascending: false });
@@ -229,11 +249,12 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
     }
   }
 
-  // 4. Fetch Thread Responses written this calendar week
+  // 4. Fetch Thread Responses written this calendar week (scoped by user_id and cycle_id via inner join)
   const { data: dbResponses, error: responsesErr } = await supabase
     .from('thread_responses')
-    .select('*, threads(closing_question)')
+    .select('*, threads!inner(closing_question, cycle_id)')
     .eq('user_id', userId)
+    .eq('threads.cycle_id', cycleId)
     .gte('created_at', week_start_date.toISOString())
     .lt('created_at', week_next_start_date.toISOString())
     .order('created_at', { ascending: true }) as any;
@@ -287,6 +308,7 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
     .from('vocab_extractions')
     .select('normalized_word')
     .eq('user_id', userId)
+    .eq('cycle_id', cycleId)
     .lt('created_at', week_start_date.toISOString());
 
   const priorVocabMap = new Map<string, number>();
@@ -412,18 +434,20 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
     }
   }
 
-  // 8. Fetch Crisis Logs strictly within the calendar week
+  // 8. Fetch Crisis Logs strictly within the calendar week (scoped by user_id and cycle_id)
   const { data: dbCrisisLogs } = await supabase
     .from('crisis_log')
     .select('*')
     .eq('user_id', userId)
+    .eq('cycle_id', cycleId)
     .gte('timestamp', week_start_date.toISOString())
     .lt('timestamp', week_next_start_date.toISOString());
 
   const crisisEvents: CollectedCrisisEvent[] = (dbCrisisLogs || []).map(c => ({
     id: c.id,
     crisis_type: c.crisis_type,
-    timestamp: c.timestamp
+    timestamp: c.timestamp,
+    entry_id: c.entry_id
   }));
 
   // Add any entry-level crisis indicators for entries belonging to this week
@@ -492,6 +516,33 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
     }
   });
 
+  // Extract supporting sentences for audit reproducibility
+  const supportingSentences: string[] = [];
+  entries.forEach(entry => {
+    if (entry.content) {
+      const sentences = entry.content.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 0);
+      supportingSentences.push(...sentences);
+    }
+  });
+  threadResponses.forEach(tr => {
+    if (tr.response_text) {
+      const sentences = tr.response_text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 0);
+      supportingSentences.push(...sentences);
+    }
+  });
+
+  // Extract reflection IDs
+  const reflectionIds: string[] = [];
+  dbEntries.forEach(entry => {
+    const rawReflection = entry.reflections;
+    const reflection = Array.isArray(rawReflection)
+      ? (rawReflection[0] || null)
+      : (rawReflection || null);
+    if (reflection && reflection.id) {
+      reflectionIds.push(reflection.id);
+    }
+  });
+
   const audit = {
     week_number: weekNumber,
     week_start: week_start_date.toISOString().split('T')[0],
@@ -500,6 +551,9 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
     journal_ids_included: dbEntries.map(e => e.id),
     journal_dates_included: dbEntries.map(e => new Date(e.created_at).toISOString().split('T')[0]),
     skipped_dates: missedDates,
+    reflection_ids: reflectionIds,
+    supporting_crisis_events: crisisEvents.map(ce => ({ id: ce.id, entry_id: ce.entry_id || ce.id })),
+    supporting_sentences: supportingSentences,
     score_sources: dbEntries.map(e => ({
       entry_id: e.id,
       date: new Date(e.created_at).toISOString().split('T')[0],

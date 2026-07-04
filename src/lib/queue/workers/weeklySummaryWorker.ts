@@ -103,11 +103,18 @@ export async function processWeeklySummary(jobData: {
         .eq('id', user_id);
 
       if (!wasDistressed) {
-        // Log to crisis_log table
+        // Log to crisis_log table with full audit context
+        const sortedValid = (entries || []).filter(e => e.entry_type !== 'empty');
+        const finalEntryId = sortedValid.length > 0 ? sortedValid[sortedValid.length - 1].id : null;
+
         const { error: logError } = await supabase
           .from('crisis_log')
           .insert({
             user_id,
+            entry_id: finalEntryId,
+            cycle_id,
+            week_number: week_number,
+            journal_date: todayDateStr,
             crisis_type: 'Sustained',
             timestamp: new Date().toISOString()
           });
@@ -208,6 +215,55 @@ export async function processWeeklySummary(jobData: {
   }
 
   try {
+    // 3.5. Perform strict data integrity source audit validation before calling AI
+    console.log(`[Weekly Summary Worker] Performing strict source evidence validation for summary ID ${actualSummaryId}...`);
+    
+    const journalIdsSet = new Set(entries.map(e => e.id));
+    
+    // A. Every journal belongs to this user.
+    const invalidEntries = entries.filter(e => e.user_id !== user_id);
+    if (invalidEntries.length > 0) {
+      throw new Error(`Integrity Violation: Entry ${invalidEntries[0].id} does not belong to user ${user_id}`);
+    }
+
+    // B. Every journal falls inside the week date range boundaries.
+    const auditInfo = collectedData.audit;
+    if (!auditInfo) {
+      throw new Error("Audit log metadata is missing from collected data.");
+    }
+    const weekStart = new Date(auditInfo.week_start + 'T00:00:00.000Z');
+    const weekEnd = new Date(auditInfo.week_end + 'T23:59:59.999Z');
+    for (const e of entries) {
+      const eDate = new Date(e.created_at);
+      if (eDate < weekStart || eDate > weekEnd) {
+        throw new Error(`Integrity Violation: Entry ${e.id} date (${e.created_at}) falls outside week range [${auditInfo.week_start}, ${auditInfo.week_end}]`);
+      }
+    }
+
+    // C. Every crisis belongs to those journals.
+    for (const c of collectedData.crisisEvents) {
+      const cEntryId = c.entry_id || c.id;
+      if (!cEntryId || !journalIdsSet.has(cEntryId)) {
+        throw new Error(`Integrity Violation: Crisis event ${c.id} is not linked to any journal entry of this week (entry ID: ${cEntryId})`);
+      }
+    }
+
+    // D. Every vocabulary item belongs to those journals.
+    for (const src of auditInfo.vocab_sources) {
+      if (!journalIdsSet.has(src.entry_id)) {
+        throw new Error(`Integrity Violation: Vocabulary source references entry ${src.entry_id} which does not belong to this week's journal entries.`);
+      }
+    }
+
+    // E. Every score belongs to those journals.
+    for (const src of auditInfo.score_sources) {
+      if (!journalIdsSet.has(src.entry_id)) {
+        throw new Error(`Integrity Violation: Score source references entry ${src.entry_id} which does not belong to this week's journal entries.`);
+      }
+    }
+
+    console.log(`[Weekly Summary Worker] Data integrity validation passed successfully.`);
+
     // 4. Call AI Provider with fully collected report context
     const result = await aiProvider.generateWeeklyReport(collectedData);
 

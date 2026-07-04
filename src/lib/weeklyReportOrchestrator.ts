@@ -26,6 +26,7 @@ class WeeklyReportOrchestrator {
       .select('*')
       .eq('cycle_id', cycle_id)
       .eq('week_number', week_number)
+      .eq('user_id', user_id)
       .maybeSingle();
 
     if (fetchErr) {
@@ -125,6 +126,7 @@ class WeeklyReportOrchestrator {
       .from('weekly_summaries')
       .select('status')
       .eq('id', summaryId)
+      .eq('user_id', userId)
       .single();
 
     if (summary && summary.status === 'READY') {
@@ -178,6 +180,7 @@ class WeeklyReportOrchestrator {
       .from('weekly_summaries')
       .select('*')
       .eq('id', summaryId)
+      .eq('user_id', userId)
       .single();
 
     if (!summary) {
@@ -197,6 +200,7 @@ class WeeklyReportOrchestrator {
     const { data: entry } = await supabase
       .from('entries')
       .select('*')
+      .eq('user_id', userId)
       .eq('cycle_id', cycleId)
       .gte('cycle_day', minDay)
       .lte('cycle_day', maxDay)
@@ -228,6 +232,7 @@ class WeeklyReportOrchestrator {
       .from('cycles')
       .select('*')
       .eq('id', cycleId)
+      .eq('user_id', userId)
       .single();
     const isCycleMetadataFinalized = cycle && (
       cycle.status?.toLowerCase() === 'archived' ||
@@ -337,6 +342,7 @@ class WeeklyReportOrchestrator {
       .from('weekly_summaries')
       .select('*')
       .eq('id', summaryId)
+      .eq('user_id', userId)
       .single();
 
     if (summary) {

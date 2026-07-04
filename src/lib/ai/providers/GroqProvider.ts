@@ -440,6 +440,14 @@ You are a clinical supervisor synthesizing a weekly journal summary for a user. 
 
   async generateWeeklyReport(data: WeeklyReportInput): Promise<WeeklyReportResponse> {
     const systemPrompt = `You are a clinical psychologist synthesizing a weekly report for a user. You must speak directly to them in the second person ("you", "your"). Never refer to them as "the user", "the individual", "the writer", or in the third person ("they", "he", "she"). Analyze the user's data and output JSON only (no markdown format, no text before/after).
+
+CRITICAL DATA INTEGRITY DIRECTIVES:
+- You must ONLY describe events and emotional states that are explicitly present in the supplied User Weekly Data.
+- NEVER invent, infer, or assume any crisis events.
+- NEVER invent, infer, or assume dates of events.
+- DO NOT assume emotional states or patterns beyond what is directly supported by the text of the user's journal entries and thread responses.
+- If there are no crisis events in the supplied User Weekly Data, you MUST set "crisis_review.occurred" to false, and "crisis_review.summary" MUST state exactly: "No crisis indicators were detected."
+
 Schema:
 {
   "title": "Evocative summary title (e.g. Composure vs. Suppression)",

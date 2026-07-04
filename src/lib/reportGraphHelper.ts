@@ -25,9 +25,27 @@ export async function overlayWeeklyReportGraphData(report: any, userId: string) 
       return report;
     }
 
-    const startPart = (cycle.start_date || cycle.started_at || cycle.created_at).split('T')[0];
-    const [year, month, day] = startPart.split('-').map(Number);
-    const cycleStartDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    // Find the timestamp of the user's first completed journal entry in this cycle
+    const { data: firstEntry } = await supabase
+      .from('entries')
+      .select('created_at')
+      .eq('user_id', userId)
+      .eq('cycle_id', cycleId)
+      .neq('entry_type', 'empty')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    let cycleStartDate: Date;
+    if (firstEntry && firstEntry.created_at) {
+      const startPart = firstEntry.created_at.split('T')[0];
+      const [year, month, day] = startPart.split('-').map(Number);
+      cycleStartDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    } else {
+      const startPart = (cycle.start_date || cycle.started_at || cycle.created_at).split('T')[0];
+      const [year, month, day] = startPart.split('-').map(Number);
+      cycleStartDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    }
 
     const weekNumber = report.week_number || 1;
     const week_start_date = new Date(cycleStartDate.getTime() + (weekNumber - 1) * 7 * 24 * 60 * 60 * 1000);

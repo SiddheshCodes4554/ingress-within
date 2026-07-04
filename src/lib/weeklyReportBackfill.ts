@@ -65,12 +65,13 @@ export async function backfillWeeklyReports(userId: string): Promise<BackfillRes
 
         result.total_weeks_checked++;
 
-        // Check if a weekly summary already exists in the database
+        // Check if a weekly summary already exists in the database (scoped by user_id)
         const { data: summary, error: summaryErr } = await supabase
           .from('weekly_summaries')
           .select('*')
           .eq('cycle_id', cycleId)
           .eq('week_number', target.week)
+          .eq('user_id', userId)
           .maybeSingle();
 
         if (summaryErr) {

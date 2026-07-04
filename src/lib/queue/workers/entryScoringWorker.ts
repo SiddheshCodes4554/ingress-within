@@ -211,11 +211,15 @@ export async function processEntryScoring(jobData: { entry_id: string; user_id: 
   if (isCrisis && crisis_type) {
     console.warn(`[Entry Scoring Worker] CRITICAL: Immediate crisis detected via layered protocol! Type: ${crisis_type}. Explanation: ${crisisResult.explanation}`);
     
-    // Log to crisis_log table
+    // Log to crisis_log table with full audit context
     const { error: logError } = await supabase
       .from('crisis_log')
       .insert({
         user_id,
+        entry_id,
+        cycle_id: entry.cycle_id,
+        week_number: Math.ceil((entry.cycle_day || 1) / 7.0),
+        journal_date: new Date(entry.created_at).toISOString().split('T')[0],
         crisis_type,
         timestamp: new Date().toISOString()
       });
