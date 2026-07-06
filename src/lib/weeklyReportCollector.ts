@@ -115,28 +115,9 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
 
   const cycleNumber = cycle.cycle_number !== undefined ? cycle.cycle_number : (cycle.number || 1);
   
-  // Find the timestamp of the user's first completed journal entry in this cycle
-  const { data: firstEntry } = await supabase
-    .from('entries')
-    .select('created_at')
-    .eq('user_id', userId)
-    .eq('cycle_id', cycleId)
-    .neq('entry_type', 'empty')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  let cycleStartDate: Date;
-  if (firstEntry && firstEntry.created_at) {
-    const startPart = firstEntry.created_at.split('T')[0];
-    const [year, month, day] = startPart.split('-').map(Number);
-    cycleStartDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-  } else {
-    // Fallback if no entries yet (never sign up/login/onboarding)
-    const startPart = (cycle.start_date || cycle.started_at || cycle.created_at).split('T')[0];
-    const [year, month, day] = startPart.split('-').map(Number);
-    cycleStartDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-  }
+  const startPart = (cycle.start_date || cycle.started_at || cycle.created_at).split('T')[0];
+  const [year, month, day] = startPart.split('-').map(Number);
+  const cycleStartDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 
   // Compute fixed 7-day calendar window boundaries
   const week_start_date = new Date(cycleStartDate.getTime() + (weekNumber - 1) * 7 * 24 * 60 * 60 * 1000);
@@ -179,9 +160,24 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
     const entryLocalDate = new Date(cycleStartDate.getTime() + (entryCycleDay - 1) * 24 * 60 * 60 * 1000);
     const entryDateStr = entryLocalDate.toISOString().split('T')[0];
     const existing = dateToEntry.get(entryDateStr);
-    // Dedup: keep the latest entry for each day
-    if (!existing || new Date(entry.created_at) >= new Date(existing.created_at)) {
+    
+    if (!existing) {
       dateToEntry.set(entryDateStr, entry);
+    } else {
+      const existingIsEmpty = existing.entry_type === 'empty';
+      const currentIsEmpty = entry.entry_type === 'empty';
+      
+      if (existingIsEmpty && !currentIsEmpty) {
+        // Current is real entry, existing is empty: overwrite empty with real entry
+        dateToEntry.set(entryDateStr, entry);
+      } else if (!existingIsEmpty && currentIsEmpty) {
+        // Existing is real entry, current is empty: do not overwrite real with empty
+      } else {
+        // Both are real or both are empty: keep the latest one
+        if (new Date(entry.created_at) >= new Date(existing.created_at)) {
+          dateToEntry.set(entryDateStr, entry);
+        }
+      }
     }
   });
 
