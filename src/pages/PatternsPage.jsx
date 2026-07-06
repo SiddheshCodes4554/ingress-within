@@ -47,6 +47,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [expandedCycles, setExpandedCycles] = useState({});
+  const [isBackfilling, setIsBackfilling] = useState(false);
 
   useEffect(() => {
     async function loadPatterns() {
@@ -61,6 +62,30 @@ export default function PatternsPage({ user, profile, onSignOut }) {
     }
     loadPatterns();
   }, []);
+
+  const handleBackfill = async () => {
+    setIsBackfilling(true);
+    try {
+      const response = await fetch('/api/patterns/backfill', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      if (response.ok) {
+        const data = await DashboardService.fetchPatternOverview();
+        setOverview(data);
+      } else {
+        const err = await response.json();
+        alert(err.error?.message || 'Failed to backfill patterns.');
+      }
+    } catch (err) {
+      console.error('[PatternsPage] Error backfilling patterns:', err);
+      alert('An unexpected error occurred during backfill.');
+    } finally {
+      setIsBackfilling(false);
+    }
+  };
 
   const handleOpenPattern = async (id) => {
     setActivePatternId(id);
@@ -141,21 +166,42 @@ export default function PatternsPage({ user, profile, onSignOut }) {
             <h1 className="font-serif text-[22px] text-primary mb-0.5 font-normal">Patterns</h1>
             <p className="text-xs text-mid">Recurring themes the system has identified across your writing. Not diagnoses — observations about what keeps showing up.</p>
           </div>
-          <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-8 shadow-xs text-center space-y-3">
-            <div className="w-12 h-12 rounded-full bg-primary/5 flex items-center justify-center mx-auto text-[#8DBFB4]">
-              <Activity size={24} />
+          
+          {isBackfilling ? (
+            <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-8 shadow-xs text-center space-y-4">
+              <div className="w-12 h-12 rounded-full bg-primary/5 flex items-center justify-center mx-auto text-[#8DBFB4] animate-spin">
+                <Activity size={24} />
+              </div>
+              <h3 className="text-sm font-bold text-primary">Analyzing Writing History...</h3>
+              <p className="text-xs text-[#4A6A64] max-w-[320px] mx-auto leading-relaxed">
+                Scanning historical journal entries, reflections, and weekly summaries. This takes about 30 seconds to run deep pattern synthesis.
+              </p>
             </div>
-            <h3 className="text-sm font-bold text-primary">No patterns established yet</h3>
-            <p className="text-xs text-[#4A6A64] max-w-[320px] mx-auto leading-relaxed">
-              The Pattern Engine watches how your writing evolves across cycles. Once your first cycle is completed, recurring emotional and behavioral themes will start surfacing here.
-            </p>
-            <button 
-              onClick={() => window.navigateTo('/dashboard')}
-              className="mt-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/95 transition-all cursor-pointer border-none"
-            >
-              Start writing
-            </button>
-          </div>
+          ) : (
+            <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-8 shadow-xs text-center space-y-4">
+              <div className="w-12 h-12 rounded-full bg-primary/5 flex items-center justify-center mx-auto text-[#8DBFB4]">
+                <Activity size={24} />
+              </div>
+              <h3 className="text-sm font-bold text-primary">No patterns established yet</h3>
+              <p className="text-xs text-[#4A6A64] max-w-[360px] mx-auto leading-relaxed">
+                The Pattern Engine observes how your writing evolves across cycles. You can analyze your existing writing history now, or let it catch up dynamically as you complete cycles.
+              </p>
+              <div className="flex justify-center gap-3 pt-2">
+                <button 
+                  onClick={handleBackfill}
+                  className="px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/95 transition-all cursor-pointer border-none"
+                >
+                  Analyze Writing History
+                </button>
+                <button 
+                  onClick={() => window.navigateTo('/dashboard')}
+                  className="px-4 py-2 rounded-lg bg-primary/5 text-primary border border-primary/10 text-xs font-semibold hover:bg-primary/10 transition-all cursor-pointer"
+                >
+                  Start writing
+                </button>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     );
