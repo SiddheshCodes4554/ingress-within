@@ -215,6 +215,11 @@ export interface WeeklyReportResponse {
     trajectory: string;
     notable_absence: string;
   };
+  /** Top 3 emotion words the user actually wrote, each paired with 2–3 semantically related words they did NOT write */
+  emotion_clusters: {
+    word: string;       // exact word/phrase from the user's writing
+    related: string[];  // 2–3 semantically adjacent words the user didn't use
+  }[];
 }
 
 export interface DimensionScores {

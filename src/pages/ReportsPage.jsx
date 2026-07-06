@@ -206,12 +206,23 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                 <div class="lbl">Emotion language this week</div>
                 <div class="cx">Words pulled from your writing this week, grouped with related words you didn't use.</div>
                 <div style="margin-top: 10px;">
-                  ${listEmos.slice(0, 5).map(emo => `
-                    <div class="cluster-row" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
-                      <span class="tag" style="background: var(--terracotta-bg); color: var(--terracotta-text); font-size: 12.5px; padding: 5px 11px; border-radius: 20px;">${emo.word} →</span>
-                      <span class="related" style="background: #fff; border: 1px solid var(--border); font-size: 12.5px; padding: 5px 11px; border-radius: 20px; color: var(--muted);">${emo.normalized_word}</span>
-                    </div>
-                  `).join('')}
+                  ${data.emotion_clusters && data.emotion_clusters.length > 0 ? (
+                    data.emotion_clusters.slice(0, 3).map(cluster => `
+                      <div class="cluster-row" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
+                        <span class="tag" style="background: var(--terracotta-bg); color: var(--terracotta-text); font-size: 12.5px; padding: 5px 11px; border-radius: 20px;">${cluster.word} →</span>
+                        ${(cluster.related || []).slice(0, 3).map(rel => `
+                          <span class="related" style="background: #fff; border: 1px solid var(--border); font-size: 12.5px; padding: 5px 11px; border-radius: 20px; color: var(--muted);">${rel}</span>
+                        `).join('')}
+                      </div>
+                    `).join('')
+                  ) : (
+                    listEmos.slice(0, 3).map(emo => `
+                      <div class="cluster-row" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
+                        <span class="tag" style="background: var(--terracotta-bg); color: var(--terracotta-text); font-size: 12.5px; padding: 5px 11px; border-radius: 20px;">${emo.word} →</span>
+                        <span class="related" style="background: #fff; border: 1px solid var(--border); font-size: 12.5px; padding: 5px 11px; border-radius: 20px; color: var(--muted);">${emo.normalized_word}</span>
+                      </div>
+                    `).join('')
+                  )}
                 </div>
                 ${data.analytical_block ? `
                   <div class="cluster-note" style="font-size: 13.5px; line-height: 1.6; margin-top: 12px; color: var(--ink);">
@@ -1121,10 +1132,17 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                           <div className="cx">Words pulled from your writing this week, grouped with related words you didn't use.</div>
 
                           <div className="space-y-3">
-                            {listEmos.length === 0 ? (
-                              <p className="text-xs text-mid italic">Insufficient emotional expressions detected.</p>
+                            {data.emotion_clusters && data.emotion_clusters.length > 0 ? (
+                              data.emotion_clusters.slice(0, 3).map((cluster, index) => (
+                                <div key={index} className="cr">
+                                  <span className="wu">{cluster.word} →</span>
+                                  {(cluster.related || []).slice(0, 3).map((rel, rIdx) => (
+                                    <span key={rIdx} className="wn">{rel}</span>
+                                  ))}
+                                </div>
+                              ))
                             ) : (
-                              listEmos.slice(0, 5).map((emo, index) => (
+                              listEmos.slice(0, 3).map((emo, index) => (
                                 <div key={index} className="cr">
                                   <span className="wu">{emo.word} →</span>
                                   <span className="wn">{emo.normalized_word}</span>

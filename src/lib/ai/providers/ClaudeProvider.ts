@@ -423,6 +423,12 @@ Return only valid JSON. No markdown, no backticks, no preamble. All fields must 
     "last_week_words": [],
     "this_week_words": []
   },
+  "emotion_clusters": [
+    {
+      "word": "exact word or short phrase from the user's writing this week — pick the most emotionally loaded one",
+      "related": ["semantically adjacent word the user did NOT write", "another related word not in their writing", "optional third"]
+    }
+  ],
   "what_we_saw": "Format this as two paragraphs separated by a double newline (\\n\\n). The first paragraph must contain 2-4 sentences of concrete, specific facts from this week's entries only. Never reference prior weeks here. The second paragraph must contain exactly one realization (one or two sentences) stating what the facts add up to. Ground it in agency_language or in a specific, checkable contradiction between entries. Never ground it in a claim about what's missing or unnamed. Name actual subjects from the entries, not abstractions. Scale the number of specific details cited to the number of entries provided.",
   "candidate_quote": "One verbatim line from the entries, copied exactly as written including typos. Not the most emotional line. The one that accidentally told the truth. Pick throwaway lines, self-corrections, minimisations. If no strong candidate exists, pick the closest and add a trailing asterisk.",
   "carry_question": "2-3 sentences, not 1. First state the specific tension plainly, naming real details from the entries. Then ask the question. Must not restate candidate_quote in question form.",
@@ -434,6 +440,14 @@ Return only valid JSON. No markdown, no backticks, no preamble. All fields must 
     "notable_absence": "what the person didn't write about that their writing implies"
   }
 }
+
+For emotion_clusters:
+- Pick exactly 3 words/phrases from the user's actual writing this week (not normalized versions, exact as written)
+- For each, provide 2-3 semantically adjacent words that capture the same feeling but the user did NOT write
+- Example: user wrote "tired" → related: ["drained", "depleted"]
+- Example: user wrote "brain won't stop" → related: ["rumination", "intrusive thoughts"]
+- Do NOT repeat the user's word in the related array
+- Do NOT use clinical jargon in related words — plain words only
 
 ─────────────────────────────────────────────────────────
 
