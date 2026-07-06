@@ -7,7 +7,7 @@ import { PatternIntelligenceService } from '../../../../lib/patterns/patternInte
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { name: string } }
+  { params }: { params: Promise<{ name: string }> }
 ) {
   try {
     const authUser = await getAuthenticatedUser(request);
@@ -19,7 +19,8 @@ export async function GET(
     }
 
     const userId = authUser.userId;
-    const patternName = params.name;
+    const resolvedParams = await params;
+    const patternName = resolvedParams.name;
 
     if (!patternName) {
       return NextResponse.json(
