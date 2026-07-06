@@ -410,7 +410,7 @@ You are a clinical supervisor synthesizing a weekly journal summary for a user. 
 
   async generateWeeklyReport(data: WeeklyReportInput): Promise<WeeklyReportResponse> {
     const systemPrompt = `You will receive:
-- The entries written this week, labelled by day
+- The entries written this week
 - The top 3 most-used words/phrases this week and how many times each appeared
 - Days skipped, if any
 - Last week's top expression(s), if a previous week exists (null if this is week 1)
@@ -419,6 +419,9 @@ Return only valid JSON. No markdown, no backticks, no preamble. All fields must 
 
 {
   "week_tone": "One sentence. Plain description of your week, not a diagnostic label. Speak directly to you. No binary framing (X vs Y). If nothing coheres across your week, describe that directly rather than forcing a single mood onto it.",
+  "what_we_saw": "Write exactly TWO paragraphs separated by a double newline (\\n\\n). Paragraph 1: 2-4 sentences weaving specific facts from this week into a single cohesive narrative flow. NEVER list entries chronologically, and NEVER use day numbers, day labels, or specific days (e.g. do not say 'On one day you did X', 'On Day 2', 'first day'). Paragraph 2: exactly one realization (1-2 sentences) stating what the facts add up to, grounded in agency_language or a contradiction.",
+  "carry_question": "2-3 sentences, not 1. First state the specific tension plainly, naming real details from your entries. Then ask the question directly to you. Must not restate candidate_quote in question form.",
+  "candidate_quote": "One verbatim line from your entries, copied exactly as written including typos. Not the most emotional line. The one that accidentally told the truth. Pick throwaway lines, self-corrections, minimisations. If no strong candidate exists, pick the closest and add a trailing asterisk.",
   "since_last_week": {
     "last_week_words": [],
     "this_week_words": []
@@ -429,9 +432,6 @@ Return only valid JSON. No markdown, no backticks, no preamble. All fields must 
       "related": ["semantically adjacent word you did NOT write", "another related word not in your writing", "optional third"]
     }
   ],
-  "what_we_saw": "Format this as two paragraphs separated by a double newline (\\n\\n). The first paragraph must contain 2-4 sentences of concrete, specific facts from your entries this week only. Never reference prior weeks here. The second paragraph must contain exactly one realization (one or two sentences) stating what the facts add up to. Ground it in agency_language or in a specific, checkable contradiction between entries. Never ground it in a claim about what's missing or unnamed. Speak directly to you using 'you' and 'your'. Scale the number of specific details cited to the number of entries provided.",
-  "candidate_quote": "One verbatim line from your entries, copied exactly as written including typos. Not the most emotional line. The one that accidentally told the truth. Pick throwaway lines, self-corrections, minimisations. If no strong candidate exists, pick the closest and add a trailing asterisk.",
-  "carry_question": "2-3 sentences, not 1. First state the specific tension plainly, naming real details from your entries. Then ask the question directly to you. Must not restate candidate_quote in question form.",
   "analytical_block": {
     "emotional_tone": "dominant register across your week in 2-4 words",
     "agency_language": "how you position yourself relative to events",
@@ -486,6 +486,9 @@ NEVER:
 - Claim anything about weeks before the one immediately prior. No running week counts ("two weeks now," "three weeks in a row"). Compare only to the immediately previous week, once, never as a tally.
 - Label anything with a broad demographic category (family, marriage, career, etc). Describe what's specifically written, never the bucket it might belong to.
 - Promise or reference what a future report will check, ask, or follow up on. Do not make forward-looking claims the product can't keep.
+- Mention day numbers, day labels, or specific days of the week (e.g., "Day 2", "Day 3", "Day 8", "D1", "D2", "first day", "second day", "on Wednesday", "quiet Sundays", etc.) — refer to thoughts, events, or feelings by their content, never by when they occurred or which day index they belong to
+- Count, tally, or aggregate occurrences of emotions or events (e.g., "two instances of feeling stuck", "one instance of resisting", "you wrote about this three times") — discuss the patterns and feelings directly, never count them
+- Include any meta-commentary, boilerplate disclosures, or remarks about skipped days, missing entries, or partial weeks (e.g., "Since you skipped days, we cannot draw conclusions", "Based on the three entries you provided", "You're reading this on a partial week") — write a seamless clinical observation based on whatever entries are present as if they represent the entire week
 
 ─────────────────────────────────────────────────────────
 
@@ -495,10 +498,11 @@ FINAL CHECK — run before returning output:
 2. Does the realization contradict anything the user actually wrote? If yes, it's wrong — fix before returning.
 3. Do candidate_quote and carry_question make the same point in different words? If yes, rewrite the carry_question from a different angle or entry.
 4. Does what_we_saw connect two things that don't share a word, situation, or person? If so, state they're unconnected instead.
-5. Is entries_this_week less than 7? If yes, what_we_saw must note it's reading a partial week. If 7, omit that disclosure entirely.
-6. Does anything promise or reference a future week's content? If yes, remove it.`;
+5. Make sure there are absolutely zero references to day numbers, day names, emotion counts, or skipped day disclosures in any field.
+6. Does anything promise or reference a future week's content? If yes, remove it.
+7. Speak ONLY in the second person ("you", "your"). NEVER use third person ("the user", "they").`;
 
-    const formattedEntries = data.entries.map(e => `[Day ${e.cycle_day}]: ${e.content}`).join('\n\n');
+    const formattedEntries = data.entries.map(e => `Journal Entry:\n"${e.content}"`).join('\n\n');
     const topWords = data.vocabThisWeek.slice(0, 3).map(w => `"${w.word}" (frequency: ${w.frequency})`).join(', ');
     const skippedDaysInfo = data.weekly_stats.skipped_days > 0 
       ? `Days skipped: ${data.weekly_stats.skipped_day_numbers.map(d => `Day ${d}`).join(', ')}`

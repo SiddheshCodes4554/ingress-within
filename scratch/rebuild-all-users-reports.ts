@@ -86,6 +86,10 @@ async function runRebuild() {
       console.error(`ERROR rebuilding summary ID ${summary.id}:`, err.message || err);
       failed++;
     }
+
+    // Add a 12-second delay to avoid hitting LLM API rate limits
+    console.log('Waiting 12 seconds before next rebuild...');
+    await new Promise(resolve => setTimeout(resolve, 12000));
   }
 
   console.log(`\n==================================================`);

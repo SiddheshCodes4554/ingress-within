@@ -1189,12 +1189,12 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                         {/* RIGHT COLUMN */}
                         <div>
                           <div className="lbl">What we saw</div>
-                          <div className="ws font-serif text-[14.5px] leading-relaxed text-[#22262b] mb-4">
+                          <div className="ws font-serif text-[15px] leading-[1.8] text-[#22262b] mb-6">
                             {sawText || selectedReport.body}
                           </div>
 
                           {realizationText && (
-                            <div className="yt font-serif text-[16px] leading-relaxed text-[#1c2733] border-l-3 border-[#d98b6b] pl-3.5 mb-4 p-0 bg-transparent rounded-none">
+                            <div className="yt font-serif text-[15.5px] leading-relaxed text-[#1c2733] border-l-[3px] border-[#d98b6b] pl-[14px] mb-5 bg-transparent rounded-none">
                               {realizationText}
                             </div>
                           )}
