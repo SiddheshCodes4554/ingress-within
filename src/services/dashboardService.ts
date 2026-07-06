@@ -803,6 +803,46 @@ export class DashboardService {
       return data.assessment;
     });
   }
+
+  /**
+   * Fetches the pattern engine overview.
+   */
+  static async fetchPatternOverview(): Promise<any> {
+    const cacheKey = 'pattern_overview';
+    return this.getCachedOrFetch<any>(cacheKey, async () => {
+      const startTime = performance.now();
+      const res = await fetch('/api/patterns', {
+        headers: DashboardService.getHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error?.message || 'Failed to fetch pattern overview.');
+      }
+      const duration = performance.now() - startTime;
+      this.trackLatency('fetchPatternOverview', duration);
+      return data;
+    });
+  }
+
+  /**
+   * Fetches detailed data for a specific pattern.
+   */
+  static async fetchPatternDetail(patternName: string): Promise<any> {
+    const cacheKey = `pattern_detail_${patternName}`;
+    return this.getCachedOrFetch<any>(cacheKey, async () => {
+      const startTime = performance.now();
+      const res = await fetch(`/api/patterns/${patternName}`, {
+        headers: DashboardService.getHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error?.message || 'Failed to fetch pattern detail.');
+      }
+      const duration = performance.now() - startTime;
+      this.trackLatency('fetchPatternDetail', duration);
+      return data.pattern;
+    });
+  }
 }
 
 

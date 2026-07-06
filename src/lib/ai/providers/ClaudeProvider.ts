@@ -863,4 +863,70 @@ Return a valid JSON object matching the requested schema:
     const userContent = JSON.stringify({ words, entryContext: entryContent });
     return this.callClaude<{ validatedWords: { word: string; is_emotional: boolean; category?: 'emotional' | 'theme' | 'general'; score: number }[] }>(systemPrompt, userContent);
   }
+
+  async callRaw(prompt: string): Promise<string> {
+    this.lastSystemPrompt = "Raw Completion";
+    this.lastUserContent = prompt;
+
+    if (!this.apiKey || this.apiKey.startsWith('mock_') || this.apiKey === 'sk-ant-development-mock-key-replace-me') {
+      console.warn(`[ClaudeProvider] Running with mock key. Simulating callRaw response.`);
+      if (prompt.includes('pattern-detection system') || prompt.includes('pattern_name')) {
+        const mockPatterns = [
+          {
+            pattern_name: "Avoidance",
+            pattern_category: "behavioural",
+            supporting_phrase: "I didn't say anything",
+            supporting_sentence: "I didn't say anything. It felt easier.",
+            confidence: 0.88,
+            reasoning: "Writer chooses silence rather than engagement"
+          }
+        ];
+        this.lastRawResponse = JSON.stringify(mockPatterns);
+        return this.lastRawResponse;
+      }
+      return "[]";
+    }
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': this.apiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: this.model,
+          max_tokens: 4000,
+          messages: [
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.1
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Claude API returned HTTP error ${response.status}: ${errText}`);
+      }
+
+      const payload = await response.json();
+      const rawText = payload.content?.[0]?.text;
+      if (!rawText) {
+        throw new Error('Claude API returned an empty completion response.');
+      }
+
+      this.lastRawResponse = rawText;
+      this.lastUsage = {
+        input_tokens: payload.usage?.input_tokens || 0,
+        output_tokens: payload.usage?.output_tokens || 0,
+        total_tokens: (payload.usage?.input_tokens || 0) + (payload.usage?.output_tokens || 0)
+      };
+
+      return rawText;
+    } catch (error) {
+      console.error('[ClaudeProvider] callRaw failed:', error);
+      throw error;
+    }
+  }
 }

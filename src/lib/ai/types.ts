@@ -115,6 +115,7 @@ export interface AIProvider {
   }>;
   scoreEmotionalRelevance(words: string[], entryContent: string): Promise<{ validatedWords: { word: string; is_emotional: boolean; category?: 'emotional' | 'theme' | 'general'; score: number }[] }>;
   generateWeeklyReport(data: WeeklyReportInput): Promise<WeeklyReportResponse>;
+  callRaw(prompt: string): Promise<string>;
 }
 
 export interface WeeklyReportInput {

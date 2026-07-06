@@ -921,4 +921,85 @@ Return a valid JSON object matching the requested schema:
     const userContent = JSON.stringify({ words, entryContext: entryContent });
     return this.callGroq<{ validatedWords: { word: string; is_emotional: boolean; category?: 'emotional' | 'theme' | 'general'; score: number }[] }>(systemPrompt, userContent);
   }
+
+  async callRaw(prompt: string): Promise<string> {
+    this.lastSystemPrompt = "Raw Completion";
+    this.lastUserContent = prompt;
+
+    if (!this.apiKey || this.apiKey.startsWith('mock_') || this.apiKey === 'gsk_development_mock_key_replace_me') {
+      console.warn(`[GroqProvider] Running with mock key. Simulating callRaw response.`);
+      if (prompt.includes('pattern-detection system') || prompt.includes('pattern_name')) {
+        const mockPatterns = [
+          {
+            pattern_name: "Avoidance",
+            pattern_category: "behavioural",
+            supporting_phrase: "I didn't say anything",
+            supporting_sentence: "I didn't say anything. It felt easier.",
+            confidence: 0.88,
+            reasoning: "Writer chooses silence rather than engagement"
+          }
+        ];
+        this.lastRawResponse = JSON.stringify(mockPatterns);
+        return this.lastRawResponse;
+      }
+      return "[]";
+    }
+
+    let attempts = 5;
+    let delayMs = 12000;
+
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: this.model,
+            messages: [
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.1
+          })
+        });
+
+        if (response.status === 429) {
+          if (attempt === attempts) {
+            throw new Error(`Groq API returned HTTP error 429 (Rate Limit Exceeded) after all attempts.`);
+          }
+          console.warn(`[GroqProvider] Rate limit hit (429). Attempt ${attempt} of ${attempts}. Waiting ${delayMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          delayMs *= 2.0;
+          continue;
+        }
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Groq API returned HTTP error ${response.status}: ${errText}`);
+        }
+
+        const payload = await response.json();
+        const rawText = payload.choices?.[0]?.message?.content;
+        if (!rawText) {
+          throw new Error('Groq API returned an empty completion response.');
+        }
+
+        this.lastRawResponse = rawText;
+        this.lastUsage = payload.usage || null;
+
+        return rawText;
+      } catch (error) {
+        if (attempt === attempts) {
+          console.error('[GroqProvider] API request failed after all attempts:', error);
+          throw error;
+        }
+        console.warn(`[GroqProvider] Request failed on attempt ${attempt}. Retrying in ${delayMs}ms... Error: ${error instanceof Error ? error.message : String(error)}`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        delayMs *= 2.0;
+      }
+    }
+    throw new Error('GroqProvider callRaw completed loop without returning or throwing.');
+  }
 }

@@ -2,6 +2,7 @@ import { supabase } from '../../db';
 import { aiProvider } from '../../ai/factory';
 import { decrypt } from '../../encryption';
 import { VocabularyIntelligenceService } from '../../vocab/vocabIntelligenceService';
+import { triggerPatternProcessing } from '../triggers';
 
 export function getVerbatimSentence(word: string, normalized: string, fullText: string): string | null {
   const cleanWord = word.toLowerCase().trim();
@@ -389,6 +390,15 @@ export async function processVocabularyExtraction(jobData: {
       }
     } else if (thread_response_id) {
       await supabase.from('thread_responses').update({ vocab_processed: true }).eq('id', thread_response_id);
+    }
+
+    if (cycle_id) {
+      try {
+        const sourceType = entry_id ? 'journal' : 'thread';
+        await triggerPatternProcessing(entry_id || thread_response_id || null, user_id, cycle_id, sourceType);
+      } catch (triggerErr: any) {
+        console.error(`[Vocab Worker] Failed to trigger pattern processing:`, triggerErr.message);
+      }
     }
 
     console.log(`[Vocab Worker] Vocabulary processing completed successfully.`);

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '../../../lib/db';
 import { getAuthenticatedUser } from '../../../lib/auth-helper';
+import { PatternIntelligenceService } from '../../../lib/patterns/patternIntelligenceService';
 
 /**
  * GET /api/patterns: Fetches all patterns and their cycle states for the user.
- * Performs a version-aware background rebuild check.
+ * Reads compiled snapshots without AI generation on read.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -18,19 +18,11 @@ export async function GET(request: NextRequest) {
 
     const userId = authUser.userId;
 
-    // 1. Fetch patterns and cycle states from database
-    const { data: patterns, error: patternsErr } = await supabase
-      .from('patterns')
-      .select('*, pattern_cycle_states(*)')
-      .eq('user_id', userId);
-
-    if (patternsErr) {
-      throw new Error(`Failed to fetch patterns: ${patternsErr.message}`);
-    }
+    const overview = await PatternIntelligenceService.getPatternOverview(userId);
 
     return NextResponse.json({
       success: true,
-      patterns: patterns || []
+      ...overview
     });
 
   } catch (error: any) {
@@ -41,3 +33,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+

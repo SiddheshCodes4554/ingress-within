@@ -13,6 +13,26 @@ export async function triggerAIProcessing(entryId: string, userId: string) {
   }
 }
 
+export async function triggerPatternProcessing(
+  entryId: string | null,
+  userId: string,
+  cycleId: string,
+  sourceType: 'journal' | 'thread' | 'vocab' | 'weekly_report'
+) {
+  console.log(`[Queue Trigger] Enqueueing pattern processing job for user ${userId}, source: ${sourceType}, entry/source ID: ${entryId}`);
+  try {
+    const jobId = entryId ? `pattern_${sourceType}_${entryId}` : `pattern_${sourceType}_${Date.now()}`;
+    await queueRegistry.addJob('pattern_processing', jobId, {
+      entry_id: entryId || undefined,
+      user_id: userId,
+      cycle_id: cycleId,
+      source_type: sourceType
+    });
+  } catch (err: any) {
+    console.error(`[Queue Trigger] Error queueing pattern processing job:`, err.message);
+  }
+}
+
 export async function checkWeeklyAndMonthlySummary(userId: string, cycleId: string | null, cycleDay: number) {
   if (!cycleId) return;
 

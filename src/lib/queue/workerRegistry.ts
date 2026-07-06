@@ -102,6 +102,16 @@ class WorkerRegistry {
       }, defaultWorkerOptions)
     );
 
+    // 10. Pattern Processing Worker
+    this.workers.set(
+      QUEUE_NAMES.PATTERN_PROCESSING,
+      new Worker(QUEUE_NAMES.PATTERN_PROCESSING, async (job) => {
+        const { processPatternExtraction } = await import('./workers/patternWorker');
+        await processPatternExtraction(job.data);
+      }, defaultWorkerOptions)
+    );
+
+
     // Add event listeners for logging
     for (const [name, worker] of this.workers.entries()) {
       worker.on('failed', (job, err) => {

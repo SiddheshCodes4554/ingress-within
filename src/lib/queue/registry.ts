@@ -11,6 +11,7 @@ export const QUEUE_NAMES = {
   CRISIS_DETECTION: 'crisis_detection',
   VOCAB_PROCESSING: 'vocab_processing',
   INTELLIGENCE_REBUILD: 'intelligence_rebuild',
+  PATTERN_PROCESSING: 'pattern_processing',
 } as const;
 
 export type QueueName = typeof QUEUE_NAMES[keyof typeof QUEUE_NAMES];
@@ -84,6 +85,9 @@ class QueueRegistry {
           } else if (queueName === 'intelligence_rebuild') {
             const { processIntelligenceRebuild } = await import('./workers/intelligenceRebuildWorker');
             await processIntelligenceRebuild(data);
+          } else if (queueName === 'pattern_processing') {
+            const { processPatternExtraction } = await import('./workers/patternWorker');
+            await processPatternExtraction(data);
           }
         } catch (err: any) {
           console.error(`[Queue Registry] Inline background job execution error for ${queueName}:`, err.message || err);
