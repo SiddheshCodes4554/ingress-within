@@ -264,6 +264,33 @@ export async function processWeeklySummary(jobData: {
 
     console.log(`[Weekly Summary Worker] Data integrity validation passed successfully.`);
 
+    // 3.8. Fetch previous week's top expressions
+    let lastWeekTopExpressions: string[] | null = null;
+    if (week_number > 1) {
+      try {
+        const { data: prevSummary } = await supabase
+          .from('weekly_summaries')
+          .select('report_data')
+          .eq('cycle_id', cycle_id)
+          .eq('week_number', week_number - 1)
+          .eq('user_id', user_id)
+          .maybeSingle();
+
+        if (prevSummary && prevSummary.report_data) {
+          const prevData = prevSummary.report_data as any;
+          if (prevData.since_last_week?.this_week_words) {
+            lastWeekTopExpressions = prevData.since_last_week.this_week_words;
+          } else if (prevData.vocabThisWeek) {
+            lastWeekTopExpressions = prevData.vocabThisWeek.slice(0, 3).map((v: any) => v.word);
+          }
+        }
+      } catch (err: any) {
+        console.warn(`[Weekly Summary Worker] Non-fatal error fetching last week's top expressions:`, err.message);
+      }
+    }
+
+    collectedData.lastWeekTopExpressions = lastWeekTopExpressions;
+
     // 4. Call AI Provider with fully collected report context
     const result = await aiProvider.generateWeeklyReport(collectedData);
 
@@ -271,17 +298,30 @@ export async function processWeeklySummary(jobData: {
     updatedOrchestration.status = 'READY';
     updatedOrchestration.completed_at = new Date().toISOString();
 
-    // 5. Update weekly_summaries table with full 11-section report_data
+    const parts = (result.what_we_saw || '').split('\n\n');
+    const sawText = parts[0] || '';
+    const realizationText = parts[1] || '';
+
+    // 5. Update weekly_summaries table with the new schema values
     const { error: updateError } = await supabase
       .from('weekly_summaries')
       .update({
-        title: result.title || "Composure vs. Suppression",
-        why: result.why || "Suppressing internal friction to manage external dynamics.",
-        body: result.week_narrative || "A weekly summary is ready.",
-        open_question: result.reflection_question,
+        title: result.week_tone || "Weekly Synthesis",
+        why: realizationText || sawText || "Narrative insight is ready.",
+        body: result.what_we_saw || "A weekly summary is ready.",
+        open_question: result.carry_question,
         report_data: {
           ...result,
+          weekly_stats: collectedData.weekly_stats,
+          writing_behaviour: collectedData.writing_behaviour,
+          crisis_review: {
+            occurred: collectedData.crisisEvents.length > 0,
+            summary: collectedData.crisisEvents.length > 0
+              ? `Crisis indicators detected: ${Array.from(new Set(collectedData.crisisEvents.map(e => e.crisis_type))).join(', ')}`
+              : null
+          },
           audit: collectedData.audit,
+          vocabThisWeek: collectedData.vocabThisWeek,
           orchestration: updatedOrchestration
         },
         status: 'READY',
@@ -311,8 +351,8 @@ export async function processWeeklySummary(jobData: {
           user_id,
           cycle_id,
           source_summary_id: actualSummaryId,
-          question: result.reflection_question,
-          origin_context: result.week_narrative || "A weekly summary.",
+          question: result.carry_question,
+          origin_context: result.what_we_saw || "A weekly summary.",
           status: 'open',
           created_at: new Date().toISOString()
         });

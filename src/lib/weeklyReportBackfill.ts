@@ -82,63 +82,53 @@ export async function backfillWeeklyReports(userId: string): Promise<BackfillRes
         if (summary) {
           // Row exists
           if (summary.status === 'READY') {
-            // Already successfully generated
+            // Already successfully generated — never touch it again
             result.already_generated++;
-          } else {
-            // Check if it's stuck in generating or grace period for > 15 minutes, or failed
-            const timeSinceUpdate = Date.now() - new Date(summary.report_data?.orchestration?.updated_at || summary.created_at).getTime();
-            const isStuck = (summary.status === 'GENERATING' || summary.status === 'GRACE_PERIOD') && timeSinceUpdate > 15 * 60 * 1000;
-            const isFailed = summary.status === 'FAILED';
+          } else if (
+            summary.status === 'PENDING' ||
+            summary.status === 'WAITING_FOR_PROCESSING' ||
+            summary.status === 'GENERATING' ||
+            summary.status === 'GRACE_PERIOD'
+          ) {
+            // Actively in-flight — only intervene if stuck for > 15 minutes
+            const timeSinceUpdate = Date.now() - new Date(summary.updated_at || summary.created_at).getTime();
+            const isStuck = timeSinceUpdate > 15 * 60 * 1000;
 
-            if (isFailed || isStuck || !summary.report_data?.orchestration) {
-              // Re-trigger/re-enqueue
+            if (isStuck) {
               result.re_queued_failed++;
-              console.log(`[Backfill Orchestrator] Re-queueing failed/stuck summary ${summary.id} (status: ${summary.status}, week: ${target.week}, cycle: ${cycleId})`);
-
-              // Reset status to WAITING_FOR_PROCESSING to re-trigger orchestration
-              const initialOrchestration = {
-                orchestration: {
-                  status: 'WAITING_FOR_PROCESSING',
-                  entry_id: summary.report_data?.orchestration?.entry_id || '',
-                  completed_events: {
-                    'SCORING_COMPLETED': false,
-                    'REFLECTION_COMPLETED': false,
-                    'CRISIS_COMPLETED': false,
-                    'VOCABULARY_COMPLETED': false,
-                    'THREADS_COMPLETED': false,
-                    'CYCLE_METADATA_UPDATED': false
-                  },
-                  history: [
-                    { stage: 'WAITING_FOR_PROCESSING', timestamp: new Date().toISOString() }
-                  ],
-                  updated_at: new Date().toISOString()
-                }
-              };
+              console.log(`[Backfill Orchestrator] Re-queueing stuck summary ${summary.id} (status: ${summary.status}, stuck for ${Math.round(timeSinceUpdate / 60000)}min)`);
 
               await supabase
                 .from('weekly_summaries')
-                .update({
-                  status: 'WAITING_FOR_PROCESSING',
-                  report_data: initialOrchestration
-                })
+                .update({ status: 'PENDING' })
                 .eq('id', summary.id);
 
-              // Use deterministic jobId to avoid duplicate processing jobs
               await queueRegistry.addJob(
                 'weekly_summary_generation',
                 `weekly_backfill_${summary.id}`,
-                {
-                  cycle_id: cycleId,
-                  user_id: userId,
-                  week_number: target.week,
-                  summary_id: summary.id
-                },
-                `weekly_backfill_${summary.id}` // jobId
+                { cycle_id: cycleId, user_id: userId, week_number: target.week, summary_id: summary.id },
+                `weekly_backfill_${summary.id}`
               );
             } else {
-              // Currently WAITING_FOR_PROCESSING or PENDING (fresh/active)
+              // Still actively processing — do nothing
               result.newly_queued++;
             }
+          } else if (summary.status === 'FAILED') {
+            // Explicitly failed — re-trigger once
+            result.re_queued_failed++;
+            console.log(`[Backfill Orchestrator] Re-queueing failed summary ${summary.id} (week: ${target.week}, cycle: ${cycleId})`);
+
+            await supabase
+              .from('weekly_summaries')
+              .update({ status: 'PENDING' })
+              .eq('id', summary.id);
+
+            await queueRegistry.addJob(
+              'weekly_summary_generation',
+              `weekly_backfill_${summary.id}`,
+              { cycle_id: cycleId, user_id: userId, week_number: target.week, summary_id: summary.id },
+              `weekly_backfill_${summary.id}`
+            );
           }
         } else {
           // No row exists -> Create new summary row as PENDING and trigger worker

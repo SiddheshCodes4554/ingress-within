@@ -55,8 +55,9 @@ async function runTests() {
 
   const weekNum = 2; // Let's use week 2 for safety
 
-  // Cleanup old test weekly summaries
+  // Cleanup old test weekly summaries, entries, and crisis logs
   await supabase.from('weekly_summaries').delete().eq('cycle_id', testCycleId).eq('week_number', weekNum);
+  await supabase.from('crisis_log').delete().eq('user_id', testUserId).eq('week_number', weekNum);
 
   // 1. Create a dummy summary row
   const { data: summary, error: createErr } = await supabase
@@ -252,6 +253,12 @@ async function runTests() {
   if (summaryAfterSuccess?.status !== 'READY') {
     throw new Error('FAIL: Report generation should have completed successfully and marked status as READY.');
   }
+
+  const reportJson = summaryAfterSuccess?.report_data || {};
+  if (!reportJson.week_tone || !reportJson.what_we_saw || !reportJson.candidate_quote || !reportJson.carry_question || !reportJson.analytical_block) {
+    throw new Error('FAIL: Stored report_data does not contain the new weekly report prompt schema fields.');
+  }
+  console.log('PASS: Stored report_data contains all new weekly report prompt schema fields.');
   console.log('PASS: Successful validation, AI generation, and evidence auditing verified.');
 
   // Clean up test data

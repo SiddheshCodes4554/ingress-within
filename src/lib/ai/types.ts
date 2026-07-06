@@ -183,6 +183,7 @@ export interface WeeklyReportInput {
     skipped_days: number[];
   };
   personalityContext: string | null;
+  lastWeekTopExpressions?: string[] | null;
 }
 
 export interface ScoreDimensionDetail {
@@ -199,69 +200,21 @@ export interface ScoreDimensionDetail {
 }
 
 export interface WeeklyReportResponse {
-  title: string;
-  why: string;
-  weekly_stats: {
-    entries_completed: number;
-    total_possible: number;
-    skipped_days: number;
-    skipped_day_numbers: number[];
-    writing_streak: number;
-    thread_responses_completed: number;
-    week_range: string;
-    cycle_number: number;
-    week_number: number;
+  week_tone: string;
+  since_last_week: {
+    last_week_words: string[];
+    this_week_words: string[];
+  } | string;
+  what_we_saw: string;
+  candidate_quote: string;
+  carry_question: string;
+  analytical_block: {
+    emotional_tone: string;
+    agency_language: string;
+    primary_theme: string;
+    trajectory: string;
+    notable_absence: string;
   };
-  emotional_language: {
-    expression: string;
-    frequency: number;
-    importance: 'high' | 'medium' | 'low';
-    context: string;
-    related: string[];
-  }[];
-  week_narrative: string;
-  vocabulary_evolution: {
-    new_expressions: string[];
-    growing_expressions: string[];
-    declining_expressions: string[];
-  };
-  pattern_evolution: {
-    recurring_themes: string[];
-    repeated_stressors: string[];
-    repeated_strengths: string[];
-    coping_strategies: string[];
-  };
-  writing_behaviour: {
-    consistency: string;
-    avg_entry_length: number;
-    entry_lengths: number[];
-    writing_times: string[];
-    reflection_completion_rate: number;
-    thread_completion_rate: number;
-    skipped_days: number[];
-    engagement_trend: string;
-  };
-  score_evolution: {
-    ei: ScoreDimensionDetail;
-    pr: ScoreDimensionDetail;
-    sa: ScoreDimensionDetail;
-  };
-  open_threads_review: {
-    active: string[];
-    resolved_this_week: string[];
-    continued_throughout: string[];
-    summary: string;
-  };
-  crisis_review: {
-    occurred: boolean;
-    summary: string;
-    events: {
-      type: string;
-      timestamp: string;
-    }[];
-  };
-  growth_reflection: string;
-  reflection_question: string;
 }
 
 export interface DimensionScores {

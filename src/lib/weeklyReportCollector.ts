@@ -158,15 +158,15 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
     personalityContext = personalityContext.substring(0, 350) + '... [truncated]';
   }
 
-  // 3. Fetch Weekly Entries (joining reflections) strictly in the date range
+  // 3. Fetch Weekly Entries (joining reflections) strictly in the cycle day range
   const { data: dbEntries, error: entriesErr } = await supabase
     .from('entries')
     .select('*, reflections(*)')
     .eq('user_id', userId)
     .eq('cycle_id', cycleId)
-    .gte('created_at', week_start_date.toISOString())
-    .lt('created_at', week_next_start_date.toISOString())
-    .order('created_at', { ascending: true });
+    .gte('cycle_day', dayStart)
+    .lte('cycle_day', dayStart + 6)
+    .order('cycle_day', { ascending: true });
 
   if (entriesErr) {
     throw new Error(`Failed to fetch weekly entries: ${entriesErr.message}`);
@@ -369,7 +369,7 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
       const pr = Number(entry.day_pr);
       const sa = Number(entry.day_sa);
       const score = ei + pr + sa;
-      const normalized = Math.round((score / 30) * 64);
+      const normalized = Math.round((score / 30) * 100);
 
       entry_lengths.push(normalized);
       rawScores.push(score);
