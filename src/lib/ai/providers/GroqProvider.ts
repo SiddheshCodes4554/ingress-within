@@ -317,7 +317,8 @@ export class GroqProvider implements AIProvider {
               { role: 'user', content: userContent }
             ],
             response_format: { type: 'json_object' },
-            temperature: 0.1
+            temperature: 0.1,
+            max_tokens: 8192
           })
         });
 

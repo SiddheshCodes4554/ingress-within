@@ -1,4 +1,6 @@
 import { supabase } from '../db';
+import { getBackfillStatus, updateBackfillStatus } from './patternBackfillStatus';
+
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -64,7 +66,9 @@ export interface PatternUserState {
   reason: string;
   hasSnapshots: boolean;
   backfillCompleted: boolean;
+  backfillStatus?: any;
 }
+
 
 // In-memory cache for connected patterns
 const connectedPatternsCache = new Map<string, { data: ConnectedPattern[]; expires: number }>();
@@ -94,43 +98,85 @@ export class PatternIntelligenceService {
    * This is the single authoritative decision point for user state routing.
    */
   public static async determinePatternUserState(userId: string): Promise<PatternUserState> {
-    // 1. Check if snapshots already exist — most common fast path.
+    // 1. Check database backfill status
+    const status = (await getBackfillStatus(userId)) || {
+      user_id: userId,
+      status: 'NOT_STARTED' as const,
+      progress_total_cycles: 0,
+      progress_processed_cycles: 0,
+      progress_total_entries: 0,
+      progress_processed_entries: 0,
+      snapshot_created: false,
+      error_message: null,
+      queued_at: null,
+      started_at: null,
+      completed_at: null,
+      failed_at: null
+    };
+
+    // 2. Fetch snapshot count excluding dummy snapshot
     let snapshotCount = 0;
     try {
       const { count, error: snapErr } = await supabase
         .from('pattern_snapshots')
         .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .neq('cycle_id', '00000000-0000-0000-0000-000000000000');
 
-      if (snapErr) {
-        if (snapErr.code === 'PGRST205' || snapErr.message?.includes('pattern_snapshots')) {
-          // Table doesn't exist — treat as no snapshots but don't crash.
-          snapshotCount = 0;
-        } else {
-          throw snapErr;
-        }
-      } else {
+      if (!snapErr) {
         snapshotCount = count || 0;
       }
-    } catch (err: any) {
-      if (err.code === 'PGRST205' || err.message?.includes('pattern_snapshots')) {
-        snapshotCount = 0;
-      } else {
-        throw err;
-      }
+    } catch {}
+
+    // If backfill is completed, state is active
+    if (status.status === 'COMPLETED') {
+      return {
+        state: 'active',
+        reason: 'Pattern backfill completed.',
+        hasSnapshots: snapshotCount > 0,
+        backfillCompleted: true,
+        backfillStatus: status
+      };
     }
 
+    // If backfill is in progress / queued
+    if (status.status === 'QUEUED' || status.status === 'PROCESSING') {
+      return {
+        state: 'backfill_pending',
+        reason: `Pattern backfill state is ${status.status}.`,
+        hasSnapshots: snapshotCount > 0,
+        backfillCompleted: false,
+        backfillStatus: status
+      };
+    }
+
+    // If backfill failed
+    if (status.status === 'FAILED') {
+      return {
+        state: 'backfill_pending', // Treat as pending/failed to allow retry on frontend
+        reason: 'Pattern backfill failed.',
+        hasSnapshots: snapshotCount > 0,
+        backfillCompleted: false,
+        backfillStatus: status
+      };
+    }
+
+    // Otherwise status is NOT_STARTED
+    // Check if snapshots exist from some other source (e.g. prior runs)
     if (snapshotCount > 0) {
+      // Auto-mark status as completed in DB to stay in sync
+      await updateBackfillStatus(userId, { status: 'COMPLETED', snapshot_created: true });
       return {
         state: 'active',
         reason: 'Pattern snapshots exist.',
         hasSnapshots: true,
-        backfillCompleted: true
+        backfillCompleted: true,
+        backfillStatus: { ...status, status: 'COMPLETED', snapshot_created: true }
       };
     }
 
-    // 2. Check the idempotency flag on the user's profile.
-    let backfillCompleted = false;
+    // Check profiles flag
+    let backfillCompletedFlag = false;
     try {
       const { data: profile } = await supabase
         .from('profiles')
@@ -138,25 +184,21 @@ export class PatternIntelligenceService {
         .eq('id', userId)
         .maybeSingle();
 
-      backfillCompleted = profile?.pattern_backfill_completed === true;
-    } catch {
-      // If profiles table doesn't have the column yet, treat as false.
-      backfillCompleted = false;
-    }
+      backfillCompletedFlag = profile?.pattern_backfill_completed === true;
+    } catch {}
 
-    // 3. If backfill already ran but produced no snapshots (e.g., truly no valid entries),
-    //    treat as active (empty) so we never re-trigger.
-    if (backfillCompleted) {
+    if (backfillCompletedFlag) {
+      await updateBackfillStatus(userId, { status: 'COMPLETED', snapshot_created: snapshotCount > 0 });
       return {
         state: 'active',
-        reason: 'Backfill already completed. No snapshots generated (insufficient data).',
-        hasSnapshots: false,
-        backfillCompleted: true
+        reason: 'Backfill already completed flag set.',
+        hasSnapshots: snapshotCount > 0,
+        backfillCompleted: true,
+        backfillStatus: { ...status, status: 'COMPLETED', snapshot_created: snapshotCount > 0 }
       };
     }
 
-    // 4. Check for historical evidence to decide between backfill_pending vs new_user.
-    //    Evidence = at least one completed weekly report OR ≥5 journal entries.
+    // Check historical evidence
     let hasEvidence = false;
     try {
       // Check weekly reports first (strongest signal for "existing user").
@@ -184,10 +226,11 @@ export class PatternIntelligenceService {
 
     if (hasEvidence) {
       return {
-        state: 'backfill_pending',
-        reason: 'Historical writing found. Backfill has not been run yet.',
+        state: 'new_user', // Frontend should trigger/queue the backfill
+        reason: 'User has historical data eligible for backfill.',
         hasSnapshots: false,
-        backfillCompleted: false
+        backfillCompleted: false,
+        backfillStatus: status
       };
     }
 
@@ -195,7 +238,8 @@ export class PatternIntelligenceService {
       state: 'new_user',
       reason: 'No completed weekly reports or sufficient entries found.',
       hasSnapshots: false,
-      backfillCompleted: false
+      backfillCompleted: false,
+      backfillStatus: status
     };
   }
 
@@ -212,6 +256,7 @@ export class PatternIntelligenceService {
         .from('pattern_snapshots')
         .select('*')
         .eq('user_id', userId)
+        .neq('cycle_id', '00000000-0000-0000-0000-000000000000')
         .order('cycle_number', { ascending: true });
 
       if (snapshotsErr) {
@@ -364,6 +409,7 @@ export class PatternIntelligenceService {
         .from('pattern_snapshots')
         .select('*')
         .eq('user_id', userId)
+        .neq('cycle_id', '00000000-0000-0000-0000-000000000000')
         .order('cycle_number', { ascending: true });
 
       if (snapshotsErr) {
@@ -634,6 +680,7 @@ export class PatternIntelligenceService {
       .from('pattern_snapshots')
       .select('*')
       .eq('user_id', userId)
+      .neq('cycle_id', '00000000-0000-0000-0000-000000000000')
       .lt('cycle_number', cycleNumber)
       .order('cycle_number', { ascending: true });
 
@@ -866,6 +913,7 @@ export class PatternIntelligenceService {
       .from('pattern_snapshots')
       .select('*')
       .eq('user_id', userId)
+      .neq('cycle_id', '00000000-0000-0000-0000-000000000000')
       .eq('snapshot_status', 'completed')
       .order('cycle_number', { ascending: false })
       .limit(2);
