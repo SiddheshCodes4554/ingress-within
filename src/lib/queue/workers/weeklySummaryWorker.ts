@@ -357,9 +357,15 @@ export async function processWeeklySummary(jobData: {
           created_at: new Date().toISOString()
         });
 
-      if (openThreadError) {
-        console.warn(`[Weekly Summary Worker] Failed to insert into open_threads:`, openThreadError.message);
-      }
+    }
+
+    // 7. Trigger the Pattern Engine processing for this weekly report
+    try {
+      const { triggerPatternProcessing } = await import('../triggers');
+      await triggerPatternProcessing(actualSummaryId, user_id, cycle_id, 'weekly_report');
+      console.log(`[Weekly Summary Worker] Triggered pattern engine for weekly report ${actualSummaryId}`);
+    } catch (patternErr: any) {
+      console.error(`[Weekly Summary Worker] Failed to trigger pattern engine:`, patternErr.message);
     }
 
     console.log(`[Weekly Summary Worker] Successfully generated weekly report and open thread for week ${week_number}`);

@@ -4,6 +4,16 @@ import { getBackfillStatus, updateBackfillStatus } from './patternBackfillStatus
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
+export interface Milestone {
+  id: string; // weekly_summaries.id OR cycles.id
+  type: 'weekly_report' | 'cycle_summary';
+  cycleId: string; // the cycle ID it belongs to
+  weekNumber?: number; // only for weekly_report
+  cycleNumber: number; // the cycle number
+  createdAt: string;
+  isCompleted: boolean;
+}
+
 export interface PatternCard {
   id: string;
   name: string;
@@ -27,7 +37,7 @@ export interface PatternDetail {
   connected: boolean;
   connectedBody: string;
   connectedLinks: { label: string; id: string }[];
-  timeline: { n: number; s: string; l: string }[];
+  timeline: { n: number; s: string; l: string; milestoneLabel?: string }[];
   cycleData: Record<number, { obs: string; entries: { t: string; m: string }[] }>;
 }
 
@@ -206,7 +216,7 @@ export class PatternIntelligenceService {
         .from('weekly_summaries')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', userId)
-        .eq('status', 'ready');
+        .in('status', ['READY', 'ready']);
 
       if (reportCount && reportCount > 0) {
         hasEvidence = true;
@@ -331,7 +341,9 @@ export class PatternIntelligenceService {
         // Not in latest snapshot: it has gone quiet
         status = 'quiet';
         body = `Active in early cycles. Has not appeared in recent entries.`;
-        orientation = `This pattern went quiet in Cycle ${lastAppearedCycle + 1}.`;
+        const lastSeenSnap = snapshots.find(s => s.cycle_number === lastAppearedCycle);
+        const lastSeenLabel = lastSeenSnap?.snapshot_data?.milestone_label || `Cycle ${lastAppearedCycle}`;
+        orientation = `This pattern went quiet in ${lastSeenLabel}.`;
       }
 
       // Build timeline array across ALL cycles chronologically
@@ -343,13 +355,20 @@ export class PatternIntelligenceService {
       }
 
       // Build metadata string matching HTML
+      const firstSeenSnap = snapshots.find(s => s.cycle_number === firstAppearedCycle);
+      const firstSeenLabel = firstSeenSnap?.snapshot_data?.milestone_label || `C${firstAppearedCycle}`;
+      const lastSeenSnap = snapshots.find(s => s.cycle_number === lastAppearedCycle);
+      const lastSeenLabel = lastSeenSnap?.snapshot_data?.milestone_label || `C${lastAppearedCycle}`;
+      const nextSeenSnap = snapshots.find(s => s.cycle_number === lastAppearedCycle + 1);
+      const nextSeenLabel = nextSeenSnap?.snapshot_data?.milestone_label || `C${lastAppearedCycle + 1}`;
+
       let meta = '';
       if (status === 'quiet') {
-        meta = `Last appeared C${lastAppearedCycle} · not surfacing since C${lastAppearedCycle + 1}`;
+        meta = `Last appeared ${lastSeenLabel} · not surfacing since ${nextSeenLabel}`;
       } else if (status === 'new') {
-        meta = `First appeared C${firstAppearedCycle} · ${totalOccurrences}× so far`;
+        meta = `First appeared ${firstSeenLabel} · ${totalOccurrences}× so far`;
       } else {
-        meta = `First appeared C${firstAppearedCycle} · ${totalOccurrences}× total`;
+        meta = `First appeared ${firstSeenLabel} · ${totalOccurrences}× total`;
       }
 
       cards.push({
@@ -360,7 +379,7 @@ export class PatternIntelligenceService {
         meta,
         orientation,
         timeline,
-        firstAppeared: `C${firstAppearedCycle}`,
+        firstAppeared: firstSeenLabel,
         totalOccurrences,
         connectedPatterns: connected
       });
@@ -381,7 +400,7 @@ export class PatternIntelligenceService {
       else if (c.status === 'returned') returnedCount++;
     });
 
-    const summarySentence = `You have ${cards.length} pattern${cards.length === 1 ? '' : 's'} identified across ${totalCycles} cycle${totalCycles === 1 ? '' : 's'}. ${presentCount} ${presentCount === 1 ? 'is' : 'are'} still present, ${shiftingCount} ${shiftingCount === 1 ? 'is' : 'are'} shifting, and ${quietCount} ${quietCount === 1 ? 'has' : 'have'} gone quiet. Having more patterns isn't worse — it means the writing has been honest enough to surface them.`;
+    const summarySentence = `You have ${cards.length} pattern${cards.length === 1 ? '' : 's'} identified across ${totalCycles} weeks/summaries. ${presentCount} ${presentCount === 1 ? 'is' : 'are'} still present, ${shiftingCount} ${shiftingCount === 1 ? 'is' : 'are'} shifting, and ${quietCount} ${quietCount === 1 ? 'has' : 'have'} gone quiet. Having more patterns isn't worse — it means the writing has been honest enough to surface them.`;
 
     return {
       patterns: cards,
@@ -481,16 +500,25 @@ export class PatternIntelligenceService {
       orientation = latestPat.orientation || '';
       connectedPatterns = latestPat.connected_patterns || [];
     } else {
-      orientation = `This pattern has gone quiet. It was last seen in Cycle ${lastAppearedCycle}.`;
+      const lastSeenSnap = snapshots.find(s => s.cycle_number === lastAppearedCycle);
+      const lastSeenLabel = lastSeenSnap?.snapshot_data?.milestone_label || `Cycle ${lastAppearedCycle}`;
+      orientation = `This pattern has gone quiet. It was last seen in ${lastSeenLabel}.`;
     }
+
+    const firstSeenSnap = snapshots.find(s => s.cycle_number === firstAppearedCycle);
+    const firstSeenLabel = firstSeenSnap?.snapshot_data?.milestone_label || `Cycle ${firstAppearedCycle}`;
+    const lastSeenSnap = snapshots.find(s => s.cycle_number === lastAppearedCycle);
+    const lastSeenLabel = lastSeenSnap?.snapshot_data?.milestone_label || `Cycle ${lastAppearedCycle}`;
+    const nextSeenSnap = snapshots.find(s => s.cycle_number === lastAppearedCycle + 1);
+    const nextSeenLabel = nextSeenSnap?.snapshot_data?.milestone_label || `Cycle ${lastAppearedCycle + 1}`;
 
     let meta = '';
     if (status === 'quiet') {
-      meta = `Last appeared Cycle ${lastAppearedCycle} · not surfacing since Cycle ${lastAppearedCycle + 1}`;
+      meta = `Last appeared ${lastSeenLabel} · not surfacing since ${nextSeenLabel}`;
     } else if (status === 'new') {
-      meta = `First appeared Cycle ${firstAppearedCycle} · ${totalOccurrences} appearances so far`;
+      meta = `First appeared ${firstSeenLabel} · ${totalOccurrences} appearances so far`;
     } else {
-      meta = `First appeared Cycle ${firstAppearedCycle} · ${totalOccurrences} appearances total`;
+      meta = `First appeared ${firstSeenLabel} · ${totalOccurrences} appearances total`;
     }
 
     // Badge styling mapping
@@ -517,7 +545,8 @@ export class PatternIntelligenceService {
       timeline.push({
         n: c,
         s: state,
-        l: label
+        l: label,
+        milestoneLabel: snap?.snapshot_data?.milestone_label || `C${c}`
       });
     }
 
@@ -534,6 +563,7 @@ export class PatternIntelligenceService {
     for (let c = 1; c <= totalCycles; c++) {
       const snap = snapshots.find(s => s.cycle_number === c);
       const pat = (snap?.snapshot_data?.patterns || []).find((p: any) => p.name === matchedName);
+      const milestoneLabel = snap?.snapshot_data?.milestone_label || `C${c}`;
       
       const cycleExtractions = extractions?.filter(e => e.cycle_id === snap?.cycle_id) || [];
       const entries = cycleExtractions
@@ -542,13 +572,13 @@ export class PatternIntelligenceService {
           const dateStr = e.generated_at ? new Date(e.generated_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '';
           return {
             t: `"${e.supporting_sentence}"`,
-            m: `C${c} · ${e.source_type === 'journal' ? 'Journal' : e.source_type === 'thread' ? 'Response' : 'Summary'} · ${dateStr}`
+            m: `${milestoneLabel} · ${e.source_type === 'journal' ? 'Journal' : e.source_type === 'thread' ? 'Response' : 'Summary'} · ${dateStr}`
           };
         })
         .slice(0, 3); // Limit to top 3 quotes per cycle for cleanliness
 
       cycleData[c] = {
-        obs: pat?.obs || (pat?.cycle_state === 'absent' || !pat ? 'No evidence for this cycle.' : `Present with ${pat.occurrences_this_cycle} occurrences.`),
+        obs: pat?.obs || (pat?.cycle_state === 'absent' || !pat ? 'No evidence for this week/summary.' : `Present with ${pat.occurrences_this_cycle} occurrences.`),
         entries
       };
     }
@@ -631,62 +661,131 @@ export class PatternIntelligenceService {
   }
 
   /**
-   * Generates or updates the snapshot for a given cycle.
-   * Incremental, event-driven, tenant-safe.
+   * Retrieves chronological list of milestones (weekly reports and cycle completions) for a user.
    */
-  public static async generatePatternSnapshot(userId: string, cycleId: string): Promise<void> {
-    // 1. Get cycle details
-    const { data: cycle, error: cycleErr } = await supabase
+  public static async getMilestones(userId: string): Promise<Milestone[]> {
+    // 1. Fetch all cycles for this user, ordered by created_at ascending
+    const { data: cycles, error: cyclesErr } = await supabase
       .from('cycles')
-      .select('cycle_number, number, status')
-      .eq('id', cycleId)
+      .select('*')
       .eq('user_id', userId)
-      .maybeSingle();
+      .order('created_at', { ascending: true });
 
-    if (cycleErr || !cycle) {
-      console.error('[PatternIntelligenceService] Cycle not found:', cycleId);
-      return;
+    if (cyclesErr || !cycles || cycles.length === 0) {
+      return [];
     }
 
-    const cycleNumber = cycle.cycle_number !== undefined ? cycle.cycle_number : cycle.number;
+    // 2. Fetch all weekly summaries for this user
+    const { data: weeklySummaries, error: wsErr } = await supabase
+      .from('weekly_summaries')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
 
-    // 2. Check if a snapshot already exists
+    const milestones: Milestone[] = [];
+
+    // Map each cycle to its index (1-based cycleNumber)
+    cycles.forEach((cycle, cycleIdx) => {
+      const cycleNumber = cycleIdx + 1;
+
+      // Find all weekly summaries belonging to this cycle
+      const cycleSummaries = (weeklySummaries || [])
+        .filter(ws => ws.cycle_id === cycle.id)
+        .sort((a, b) => a.week_number - b.week_number);
+
+      cycleSummaries.forEach(ws => {
+        const isCompleted = ws.status?.toUpperCase() === 'READY';
+        milestones.push({
+          id: ws.id,
+          type: 'weekly_report',
+          cycleId: cycle.id,
+          weekNumber: ws.week_number,
+          cycleNumber,
+          createdAt: ws.created_at,
+          isCompleted
+        });
+      });
+
+      // If the cycle itself is completed/archived, add a cycle completion milestone
+      const cycleCompleted = cycle.status?.toLowerCase() === 'completed' || 
+                             cycle.status?.toLowerCase() === 'complete' || 
+                             cycle.status?.toLowerCase() === 'archived';
+      if (cycleCompleted) {
+        milestones.push({
+          id: cycle.id,
+          type: 'cycle_summary',
+          cycleId: cycle.id,
+          cycleNumber,
+          createdAt: cycle.updated_at || cycle.created_at,
+          isCompleted: true
+        });
+      } else if (cycle.status?.toUpperCase() === 'ACTIVE') {
+        milestones.push({
+          id: cycle.id,
+          type: 'cycle_summary',
+          cycleId: cycle.id,
+          cycleNumber,
+          createdAt: new Date().toISOString(),
+          isCompleted: false
+        });
+      }
+    });
+
+    return milestones;
+  }
+
+  /**
+   * Generates or updates the snapshot for a given milestone.
+   * Incremental, event-driven, tenant-safe.
+   */
+  public static async generatePatternSnapshotForMilestone(
+    userId: string,
+    milestone: Milestone,
+    sequenceNumber: number
+  ): Promise<void> {
+    // 1. Check if snapshot already exists and is completed
     const { data: existingSnap } = await supabase
       .from('pattern_snapshots')
       .select('id, snapshot_status')
       .eq('user_id', userId)
-      .eq('cycle_id', cycleId)
+      .eq('cycle_id', milestone.id)
       .maybeSingle();
 
     if (existingSnap?.snapshot_status === 'completed') {
-      console.log(`[PatternIntelligenceService] Snapshot is completed and frozen. Aborting generation.`);
+      console.log(`[PatternIntelligenceService] Milestone snapshot ${milestone.id} is completed and frozen. Aborting.`);
       return;
     }
 
-    // 3. Fetch all pattern extractions for this cycle
+    // 2. Fetch all pattern extractions for this cycle
     const { data: extractions, error: extErr } = await supabase
       .from('pattern_extractions')
       .select('*')
       .eq('user_id', userId)
-      .eq('cycle_id', cycleId);
+      .eq('cycle_id', milestone.cycleId);
 
     if (extErr) {
       console.error('[PatternIntelligenceService] Error fetching extractions:', extErr.message);
       return;
     }
 
-    // 4. Fetch all previous snapshots to calculate trends
+    // Filter extractions to only include those up to this milestone's created_at (with 5 seconds buffer)
+    const filteredExtractions = extractions?.filter(ext => {
+      if (ext.entry_id === milestone.id) return true;
+      return new Date(ext.generated_at).getTime() <= new Date(milestone.createdAt).getTime() + 5000;
+    }) || [];
+
+    // 3. Fetch all previous snapshots to calculate trends
     const { data: previousSnapshots } = await supabase
       .from('pattern_snapshots')
       .select('*')
       .eq('user_id', userId)
       .neq('cycle_id', '00000000-0000-0000-0000-000000000000')
-      .lt('cycle_number', cycleNumber)
+      .lt('cycle_number', sequenceNumber)
       .order('cycle_number', { ascending: true });
 
-    // Group extractions by pattern name
+    // Group filtered extractions by pattern name
     const grouped = new Map<string, any[]>();
-    extractions?.forEach(ext => {
+    filteredExtractions.forEach(ext => {
       const name = ext.pattern_name;
       if (!grouped.has(name)) grouped.set(name, []);
       grouped.get(name)?.push(ext);
@@ -707,13 +806,11 @@ export class PatternIntelligenceService {
     // Process each pattern
     allPatternNames.forEach(name => {
       const currentExts = grouped.get(name) || [];
-      
-      // Confidence filter: only keep occurrences >= 0.65
       const validCurrentExts = currentExts.filter(e => e.confidence >= 0.65);
       const occurrencesThisCycle = validCurrentExts.length;
 
-      let firstSeen = cycleNumber;
-      let lastAppearedCycle = occurrencesThisCycle > 0 ? cycleNumber : 1;
+      let firstSeen = sequenceNumber;
+      let lastAppearedCycle = occurrencesThisCycle > 0 ? sequenceNumber : 1;
       let totalPreviousOccurrences = 0;
       let wasPresentPreviously = false;
       let wasPresentLastCycle = false;
@@ -734,7 +831,7 @@ export class PatternIntelligenceService {
             }
             totalPreviousOccurrences += snapPat.occurrences_this_cycle || 0;
             wasPresentPreviously = true;
-            if (snap.cycle_number === cycleNumber - 1) {
+            if (snap.cycle_number === sequenceNumber - 1) {
               wasPresentLastCycle = true;
             }
           }
@@ -742,17 +839,16 @@ export class PatternIntelligenceService {
       }
 
       if (occurrencesThisCycle > 0) {
-        lastAppearedCycle = cycleNumber;
+        lastAppearedCycle = sequenceNumber;
       }
 
-      // If no current occurrences and never appeared before, skip it
       if (occurrencesThisCycle === 0 && !wasPresentPreviously) {
         return;
       }
 
       const totalOccurrences = totalPreviousOccurrences + occurrencesThisCycle;
 
-      // Determine state for THIS cycle
+      // Determine state for THIS milestone
       let cycleState: 'strong' | 'shifting' | 'quiet' | 'absent' | 'new' | 'returned' = 'absent';
       if (occurrencesThisCycle === 0) {
         cycleState = 'absent';
@@ -778,7 +874,6 @@ export class PatternIntelligenceService {
         status = 'quiet';
       } else {
         // Trend analysis for present/shifting
-        // If occurrences are clearly dropping over the last few cycles, mark as shifting
         const lastFewStates = [...historyStates, cycleState].slice(-3);
         const isFading = lastFewStates.includes('shifting') || lastFewStates.includes('quiet');
         const hasDominantHistory = historyStates.includes('strong');
@@ -824,27 +919,34 @@ export class PatternIntelligenceService {
         }))
         .slice(0, 3);
 
+      const milestoneLabel = milestone.type === 'weekly_report' 
+        ? `C${milestone.cycleNumber} Week ${milestone.weekNumber}`
+        : `C${milestone.cycleNumber} Summary`;
+
       activePatterns.push({
         name,
         status,
         cycle_state: cycleState,
         occurrences_this_cycle: occurrencesThisCycle,
         first_seen_cycle: firstSeen,
-        last_seen_cycle: cycleState === 'absent' ? lastAppearedCycle : cycleNumber,
+        last_seen_cycle: cycleState === 'absent' ? lastAppearedCycle : sequenceNumber,
         total_occurrences: totalOccurrences,
         body,
         orientation,
         connected_patterns: name.toLowerCase() === 'avoidance' ? ['Conflict aversion'] : name.toLowerCase() === 'conflict aversion' ? ['Avoidance'] : [],
         evidence: quotes,
         obs: occurrencesThisCycle > 0 
-          ? `Cycle ${cycleNumber}: Present with ${occurrencesThisCycle} occurrences.` 
-          : `Not present in Cycle ${cycleNumber}.`
+          ? `${milestoneLabel}: Present with ${occurrencesThisCycle} occurrences.` 
+          : `Not present in ${milestoneLabel}.`
       });
     });
 
     const finalSnapshotData = {
       patterns: activePatterns,
-      total_cycles_observed: cycleNumber
+      total_cycles_observed: sequenceNumber,
+      milestone_label: milestone.type === 'weekly_report' 
+        ? `C${milestone.cycleNumber} Week ${milestone.weekNumber}`
+        : `C${milestone.cycleNumber} Summary`
     };
 
     // 5. Upsert active snapshot
@@ -852,9 +954,9 @@ export class PatternIntelligenceService {
       .from('pattern_snapshots')
       .upsert({
         user_id: userId,
-        cycle_id: cycleId,
-        cycle_number: cycleNumber,
-        snapshot_status: 'active',
+        cycle_id: milestone.id,
+        cycle_number: sequenceNumber,
+        snapshot_status: milestone.isCompleted ? 'completed' : 'active',
         snapshot_data: finalSnapshotData,
         updated_at: new Date().toISOString()
       }, {
@@ -867,22 +969,58 @@ export class PatternIntelligenceService {
   }
 
   /**
-   * Updates current active cycle snapshot incrementally.
+   * Wrapper for backwards compatibility.
    */
-  public static async updateActiveCycleSnapshot(userId: string, cycleId: string): Promise<void> {
-    const { data: snapshot } = await supabase
-      .from('pattern_snapshots')
-      .select('snapshot_status')
-      .eq('user_id', userId)
-      .eq('cycle_id', cycleId)
-      .maybeSingle();
-
-    if (snapshot?.snapshot_status === 'completed') {
-      console.log(`[PatternIntelligenceService] Cycle ${cycleId} is sealed. No incremental updates allowed.`);
+  public static async generatePatternSnapshot(userId: string, cycleId: string): Promise<void> {
+    const milestones = await this.getMilestones(userId);
+    const milestoneIdx = milestones.findIndex(m => m.id === cycleId || m.cycleId === cycleId);
+    
+    if (milestoneIdx === -1) {
+      console.warn(`[PatternIntelligenceService] Milestone not found for ID ${cycleId}. Skipping.`);
       return;
     }
 
-    await this.generatePatternSnapshot(userId, cycleId);
+    const milestone = milestones[milestoneIdx];
+    await this.generatePatternSnapshotForMilestone(userId, milestone, milestoneIdx + 1);
+  }
+
+  /**
+   * Updates current active milestone snapshot incrementally.
+   */
+  public static async updateActiveCycleSnapshot(userId: string, cycleId: string): Promise<void> {
+    const milestones = await this.getMilestones(userId);
+    const activeMilestoneIdx = milestones.findIndex(m => m.cycleId === cycleId && !m.isCompleted);
+
+    if (activeMilestoneIdx === -1) {
+      console.log(`[PatternIntelligenceService] No active/pending milestone found for cycle ${cycleId}. Skipping incremental snapshot update.`);
+      return;
+    }
+
+    const activeMilestone = milestones[activeMilestoneIdx];
+    const sequenceNumber = activeMilestoneIdx + 1;
+
+    await this.generatePatternSnapshotForMilestone(userId, activeMilestone, sequenceNumber);
+  }
+
+  /**
+   * Generates and seals the snapshot for a completed weekly report.
+   */
+  public static async generateSnapshotForWeeklyReport(userId: string, weeklySummaryId: string): Promise<void> {
+    const milestones = await this.getMilestones(userId);
+    const milestoneIdx = milestones.findIndex(m => m.id === weeklySummaryId);
+    
+    if (milestoneIdx === -1) {
+      console.error(`[PatternIntelligenceService] Milestone not found for weekly report ${weeklySummaryId}`);
+      return;
+    }
+
+    const milestone = milestones[milestoneIdx];
+    const sequenceNumber = milestoneIdx + 1;
+
+    // Force isCompleted = true for sealing the snapshot
+    milestone.isCompleted = true;
+
+    await this.generatePatternSnapshotForMilestone(userId, milestone, sequenceNumber);
   }
 
   /**

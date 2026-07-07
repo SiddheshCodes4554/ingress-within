@@ -205,39 +205,23 @@ export async function backfillPatterns(userId: string): Promise<PatternBackfillR
         }
       }
 
-      // D. Compile Snapshot for this cycle
-      const isLatestCycle = idx === cycles.length - 1;
-      const isCompleted = cycle.status?.toLowerCase() === 'complete' || 
-                          cycle.status?.toLowerCase() === 'completed' || 
-                          cycle.status?.toLowerCase() === 'archived' || 
-                          !isLatestCycle;
-
-      // Check if snapshot exists
-      const { data: existingSnap } = await supabase
-        .from('pattern_snapshots')
-        .select('id, snapshot_status')
-        .eq('user_id', userId)
-        .eq('cycle_id', cycleId)
-        .maybeSingle();
-
-      if (!existingSnap) {
-        await PatternIntelligenceService.generatePatternSnapshot(userId, cycleId);
-        result.snapshotsCreated++;
-      } else if (existingSnap.snapshot_status === 'active') {
-        await PatternIntelligenceService.generatePatternSnapshot(userId, cycleId);
-        result.snapshotsCreated++;
-      }
-
-      // E. Seal if completed
-      if (isCompleted) {
-        await PatternIntelligenceService.sealCycleSnapshot(userId, cycleId);
-      }
-
       result.cyclesProcessed++;
       await updateBackfillStatus(userId, {
         progress_processed_cycles: idx + 1,
         progress_processed_entries: processedEntries
       });
+    }
+
+    // D. Compile snapshots for all milestones chronologically
+    console.log(`[Pattern Backfill] Fetching and compiling snapshots for milestones...`);
+    const milestones = await PatternIntelligenceService.getMilestones(userId);
+    for (let mIdx = 0; mIdx < milestones.length; mIdx++) {
+      const milestone = milestones[mIdx];
+      const seqNum = mIdx + 1;
+      console.log(`[Pattern Backfill] Compiling milestone ${seqNum}/${milestones.length}: ${milestone.type} (ID: ${milestone.id})`);
+      
+      await PatternIntelligenceService.generatePatternSnapshotForMilestone(userId, milestone, seqNum);
+      result.snapshotsCreated++;
     }
 
     // Mark the backfill as completed on the user's profile so it is never re-triggered.

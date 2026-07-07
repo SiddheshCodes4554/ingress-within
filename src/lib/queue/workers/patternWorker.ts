@@ -37,15 +37,14 @@ export async function processPatternExtraction(jobData: PatternWorkerJobData): P
   console.log(`[Pattern Worker] Starting pattern extraction. Source: ${source_type}, Entry: ${entry_id || thread_response_id}, User: ${user_id}`);
 
   // 1. Verify this cycle is still active — never process completed cycles
-  const { data: snapshot } = await supabase
-    .from('pattern_snapshots')
-    .select('id, snapshot_status')
-    .eq('user_id', user_id)
-    .eq('cycle_id', cycle_id)
+  const { data: cycle } = await supabase
+    .from('cycles')
+    .select('status')
+    .eq('id', cycle_id)
     .maybeSingle();
 
-  if (snapshot?.snapshot_status === 'completed') {
-    console.log(`[Pattern Worker] Cycle ${cycle_id} snapshot is completed. Skipping extraction.`);
+  if (cycle?.status?.toLowerCase() === 'completed' || cycle?.status?.toLowerCase() === 'complete' || cycle?.status?.toLowerCase() === 'archived') {
+    console.log(`[Pattern Worker] Cycle ${cycle_id} is completed/archived. Skipping extraction.`);
     return;
   }
 
@@ -162,12 +161,15 @@ export async function processPatternExtraction(jobData: PatternWorkerJobData): P
 
   console.log(`[Pattern Worker] Extraction complete. ${extractionResult.candidates.length} publishable patterns found.`);
 
-  // 5. Update the active cycle snapshot
-  // Pattern extractions were already persisted by extractPatternsFromEntry()
-  // Now rebuild the snapshot from all extractions for this cycle
+  // 5. Update the active snapshot or seal the weekly report snapshot
   try {
-    await PatternIntelligenceService.updateActiveCycleSnapshot(user_id, cycle_id);
-    console.log(`[Pattern Worker] Active cycle snapshot updated for user ${user_id}, cycle ${cycle_id}`);
+    if (source_type === 'weekly_report' && effectiveEntryId) {
+      await PatternIntelligenceService.generateSnapshotForWeeklyReport(user_id, effectiveEntryId);
+      console.log(`[Pattern Worker] Sealed weekly report snapshot for user ${user_id}, summary ${effectiveEntryId}`);
+    } else {
+      await PatternIntelligenceService.updateActiveCycleSnapshot(user_id, cycle_id);
+      console.log(`[Pattern Worker] Active cycle snapshot updated for user ${user_id}, cycle ${cycle_id}`);
+    }
   } catch (err: any) {
     console.error(`[Pattern Worker] Failed to update snapshot:`, err.message);
     // Don't re-throw — extraction was persisted successfully

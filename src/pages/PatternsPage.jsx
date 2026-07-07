@@ -106,7 +106,7 @@ function NewUserEmptyScreen() {
           </div>
           <h3 className="text-sm font-bold text-primary">No patterns established yet</h3>
           <p className="text-xs text-[#4A6A64] max-w-[320px] mx-auto leading-relaxed">
-            The Pattern Engine watches how your writing evolves across cycles. Once your first cycle is completed, recurring emotional and behavioral themes will start surfacing here.
+            Patterns begin appearing after your first completed week of writing.
           </p>
           <button
             onClick={() => window.navigateTo('/dashboard')}
@@ -351,7 +351,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
 
                         {/* Timeline preview */}
                         <div className="space-y-1 mb-2.5">
-                          <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across {p.timeline.length} cycles</div>
+                          <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across {p.timeline.length} weeks/summaries</div>
                           <div className="flex gap-2 flex-wrap">
                             {p.timeline.map((s, idx) => (
                               <div key={idx} className="flex flex-col items-center">
@@ -396,7 +396,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
 
                         {/* Timeline preview */}
                         <div className="space-y-1 mb-2.5">
-                          <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across {p.timeline.length} cycles</div>
+                          <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across {p.timeline.length} weeks/summaries</div>
                           <div className="flex gap-2 flex-wrap">
                             {p.timeline.map((s, idx) => (
                               <div key={idx} className="flex flex-col items-center">
@@ -441,7 +441,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
 
                         {/* Timeline preview */}
                         <div className="space-y-1 mb-2.5">
-                          <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across {p.timeline.length} cycles</div>
+                          <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across {p.timeline.length} weeks/summaries</div>
                           <div className="flex gap-2 flex-wrap">
                             {p.timeline.map((s, idx) => (
                               <div key={idx} className="flex flex-col items-center">
@@ -557,7 +557,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                             <div className={`w-[22px] h-[22px] rounded-full flex items-center justify-center z-10 transition-transform ${dotLabels[item.s] || dotLabels.absent} ${!isCardEmpty ? 'group-hover:scale-115' : ''}`}>
                               <div className="w-1.5 h-1.5 rounded-full bg-white/40" />
                             </div>
-                            <span className="text-[9px] font-bold text-primary mt-1">C{item.n}</span>
+                            <span className="text-[9px] font-bold text-primary mt-1">{item.milestoneLabel || `C${item.n}`}</span>
                             <span className="text-[7.5px] uppercase font-mono text-mid/60 mt-0.5 leading-none">
                               {item.l}
                             </span>
@@ -581,7 +581,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                 {/* Cycle details list */}
                 <div className="space-y-3">
                   <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">
-                    Cycle by cycle — all {activePatternDetail.timeline.length}
+                    Timeline — all {activePatternDetail.timeline.length} observations
                   </div>
                   <div className="space-y-2.5">
                     {Object.keys(activePatternDetail.cycleData)
@@ -610,7 +610,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                                 <span className={`px-2 py-0.5 rounded text-[9px] font-semibold ${isCur ? 'bg-[#e0a898]/12 text-[#8a3020]' : 'bg-mint-grey text-primary'}`}>
                                   {isCur ? 'Current' : 'Done'}
                                 </span>
-                                <span className="text-[13px] font-bold text-primary">Cycle {cycleNum}</span>
+                                  <span className="text-[13px] font-bold text-primary">{timelineItem?.milestoneLabel || `Cycle ${cycleNum}`}</span>
                               </div>
                               <div className="flex items-center gap-3">
                                 <span className={`px-2 py-0.5 rounded text-[9px] font-semibold uppercase ${dotLabels[timelineStatus] || dotLabels.absent}`}>
