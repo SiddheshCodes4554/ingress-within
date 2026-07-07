@@ -47,182 +47,45 @@ export async function backfillPatterns(userId: string): Promise<PatternBackfillR
     }
 
     // 1b. Count total entries, thread responses, and weekly summaries to process for estimating progress
-    const [{ count: entriesCount }, { count: threadResponsesCount }, { count: weeklySummariesCount }] = await Promise.all([
-      supabase.from('entries').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-      supabase.from('thread_responses').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-      supabase.from('weekly_summaries').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+    const [{ count: weeklySummariesCount }] = await Promise.all([
+      supabase.from('weekly_summaries').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'READY'),
     ]);
 
-    const totalEntries = (entriesCount || 0) + (threadResponsesCount || 0) + (weeklySummariesCount || 0);
-    let processedEntries = 0;
+    const totalMilestones = weeklySummariesCount || 0;
 
     await updateBackfillStatus(userId, {
       status: 'PROCESSING',
       progress_total_cycles: cycles.length,
       progress_processed_cycles: 0,
-      progress_total_entries: totalEntries,
+      progress_total_entries: totalMilestones,
       progress_processed_entries: 0,
       started_at: new Date().toISOString(),
       error_message: null
     });
 
-    // 2. Loop through each cycle chronologically
-    for (let idx = 0; idx < cycles.length; idx++) {
-      const cycle = cycles[idx];
-      const cycleId = cycle.id;
-      const cycleNumber = idx + 1;
+    // Compile snapshots for all milestones chronologically
+    console.log(`[Pattern Backfill] Fetching and compiling snapshots for milestones...`);
+    const milestones = await PatternIntelligenceService.getMilestones(userId);
+    
+    // Filter to completed weekly reports only
+    const weeklyMilestones = milestones.filter(m => m.type === 'weekly_report' && m.isCompleted);
 
-      console.log(`[Pattern Backfill] Processing Cycle ${cycleNumber} (ID: ${cycleId})`);
+    for (let mIdx = 0; mIdx < weeklyMilestones.length; mIdx++) {
+      const milestone = weeklyMilestones[mIdx];
+      const seqNum = mIdx + 1;
+      console.log(`[Pattern Backfill] Compiling milestone ${seqNum}/${weeklyMilestones.length}: ${milestone.type} (ID: ${milestone.id})`);
+      
+      // Force rebuild to true since we are manually rebuilding/backfilling
+      await PatternIntelligenceService.generatePatternSnapshotForMilestone(userId, milestone, seqNum, true);
+      result.snapshotsCreated++;
 
-      // A. Fetch journal entries for this cycle
-      const { data: entries } = await supabase
-        .from('entries')
-        .select('id, content, content_iv')
-        .eq('user_id', userId)
-        .eq('cycle_id', cycleId);
-
-      // B. Fetch thread responses for this cycle
-      const { data: threadResponses } = await supabase
-        .from('thread_responses')
-        .select('id, response_text')
-        .eq('user_id', userId)
-        .eq('cycle_id', cycleId);
-
-      // C. Fetch weekly summaries for this cycle
-      const { data: weeklySummaries } = await supabase
-        .from('weekly_summaries')
-        .select('id, body')
-        .eq('user_id', userId)
-        .eq('cycle_id', cycleId);
-
-      // Track historical patterns for this cycle to pass as context
-      const historicalPatterns = await getHistoricalPatternNames(userId);
-
-      // Process Journal Entries
-      if (entries) {
-        for (const entry of entries) {
-          // Check if extraction already exists for this entry
-          const { data: existing } = await supabase
-            .from('pattern_extractions')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('entry_id', entry.id)
-            .limit(1);
-
-          if (!existing || existing.length === 0) {
-            let entryText = '';
-            if (entry.content_iv && entry.content) {
-              try {
-                entryText = (await decrypt(entry.content, entry.content_iv)) || entry.content;
-              } catch {
-                entryText = entry.content;
-              }
-            } else {
-              entryText = entry.content || '';
-            }
-
-            if (entryText && entryText.trim().length >= 20) {
-              await extractPatternsFromEntry({
-                entryText,
-                userId,
-                cycleId,
-                entryId: entry.id,
-                sourceType: 'journal',
-                historicalPatterns
-              });
-              result.extractionsCreated++;
-            }
-          }
-          processedEntries++;
-          await updateBackfillStatus(userId, {
-            progress_processed_entries: processedEntries,
-            progress_processed_cycles: idx
-          });
-        }
-      }
-
-      // Process Thread Responses
-      if (threadResponses) {
-        for (const resp of threadResponses) {
-          const { data: existing } = await supabase
-            .from('pattern_extractions')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('entry_id', resp.id)
-            .limit(1);
-
-          if (!existing || existing.length === 0) {
-            const entryText = resp.response_text || '';
-            if (entryText && entryText.trim().length >= 20) {
-              await extractPatternsFromEntry({
-                entryText,
-                userId,
-                cycleId,
-                entryId: resp.id,
-                sourceType: 'thread',
-                historicalPatterns
-              });
-              result.extractionsCreated++;
-            }
-          }
-          processedEntries++;
-          await updateBackfillStatus(userId, {
-            progress_processed_entries: processedEntries,
-            progress_processed_cycles: idx
-          });
-        }
-      }
-
-      // Process Weekly Summaries
-      if (weeklySummaries) {
-        for (const summary of weeklySummaries) {
-          const { data: existing } = await supabase
-            .from('pattern_extractions')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('entry_id', summary.id)
-            .limit(1);
-
-          if (!existing || existing.length === 0) {
-            const entryText = summary.body || '';
-            if (entryText && entryText.trim().length >= 20) {
-              await extractPatternsFromEntry({
-                entryText,
-                userId,
-                cycleId,
-                entryId: summary.id,
-                sourceType: 'weekly_report',
-                historicalPatterns
-              });
-              result.extractionsCreated++;
-            }
-          }
-          processedEntries++;
-          await updateBackfillStatus(userId, {
-            progress_processed_entries: processedEntries,
-            progress_processed_cycles: idx
-          });
-        }
-      }
-
-      result.cyclesProcessed++;
       await updateBackfillStatus(userId, {
-        progress_processed_cycles: idx + 1,
-        progress_processed_entries: processedEntries
+        progress_processed_entries: seqNum,
+        progress_processed_cycles: Math.floor((seqNum / weeklyMilestones.length) * cycles.length)
       });
     }
 
-    // D. Compile snapshots for all milestones chronologically
-    console.log(`[Pattern Backfill] Fetching and compiling snapshots for milestones...`);
-    const milestones = await PatternIntelligenceService.getMilestones(userId);
-    for (let mIdx = 0; mIdx < milestones.length; mIdx++) {
-      const milestone = milestones[mIdx];
-      const seqNum = mIdx + 1;
-      console.log(`[Pattern Backfill] Compiling milestone ${seqNum}/${milestones.length}: ${milestone.type} (ID: ${milestone.id})`);
-      
-      await PatternIntelligenceService.generatePatternSnapshotForMilestone(userId, milestone, seqNum);
-      result.snapshotsCreated++;
-    }
+    result.cyclesProcessed = cycles.length;
 
     // Mark the backfill as completed on the user's profile so it is never re-triggered.
     try {

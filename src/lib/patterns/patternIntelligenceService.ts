@@ -1,5 +1,6 @@
 import { supabase } from '../db';
 import { getBackfillStatus, updateBackfillStatus } from './patternBackfillStatus';
+import { decrypt } from '../encryption';
 
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
@@ -299,16 +300,20 @@ export class PatternIntelligenceService {
     const allPatternNames = new Set<string>();
     snapshots.forEach(snap => {
       const snapPatterns = snap.snapshot_data?.patterns || [];
-      snapPatterns.forEach((p: any) => allPatternNames.add(p.name));
+      snapPatterns.forEach((p: any) => {
+        const pName = p.pattern_name || p.name;
+        if (pName) {
+          allPatternNames.add(pName);
+        }
+      });
     });
 
     const cards: PatternCard[] = [];
 
     allPatternNames.forEach(name => {
       // Find this pattern in the latest snapshot
-      const currentPat = latestPatterns.find((p: any) => p.name === name);
+      const currentPat = latestPatterns.find((p: any) => (p.pattern_name || p.name) === name);
       
-      // Determine overall user-facing status (default to quiet/absent if not in latest)
       let status: 'present' | 'shifting' | 'quiet' | 'new' | 'returned' = 'quiet';
       let body = '';
       let orientation = '';
@@ -317,58 +322,50 @@ export class PatternIntelligenceService {
       let lastAppearedCycle = 1;
       let connected: string[] = [];
 
-      // Find first appearance and gather stats
+      // Find first/last appearance and gather stats
       snapshots.forEach(snap => {
-        const snapPat = (snap.snapshot_data?.patterns || []).find((p: any) => p.name === name);
-        if (snapPat && snapPat.cycle_state !== 'absent') {
+        const snapPat = (snap.snapshot_data?.patterns || []).find((p: any) => (p.pattern_name || p.name) === name);
+        if (snapPat && snapPat.status !== 'absent' && snapPat.status !== 'quiet') {
           if (snap.cycle_number < firstAppearedCycle) {
             firstAppearedCycle = snap.cycle_number;
           }
           if (snap.cycle_number > lastAppearedCycle) {
             lastAppearedCycle = snap.cycle_number;
           }
-          totalOccurrences += snapPat.occurrences_this_cycle || 0;
+          totalOccurrences += 1;
         }
       });
 
       if (currentPat) {
         status = currentPat.status || 'present';
-        body = currentPat.body || '';
-        orientation = currentPat.orientation || '';
-        totalOccurrences = currentPat.total_occurrences || totalOccurrences;
+        body = currentPat.summary || currentPat.body || '';
+        orientation = currentPat.why_it_matters || currentPat.orientation || '';
         connected = currentPat.connected_patterns || [];
       } else {
-        // Not in latest snapshot: it has gone quiet
         status = 'quiet';
-        body = `Active in early cycles. Has not appeared in recent entries.`;
-        const lastSeenSnap = snapshots.find(s => s.cycle_number === lastAppearedCycle);
-        const lastSeenLabel = lastSeenSnap?.snapshot_data?.milestone_label || `Cycle ${lastAppearedCycle}`;
-        orientation = `This pattern went quiet in ${lastSeenLabel}.`;
+        body = `Active in early weeks. Has not appeared in recent reports.`;
+        orientation = `This pattern went quiet in Week ${lastAppearedCycle}.`;
       }
 
       // Build timeline array across ALL cycles chronologically
       const timeline: string[] = [];
       for (let c = 1; c <= totalCycles; c++) {
         const cycleSnap = snapshots.find(s => s.cycle_number === c);
-        const cyclePat = (cycleSnap?.snapshot_data?.patterns || []).find((p: any) => p.name === name);
-        timeline.push(cyclePat ? cyclePat.cycle_state : 'absent');
+        const cyclePat = (cycleSnap?.snapshot_data?.patterns || []).find((p: any) => (p.pattern_name || p.name) === name);
+        timeline.push(cyclePat ? cyclePat.status : 'absent');
       }
 
-      // Build metadata string matching HTML
-      const firstSeenSnap = snapshots.find(s => s.cycle_number === firstAppearedCycle);
-      const firstSeenLabel = firstSeenSnap?.snapshot_data?.milestone_label || `C${firstAppearedCycle}`;
-      const lastSeenSnap = snapshots.find(s => s.cycle_number === lastAppearedCycle);
-      const lastSeenLabel = lastSeenSnap?.snapshot_data?.milestone_label || `C${lastAppearedCycle}`;
-      const nextSeenSnap = snapshots.find(s => s.cycle_number === lastAppearedCycle + 1);
-      const nextSeenLabel = nextSeenSnap?.snapshot_data?.milestone_label || `C${lastAppearedCycle + 1}`;
+      const firstSeenLabel = `Week ${firstAppearedCycle}`;
+      const lastSeenLabel = `Week ${lastAppearedCycle}`;
+      const nextSeenLabel = `Week ${lastAppearedCycle + 1}`;
 
       let meta = '';
       if (status === 'quiet') {
         meta = `Last appeared ${lastSeenLabel} · not surfacing since ${nextSeenLabel}`;
       } else if (status === 'new') {
-        meta = `First appeared ${firstSeenLabel} · ${totalOccurrences}× so far`;
+        meta = `First appeared ${firstSeenLabel}`;
       } else {
-        meta = `First appeared ${firstSeenLabel} · ${totalOccurrences}× total`;
+        meta = `First appeared ${firstSeenLabel}`;
       }
 
       cards.push({
@@ -400,7 +397,7 @@ export class PatternIntelligenceService {
       else if (c.status === 'returned') returnedCount++;
     });
 
-    const summarySentence = `You have ${cards.length} pattern${cards.length === 1 ? '' : 's'} identified across ${totalCycles} weeks/summaries. ${presentCount} ${presentCount === 1 ? 'is' : 'are'} still present, ${shiftingCount} ${shiftingCount === 1 ? 'is' : 'are'} shifting, and ${quietCount} ${quietCount === 1 ? 'has' : 'have'} gone quiet. Having more patterns isn't worse — it means the writing has been honest enough to surface them.`;
+    const summarySentence = `You have ${cards.length} pattern${cards.length === 1 ? '' : 's'} identified across ${totalCycles} weeks. ${presentCount} ${presentCount === 1 ? 'is' : 'are'} still present, ${shiftingCount} ${shiftingCount === 1 ? 'is' : 'are'} shifting, and ${quietCount} ${quietCount === 1 ? 'has' : 'have'} gone quiet. Having more patterns isn't worse — it means the writing has been honest enough to surface them.`;
 
     return {
       patterns: cards,
@@ -433,8 +430,8 @@ export class PatternIntelligenceService {
 
       if (snapshotsErr) {
         if (snapshotsErr.code === 'PGRST205' || snapshotsErr.message?.includes('pattern_snapshots')) {
-          console.warn('[PatternIntelligenceService] Table "pattern_snapshots" does not exist in schema. Falling back to mock details.');
-          return this.getMockPatternDetail(patternName);
+          console.warn('[PatternIntelligenceService] Table "pattern_snapshots" does not exist in schema. Returning empty details.');
+          return null;
         }
         console.error('[PatternIntelligenceService] Error fetching snapshots:', snapshotsErr.message);
         throw snapshotsErr;
@@ -442,14 +439,14 @@ export class PatternIntelligenceService {
       snapshots = data || [];
     } catch (err: any) {
       if (err.code === 'PGRST205' || err.message?.includes('pattern_snapshots')) {
-        console.warn('[PatternIntelligenceService] Table "pattern_snapshots" does not exist in schema. Falling back to mock details.');
-        return this.getMockPatternDetail(patternName);
+        console.warn('[PatternIntelligenceService] Table "pattern_snapshots" does not exist in schema. Returning empty details.');
+        return null;
       }
       throw err;
     }
 
     if (!snapshots || snapshots.length === 0) {
-      return this.getMockPatternDetail(patternName);
+      return null;
     }
 
     const totalCycles = snapshots.length;
@@ -459,8 +456,9 @@ export class PatternIntelligenceService {
     snapshots.forEach(snap => {
       const snapPatterns = snap.snapshot_data?.patterns || [];
       snapPatterns.forEach((p: any) => {
-        if (p.name.toLowerCase() === patternName.toLowerCase() || this.getPatternSlug(p.name) === patternName.toLowerCase()) {
-          matchedName = p.name;
+        const pName = p.pattern_name || p.name;
+        if (pName && (pName.toLowerCase() === patternName.toLowerCase() || this.getPatternSlug(pName) === patternName.toLowerCase())) {
+          matchedName = pName;
         }
       });
     });
@@ -470,55 +468,56 @@ export class PatternIntelligenceService {
     // Fetch latest pattern state
     const latestSnapshot = snapshots[snapshots.length - 1];
     const latestPatterns = latestSnapshot.snapshot_data?.patterns || [];
-    const latestPat = latestPatterns.find((p: any) => p.name === matchedName);
+    const latestPat = latestPatterns.find((p: any) => (p.pattern_name || p.name) === matchedName);
 
     let status = 'quiet';
-    let body = 'Active in early cycles. Has not appeared in recent entries.';
+    let body = 'Active in early weeks. Has not appeared in recent reports.';
     let orientation = '';
     let firstAppearedCycle = totalCycles;
     let lastAppearedCycle = 1;
     let totalOccurrences = 0;
-    let connectedPatterns: string[] = [];
+    const connectedPatternsSet = new Set<string>();
 
-    // Compute metrics
     snapshots.forEach(snap => {
-      const snapPat = (snap.snapshot_data?.patterns || []).find((p: any) => p.name === matchedName);
-      if (snapPat && snapPat.cycle_state !== 'absent') {
+      const snapPatterns = snap.snapshot_data?.patterns || [];
+      const snapPat = snapPatterns.find((p: any) => (p.pattern_name || p.name) === matchedName);
+      if (snapPat && snapPat.status !== 'absent' && snapPat.status !== 'quiet') {
         if (snap.cycle_number < firstAppearedCycle) {
           firstAppearedCycle = snap.cycle_number;
         }
         if (snap.cycle_number > lastAppearedCycle) {
           lastAppearedCycle = snap.cycle_number;
         }
-        totalOccurrences += snapPat.occurrences_this_cycle || 0;
+        totalOccurrences += 1;
+        // Find co-occurring active patterns
+        snapPatterns.forEach((other: any) => {
+          const otherName = other.pattern_name || other.name;
+          if (otherName.toLowerCase() !== matchedName.toLowerCase() && other.status !== 'quiet' && other.status !== 'absent') {
+            connectedPatternsSet.add(otherName);
+          }
+        });
       }
     });
 
     if (latestPat) {
       status = latestPat.status || 'present';
-      body = latestPat.body || '';
-      orientation = latestPat.orientation || '';
-      connectedPatterns = latestPat.connected_patterns || [];
+      body = latestPat.summary || latestPat.body || '';
+      orientation = latestPat.why_it_matters || latestPat.orientation || '';
     } else {
-      const lastSeenSnap = snapshots.find(s => s.cycle_number === lastAppearedCycle);
-      const lastSeenLabel = lastSeenSnap?.snapshot_data?.milestone_label || `Cycle ${lastAppearedCycle}`;
-      orientation = `This pattern has gone quiet. It was last seen in ${lastSeenLabel}.`;
+      orientation = `This pattern went quiet in Week ${lastAppearedCycle}.`;
     }
 
-    const firstSeenSnap = snapshots.find(s => s.cycle_number === firstAppearedCycle);
-    const firstSeenLabel = firstSeenSnap?.snapshot_data?.milestone_label || `Cycle ${firstAppearedCycle}`;
-    const lastSeenSnap = snapshots.find(s => s.cycle_number === lastAppearedCycle);
-    const lastSeenLabel = lastSeenSnap?.snapshot_data?.milestone_label || `Cycle ${lastAppearedCycle}`;
-    const nextSeenSnap = snapshots.find(s => s.cycle_number === lastAppearedCycle + 1);
-    const nextSeenLabel = nextSeenSnap?.snapshot_data?.milestone_label || `Cycle ${lastAppearedCycle + 1}`;
+    const firstSeenLabel = `Week ${firstAppearedCycle}`;
+    const lastSeenLabel = `Week ${lastAppearedCycle}`;
+    const nextSeenLabel = `Week ${lastAppearedCycle + 1}`;
 
     let meta = '';
     if (status === 'quiet') {
       meta = `Last appeared ${lastSeenLabel} · not surfacing since ${nextSeenLabel}`;
     } else if (status === 'new') {
-      meta = `First appeared ${firstSeenLabel} · ${totalOccurrences} appearances so far`;
+      meta = `First appeared ${firstSeenLabel}`;
     } else {
-      meta = `First appeared ${firstSeenLabel} · ${totalOccurrences} appearances total`;
+      meta = `First appeared ${firstSeenLabel}`;
     }
 
     // Badge styling mapping
@@ -532,58 +531,75 @@ export class PatternIntelligenceService {
     const timeline: any[] = [];
     for (let c = 1; c <= totalCycles; c++) {
       const snap = snapshots.find(s => s.cycle_number === c);
-      const pat = (snap?.snapshot_data?.patterns || []).find((p: any) => p.name === matchedName);
-      const state = pat ? pat.cycle_state : 'absent';
+      const pat = (snap?.snapshot_data?.patterns || []).find((p: any) => (p.pattern_name || p.name) === matchedName);
+      const state = pat ? pat.status : 'absent';
       
-      let label = '—';
-      if (state === 'strong') label = 'Strong';
+      let label = 'Not present';
+      if (state === 'present') label = 'Present';
       else if (state === 'shifting') label = 'Shifting';
       else if (state === 'quiet') label = 'Quiet';
-      else if (state === 'new' || state === 'newdot') label = 'New';
+      else if (state === 'new') label = 'New';
       else if (state === 'returned') label = 'Returned';
 
       timeline.push({
         n: c,
         s: state,
         l: label,
-        milestoneLabel: snap?.snapshot_data?.milestone_label || `C${c}`
+        milestoneLabel: `Week ${c}`
       });
     }
-
-    // Fetch actual evidence from pattern_extractions (ensure we only display real user sentences!)
-    const { data: extractions, error: extErr } = await supabase
-      .from('pattern_extractions')
-      .select('supporting_sentence, cycle_id, source_type, generated_at')
-      .eq('user_id', userId)
-      .eq('pattern_name', matchedName)
-      .order('generated_at', { ascending: false });
 
     const cycleData: Record<number, { obs: string; entries: { t: string; m: string }[] }> = {};
 
     for (let c = 1; c <= totalCycles; c++) {
       const snap = snapshots.find(s => s.cycle_number === c);
-      const pat = (snap?.snapshot_data?.patterns || []).find((p: any) => p.name === matchedName);
-      const milestoneLabel = snap?.snapshot_data?.milestone_label || `C${c}`;
+      const pat = (snap?.snapshot_data?.patterns || []).find((p: any) => (p.pattern_name || p.name) === matchedName);
+      const milestoneLabel = `Week ${c}`;
       
-      const cycleExtractions = extractions?.filter(e => e.cycle_id === snap?.cycle_id) || [];
-      const entries = cycleExtractions
-        .filter(e => e.supporting_sentence)
-        .map(e => {
-          const dateStr = e.generated_at ? new Date(e.generated_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '';
-          return {
-            t: `"${e.supporting_sentence}"`,
-            m: `${milestoneLabel} · ${e.source_type === 'journal' ? 'Journal' : e.source_type === 'thread' ? 'Response' : 'Summary'} · ${dateStr}`
-          };
-        })
-        .slice(0, 3); // Limit to top 3 quotes per cycle for cleanliness
+      const entries: { t: string; m: string }[] = [];
+      if (pat) {
+        const vocab = pat.supporting_vocabulary || [];
+        const journalQuotes = pat.supporting_entries || pat.evidence || [];
+        const threadQuotes = pat.supporting_threads || [];
 
-      cycleData[c] = {
-        obs: pat?.obs || (pat?.cycle_state === 'absent' || !pat ? 'No evidence for this week/summary.' : `Present with ${pat.occurrences_this_cycle} occurrences.`),
-        entries
-      };
+        journalQuotes.forEach((q: any) => {
+          const text = typeof q === 'string' ? q : (q.quote || q.supporting_sentence || '');
+          if (text) {
+            entries.push({
+              t: `"${text}"`,
+              m: `${milestoneLabel} · Journal`
+            });
+          }
+        });
+
+        threadQuotes.forEach((q: any) => {
+          const text = typeof q === 'string' ? q : (q.quote || q.supporting_sentence || '');
+          if (text) {
+            entries.push({
+              t: `"${text}"`,
+              m: `${milestoneLabel} · Guide Conversation`
+            });
+          }
+        });
+
+        let obs = pat.summary || pat.body || 'No explanation provided.';
+        if (vocab.length > 0) {
+          obs += ` Supporting language: ${vocab.join(', ')}.`;
+        }
+
+        cycleData[c] = {
+          obs,
+          entries
+        };
+      } else {
+        cycleData[c] = {
+          obs: 'No evidence for this week.',
+          entries: []
+        };
+      }
     }
 
-    // Handle connected patterns explanation
+    const connectedPatterns = Array.from(connectedPatternsSet).slice(0, 3);
     const connected = connectedPatterns.length > 0;
     const connectedLinks = connectedPatterns.map(name => ({
       label: name,
@@ -741,7 +757,8 @@ export class PatternIntelligenceService {
   public static async generatePatternSnapshotForMilestone(
     userId: string,
     milestone: Milestone,
-    sequenceNumber: number
+    sequenceNumber: number,
+    forceRebuild: boolean = false
   ): Promise<void> {
     // 1. Check if snapshot already exists and is completed
     const { data: existingSnap } = await supabase
@@ -751,31 +768,177 @@ export class PatternIntelligenceService {
       .eq('cycle_id', milestone.id)
       .maybeSingle();
 
-    if (existingSnap?.snapshot_status === 'completed') {
+    if (!forceRebuild && existingSnap?.snapshot_status === 'completed') {
       console.log(`[PatternIntelligenceService] Milestone snapshot ${milestone.id} is completed and frozen. Aborting.`);
       return;
     }
 
-    // 2. Fetch all pattern extractions for this cycle
-    const { data: extractions, error: extErr } = await supabase
-      .from('pattern_extractions')
+    // 2. Fetch the weekly report summary
+    const { data: weeklySummary, error: wsErr } = await supabase
+      .from('weekly_summaries')
       .select('*')
-      .eq('user_id', userId)
-      .eq('cycle_id', milestone.cycleId);
+      .eq('id', milestone.id)
+      .maybeSingle();
 
-    if (extErr) {
-      console.error('[PatternIntelligenceService] Error fetching extractions:', extErr.message);
+    if (wsErr || !weeklySummary) {
+      console.warn(`[PatternIntelligenceService] Weekly summary not found for milestone ${milestone.id}. Skipping snapshot.`);
       return;
     }
 
-    // Filter extractions to only include those up to this milestone's created_at (with 5 seconds buffer)
-    const filteredExtractions = extractions?.filter(ext => {
-      if (ext.entry_id === milestone.id) return true;
-      return new Date(ext.generated_at).getTime() <= new Date(milestone.createdAt).getTime() + 5000;
-    }) || [];
+    // 3. Fetch journal entries written during this week and decrypt them
+    const { data: dbEntries } = await supabase
+      .from('entries')
+      .select('id, content, new_entry_text_encrypted, new_entry_text_iv, cycle_day, created_at')
+      .eq('user_id', userId)
+      .eq('cycle_id', milestone.cycleId)
+      .gte('cycle_day', weeklySummary.day_start)
+      .lte('cycle_day', weeklySummary.day_end);
 
-    // 3. Fetch all previous snapshots to calculate trends
-    const { data: previousSnapshots } = await supabase
+    const decryptedEntries: string[] = [];
+    if (dbEntries) {
+      for (const entry of dbEntries) {
+        let entryText = '';
+        if (entry.new_entry_text_encrypted || entry.new_entry_text_iv) {
+          try {
+            entryText = (await decrypt(entry.new_entry_text_encrypted, entry.new_entry_text_iv)) || entry.content || '';
+          } catch {
+            entryText = entry.content || '';
+          }
+        } else {
+          entryText = entry.content || '';
+        }
+        if (entryText.trim()) {
+          decryptedEntries.push(entryText.trim());
+        }
+      }
+    }
+
+    const reportData = weeklySummary.report_data || {};
+
+    // 4. Gather vocabulary from report_data or database
+    let vocabThisWeek = reportData.vocabThisWeek || [];
+    if (vocabThisWeek.length === 0 && dbEntries && dbEntries.length > 0) {
+      const entryIds = dbEntries.map(e => e.id);
+      const { data: dbVocab } = await supabase
+        .from('vocab_extractions')
+        .select('word, normalized_word, confidence, sentence')
+        .in('entry_id', entryIds);
+      if (dbVocab) {
+        vocabThisWeek = dbVocab.map(v => ({
+          word: v.word,
+          normalized_word: v.normalized_word,
+          frequency: 1,
+          sentence: v.sentence
+        }));
+      }
+    }
+
+    // 5. Gather scores from report_data or database
+    let scores = reportData.scores || [];
+    if (scores.length === 0 && dbEntries && dbEntries.length > 0) {
+      const { data: dbScores } = await supabase
+        .from('entries')
+        .select('cycle_day, day_ei, day_pr, day_sa')
+        .eq('user_id', userId)
+        .eq('cycle_id', milestone.cycleId)
+        .gte('cycle_day', weeklySummary.day_start)
+        .lte('cycle_day', weeklySummary.day_end);
+      if (dbScores) {
+        scores = dbScores.map(s => ({
+          cycle_day: s.cycle_day,
+          ei: s.day_ei,
+          pr: s.day_pr,
+          sa: s.day_sa
+        }));
+      }
+    }
+
+    // 6. Gather thread responses
+    let threadResponses = reportData.threadResponses || [];
+    if (threadResponses.length === 0) {
+      const { data: dbThreads } = await supabase
+        .from('thread_responses')
+        .select('id, response_text, created_at')
+        .eq('user_id', userId)
+        .eq('cycle_id', milestone.cycleId);
+      if (dbThreads) {
+        threadResponses = dbThreads.map(t => ({
+          id: t.id,
+          response_text: t.response_text,
+          question: 'Reflective prompt'
+        }));
+      }
+    }
+
+    // 7. Call LLM to detect patterns from multi-source evidence
+    const prompt = `You are a precise pattern-detection system for Ingress Within, a therapeutic writing application. Your task is to identify recurring cognitive, emotional, and behavioral patterns for the user based ONLY on the evidence from this week.
+
+WEEKLY SUMMARY EVIDENCE:
+- Title: ${weeklySummary.title || 'Weekly Report'}
+- Narrative Summary: ${weeklySummary.body || 'None'}
+- Notable Insights: ${weeklySummary.why || 'None'}
+
+VOCABULARY DETECTED:
+${JSON.stringify(vocabThisWeek, null, 2)}
+
+SCORES HISTORY (Emotional Intensity [EI], Processing Depth [PR], Self-Agency [SA]):
+${JSON.stringify(scores, null, 2)}
+
+THREAD RESPONSES:
+${JSON.stringify(threadResponses, null, 2)}
+
+JOURNAL ENTRIES WRITEUPS:
+${decryptedEntries.map((txt, i) => `Entry ${i+1}:\n"""\n${txt}\n"""`).join('\n\n')}
+
+INSTRUCTIONS:
+1. Detect up to 5 distinct cognitive, emotional, or behavioral patterns present in this week's writing and metrics.
+2. Ground each pattern in the actual text. Never make up quotes or invent patterns.
+3. Every pattern name must be a concise, standard pattern (1-4 words).
+   Good Examples: Avoidance, Self-pressure, Overthinking, Seeking reassurance, Work identity, Perfectionism, Fear of disappointing others, Emotional exhaustion, Difficulty asking for help, Need for control, Boundary building.
+4. For each pattern, you must:
+   - Provide a concise name under "pattern_name".
+   - Under "summary", summarize the evidence for this week (e.g. how it manifested, citing actual themes/behaviors from the week).
+   - Under "why_it_matters", write a 1-2 sentence therapeutic orientation/context.
+   - Under "confidence", provide a confidence score between 0.0 and 1.0.
+   - Under "evidence_score", provide a score between 1.0 and 10.0 representing the intensity or frequency of the pattern.
+   - Under "supporting_vocabulary", list vocabulary words/phrases from the VOCABULARY DETECTED list that evidence this pattern.
+   - Under "supporting_journal_quotes", extract EXACT quotes or sentences from the JOURNAL ENTRIES WRITEUPS that evidence this pattern.
+   - Under "supporting_thread_quotes", extract EXACT quotes or sentences from the THREAD RESPONSES that evidence this pattern.
+   - Under "meaning_or_intensity_changed", set to true if the pattern shows a shift in how it's expressed, its meaning, or its intensity compared to previous weeks. Otherwise set to false.
+
+RESPONSE FORMAT:
+Return a JSON array of pattern objects only. Do not include markdown code block formatting (e.g. \`\`\`json), do not include a preamble, and do not include explanation.
+If no patterns are found, return: []`;
+
+    let aiResponse = '';
+    let parsedPatterns: any[] = [];
+    try {
+      const { aiProvider } = await import('../ai/factory');
+      aiResponse = await aiProvider.callRaw(prompt);
+      
+      let cleaned = aiResponse.trim();
+      if (cleaned.startsWith('```')) {
+        const lines = cleaned.split('\n');
+        if (lines[0].startsWith('```')) {
+          lines.shift();
+        }
+        if (lines[lines.length - 1].startsWith('```')) {
+          lines.pop();
+        }
+        cleaned = lines.join('\n').trim();
+      }
+      
+      parsedPatterns = JSON.parse(cleaned);
+      if (!Array.isArray(parsedPatterns)) {
+        parsedPatterns = [];
+      }
+    } catch (err: any) {
+      console.error('[PatternIntelligenceService] AI call or parse failed:', err.message);
+      parsedPatterns = [];
+    }
+
+    // 8. Fetch all previous snapshots to calculate trends
+    const { data: previousSnapshots, error: prevErr } = await supabase
       .from('pattern_snapshots')
       .select('*')
       .eq('user_id', userId)
@@ -783,173 +946,133 @@ export class PatternIntelligenceService {
       .lt('cycle_number', sequenceNumber)
       .order('cycle_number', { ascending: true });
 
-    // Group filtered extractions by pattern name
-    const grouped = new Map<string, any[]>();
-    filteredExtractions.forEach(ext => {
-      const name = ext.pattern_name;
-      if (!grouped.has(name)) grouped.set(name, []);
-      grouped.get(name)?.push(ext);
-    });
+    if (prevErr) {
+      console.error('[PatternIntelligenceService] Error fetching previous snapshots:', prevErr.message);
+    }
 
+    const previousSnaps = previousSnapshots || [];
     const activePatterns: any[] = [];
-    const allPatternNames = new Set<string>();
+    const historicalPatternNames = new Set<string>();
     
     // Collect all historical pattern names
-    previousSnapshots?.forEach(snap => {
+    previousSnaps.forEach(snap => {
       const snapPatterns = snap.snapshot_data?.patterns || [];
-      snapPatterns.forEach((p: any) => allPatternNames.add(p.name));
+      snapPatterns.forEach((p: any) => {
+        const pName = p.pattern_name || p.name;
+        if (pName) {
+          historicalPatternNames.add(pName);
+        }
+      });
     });
-    
-    // Add current pattern names
-    grouped.forEach((_, name) => allPatternNames.add(name));
 
-    // Process each pattern
-    allPatternNames.forEach(name => {
-      const currentExts = grouped.get(name) || [];
-      const validCurrentExts = currentExts.filter(e => e.confidence >= 0.65);
-      const occurrencesThisCycle = validCurrentExts.length;
+    // Process current week's patterns
+    parsedPatterns.forEach((detected: any) => {
+      const name = detected.pattern_name;
+      if (!name) return;
 
-      let firstSeen = sequenceNumber;
-      let lastAppearedCycle = occurrencesThisCycle > 0 ? sequenceNumber : 1;
-      let totalPreviousOccurrences = 0;
-      let wasPresentPreviously = false;
-      let wasPresentLastCycle = false;
-      const historyStates: string[] = [];
+      let wasEverActive = false;
+      let isActiveInLastWeek = false;
 
-      if (previousSnapshots && previousSnapshots.length > 0) {
-        previousSnapshots.forEach(snap => {
-          const snapPat = (snap.snapshot_data?.patterns || []).find((p: any) => p.name === name);
-          const state = snapPat ? snapPat.cycle_state : 'absent';
-          historyStates.push(state);
-
-          if (snapPat && state !== 'absent') {
-            if (snap.cycle_number < firstSeen) {
-              firstSeen = snap.cycle_number;
-            }
-            if (snap.cycle_number > lastAppearedCycle) {
-              lastAppearedCycle = snap.cycle_number;
-            }
-            totalPreviousOccurrences += snapPat.occurrences_this_cycle || 0;
-            wasPresentPreviously = true;
-            if (snap.cycle_number === sequenceNumber - 1) {
-              wasPresentLastCycle = true;
-            }
+      previousSnaps.forEach(snap => {
+        const snapPatterns = snap.snapshot_data?.patterns || [];
+        const snapPat = snapPatterns.find(
+          (p: any) => (p.pattern_name || p.name).toLowerCase() === name.toLowerCase()
+        );
+        if (snapPat && snapPat.status !== 'absent' && snapPat.status !== 'quiet') {
+          wasEverActive = true;
+          if (snap.cycle_number === sequenceNumber - 1) {
+            isActiveInLastWeek = true;
           }
-        });
+        }
+      });
+
+      let status: 'new' | 'present' | 'shifting' | 'returned' = 'present';
+      if (!wasEverActive) {
+        status = 'new';
+      } else if (isActiveInLastWeek) {
+        status = detected.meaning_or_intensity_changed ? 'shifting' : 'present';
+      } else {
+        status = 'returned';
       }
 
-      if (occurrencesThisCycle > 0) {
-        lastAppearedCycle = sequenceNumber;
-      }
+      activePatterns.push({
+        pattern_name: name,
+        name,
+        status,
+        confidence: detected.confidence || 0.8,
+        evidence_score: detected.evidence_score || 5.0,
+        summary: detected.summary || '',
+        why_it_matters: detected.why_it_matters || '',
+        supporting_vocabulary: detected.supporting_vocabulary || [],
+        supporting_entries: detected.supporting_journal_quotes || [],
+        supporting_threads: detected.supporting_thread_quotes || [],
+        generated_at: new Date().toISOString(),
+        week_number: sequenceNumber
+      });
+    });
 
-      if (occurrencesThisCycle === 0 && !wasPresentPreviously) {
+    // Carry forward absent historical patterns
+    historicalPatternNames.forEach(name => {
+      if (activePatterns.some(ap => ap.pattern_name.toLowerCase() === name.toLowerCase())) {
         return;
       }
 
-      const totalOccurrences = totalPreviousOccurrences + occurrencesThisCycle;
+      let wasEverActive = false;
+      let lastActiveWeek = 0;
 
-      // Determine state for THIS milestone
-      let cycleState: 'strong' | 'shifting' | 'quiet' | 'absent' | 'new' | 'returned' = 'absent';
-      if (occurrencesThisCycle === 0) {
-        cycleState = 'absent';
-      } else if (occurrencesThisCycle > 0 && !wasPresentPreviously) {
-        cycleState = 'new';
-      } else if (occurrencesThisCycle > 0 && wasPresentPreviously && !wasPresentLastCycle) {
-        cycleState = 'returned';
-      } else if (occurrencesThisCycle >= 8) {
-        cycleState = 'strong';
-      } else if (occurrencesThisCycle >= 3) {
-        cycleState = 'shifting';
-      } else {
-        cycleState = 'quiet';
+      previousSnaps.forEach(snap => {
+        const snapPatterns = snap.snapshot_data?.patterns || [];
+        const snapPat = snapPatterns.find(
+          (p: any) => (p.pattern_name || p.name).toLowerCase() === name.toLowerCase()
+        );
+        if (snapPat && snapPat.status !== 'absent' && snapPat.status !== 'quiet') {
+          wasEverActive = true;
+          lastActiveWeek = snap.cycle_number;
+        }
+      });
+
+      if (!wasEverActive) return;
+
+      const weeksAbsent = sequenceNumber - lastActiveWeek;
+      let status: 'quiet' | 'absent' = 'absent';
+      if (weeksAbsent >= 2) {
+        status = 'quiet';
       }
 
-      // Determine overall user-facing status
-      let status: 'present' | 'shifting' | 'quiet' | 'new' | 'returned' = 'present';
-      if (cycleState === 'new') {
-        status = 'new';
-      } else if (cycleState === 'returned') {
-        status = 'returned';
-      } else if (cycleState === 'absent') {
-        status = 'quiet';
-      } else {
-        // Trend analysis for present/shifting
-        const lastFewStates = [...historyStates, cycleState].slice(-3);
-        const isFading = lastFewStates.includes('shifting') || lastFewStates.includes('quiet');
-        const hasDominantHistory = historyStates.includes('strong');
-        
-        if (hasDominantHistory && isFading) {
-          status = 'shifting';
-        } else {
-          status = 'present';
+      let lastWhy = '';
+      for (let i = previousSnaps.length - 1; i >= 0; i--) {
+        const snapPatterns = previousSnaps[i].snapshot_data?.patterns || [];
+        const snapPat = snapPatterns.find(
+          (p: any) => (p.pattern_name || p.name).toLowerCase() === name.toLowerCase()
+        );
+        if (snapPat) {
+          lastWhy = snapPat.why_it_matters || snapPat.orientation || '';
+          break;
         }
       }
 
-      // Description bodies and orientations (mimic the therapeutic descriptions of Ingress Within)
-      let body = `Recurring observations around ${name.toLowerCase()}.`;
-      let orientation = `This pattern shows up when describing yourself or your interactions.`;
-
-      if (name.toLowerCase() === 'saying "fine"') {
-        body = `Has appeared in every cycle. Used about yourself — never about situations or other people. Went quiet in Cycles 6–7, then came back.`;
-        orientation = `Saying "fine" has been in your writing since the beginning. It went quiet once — Cycles 6 and 7 — and then came back. The fact that it returns suggests it's doing something useful. The question isn't how to stop saying it — it's what it's covering.`;
-      } else if (name.toLowerCase() === 'avoidance') {
-        body = `Dominant for the first four cycles. Has been shifting since Cycle 5 — not linearly, but the overall direction is clear.`;
-        orientation = `Avoidance has been shifting for eight cycles. That's not a straight line — it went quiet in Cycles 9 and 10, came back slightly in 11 and 12. But the overall picture is genuinely different from what it was at the start.`;
-      } else if (name.toLowerCase() === 'conflict aversion') {
-        body = `Appeared in Cycle 2 and was strong through Cycle 8. You've been writing about disagreements more directly since Cycle 9.`;
-        orientation = `Conflict aversion has been shifting for four cycles now. That's consistent enough that the system considers it a real change, not a pause. What's different isn't that conflict appears less — it's how you write about it when it does.`;
-      } else if (name.toLowerCase() === 'calling it "overthinking"') {
-        body = `Active in early cycles as a catch-all for difficult feelings. Went quiet as your vocabulary became more specific.`;
-        orientation = `"Overthinking" hasn't appeared in recent cycles. That's a good sign — it suggests you've started naming the actual underlying feelings rather than categorising them broadly.`;
-      } else if (name.toLowerCase() === 'low self-agency') {
-        body = `Dominant in the first three cycles. Shifted through Cycles 4–7. Not showing up recently — though it returned briefly in Cycle 10.`;
-        orientation = `Low self-agency has been quiet for most of the last five cycles. The brief return in Cycle 10 was real but short-lived. The system considers the overall direction a genuine shift, while acknowledging that patterns like this can return.`;
-      } else if (name.toLowerCase() === 'perfectionism as deflection') {
-        body = `Surfaced in Cycle 11. High standards applied to others appear to deflect from unmet expectations of yourself.`;
-        orientation = `This pattern is new — two cycles of data isn't enough for the system to say much with confidence. What it has noticed is that the entries where this appears tend to follow entries about your own work or performance.`;
-      }
-
-      // Collect supporting quotes
-      const quotes = validCurrentExts
-        .filter(e => e.supporting_sentence)
-        .map(e => ({
-          quote: e.supporting_sentence,
-          entry_id: e.entry_id,
-          date: e.generated_at ? e.generated_at.split('T')[0] : new Date().toISOString().split('T')[0]
-        }))
-        .slice(0, 3);
-
-      const milestoneLabel = milestone.type === 'weekly_report' 
-        ? `C${milestone.cycleNumber} Week ${milestone.weekNumber}`
-        : `C${milestone.cycleNumber} Summary`;
-
       activePatterns.push({
+        pattern_name: name,
         name,
         status,
-        cycle_state: cycleState,
-        occurrences_this_cycle: occurrencesThisCycle,
-        first_seen_cycle: firstSeen,
-        last_seen_cycle: cycleState === 'absent' ? lastAppearedCycle : sequenceNumber,
-        total_occurrences: totalOccurrences,
-        body,
-        orientation,
-        connected_patterns: name.toLowerCase() === 'avoidance' ? ['Conflict aversion'] : name.toLowerCase() === 'conflict aversion' ? ['Avoidance'] : [],
-        evidence: quotes,
-        obs: occurrencesThisCycle > 0 
-          ? `${milestoneLabel}: Present with ${occurrencesThisCycle} occurrences.` 
-          : `Not present in ${milestoneLabel}.`
+        confidence: 0.0,
+        evidence_score: 0.0,
+        summary: status === 'quiet' ? `Went quiet in Week ${lastActiveWeek}.` : `Absent in Week ${sequenceNumber}.`,
+        why_it_matters: lastWhy,
+        supporting_vocabulary: [],
+        supporting_entries: [],
+        supporting_threads: [],
+        generated_at: new Date().toISOString(),
+        week_number: sequenceNumber
       });
     });
 
     const finalSnapshotData = {
       patterns: activePatterns,
       total_cycles_observed: sequenceNumber,
-      milestone_label: milestone.type === 'weekly_report' 
-        ? `C${milestone.cycleNumber} Week ${milestone.weekNumber}`
-        : `C${milestone.cycleNumber} Summary`
+      milestone_label: `Week ${milestone.weekNumber || sequenceNumber}`
     };
 
-    // 5. Upsert active snapshot
     const { error: upsertErr } = await supabase
       .from('pattern_snapshots')
       .upsert({
@@ -1106,163 +1229,4 @@ export class PatternIntelligenceService {
     };
   }
 
-  /**
-   * Helper mock pattern overview (kept for development/testing purposes only).
-   */
-  private static getMockPatternOverview(): PatternOverview {
-
-    return {
-      patterns: [
-        {
-          id: "avoidance",
-          name: "Avoidance",
-          status: "present",
-          body: "Choosing silence or withdrawal when facing interpersonal conflict, prioritizing temporary harmony over resolution.",
-          meta: "First appeared C1 · 8× total",
-          orientation: "Consistent across all cycles. You tend to step back when tension increases.",
-          timeline: ["strong", "strong", "shifting", "strong"],
-          firstAppeared: "C1",
-          totalOccurrences: 8,
-          connectedPatterns: ["Conflict aversion"]
-        },
-        {
-          id: "conflict-aversion",
-          name: "Conflict aversion",
-          status: "shifting",
-          body: "Experiencing elevated anxiety around disagreements and actively redirecting conversations to safer topics.",
-          meta: "First appeared C1 · 5× total",
-          orientation: "Surfaced strongly in early cycles, but showing signs of shifting in Cycle 4.",
-          timeline: ["strong", "strong", "strong", "shifting"],
-          firstAppeared: "C1",
-          totalOccurrences: 5,
-          connectedPatterns: ["Avoidance"]
-        },
-        {
-          id: "saying-fine",
-          name: "Saying \"fine\"",
-          status: "new",
-          body: "Using verbal deflections to minimize emotional distress and avoid deeper vulnerability.",
-          meta: "First appeared C4 · 3× so far",
-          orientation: "A new cognitive shield that has emerged during this current cycle.",
-          timeline: ["absent", "absent", "absent", "new"],
-          firstAppeared: "C4",
-          totalOccurrences: 3,
-          connectedPatterns: []
-        },
-        {
-          id: "low-self-agency",
-          name: "Low self-agency",
-          status: "quiet",
-          body: "Describing decisions as being forced by circumstances rather than actively chosen.",
-          meta: "Last appeared C2 · not surfacing since C3",
-          orientation: "Was active in Cycle 1 and 2, but has gone quiet in recent writing.",
-          timeline: ["strong", "strong", "absent", "absent"],
-          firstAppeared: "C1",
-          totalOccurrences: 4,
-          connectedPatterns: []
-        }
-      ],
-      summary: {
-        sentence: "You have 3 active patterns this cycle. Avoidance remains established, while Conflict aversion is shifting.",
-        present: 1,
-        shifting: 1,
-        quiet: 1,
-        new: 1,
-        returned: 0
-      },
-      totalCyclesObserved: 4,
-      isAvailable: true
-    };
-  }
-
-  private static getMockPatternDetail(patternName: string): PatternDetail {
-    const name = patternName.replace(/-/g, ' ');
-    const normName = name.toLowerCase();
-    
-    let body = "Choosing silence or withdrawal when facing interpersonal conflict, prioritizing temporary harmony over resolution.";
-    let status = "present";
-    let badgeClass = "badge present";
-    let meta = "First appeared C1 · 8× total";
-    let orientation = "Consistent across all cycles. You tend to step back when tension increases.";
-    let connected = true;
-    let connectedBody = "This pattern and Conflict aversion frequently appear together. They may be connected or represent adjacent coping strategies.";
-    let connectedLinks = [{ label: "Conflict aversion", id: "conflict-aversion" }];
-    
-    const timeline = [
-      { n: 4, s: "strong", l: "Strong" },
-      { n: 3, s: "shifting", l: "Shifting" },
-      { n: 2, s: "strong", l: "Strong" },
-      { n: 1, s: "strong", l: "Strong" }
-    ];
-
-    const cycleData: Record<number, { obs: string; entries: { t: string; m: string }[] }> = {
-      4: {
-        obs: "Present in Cycle 4. You noted: 'It was easier to just not say anything.'",
-        entries: [
-          { t: "\"I didn't say anything. It felt easier.\"", m: "C4 · Journal · Jul 5, 2026" }
-        ]
-      },
-      3: {
-        obs: "Showing minor changes in expression.",
-        entries: [
-          { t: "\"I wanted to scream but I kept it inside.\"", m: "C3 · Journal · Jun 15, 2026" }
-        ]
-      },
-      2: {
-        obs: "Strong occurrence in writing.",
-        entries: [
-          { t: "\"I avoided the meeting to prevent argument.\"", m: "C2 · Journal · May 20, 2026" }
-        ]
-      },
-      1: {
-        obs: "First emerged during onboarding.",
-        entries: [
-          { t: "\"I just went to sleep instead of talking.\"", m: "C1 · Journal · Apr 18, 2026" }
-        ]
-      }
-    };
-
-    if (normName.includes("conflict")) {
-      body = "Experiencing elevated anxiety around disagreements and actively redirecting conversations to safer topics.";
-      status = "shifting";
-      badgeClass = "badge shifting";
-      meta = "First appeared C1 · 5× total";
-      orientation = "Surfaced strongly in early cycles, but showing signs of shifting in Cycle 4.";
-      connected = true;
-      connectedBody = "This pattern and Avoidance frequently appear together. They may be connected or represent adjacent coping strategies.";
-      connectedLinks = [{ label: "Avoidance", id: "avoidance" }];
-    } else if (normName.includes("fine")) {
-      body = "Using verbal deflections to minimize emotional distress and avoid deeper vulnerability.";
-      status = "new";
-      badgeClass = "badge new";
-      meta = "First appeared C4 · 3× so far";
-      orientation = "A new cognitive shield that has emerged during this current cycle.";
-      connected = false;
-      connectedBody = "";
-      connectedLinks = [];
-    } else if (normName.includes("agency")) {
-      body = "Describing decisions as being forced by circumstances rather than actively chosen.";
-      status = "quiet";
-      badgeClass = "badge quiet";
-      meta = "Last appeared C2 · not surfacing since C3";
-      orientation = "Was active in Cycle 1 and 2, but has gone quiet in recent writing.";
-      connected = false;
-      connectedBody = "";
-      connectedLinks = [];
-    }
-
-    return {
-      name: patternName.charAt(0).toUpperCase() + patternName.slice(1).replace(/-/g, ' '),
-      status,
-      badgeClass,
-      body,
-      meta,
-      orientation,
-      connected,
-      connectedBody,
-      connectedLinks,
-      timeline,
-      cycleData
-    };
-  }
 }

@@ -32,146 +32,24 @@ export interface PatternWorkerJobData {
  * NEVER called from API GET routes.
  */
 export async function processPatternExtraction(jobData: PatternWorkerJobData): Promise<void> {
-  const { entry_id, thread_response_id, user_id, cycle_id, source_type } = jobData;
+  const { entry_id, user_id, source_type } = jobData;
 
-  console.log(`[Pattern Worker] Starting pattern extraction. Source: ${source_type}, Entry: ${entry_id || thread_response_id}, User: ${user_id}`);
+  console.log(`[Pattern Worker] Starting pattern snapshot generation. Source: ${source_type}, Summary ID: ${entry_id}, User: ${user_id}`);
 
-  // 1. Verify this cycle is still active — never process completed cycles
-  const { data: cycle } = await supabase
-    .from('cycles')
-    .select('status')
-    .eq('id', cycle_id)
-    .maybeSingle();
-
-  if (cycle?.status?.toLowerCase() === 'completed' || cycle?.status?.toLowerCase() === 'complete' || cycle?.status?.toLowerCase() === 'archived') {
-    console.log(`[Pattern Worker] Cycle ${cycle_id} is completed/archived. Skipping extraction.`);
+  if (source_type !== 'weekly_report') {
+    console.log(`[Pattern Worker] Bypassing pattern extraction for source: ${source_type}. Only weekly reports trigger snapshots.`);
     return;
   }
 
-  // 2. Fetch source text
-  let entryText = '';
-  let effectiveEntryId = entry_id || '';
-
-  if (source_type === 'journal' && entry_id) {
-    const { data: entry, error } = await supabase
-      .from('entries')
-      .select('id, content, content_iv, cycle_id, user_id')
-      .eq('id', entry_id)
-      .eq('user_id', user_id)
-      .maybeSingle();
-
-    if (error || !entry) {
-      console.error(`[Pattern Worker] Could not fetch entry ${entry_id}:`, error?.message);
-      return;
-    }
-
-    // Decrypt if encrypted
-    if (entry.content_iv && entry.content) {
-      try {
-        entryText = (await decrypt(entry.content, entry.content_iv)) || entry.content;
-      } catch {
-        entryText = entry.content; // fallback to raw if decryption fails
-      }
-    } else {
-      entryText = entry.content || '';
-    }
-
-  } else if (source_type === 'thread' && thread_response_id) {
-    const { data: resp, error } = await supabase
-      .from('thread_responses')
-      .select('id, response_text, user_id')
-      .eq('id', thread_response_id)
-      .eq('user_id', user_id)
-      .maybeSingle();
-
-    if (error || !resp) {
-      console.error(`[Pattern Worker] Could not fetch thread response ${thread_response_id}:`, error?.message);
-      return;
-    }
-
-    entryText = resp.response_text || '';
-    effectiveEntryId = thread_response_id;
-
-  } else if (source_type === 'weekly_report') {
-    // For weekly reports, extract patterns from the report body text
-    const { data: summary, error } = await supabase
-      .from('weekly_summaries')
-      .select('id, body, user_id, cycle_id')
-      .eq('cycle_id', cycle_id)
-      .eq('user_id', user_id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error || !summary) {
-      console.error(`[Pattern Worker] Could not fetch weekly summary for cycle ${cycle_id}:`, error?.message);
-      return;
-    }
-
-    entryText = summary.body || '';
-    effectiveEntryId = summary.id;
-
-  } else if (source_type === 'vocab') {
-    // For vocab triggers, we re-use the latest entry text
-    if (!entry_id) {
-      console.warn(`[Pattern Worker] Vocab trigger without entry_id — skipping.`);
-      return;
-    }
-
-    const { data: entry } = await supabase
-      .from('entries')
-      .select('content, content_iv')
-      .eq('id', entry_id)
-      .eq('user_id', user_id)
-      .maybeSingle();
-
-    if (!entry) {
-      console.warn(`[Pattern Worker] Vocab trigger: entry ${entry_id} not found.`);
-      return;
-    }
-
-    if (entry.content_iv && entry.content) {
-      try {
-        entryText = (await decrypt(entry.content, entry.content_iv)) || entry.content;
-      } catch {
-        entryText = entry.content;
-      }
-    } else {
-      entryText = entry.content || '';
-    }
-  }
-
-  if (!entryText || entryText.trim().length < 20) {
-    console.warn(`[Pattern Worker] Text too short to extract patterns (${entryText.length} chars). Skipping.`);
+  if (!entry_id) {
+    console.error(`[Pattern Worker] Missing weekly summary ID (entry_id) in jobData.`);
     return;
   }
 
-  // 3. Get historical patterns for AI context continuity
-  const historicalPatterns = await getHistoricalPatternNames(user_id);
-
-  // 4. Run extraction (AI call — happens only here, never on page load)
-  const extractionResult = await extractPatternsFromEntry({
-    entryText,
-    userId: user_id,
-    cycleId: cycle_id,
-    entryId: effectiveEntryId,
-    sourceType: source_type,
-    historicalPatterns,
-  });
-
-  console.log(`[Pattern Worker] Extraction complete. ${extractionResult.candidates.length} publishable patterns found.`);
-
-  // 5. Update the active snapshot or seal the weekly report snapshot
   try {
-    if (source_type === 'weekly_report' && effectiveEntryId) {
-      await PatternIntelligenceService.generateSnapshotForWeeklyReport(user_id, effectiveEntryId);
-      console.log(`[Pattern Worker] Sealed weekly report snapshot for user ${user_id}, summary ${effectiveEntryId}`);
-    } else {
-      await PatternIntelligenceService.updateActiveCycleSnapshot(user_id, cycle_id);
-      console.log(`[Pattern Worker] Active cycle snapshot updated for user ${user_id}, cycle ${cycle_id}`);
-    }
+    await PatternIntelligenceService.generateSnapshotForWeeklyReport(user_id, entry_id);
+    console.log(`[Pattern Worker] Successfully generated weekly report snapshot for user ${user_id}, summary ${entry_id}`);
   } catch (err: any) {
-    console.error(`[Pattern Worker] Failed to update snapshot:`, err.message);
-    // Don't re-throw — extraction was persisted successfully
+    console.error(`[Pattern Worker] Failed to generate weekly report snapshot:`, err.message);
   }
 }

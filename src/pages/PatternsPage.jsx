@@ -5,6 +5,7 @@ import { DashboardService } from '../services/dashboardService';
 
 const dotLabels = {
   strong: 'bg-[#E0A898]',
+  present: 'bg-[#E0A898]',
   shifting: 'bg-[#8DBFB4]',
   quiet: 'bg-primary/20 border border-primary/20',
   absent: 'bg-primary/5 border border-dashed border-primary/20',
