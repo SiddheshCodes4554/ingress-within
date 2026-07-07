@@ -92,6 +92,7 @@ export interface WeeklyReportData {
     score_sources: { entry_id: string; date: string; ei: number | null; pr: number | null; sa: number | null }[];
     vocab_sources: { entry_id: string; date: string; words: string[] }[];
   };
+  lastWeekTopExpressions?: string[] | null;
 }
 
 /**

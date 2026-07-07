@@ -48,7 +48,8 @@ async function main() {
     userId: summary.user_id,
     cycleId: summary.cycle_id,
     weekNumber: summary.week_number,
-    dayStart: summary.day_start
+    dayStart: summary.day_start,
+    dayEnd: summary.day_end
   });
 
   console.log('Calling AI provider...');
