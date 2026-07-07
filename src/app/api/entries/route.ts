@@ -117,6 +117,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Auto-heal/backfill missing reflections for real entries in the background
+    if (entries && entries.length > 0) {
+      const realEntriesWithoutReflection = entries.filter(e => 
+        e.entry_type !== 'empty' && 
+        (!e.reflections || (Array.isArray(e.reflections) && e.reflections.length === 0))
+      );
+      
+      if (realEntriesWithoutReflection.length > 0) {
+        console.log(`[API Entries GET] Found ${realEntriesWithoutReflection.length} entries missing reflections for user ${authUser.userId}. Triggering fast background backfill...`);
+        const { processReflectionGeneration } = await import('../../../lib/queue/workers/reflectionWorker');
+        // Run in background (fire-and-forget) using fast local fallback
+        realEntriesWithoutReflection.forEach(entry => {
+          void processReflectionGeneration({
+            entry_id: entry.id,
+            user_id: authUser.userId,
+            bypass_ai: true
+          }).catch(err => {
+            console.error(`[API Entries GET] Background reflection generation failed for entry ${entry.id}:`, err);
+          });
+        });
+      }
+    }
+
     // Fetch entry-specific vocab words from extractions
     let vocabRes: any[] = [];
     const { data: extRes, error: extErr } = await supabase

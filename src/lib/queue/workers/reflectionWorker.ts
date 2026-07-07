@@ -76,12 +76,67 @@ export function validateReflection(text: string): { valid: boolean; reason?: str
   return { valid: true };
 }
 
+export function generateLocalFallbackReflection(
+  entryText: string,
+  day_ei: number | null,
+  day_sa: number | null
+): {
+  classification: "Flat" | "Open" | "Scattered";
+  reflection: string;
+  closing_nudge: string;
+  closing_question: string;
+  confidence: "high" | "medium" | "low";
+  themes: string[];
+} {
+  const ei = day_ei !== null ? Number(day_ei) : 5.0;
+  const sa = day_sa !== null ? Number(day_sa) : 5.0;
+  
+  let classification: "Flat" | "Open" | "Scattered" = "Open";
+  let reflection = "";
+  let closing_question = "";
+  let closing_nudge = "";
+  let themes: string[] = ["Reflection"];
+  
+  if (ei >= 7.0 && sa <= 4.0) {
+    classification = "Scattered";
+    reflection = "Your writing carries a sense of heaviness and fatigue. There is a lot of tension in how you are holding these thoughts today, with several areas of concern demanding your focus.";
+    closing_question = "What is one small pressure you can set aside to give yourself some breathing room?";
+    closing_nudge = "Take it slow tonight.";
+    themes = ["Tension", "Fatigue"];
+  } else if (ei <= 4.0 && sa >= 7.0) {
+    classification = "Flat";
+    reflection = "You seem to be approaching your thoughts with a sense of clarity and ease today. There is a noticeable openness and steady composition in how you describe your experiences.";
+    closing_question = "What do you think is supporting this sense of grounding right now?";
+    closing_nudge = "Keep leaning into this clarity.";
+    themes = ["Clarity", "Grounding"];
+  } else {
+    classification = "Open";
+    reflection = "You are observing your routine and daily events with a neutral, steady focus. It feels like a quiet moment of taking stock of where things stand.";
+    closing_question = "What is feeling the most steady or grounding for you in your routine today?";
+    closing_nudge = "Be gentle with yourself.";
+    themes = ["Balance", "Observation"];
+  }
+  
+  return {
+    classification,
+    reflection,
+    closing_question,
+    closing_nudge,
+    confidence: "medium",
+    themes
+  };
+}
+
 /**
  * BullMQ Worker job handler to generate clinical observations and reflections 
  * for saved journal entries. Runs in the background and implements self-healing retries.
  */
-export async function processReflectionGeneration(jobData: { entry_id: string; user_id: string }) {
-  const { entry_id, user_id } = jobData;
+export async function processReflectionGeneration(jobData: {
+  entry_id: string;
+  user_id: string;
+  bypass_ai?: boolean;
+}) {
+  const { entry_id, user_id, bypass_ai } = jobData;
   const startTime = Date.now();
   const providerName = process.env.AI_PROVIDER || 'groq';
   const modelName = (aiProvider as any).model || 'unknown';
@@ -238,83 +293,94 @@ export async function processReflectionGeneration(jobData: { entry_id: string; u
   let result: any = null;
   let validationErrorMsg = '';
 
-  while (attempts < 3 && !success) {
-    attempts++;
-    console.log(`[Reflection Engine] [5/8] [Entry: ${entry_id}] Generation attempt ${attempts} of 3. Simplified mode: ${attempts === 3}`);
-    
-    // Attempt 3 uses the relaxed simplified prompt mode for self-healing
-    const useSimplifiedPrompt = attempts === 3;
-    const contextWithRetryFeedback = attempts === 2
-      ? `${personalityContext || ''}\n(Correction note: The previous output failed validation. Reason: ${validationErrorMsg}. Please strictly ensure there is no advice, suggestion, or therapeutic label in your response.)`
-      : personalityContext;
+  if (bypass_ai) {
+    console.log(`[Reflection Engine] [5/8] [Entry: ${entry_id}] Bypassing AI generation. Generating local fallback reflection.`);
+    result = generateLocalFallbackReflection(newEntryText, entry.day_ei, entry.day_sa);
+    success = true;
+  } else {
+    while (attempts < 3 && !success) {
+      attempts++;
+      console.log(`[Reflection Engine] [5/8] [Entry: ${entry_id}] Generation attempt ${attempts} of 3. Simplified mode: ${attempts === 3}`);
+      
+      // Attempt 3 uses the relaxed simplified prompt mode for self-healing
+      const useSimplifiedPrompt = attempts === 3;
+      const contextWithRetryFeedback = attempts === 2
+        ? `${personalityContext || ''}\n(Correction note: The previous output failed validation. Reason: ${validationErrorMsg}. Please strictly ensure there is no advice, suggestion, or therapeutic label in your response.)`
+        : personalityContext;
 
-    try {
-      result = await aiProvider.generateReflection(
-        newEntryText,
-        contextWithRetryFeedback,
-        threadContext,
-        previousReflectionContext,
-        useSimplifiedPrompt
-      );
+      try {
+        result = await aiProvider.generateReflection(
+          newEntryText,
+          contextWithRetryFeedback,
+          threadContext,
+          previousReflectionContext,
+          useSimplifiedPrompt
+        );
 
-      if (!result) {
-        throw new Error('AI Provider returned null or empty result.');
-      }
+        if (!result) {
+          throw new Error('AI Provider returned null or empty result.');
+        }
 
-      // Output Validation Checks
-      if (!result.reflection || result.reflection.trim() === '') {
-        throw new Error('AI response is missing "reflection" observation text.');
-      }
-      if (!result.closing_question || result.closing_question.trim() === '') {
-        throw new Error('AI response is missing "closing_question".');
-      }
-      if (!result.classification) {
-        throw new Error('AI response is missing "classification" pattern.');
-      }
+        // Output Validation Checks
+        if (!result.reflection || result.reflection.trim() === '') {
+          throw new Error('AI response is missing "reflection" observation text.');
+        }
+        if (!result.closing_question || result.closing_question.trim() === '') {
+          throw new Error('AI response is missing "closing_question".');
+        }
+        if (!result.classification) {
+          throw new Error('AI response is missing "classification" pattern.');
+        }
 
-      // Run forbidden words and word count validator
-      const validation = validateReflection(result.reflection);
-      if (validation.valid) {
-        success = true;
-      } else {
-        validationErrorMsg = validation.reason || 'Failed style validation guidelines.';
-        console.warn(`[Reflection Engine] [5/8] [Entry: ${entry_id}] Attempt ${attempts} failed validation: ${validationErrorMsg}`);
-      }
-    } catch (err: any) {
-      validationErrorMsg = err.message || 'Generation request threw an exception.';
-      console.error(`[Reflection Engine] [5/8] [Entry: ${entry_id}] Attempt ${attempts} caught error:`, err.message || err);
+        // Run forbidden words and word count validator
+        const validation = validateReflection(result.reflection);
+        if (validation.valid) {
+          success = true;
+        } else {
+          validationErrorMsg = validation.reason || 'Failed style validation guidelines.';
+          console.warn(`[Reflection Engine] [5/8] [Entry: ${entry_id}] Attempt ${attempts} failed validation: ${validationErrorMsg}`);
+        }
+      } catch (err: any) {
+        validationErrorMsg = err.message || 'Generation request threw an exception.';
+        console.error(`[Reflection Engine] [5/8] [Entry: ${entry_id}] Attempt ${attempts} caught error:`, err.message || err);
 
-      // Handle Rate limits (429), timeouts, and server errors (5xx) by raising BullMQ exception for exponential backoff retry
-      const isRateLimit = err.message?.includes('429') || err.message?.toLowerCase().includes('rate limit');
-      const isTimeout = err.message?.toLowerCase().includes('timeout') || err.message?.toLowerCase().includes('etimedout');
-      const is5xx = err.message?.includes('500') || err.message?.includes('502') || err.message?.includes('503') || err.message?.includes('504') || err.message?.includes('HTTP error 5');
+        // Handle Rate limits (429), timeouts, and server errors (5xx) by raising BullMQ exception for exponential backoff retry
+        const isRateLimit = err.message?.includes('429') || err.message?.toLowerCase().includes('rate limit');
+        const isTimeout = err.message?.toLowerCase().includes('timeout') || err.message?.toLowerCase().includes('etimedout');
+        const is5xx = err.message?.includes('500') || err.message?.includes('502') || err.message?.includes('503') || err.message?.includes('504') || err.message?.includes('HTTP error 5');
 
-      if (isRateLimit || isTimeout || is5xx) {
-        console.warn(`[Reflection Engine] Temporary network/provider error on attempt ${attempts}. Raising BullMQ retry exception.`);
-        // Mark status as pending in database so the UI continues polling during retry cooldowns
-        await supabase
-          .from('reflections')
-          .update({ status: 'pending', generated_at: new Date().toISOString() })
-          .eq('entry_id', entry_id);
-        throw err;
+        if (isRateLimit || isTimeout || is5xx) {
+          console.warn(`[Reflection Engine] Temporary network/provider error on attempt ${attempts}. Raising BullMQ retry exception.`);
+          // Mark status as pending in database so the UI continues polling during retry cooldowns
+          await supabase
+            .from('reflections')
+            .update({ status: 'pending', generated_at: new Date().toISOString() })
+            .eq('entry_id', entry_id);
+          throw err;
+        }
       }
     }
   }
 
-  // 6. Check if all attempts failed
+  // 6. Check if all attempts failed, and use local fallback if so
   if (!success) {
-    console.error(`[Reflection Engine] [5/8] [Entry: ${entry_id}] All 3 generation attempts failed due to validation/parsing errors.`);
-    // Save state as pending to allow background retries later instead of failing permanently.
-    // We do NOT throw a BullMQ queue error here to prevent endless loops of invalid prompts.
-    await supabase
-      .from('reflections')
-      .update({
-        status: 'pending',
-        reflection_text: 'Reflection compiling. We are reviewing style guidelines.',
-        generated_at: new Date().toISOString()
-      })
-      .eq('entry_id', entry_id);
-    return;
+    console.warn(`[Reflection Engine] [5/8] [Entry: ${entry_id}] All 3 AI generation attempts failed. Falling back to local deterministic reflection generator.`);
+    try {
+      result = generateLocalFallbackReflection(newEntryText, entry.day_ei, entry.day_sa);
+      success = true;
+    } catch (fallbackErr: any) {
+      console.error(`[Reflection Engine] Local fallback generation failed:`, fallbackErr.message);
+      // Save state as pending to allow background retries later instead of failing permanently.
+      await supabase
+        .from('reflections')
+        .update({
+          status: 'pending',
+          reflection_text: 'Reflection compiling. We are reviewing style guidelines.',
+          generated_at: new Date().toISOString()
+        })
+        .eq('entry_id', entry_id);
+      return;
+    }
   }
 
   console.log(`[Reflection Engine] [6/8] [Entry: ${entry_id}] Reflection observation parsed and validated successfully (attempts: ${attempts}).`);
