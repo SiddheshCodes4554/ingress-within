@@ -69,8 +69,9 @@ export async function processVocabularyExtraction(jobData: {
   entry_id?: string;
   thread_response_id?: string;
   user_id: string;
+  bypass_ai?: boolean;
 }) {
-  const { entry_id, thread_response_id, user_id } = jobData;
+  const { entry_id, thread_response_id, user_id, bypass_ai } = jobData;
 
   console.log(`[Vocab Worker] Starting vocabulary processing for job:`, JSON.stringify(jobData));
 
@@ -140,14 +141,8 @@ export async function processVocabularyExtraction(jobData: {
 
   try {
     let expressions: any[] = [];
-    try {
-      // 2. Extract Vocabulary using AI
-      console.log(`[Vocab Worker] Extracting expressions using AI...`);
-      const aiResult = await aiProvider.extractVocabulary(fullText);
-      expressions = aiResult?.expressions || [];
-      console.log(`[Vocab Worker] AI extracted ${expressions.length} expressions.`);
-    } catch (aiErr: any) {
-      console.warn(`[Vocab Worker] AI vocabulary extraction failed: ${aiErr.message}. Falling back to deterministic NLP extraction.`);
+    if (bypass_ai) {
+      console.log(`[Vocab Worker] Bypassing AI extraction. Using local deterministic NLP engine.`);
       try {
         const { extractVocabularyDeterministic } = await import('../../vocabEngine');
         const detResult = extractVocabularyDeterministic(fullText);
@@ -160,8 +155,33 @@ export async function processVocabularyExtraction(jobData: {
         }));
         console.log(`[Vocab Worker] Deterministic local NLP engine extracted ${expressions.length} expressions.`);
       } catch (detErr: any) {
-        console.error(`[Vocab Worker] Deterministic local NLP fallback failed:`, detErr.message || detErr);
-        throw aiErr; // rethrow original AI error if fallback fails too
+        console.error(`[Vocab Worker] Deterministic local NLP extraction failed:`, detErr.message || detErr);
+        throw detErr;
+      }
+    } else {
+      try {
+        // 2. Extract Vocabulary using AI
+        console.log(`[Vocab Worker] Extracting expressions using AI...`);
+        const aiResult = await aiProvider.extractVocabulary(fullText);
+        expressions = aiResult?.expressions || [];
+        console.log(`[Vocab Worker] AI extracted ${expressions.length} expressions.`);
+      } catch (aiErr: any) {
+        console.warn(`[Vocab Worker] AI vocabulary extraction failed: ${aiErr.message}. Falling back to deterministic NLP extraction.`);
+        try {
+          const { extractVocabularyDeterministic } = await import('../../vocabEngine');
+          const detResult = extractVocabularyDeterministic(fullText);
+          expressions = (detResult.extracted || []).map(item => ({
+            word: item.word,
+            normalized: item.normalized_word,
+            semantic_meaning: 'Extracted deterministically via local NLP engine.',
+            context: getVerbatimSentence(item.word, item.normalized_word, fullText) || '',
+            confidence: 0.7
+          }));
+          console.log(`[Vocab Worker] Deterministic local NLP engine extracted ${expressions.length} expressions.`);
+        } catch (detErr: any) {
+          console.error(`[Vocab Worker] Deterministic local NLP fallback failed:`, detErr.message || detErr);
+          throw aiErr; // rethrow original AI error if fallback fails too
+        }
       }
     }
 
@@ -291,52 +311,54 @@ export async function processVocabularyExtraction(jobData: {
     }
 
     // 5. Concepts Extraction (incremental concept accumulation)
-    console.log(`[Vocab Worker] Extracting emotional concepts using AI...`);
-    try {
-      const conceptResult = await aiProvider.extractConcepts(fullText);
-      if (conceptResult.concepts && Array.isArray(conceptResult.concepts)) {
-        for (const c of conceptResult.concepts) {
-          if (!c.concept) continue;
-          const cleanConcept = c.concept.trim();
+    if (!bypass_ai) {
+      console.log(`[Vocab Worker] Extracting emotional concepts using AI...`);
+      try {
+        const conceptResult = await aiProvider.extractConcepts(fullText);
+        if (conceptResult.concepts && Array.isArray(conceptResult.concepts)) {
+          for (const c of conceptResult.concepts) {
+            if (!c.concept) continue;
+            const cleanConcept = c.concept.trim();
 
-          const { data: existingConcept } = await supabase
-            .from('vocab_concepts')
-            .select('id, frequency')
-            .eq('user_id', user_id)
-            .eq('cycle_id', cycle_id)
-            .eq('concept', cleanConcept)
-            .maybeSingle();
+            const { data: existingConcept } = await supabase
+              .from('vocab_concepts')
+              .select('id, frequency')
+              .eq('user_id', user_id)
+              .eq('cycle_id', cycle_id)
+              .eq('concept', cleanConcept)
+              .maybeSingle();
 
-          if (existingConcept) {
-            await supabase
-              .from('vocab_concepts')
-              .update({
-                frequency: existingConcept.frequency + 1,
-                confidence: c.confidence || 1.0
-              })
-              .eq('id', existingConcept.id);
-          } else {
-            await supabase
-              .from('vocab_concepts')
-              .insert({
-                user_id,
-                cycle_id,
-                concept: cleanConcept,
-                frequency: 1,
-                confidence: c.confidence || 1.0
-              });
+            if (existingConcept) {
+              await supabase
+                .from('vocab_concepts')
+                .update({
+                  frequency: existingConcept.frequency + 1,
+                  confidence: c.confidence || 1.0
+                })
+                .eq('id', existingConcept.id);
+            } else {
+              await supabase
+                .from('vocab_concepts')
+                .insert({
+                  user_id,
+                  cycle_id,
+                  concept: cleanConcept,
+                  frequency: 1,
+                  confidence: c.confidence || 1.0
+                });
+            }
           }
         }
+      } catch (conceptErr: any) {
+        console.error(`[Vocab Worker] Concept extraction failed:`, conceptErr.message);
       }
-    } catch (conceptErr: any) {
-      console.error(`[Vocab Worker] Concept extraction failed:`, conceptErr.message);
-    }
 
-    // 6. Trigger Word Clusters & Shift Signals updates in background
-    try {
-      await VocabularyIntelligenceService.getVocabularyOverview(user_id);
-    } catch (clusterErr: any) {
-      console.error(`[Vocab Worker] Failed to update intelligence layer:`, clusterErr.message);
+      // 6. Trigger Word Clusters & Shift Signals updates in background
+      try {
+        await VocabularyIntelligenceService.getVocabularyOverview(user_id);
+      } catch (clusterErr: any) {
+        console.error(`[Vocab Worker] Failed to update intelligence layer:`, clusterErr.message);
+      }
     }
 
     // 7. Mark document as processed

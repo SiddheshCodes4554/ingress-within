@@ -2,27 +2,34 @@ import './load-env';
 import { supabase } from '../src/lib/db';
 
 async function check() {
-  const userId = 'f36d91ed-d484-4ecb-9078-1dfba35ff7c7';
-  console.log(`Checking database vocab status for user ${userId}...`);
+  console.log('Checking database vocab status for all users...');
   
-  const { data: totalWords, error: err1 } = await supabase
-    .from('vocab_words')
-    .select('id, word, normalized_word, is_emotional, emotional_score, cycle_id, user_id')
-    .eq('user_id', userId);
+  const { data: users } = await supabase.from('users').select('id, name');
+  if (!users) return;
+
+  for (const user of users) {
+    const { data: totalWords, error: err1 } = await supabase
+      .from('vocab_words')
+      .select('id, word, normalized_word, is_emotional, emotional_score, cycle_id, user_id')
+      .eq('user_id', user.id);
+      
+    if (err1) {
+      console.error(`Error fetching words for ${user.name}:`, err1);
+      continue;
+    }
     
-  if (err1) {
-    console.error('Error fetching words:', err1);
-    return;
-  }
-  
-  console.log(`Total words for user ${userId} in vocab_words: ${totalWords?.length || 0}`);
-  
-  const emotionalWords = totalWords?.filter(w => w.is_emotional) || [];
-  console.log(`Emotional words: ${emotionalWords.length}`);
-  if (emotionalWords.length > 0) {
-    console.log('Sample emotional words:', emotionalWords.slice(0, 10));
-  } else {
-    console.log('No emotional words found! Sample of all words:', totalWords?.slice(0, 10));
+    // Fetch entries status
+    const { data: entries } = await supabase
+      .from('entries')
+      .select('id, vocab_processed')
+      .eq('user_id', user.id);
+
+    const processed = entries?.filter(e => e.vocab_processed).length || 0;
+    const unprocessed = entries?.filter(e => !e.vocab_processed).length || 0;
+
+    console.log(`User: ${user.name} (ID: ${user.id})`);
+    console.log(`  - Total words in vocab_words: ${totalWords?.length || 0}`);
+    console.log(`  - Entries: ${entries?.length || 0} total (${processed} processed, ${unprocessed} unprocessed)`);
   }
 }
 

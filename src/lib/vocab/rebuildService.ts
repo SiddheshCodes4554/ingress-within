@@ -2,14 +2,17 @@ import { supabase } from '../db';
 import { processVocabularyExtraction } from '../queue/workers/vocabWorker';
 import { VocabularyIntelligenceService } from './vocabIntelligenceService';
 
-export async function rebuildUserVocabulary(user_id: string): Promise<{
+export async function rebuildUserVocabulary(
+  user_id: string,
+  bypass_ai = true
+): Promise<{
   success: boolean;
   entriesProcessed: number;
   threadResponsesProcessed: number;
   wordsGenerated: number;
   clustersGenerated: number;
 }> {
-  console.log(`[Vocab Rebuild] Starting complete vocabulary rebuild for user ${user_id}...`);
+  console.log(`[Vocab Rebuild] Starting complete vocabulary rebuild for user ${user_id} (bypass_ai: ${bypass_ai})...`);
 
   // 1. Set rebuild in progress flag
   await supabase
@@ -61,14 +64,14 @@ export async function rebuildUserVocabulary(user_id: string): Promise<{
     for (let i = 0; i < totalEntries; i++) {
       const entryId = entries[i].id;
       console.log(`[Vocab Rebuild] Processing entry ${i + 1}/${totalEntries} (${entryId})`);
-      await processVocabularyExtraction({ entry_id: entryId, user_id });
+      await processVocabularyExtraction({ entry_id: entryId, user_id, bypass_ai });
     }
 
     // 7. Process thread responses sequentially
     for (let j = 0; j < totalResponses; j++) {
       const respId = responses[j].id;
       console.log(`[Vocab Rebuild] Processing thread response ${j + 1}/${totalResponses} (${respId})`);
-      await processVocabularyExtraction({ thread_response_id: respId, user_id });
+      await processVocabularyExtraction({ thread_response_id: respId, user_id, bypass_ai });
     }
 
     // 8. Trigger calculation of final snapshots for completed cycles and overview for active cycle
