@@ -291,14 +291,20 @@ export class PatternIntelligenceService {
       return this.getEmptyOverview();
     }
 
-    const latestSnapshot = snapshots[snapshots.length - 1];
-    const totalCycles = snapshots.length;
+    // Re-sequence snapshots on the fly to prevent gaps/inflated cycle numbers from unfiltered milestones
+    const orderedSnapshots = snapshots.map((snap, index) => ({
+      ...snap,
+      cycle_number: index + 1
+    }));
+
+    const latestSnapshot = orderedSnapshots[orderedSnapshots.length - 1];
+    const totalCycles = orderedSnapshots.length;
     const latestData = latestSnapshot.snapshot_data || {};
     const latestPatterns = latestData.patterns || [];
 
     // Gather all unique pattern names ever observed to build full history
     const allPatternNames = new Set<string>();
-    snapshots.forEach(snap => {
+    orderedSnapshots.forEach(snap => {
       const snapPatterns = snap.snapshot_data?.patterns || [];
       snapPatterns.forEach((p: any) => {
         const pName = p.pattern_name || p.name;
@@ -323,7 +329,7 @@ export class PatternIntelligenceService {
       let connected: string[] = [];
 
       // Find first/last appearance and gather stats
-      snapshots.forEach(snap => {
+      orderedSnapshots.forEach(snap => {
         const snapPat = (snap.snapshot_data?.patterns || []).find((p: any) => (p.pattern_name || p.name) === name);
         if (snapPat && snapPat.status !== 'absent' && snapPat.status !== 'quiet') {
           if (snap.cycle_number < firstAppearedCycle) {
@@ -350,7 +356,7 @@ export class PatternIntelligenceService {
       // Build timeline array across ALL cycles chronologically
       const timeline: string[] = [];
       for (let c = 1; c <= totalCycles; c++) {
-        const cycleSnap = snapshots.find(s => s.cycle_number === c);
+        const cycleSnap = orderedSnapshots.find(s => s.cycle_number === c);
         const cyclePat = (cycleSnap?.snapshot_data?.patterns || []).find((p: any) => (p.pattern_name || p.name) === name);
         timeline.push(cyclePat ? cyclePat.status : 'absent');
       }
@@ -449,16 +455,24 @@ export class PatternIntelligenceService {
       return null;
     }
 
-    const totalCycles = snapshots.length;
+    // Re-sequence snapshots on the fly to prevent gaps/inflated cycle numbers from unfiltered milestones
+    const orderedSnapshots = snapshots.map((snap, index) => ({
+      ...snap,
+      cycle_number: index + 1
+    }));
+
+    const totalCycles = orderedSnapshots.length;
     
     // Find pattern name by match (case-insensitive)
     let matchedName = '';
-    snapshots.forEach(snap => {
+    orderedSnapshots.forEach(snap => {
       const snapPatterns = snap.snapshot_data?.patterns || [];
       snapPatterns.forEach((p: any) => {
         const pName = p.pattern_name || p.name;
-        if (pName && (pName.toLowerCase() === patternName.toLowerCase() || this.getPatternSlug(pName) === patternName.toLowerCase())) {
-          matchedName = pName;
+        if (pName) {
+          if (pName.toLowerCase() === patternName.toLowerCase() || this.getPatternSlug(pName) === patternName.toLowerCase()) {
+            matchedName = pName;
+          }
         }
       });
     });
@@ -466,7 +480,7 @@ export class PatternIntelligenceService {
     if (!matchedName) return null;
 
     // Fetch latest pattern state
-    const latestSnapshot = snapshots[snapshots.length - 1];
+    const latestSnapshot = orderedSnapshots[orderedSnapshots.length - 1];
     const latestPatterns = latestSnapshot.snapshot_data?.patterns || [];
     const latestPat = latestPatterns.find((p: any) => (p.pattern_name || p.name) === matchedName);
 
@@ -478,7 +492,7 @@ export class PatternIntelligenceService {
     let totalOccurrences = 0;
     const connectedPatternsSet = new Set<string>();
 
-    snapshots.forEach(snap => {
+    orderedSnapshots.forEach(snap => {
       const snapPatterns = snap.snapshot_data?.patterns || [];
       const snapPat = snapPatterns.find((p: any) => (p.pattern_name || p.name) === matchedName);
       if (snapPat && snapPat.status !== 'absent' && snapPat.status !== 'quiet') {
@@ -530,7 +544,7 @@ export class PatternIntelligenceService {
     // Build timeline details
     const timeline: any[] = [];
     for (let c = 1; c <= totalCycles; c++) {
-      const snap = snapshots.find(s => s.cycle_number === c);
+      const snap = orderedSnapshots.find(s => s.cycle_number === c);
       const pat = (snap?.snapshot_data?.patterns || []).find((p: any) => (p.pattern_name || p.name) === matchedName);
       const state = pat ? pat.status : 'absent';
       
@@ -552,7 +566,7 @@ export class PatternIntelligenceService {
     const cycleData: Record<number, { obs: string; entries: { t: string; m: string }[] }> = {};
 
     for (let c = 1; c <= totalCycles; c++) {
-      const snap = snapshots.find(s => s.cycle_number === c);
+      const snap = orderedSnapshots.find(s => s.cycle_number === c);
       const pat = (snap?.snapshot_data?.patterns || []).find((p: any) => (p.pattern_name || p.name) === matchedName);
       const milestoneLabel = `Week ${c}`;
       
@@ -1096,14 +1110,15 @@ If no patterns are found, return: []`;
    */
   public static async generatePatternSnapshot(userId: string, cycleId: string): Promise<void> {
     const milestones = await this.getMilestones(userId);
-    const milestoneIdx = milestones.findIndex(m => m.id === cycleId || m.cycleId === cycleId);
+    const weeklyMilestones = milestones.filter(m => m.type === 'weekly_report');
+    const milestoneIdx = weeklyMilestones.findIndex(m => m.id === cycleId || m.cycleId === cycleId);
     
     if (milestoneIdx === -1) {
       console.warn(`[PatternIntelligenceService] Milestone not found for ID ${cycleId}. Skipping.`);
       return;
     }
 
-    const milestone = milestones[milestoneIdx];
+    const milestone = weeklyMilestones[milestoneIdx];
     await this.generatePatternSnapshotForMilestone(userId, milestone, milestoneIdx + 1);
   }
 
@@ -1112,14 +1127,15 @@ If no patterns are found, return: []`;
    */
   public static async updateActiveCycleSnapshot(userId: string, cycleId: string): Promise<void> {
     const milestones = await this.getMilestones(userId);
-    const activeMilestoneIdx = milestones.findIndex(m => m.cycleId === cycleId && !m.isCompleted);
+    const weeklyMilestones = milestones.filter(m => m.type === 'weekly_report');
+    const activeMilestoneIdx = weeklyMilestones.findIndex(m => m.cycleId === cycleId && !m.isCompleted);
 
     if (activeMilestoneIdx === -1) {
       console.log(`[PatternIntelligenceService] No active/pending milestone found for cycle ${cycleId}. Skipping incremental snapshot update.`);
       return;
     }
 
-    const activeMilestone = milestones[activeMilestoneIdx];
+    const activeMilestone = weeklyMilestones[activeMilestoneIdx];
     const sequenceNumber = activeMilestoneIdx + 1;
 
     await this.generatePatternSnapshotForMilestone(userId, activeMilestone, sequenceNumber);
@@ -1130,14 +1146,15 @@ If no patterns are found, return: []`;
    */
   public static async generateSnapshotForWeeklyReport(userId: string, weeklySummaryId: string): Promise<void> {
     const milestones = await this.getMilestones(userId);
-    const milestoneIdx = milestones.findIndex(m => m.id === weeklySummaryId);
+    const weeklyMilestones = milestones.filter(m => m.type === 'weekly_report');
+    const milestoneIdx = weeklyMilestones.findIndex(m => m.id === weeklySummaryId);
     
     if (milestoneIdx === -1) {
       console.error(`[PatternIntelligenceService] Milestone not found for weekly report ${weeklySummaryId}`);
       return;
     }
 
-    const milestone = milestones[milestoneIdx];
+    const milestone = weeklyMilestones[milestoneIdx];
     const sequenceNumber = milestoneIdx + 1;
 
     // Force isCompleted = true for sealing the snapshot
