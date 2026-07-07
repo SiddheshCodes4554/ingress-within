@@ -107,7 +107,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
       await fetch('/api/reports/backfill', { method: 'POST' });
       // Poll to check if queued
       setTimeout(async () => {
-        const freshReports = await DashboardService.fetchWeeklyReports();
+        const freshReports = await DashboardService.fetchWeeklyReports(undefined, true);
         setReports(freshReports);
         setRetryingId(null);
       }, 1500);

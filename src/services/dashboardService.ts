@@ -746,8 +746,12 @@ export class DashboardService {
   /**
    * Fetches all weekly reports for the user.
    */
-  static async fetchWeeklyReports(cycleId?: string): Promise<any[]> {
+  static async fetchWeeklyReports(cycleId?: string, force = false): Promise<any[]> {
     const cacheKey = `weekly_reports_${cycleId || 'all'}`;
+    if (force) {
+      const scopedKey = this.getScopedCacheKey(cacheKey);
+      delete this.cache[scopedKey];
+    }
     return this.getCachedOrFetch<any[]>(cacheKey, async () => {
       const startTime = performance.now();
       const url = cycleId ? `/api/reports/weekly?cycleId=${cycleId}` : '/api/reports/weekly';
@@ -760,15 +764,27 @@ export class DashboardService {
       }
       const duration = performance.now() - startTime;
       this.trackLatency('fetchWeeklyReports', duration);
-      return data.reports;
+      
+      const reports = data.reports || [];
+      const hasPendingOrFailed = reports.some((r: any) => r.status !== 'READY');
+      if (hasPendingOrFailed) {
+        const scopedKey = this.getScopedCacheKey(cacheKey);
+        setTimeout(() => { delete this.cache[scopedKey]; }, 0);
+      }
+      
+      return reports;
     });
   }
 
   /**
    * Fetches single weekly report detail on demand.
    */
-  static async fetchWeeklyReportDetail(reportId: string): Promise<any> {
+  static async fetchWeeklyReportDetail(reportId: string, force = false): Promise<any> {
     const cacheKey = `weekly_report_detail_${reportId}`;
+    if (force) {
+      const scopedKey = this.getScopedCacheKey(cacheKey);
+      delete this.cache[scopedKey];
+    }
     return this.getCachedOrFetch<any>(cacheKey, async () => {
       const startTime = performance.now();
       const res = await fetch(`/api/reports/weekly/${reportId}`, {
@@ -780,6 +796,12 @@ export class DashboardService {
       }
       const duration = performance.now() - startTime;
       this.trackLatency('fetchWeeklyReportDetail', duration);
+      
+      if (data.report && data.report.status !== 'READY') {
+        const scopedKey = this.getScopedCacheKey(cacheKey);
+        setTimeout(() => { delete this.cache[scopedKey]; }, 0);
+      }
+      
       return data.report;
     });
   }
