@@ -20,6 +20,12 @@ export async function GET(request: NextRequest) {
     const cycleId = request.nextUrl.searchParams.get('cycleId');
     const weekNumber = request.nextUrl.searchParams.get('weekNumber');
 
+    // Auto-trigger background backfill/audit to ensure any missing or failed reports are queued/healed
+    const { backfillWeeklyReports } = await import('../../../../lib/weeklyReportBackfill');
+    void backfillWeeklyReports(userId).catch(err => {
+      console.error('[API Weekly Reports GET] Background backfill failed:', err);
+    });
+
     // Fetch all weekly summaries for this user only (strict user isolation)
     let query = supabase
       .from('weekly_summaries')

@@ -276,14 +276,41 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
 
   const threadResponsesCompleted = threadResponses.length;
 
-  // 5. Fetch Vocabulary Extractions strictly for this week
-  const { data: dbExtractions, error: vocabErr } = await supabase
-    .from('vocab_extractions')
-    .select('normalized_word, word, confidence, sentence, created_at, entry_id')
-    .eq('user_id', userId)
-    .eq('cycle_id', cycleId)
-    .gte('created_at', week_start_date.toISOString())
-    .lt('created_at', week_next_start_date.toISOString());
+  // 5. Fetch Vocabulary Extractions strictly for this week's entries and thread responses
+  const journalIds = (dbEntries || []).filter(e => e.entry_type !== 'empty').map(e => e.id);
+  const responseIds = (dbResponses || []).map((r: any) => r.id);
+
+  let dbExtractions: any[] = [];
+  
+  if (journalIds.length > 0) {
+    const { data: entryExts, error: entryExtErr } = await supabase
+      .from('vocab_extractions')
+      .select('normalized_word, word, confidence, sentence, created_at, entry_id')
+      .eq('user_id', userId)
+      .eq('cycle_id', cycleId)
+      .in('entry_id', journalIds);
+      
+    if (!entryExtErr && entryExts) {
+      dbExtractions = [...dbExtractions, ...entryExts];
+    } else if (entryExtErr) {
+      console.error('[WeeklyReportCollector] Failed to fetch entry vocab extractions:', entryExtErr.message);
+    }
+  }
+
+  if (responseIds.length > 0) {
+    const { data: respExts, error: respExtErr } = await supabase
+      .from('vocab_extractions')
+      .select('normalized_word, word, confidence, sentence, created_at, entry_id')
+      .eq('user_id', userId)
+      .eq('cycle_id', cycleId)
+      .in('thread_response_id', responseIds);
+      
+    if (!respExtErr && respExts) {
+      dbExtractions = [...dbExtractions, ...respExts];
+    } else if (respExtErr) {
+      console.error('[WeeklyReportCollector] Failed to fetch response vocab extractions:', respExtErr.message);
+    }
+  }
 
   const vocabMap = new Map<string, { word: string; freq: number; sentence: string }>();
   (dbExtractions || []).forEach(ext => {
