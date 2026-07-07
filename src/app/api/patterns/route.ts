@@ -4,6 +4,7 @@ import { PatternIntelligenceService } from '../../../lib/patterns/patternIntelli
 
 /**
  * GET /api/patterns: Fetches all patterns and their cycle states for the user.
+ * Returns both the pattern overview and the computed userState ('new_user' | 'backfill_pending' | 'active').
  * Reads compiled snapshots without AI generation on read.
  */
 export async function GET(request: NextRequest) {
@@ -18,10 +19,15 @@ export async function GET(request: NextRequest) {
 
     const userId = authUser.userId;
 
-    const overview = await PatternIntelligenceService.getPatternOverview(userId);
+    // Run state determination and overview fetch in parallel for speed.
+    const [userState, overview] = await Promise.all([
+      PatternIntelligenceService.determinePatternUserState(userId),
+      PatternIntelligenceService.getPatternOverview(userId)
+    ]);
 
     return NextResponse.json({
       success: true,
+      userState,
       ...overview
     });
 
@@ -33,4 +39,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

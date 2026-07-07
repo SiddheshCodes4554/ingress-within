@@ -806,22 +806,21 @@ export class DashboardService {
 
   /**
    * Fetches the pattern engine overview.
+   * NOTE: Not cached — always fresh so that userState transitions are immediately visible.
    */
   static async fetchPatternOverview(): Promise<any> {
-    const cacheKey = 'pattern_overview';
-    return this.getCachedOrFetch<any>(cacheKey, async () => {
-      const startTime = performance.now();
-      const res = await fetch('/api/patterns', {
-        headers: DashboardService.getHeaders()
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error?.message || 'Failed to fetch pattern overview.');
-      }
-      const duration = performance.now() - startTime;
-      this.trackLatency('fetchPatternOverview', duration);
-      return data;
+    const startTime = performance.now();
+    const res = await fetch('/api/patterns', {
+      headers: DashboardService.getHeaders(),
+      cache: 'no-store'
     });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to fetch pattern overview.');
+    }
+    const duration = performance.now() - startTime;
+    this.trackLatency('fetchPatternOverview', duration);
+    return data;
   }
 
   /**
@@ -843,6 +842,24 @@ export class DashboardService {
       return data.pattern;
     });
   }
+
+  /**
+   * Fetches the current Pattern Engine user state.
+   * Always uncached — intended for polling during the backfill_pending state.
+   * Returns { state, backfillCompleted, hasSnapshots }.
+   */
+  static async fetchPatternStatus(): Promise<{ state: string; backfillCompleted: boolean; hasSnapshots: boolean }> {
+    const res = await fetch('/api/patterns/status', {
+      headers: DashboardService.getHeaders(),
+      cache: 'no-store'
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to fetch pattern status.');
+    }
+    return { state: data.state, backfillCompleted: data.backfillCompleted, hasSnapshots: data.hasSnapshots };
+  }
 }
+
 
 

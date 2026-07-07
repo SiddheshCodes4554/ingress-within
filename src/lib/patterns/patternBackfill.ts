@@ -194,5 +194,21 @@ export async function backfillPatterns(userId: string): Promise<PatternBackfillR
     result.cyclesProcessed++;
   }
 
+  // Mark the backfill as completed on the user's profile so it is never re-triggered.
+  try {
+    const { error: profileUpdateErr } = await supabase
+      .from('profiles')
+      .update({ pattern_backfill_completed: true })
+      .eq('id', userId);
+
+    if (profileUpdateErr) {
+      console.warn('[Pattern Backfill] Could not set pattern_backfill_completed flag:', profileUpdateErr.message);
+    } else {
+      console.log(`[Pattern Backfill] Marked pattern_backfill_completed = true for user ${userId}`);
+    }
+  } catch (flagErr: any) {
+    console.warn('[Pattern Backfill] Error setting pattern_backfill_completed flag:', flagErr.message);
+  }
+
   return result;
 }

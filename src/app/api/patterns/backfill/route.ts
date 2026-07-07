@@ -57,7 +57,29 @@ export async function POST(request: NextRequest) {
 
     const userId = authUser.userId;
 
+    // Idempotency guard: skip if backfill has already completed for this user.
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('pattern_backfill_completed')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (profile?.pattern_backfill_completed === true) {
+        console.log(`[API Patterns Backfill] Skipping — backfill already completed for user ${userId}`);
+        return NextResponse.json({
+          success: true,
+          skipped: true,
+          reason: 'Backfill already completed for this user.'
+        });
+      }
+    } catch (guardErr: any) {
+      // Column may not exist yet; fall through and run backfill normally.
+      console.warn('[API Patterns Backfill] Could not check idempotency flag:', guardErr.message);
+    }
+
     // Run the backfill audit programmatically for the single user
+    console.log(`[API Patterns Backfill] Starting backfill for user ${userId}`);
     const backfillResult = await backfillPatterns(userId);
 
     return NextResponse.json({

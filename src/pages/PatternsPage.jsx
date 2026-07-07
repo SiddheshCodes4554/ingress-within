@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, ChevronDown, Link2, Info, Activity } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { ArrowLeft, ChevronDown, Link2, Activity, Sparkles, Loader2 } from 'lucide-react';
 import DashboardNavbar from '../components/DashboardNavbar';
 import { DashboardService } from '../services/dashboardService';
 
@@ -39,28 +39,171 @@ const getStatusBadge = (status) => {
   }
 };
 
+/** Processing screen shown while backfill is running */
+function BackfillProcessingScreen() {
+  const [dotCount, setDotCount] = useState(1);
+  useEffect(() => {
+    const t = setInterval(() => setDotCount(c => (c % 3) + 1), 600);
+    return () => clearInterval(t);
+  }, []);
+  const dots = '.'.repeat(dotCount);
+
+  return (
+    <div className="min-h-screen bg-mint-grey text-primary font-sans pb-20">
+      <DashboardNavbar activeTab="patterns" />
+      <main className="max-w-[680px] mx-auto px-6 pt-6 space-y-4">
+        <button
+          onClick={() => window.navigateTo('/dashboard')}
+          className="flex items-center gap-2 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors cursor-pointer border-none bg-transparent"
+        >
+          <ArrowLeft size={14} /> Back to dashboard
+        </button>
+        <div>
+          <h1 className="font-serif text-[22px] text-primary mb-0.5 font-normal">Patterns</h1>
+          <p className="text-xs text-mid">Recurring themes the system has identified across your writing.</p>
+        </div>
+
+        <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-8 shadow-xs flex flex-col items-center gap-4 text-center">
+          <div className="w-14 h-14 rounded-full bg-[#8DBFB4]/10 flex items-center justify-center">
+            <Sparkles size={24} className="text-[#8DBFB4]" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-bold text-primary">The Pattern Engine is reading your history</h3>
+            <p className="text-xs text-[#4A6A64] max-w-[320px] mx-auto leading-relaxed">
+              We're scanning your past cycles and compiling your pattern timeline for the first time. This usually takes less than a minute.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-[#8DBFB4] font-medium">
+            <Loader2 size={13} className="animate-spin" />
+            <span>Processing{dots}</span>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/** Empty state for brand-new users with no cycles */
+function NewUserEmptyScreen() {
+  return (
+    <div className="min-h-screen bg-mint-grey text-primary font-sans pb-20">
+      <DashboardNavbar activeTab="patterns" />
+      <main className="max-w-[680px] mx-auto px-6 pt-6 space-y-4">
+        <button
+          onClick={() => window.navigateTo('/dashboard')}
+          className="flex items-center gap-2 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors cursor-pointer border-none bg-transparent"
+        >
+          <ArrowLeft size={14} /> Back to dashboard
+        </button>
+        <div>
+          <h1 className="font-serif text-[22px] text-primary mb-0.5 font-normal">Patterns</h1>
+          <p className="text-xs text-mid">Recurring themes the system has identified across your writing. Not diagnoses — observations about what keeps showing up.</p>
+        </div>
+
+        <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-8 shadow-xs text-center space-y-3">
+          <div className="w-12 h-12 rounded-full bg-primary/5 flex items-center justify-center mx-auto text-[#8DBFB4]">
+            <Activity size={24} />
+          </div>
+          <h3 className="text-sm font-bold text-primary">No patterns established yet</h3>
+          <p className="text-xs text-[#4A6A64] max-w-[320px] mx-auto leading-relaxed">
+            The Pattern Engine watches how your writing evolves across cycles. Once your first cycle is completed, recurring emotional and behavioral themes will start surfacing here.
+          </p>
+          <button
+            onClick={() => window.navigateTo('/dashboard')}
+            className="mt-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/95 transition-all cursor-pointer border-none"
+          >
+            Start writing
+          </button>
+        </div>
+      </main>
+    </div>
+  );
+}
+
 export default function PatternsPage({ user, profile, onSignOut }) {
   const [viewState, setViewState] = useState('list'); // 'list' | 'detail'
   const [overview, setOverview] = useState(null);
+  const [userState, setUserState] = useState(null); // null = not yet loaded
   const [activePatternDetail, setActivePatternDetail] = useState(null);
   const [activePatternId, setActivePatternId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [expandedCycles, setExpandedCycles] = useState({});
 
+  const pollingRef = useRef(null);
+  const backfillTriggeredRef = useRef(false);
+
+  /** Trigger backfill API call for first-time users. */
+  const triggerBackfill = useCallback(async () => {
+    if (backfillTriggeredRef.current) return;
+    backfillTriggeredRef.current = true;
+    try {
+      console.log('[PatternsPage] Triggering backfill for new user…');
+      await fetch('/api/patterns/backfill', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` }
+      });
+    } catch (err) {
+      console.warn('[PatternsPage] Backfill trigger failed:', err);
+    }
+  }, []);
+
+  /** Poll /api/patterns/status until state transitions to 'active'. */
+  const startPolling = useCallback(() => {
+    if (pollingRef.current) return; // already polling
+    pollingRef.current = setInterval(async () => {
+      try {
+        const status = await DashboardService.fetchPatternStatus();
+        if (status.state === 'active') {
+          // Backfill done — stop polling and reload full overview
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+          const data = await DashboardService.fetchPatternOverview();
+          setOverview(data);
+          setUserState({ state: 'active' });
+        } else {
+          setUserState(prev => ({ ...prev, state: status.state }));
+        }
+      } catch (err) {
+        console.warn('[PatternsPage] Polling error:', err);
+      }
+    }, 4000);
+  }, []);
+
+  /** Stop polling on unmount */
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
+
+  /** Initial data load */
   useEffect(() => {
     async function loadPatterns() {
       try {
         const data = await DashboardService.fetchPatternOverview();
         setOverview(data);
+
+        const state = data.userState?.state ?? 'active';
+        setUserState(data.userState ?? { state: 'active' });
+
+        if (state === 'new_user') {
+          // Trigger backfill, then immediately show processing screen + poll
+          await triggerBackfill();
+          setUserState({ state: 'backfill_pending' });
+          startPolling();
+        } else if (state === 'backfill_pending') {
+          startPolling();
+        }
       } catch (err) {
         console.error('[PatternsPage] Error fetching patterns overview:', err);
+        setUserState({ state: 'active' }); // fall-through: show whatever we have
       } finally {
         setLoading(false);
       }
     }
     loadPatterns();
-  }, []);
+  }, [triggerBackfill, startPolling]);
 
   const handleOpenPattern = async (id) => {
     setActivePatternId(id);
@@ -88,13 +231,13 @@ export default function PatternsPage({ user, profile, onSignOut }) {
   const jumpToCycleCard = (cycleNumber) => {
     if (!activePatternDetail) return;
     const cycleIdx = activePatternDetail.timeline.length - cycleNumber;
-    
+
     // Open target cycle card
     setExpandedCycles(prev => ({
       ...prev,
       [cycleIdx]: true
     }));
-    
+
     // Smooth scroll down to card
     setTimeout(() => {
       const element = document.getElementById(`cycle-card-${cycleIdx}`);
@@ -104,6 +247,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
     }, 100);
   };
 
+  // --- Loading skeleton ---
   if (loading) {
     return (
       <div className="min-h-screen bg-mint-grey text-primary font-sans pb-20">
@@ -124,42 +268,17 @@ export default function PatternsPage({ user, profile, onSignOut }) {
     );
   }
 
+  // --- State-based branching ---
+  const currentState = userState?.state ?? 'active';
+
+  if (currentState === 'backfill_pending') {
+    return <BackfillProcessingScreen />;
+  }
+
   const hasPatterns = overview?.isAvailable && overview?.patterns && overview.patterns.length > 0;
 
-  if (!hasPatterns) {
-    return (
-      <div className="min-h-screen bg-mint-grey text-primary font-sans pb-20">
-        <DashboardNavbar activeTab="patterns" />
-        <main className="max-w-[680px] mx-auto px-6 pt-6 space-y-4">
-          <button 
-            onClick={() => window.navigateTo('/dashboard')}
-            className="flex items-center gap-2 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors cursor-pointer border-none bg-transparent"
-          >
-            <ArrowLeft size={14} /> Back to dashboard
-          </button>
-          <div>
-            <h1 className="font-serif text-[22px] text-primary mb-0.5 font-normal">Patterns</h1>
-            <p className="text-xs text-mid">Recurring themes the system has identified across your writing. Not diagnoses — observations about what keeps showing up.</p>
-          </div>
-          
-          <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-8 shadow-xs text-center space-y-3">
-            <div className="w-12 h-12 rounded-full bg-primary/5 flex items-center justify-center mx-auto text-[#8DBFB4]">
-              <Activity size={24} />
-            </div>
-            <h3 className="text-sm font-bold text-primary">No patterns established yet</h3>
-            <p className="text-xs text-[#4A6A64] max-w-[320px] mx-auto leading-relaxed">
-              The Pattern Engine watches how your writing evolves across cycles. Once your first cycle is completed, recurring emotional and behavioral themes will start surfacing here.
-            </p>
-            <button 
-              onClick={() => window.navigateTo('/dashboard')}
-              className="mt-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/95 transition-all cursor-pointer border-none"
-            >
-              Start writing
-            </button>
-          </div>
-        </main>
-      </div>
-    );
+  if (currentState === 'new_user' || !hasPatterns) {
+    return <NewUserEmptyScreen />;
   }
 
   // Group patterns for display
@@ -174,7 +293,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
       <main className="max-w-[680px] mx-auto px-6 pt-6">
         {viewState === 'list' && (
           <div className="space-y-4">
-            <button 
+            <button
               onClick={() => window.navigateTo('/dashboard')}
               className="flex items-center gap-2 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors cursor-pointer border-none bg-transparent"
             >
@@ -216,7 +335,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                   {presentPatterns.map(p => {
                     const badge = getStatusBadge(p.status);
                     return (
-                      <div 
+                      <div
                         key={p.id}
                         onClick={() => handleOpenPattern(p.id)}
                         className="bg-white border border-[#1E2A2E]/8 rounded-xl p-4 cursor-pointer hover:shadow-md hover:border-[#1E2A2E]/15 transition-all relative overflow-hidden pl-5 group"
@@ -229,7 +348,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                           </span>
                         </div>
                         <p className="text-[12px] text-[#4A6A64] leading-relaxed mb-3">{p.body}</p>
-                        
+
                         {/* Timeline preview */}
                         <div className="space-y-1 mb-2.5">
                           <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across {p.timeline.length} cycles</div>
@@ -261,7 +380,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                   {shiftingPatterns.map(p => {
                     const badge = getStatusBadge(p.status);
                     return (
-                      <div 
+                      <div
                         key={p.id}
                         onClick={() => handleOpenPattern(p.id)}
                         className="bg-white border border-[#1E2A2E]/8 rounded-xl p-4 cursor-pointer hover:shadow-md hover:border-[#1E2A2E]/15 transition-all relative overflow-hidden pl-5 group"
@@ -274,7 +393,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                           </span>
                         </div>
                         <p className="text-[12px] text-[#4A6A64] leading-relaxed mb-3">{p.body}</p>
-                        
+
                         {/* Timeline preview */}
                         <div className="space-y-1 mb-2.5">
                           <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across {p.timeline.length} cycles</div>
@@ -306,7 +425,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                   {quietPatterns.map(p => {
                     const badge = getStatusBadge(p.status);
                     return (
-                      <div 
+                      <div
                         key={p.id}
                         onClick={() => handleOpenPattern(p.id)}
                         className="bg-white border border-[#1E2A2E]/8 rounded-xl p-4 cursor-pointer hover:shadow-md hover:border-[#1E2A2E]/15 transition-all relative overflow-hidden pl-5 group opacity-85"
@@ -319,7 +438,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                           </span>
                         </div>
                         <p className="text-[12px] text-[#4A6A64] leading-relaxed mb-3">{p.body}</p>
-                        
+
                         {/* Timeline preview */}
                         <div className="space-y-1 mb-2.5">
                           <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across {p.timeline.length} cycles</div>
@@ -351,7 +470,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
         {/* Pattern Detail Screen */}
         {viewState === 'detail' && activePatternId && (
           <div className="space-y-4 max-w-[620px] mx-auto page-fade-enter-active">
-            <button 
+            <button
               onClick={() => setViewState('list')}
               className="flex items-center gap-2 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors cursor-pointer border-none bg-transparent"
             >
@@ -402,7 +521,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                       </p>
                       <div className="flex gap-2 flex-wrap pt-0.5">
                         {activePatternDetail.connectedLinks.map(link => (
-                          <button 
+                          <button
                             key={link.id}
                             onClick={() => handleOpenPattern(link.id)}
                             className="px-2.5 py-0.5 rounded-full bg-[#B8A8D4]/10 text-[#5A4A8A] border border-[#B8A8D4]/20 text-[10.5px] font-semibold hover:bg-[#B8A8D4]/20 transition-all cursor-pointer"
@@ -426,8 +545,8 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                         const isCardEmpty = activePatternDetail.cycleData[item.n]?.entries.length === 0 &&
                           activePatternDetail.cycleData[item.n]?.obs.includes('Not present');
                         return (
-                          <div 
-                            key={idx} 
+                          <div
+                            key={idx}
                             onClick={() => !isCardEmpty && jumpToCycleCard(item.n)}
                             className={`flex flex-col items-center w-[48px] relative ${isCardEmpty ? 'opacity-35 cursor-not-allowed' : 'cursor-pointer group'}`}
                           >
@@ -478,12 +597,12 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                         const isExpanded = !!expandedCycles[idx];
 
                         return (
-                          <div 
+                          <div
                             key={idx}
                             id={`cycle-card-${idx}`}
                             className={`bg-white border border-[#1E2A2E]/8 rounded-xl overflow-hidden transition-all shadow-xs ${isAbsent ? 'opacity-55' : ''}`}
                           >
-                            <div 
+                            <div
                               onClick={() => !isAbsent && toggleCycleCard(idx)}
                               className={`flex items-center justify-between p-3.5 transition-colors ${isAbsent ? 'cursor-default' : 'cursor-pointer hover:bg-[#F5F8F8]'}`}
                             >
@@ -508,7 +627,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                                 <div className="text-[12.5px] text-mid leading-relaxed italic">
                                   "{cd.obs}"
                                 </div>
-                                
+
                                 {cd.entries && cd.entries.length > 0 && (
                                   <div className="space-y-2.5 border-t border-[#1E2A2E]/5 pt-3">
                                     <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">From the entries</div>

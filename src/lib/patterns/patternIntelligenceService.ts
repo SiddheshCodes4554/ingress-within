@@ -57,6 +57,15 @@ export interface PatternOverview {
   isAvailable: boolean;
 }
 
+export type PatternUserStateType = 'new_user' | 'backfill_pending' | 'active';
+
+export interface PatternUserState {
+  state: PatternUserStateType;
+  reason: string;
+  hasSnapshots: boolean;
+  backfillCompleted: boolean;
+}
+
 // In-memory cache for connected patterns
 const connectedPatternsCache = new Map<string, { data: ConnectedPattern[]; expires: number }>();
 const CACHE_TTL_MS = 60 * 1000; // 1 minute
@@ -79,6 +88,122 @@ export class PatternIntelligenceService {
    * Retrieves overview data of all patterns.
    * Pure read-only. NEVER calls AI. NEVER writes.
    */
+  /**
+   * Determines what user state the Pattern Engine should present.
+   * Returns 'new_user', 'backfill_pending', or 'active'.
+   * This is the single authoritative decision point for user state routing.
+   */
+  public static async determinePatternUserState(userId: string): Promise<PatternUserState> {
+    // 1. Check if snapshots already exist — most common fast path.
+    let snapshotCount = 0;
+    try {
+      const { count, error: snapErr } = await supabase
+        .from('pattern_snapshots')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId);
+
+      if (snapErr) {
+        if (snapErr.code === 'PGRST205' || snapErr.message?.includes('pattern_snapshots')) {
+          // Table doesn't exist — treat as no snapshots but don't crash.
+          snapshotCount = 0;
+        } else {
+          throw snapErr;
+        }
+      } else {
+        snapshotCount = count || 0;
+      }
+    } catch (err: any) {
+      if (err.code === 'PGRST205' || err.message?.includes('pattern_snapshots')) {
+        snapshotCount = 0;
+      } else {
+        throw err;
+      }
+    }
+
+    if (snapshotCount > 0) {
+      return {
+        state: 'active',
+        reason: 'Pattern snapshots exist.',
+        hasSnapshots: true,
+        backfillCompleted: true
+      };
+    }
+
+    // 2. Check the idempotency flag on the user's profile.
+    let backfillCompleted = false;
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('pattern_backfill_completed')
+        .eq('id', userId)
+        .maybeSingle();
+
+      backfillCompleted = profile?.pattern_backfill_completed === true;
+    } catch {
+      // If profiles table doesn't have the column yet, treat as false.
+      backfillCompleted = false;
+    }
+
+    // 3. If backfill already ran but produced no snapshots (e.g., truly no valid entries),
+    //    treat as active (empty) so we never re-trigger.
+    if (backfillCompleted) {
+      return {
+        state: 'active',
+        reason: 'Backfill already completed. No snapshots generated (insufficient data).',
+        hasSnapshots: false,
+        backfillCompleted: true
+      };
+    }
+
+    // 4. Check for historical evidence to decide between backfill_pending vs new_user.
+    //    Evidence = at least one completed weekly report OR ≥5 journal entries.
+    let hasEvidence = false;
+    try {
+      // Check weekly reports first (strongest signal for "existing user").
+      const { count: reportCount } = await supabase
+        .from('weekly_summaries')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('status', 'ready');
+
+      if (reportCount && reportCount > 0) {
+        hasEvidence = true;
+      } else {
+        // Fall back: check raw entry count.
+        const { count: entryCount } = await supabase
+          .from('entries')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .neq('entry_type', 'empty');
+
+        hasEvidence = (entryCount || 0) >= 5;
+      }
+    } catch {
+      hasEvidence = false;
+    }
+
+    if (hasEvidence) {
+      return {
+        state: 'backfill_pending',
+        reason: 'Historical writing found. Backfill has not been run yet.',
+        hasSnapshots: false,
+        backfillCompleted: false
+      };
+    }
+
+    return {
+      state: 'new_user',
+      reason: 'No completed weekly reports or sufficient entries found.',
+      hasSnapshots: false,
+      backfillCompleted: false
+    };
+  }
+
+  /**
+   * Retrieves overview data of all patterns.
+   * Pure read-only. NEVER calls AI. NEVER writes. NEVER triggers backfill.
+   * State routing must be handled by the caller using determinePatternUserState().
+   */
   public static async getPatternOverview(userId: string): Promise<PatternOverview> {
     // 1. Fetch all snapshots for the user ordered by cycle_number ascending
     let snapshots: any[] = [];
@@ -91,8 +216,8 @@ export class PatternIntelligenceService {
 
       if (snapshotsErr) {
         if (snapshotsErr.code === 'PGRST205' || snapshotsErr.message?.includes('pattern_snapshots')) {
-          console.warn('[PatternIntelligenceService] Table "pattern_snapshots" does not exist in schema. Falling back to mock overview.');
-          return this.getMockPatternOverview();
+          console.warn('[PatternIntelligenceService] Table "pattern_snapshots" does not exist in schema. Returning empty overview.');
+          return this.getEmptyOverview();
         }
         console.error('[PatternIntelligenceService] Error fetching snapshots:', snapshotsErr.message);
         throw snapshotsErr;
@@ -100,88 +225,14 @@ export class PatternIntelligenceService {
       snapshots = data || [];
     } catch (err: any) {
       if (err.code === 'PGRST205' || err.message?.includes('pattern_snapshots')) {
-        console.warn('[PatternIntelligenceService] Table "pattern_snapshots" does not exist in schema. Falling back to mock overview.');
-        return this.getMockPatternOverview();
+        console.warn('[PatternIntelligenceService] Table "pattern_snapshots" does not exist in schema. Returning empty overview.');
+        return this.getEmptyOverview();
       }
       throw err;
     }
 
     if (!snapshots || snapshots.length === 0) {
-      // Auto-trigger backfill if user has entries in database
-      try {
-        const { data: entries } = await supabase
-          .from('entries')
-          .select('id')
-          .eq('user_id', userId)
-          .limit(1);
-
-        if (entries && entries.length > 0) {
-          console.log(`[PatternIntelligenceService] Auto-triggering backfill for user ${userId} on overview request.`);
-          const { backfillPatterns } = await import('./patternBackfill');
-          const backfillResult = await backfillPatterns(userId);
-          console.log(`[PatternIntelligenceService] Auto-backfill completed:`, backfillResult);
-
-          // Re-fetch snapshots
-          const { data: refetched, error: refetchErr } = await supabase
-            .from('pattern_snapshots')
-            .select('*')
-            .eq('user_id', userId)
-            .order('cycle_number', { ascending: true });
-
-          if (!refetchErr && refetched && refetched.length > 0) {
-            snapshots = refetched;
-          }
-        }
-      } catch (backfillErr: any) {
-        console.error(`[PatternIntelligenceService] Failed auto-backfill on overview:`, backfillErr.message);
-      }
-    } else {
-      // Check if there are new entries since the latest snapshot to update it
-      const latestSnapshot = snapshots[snapshots.length - 1];
-      if (latestSnapshot.snapshot_status === 'active') {
-        const lastUpdated = latestSnapshot.updated_at || latestSnapshot.generated_at;
-        try {
-          const { count, error: countErr } = await supabase
-            .from('entries')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .gt('created_at', lastUpdated);
-
-          if (!countErr && count && count > 0) {
-            console.log(`[PatternIntelligenceService] Auto-refreshing active snapshot for user ${userId}. New entries detected: ${count}`);
-            await this.generatePatternSnapshot(userId, latestSnapshot.cycle_id);
-
-            // Re-fetch snapshots
-            const { data: refetched } = await supabase
-              .from('pattern_snapshots')
-              .select('*')
-              .eq('user_id', userId)
-              .order('cycle_number', { ascending: true });
-
-            if (refetched && refetched.length > 0) {
-              snapshots = refetched;
-            }
-          }
-        } catch (refreshErr: any) {
-          console.error(`[PatternIntelligenceService] Failed auto-refresh:`, refreshErr.message);
-        }
-      }
-    }
-
-    if (!snapshots || snapshots.length === 0) {
-      return {
-        patterns: [],
-        summary: {
-          sentence: "The Pattern Engine will begin observing your themes once your first cycle is underway.",
-          present: 0,
-          shifting: 0,
-          quiet: 0,
-          new: 0,
-          returned: 0
-        },
-        totalCyclesObserved: 0,
-        isAvailable: false
-      };
+      return this.getEmptyOverview();
     }
 
     const latestSnapshot = snapshots[snapshots.length - 1];
@@ -849,10 +900,31 @@ export class PatternIntelligenceService {
     return transitions;
   }
 
+
   /**
-   * Helper mock pattern overview.
+   * Returns a canonical empty overview for users with no snapshots.
+   */
+  private static getEmptyOverview(): PatternOverview {
+    return {
+      patterns: [],
+      summary: {
+        sentence: 'The Pattern Engine will begin observing your themes once your first cycle is underway.',
+        present: 0,
+        shifting: 0,
+        quiet: 0,
+        new: 0,
+        returned: 0
+      },
+      totalCyclesObserved: 0,
+      isAvailable: false
+    };
+  }
+
+  /**
+   * Helper mock pattern overview (kept for development/testing purposes only).
    */
   private static getMockPatternOverview(): PatternOverview {
+
     return {
       patterns: [
         {
