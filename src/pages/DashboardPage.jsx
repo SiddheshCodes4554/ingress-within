@@ -21,7 +21,8 @@ import {
   PenLine,
   AlertCircle,
   ChevronDown,
-  MessageSquare
+  MessageSquare,
+  Loader2
 } from 'lucide-react';
 import { DashboardService } from '../services/dashboardService';
 import DashboardNavbar from '../components/DashboardNavbar';
@@ -50,6 +51,7 @@ export default function DashboardPage({ user, profile, onSignOut }) {
   const [threadsList, setThreadsList] = useState([]);
   const [vocabStats, setVocabStats] = useState(null);
   const [weeklyReports, setWeeklyReports] = useState([]);
+  const [patternsOverview, setPatternsOverview] = useState(null);
 
   // Reflection response states
   const [reflectionModalOpen, setReflectionModalOpen] = useState(false);
@@ -84,11 +86,12 @@ export default function DashboardPage({ user, profile, onSignOut }) {
     setIsLoading(true);
     setError(null);
     try {
-      const [result, vStats, cycles, reports] = await Promise.all([
+      const [result, vStats, cycles, reports, patterns] = await Promise.all([
         DashboardService.fetchDashboardData(),
         DashboardService.fetchVocabOverview().catch(() => null),
         DashboardService.fetchCyclesList().catch(() => []),
-        DashboardService.fetchWeeklyReports().catch(() => [])
+        DashboardService.fetchWeeklyReports().catch(() => []),
+        DashboardService.fetchPatternOverview().catch(() => null)
       ]);
 
       setData(result);
@@ -96,6 +99,7 @@ export default function DashboardPage({ user, profile, onSignOut }) {
       setThreadsList(result?.threads || []);
       setVocabStats(vStats);
       setWeeklyReports(reports);
+      setPatternsOverview(patterns);
 
       // Check for unanswered reflection on the most recent entry
       if (result && result.entries && result.entries.length > 0) {
@@ -201,6 +205,10 @@ export default function DashboardPage({ user, profile, onSignOut }) {
       setWeeklyReports(freshReports || []);
     });
 
+    const unsubPatterns = DashboardService.subscribe('patterns_overview', (freshPatterns) => {
+      setPatternsOverview(freshPatterns);
+    });
+
     return () => {
       unsubDashboard();
       unsubVocab();
@@ -209,6 +217,7 @@ export default function DashboardPage({ user, profile, onSignOut }) {
       unsubThreads();
       unsubCyclesList();
       unsubWeeklyReports();
+      unsubPatterns();
     };
   }, []);
 
@@ -1143,14 +1152,39 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                 <ChevronRight size={13} className="text-light-mid group-hover:translate-x-0.5 transition-transform" />
               </div>
               <div className="space-y-2 pt-0.5">
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
-                  <div className="text-[12px] font-medium text-primary truncate">Saying "fine"</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-secondary shrink-0" />
-                  <div className="text-[12px] font-medium text-primary truncate">Avoidance</div>
-                </div>
+                {(() => {
+                  const isBackfilling = patternsOverview?.userState?.state === 'backfill_pending';
+                  const activePatterns = patternsOverview?.patterns?.filter(p => p.status === 'present' || p.status === 'new' || p.status === 'shifting' || p.status === 'returned') || [];
+                  const activeToShow = activePatterns.slice(0, 3);
+
+                  const getDotColor = (status) => {
+                    if (status === 'shifting') return 'bg-[#8DBFB4]';
+                    if (status === 'new') return 'bg-[#B8A8D4]';
+                    return 'bg-[#E0A898]'; // present / returned
+                  };
+
+                  if (isBackfilling) {
+                    return (
+                      <div className="flex items-center gap-2 text-xs text-[#8DBFB4] font-medium py-1">
+                        <Loader2 size={13} className="animate-spin shrink-0" />
+                        <span>Analyzing writing patterns...</span>
+                      </div>
+                    );
+                  }
+
+                  if (activeToShow.length > 0) {
+                    return activeToShow.map((p, idx) => (
+                      <div key={p.id || idx} className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${getDotColor(p.status)}`} />
+                        <div className="text-[12px] font-medium text-primary truncate">{p.name}</div>
+                      </div>
+                    ));
+                  }
+
+                  return (
+                    <div className="text-[11px] text-[#4A6A64] italic">No active patterns established.</div>
+                  );
+                })()}
               </div>
             </div>
 

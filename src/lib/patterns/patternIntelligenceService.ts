@@ -911,8 +911,8 @@ INSTRUCTIONS:
    Good Examples: Avoidance, Self-pressure, Overthinking, Seeking reassurance, Work identity, Perfectionism, Fear of disappointing others, Emotional exhaustion, Difficulty asking for help, Need for control, Boundary building.
 4. For each pattern, you must:
    - Provide a concise name under "pattern_name".
-   - Under "summary", summarize the evidence for this week (e.g. how it manifested, citing actual themes/behaviors from the week).
-   - Under "why_it_matters", write a 1-2 sentence therapeutic orientation/context.
+   - Under "summary", summarize the evidence for this week (e.g. how it manifested, citing actual themes/behaviors from the week). ALWAYS write in the first-person ("I", "my") or address the user directly ("you", "your"). NEVER use third-person terms like "the user", "the writer", "he/she", or "they".
+   - Under "why_it_matters", write a 1-2 sentence therapeutic orientation/context. ALWAYS write in the first-person ("I", "my") or address the user directly ("you", "your"). NEVER use third-person terms like "the user", "the writer", or "they".
    - Under "confidence", provide a confidence score between 0.0 and 1.0.
    - Under "evidence_score", provide a score between 1.0 and 10.0 representing the intensity or frequency of the pattern.
    - Under "supporting_vocabulary", list vocabulary words/phrases from the VOCABULARY DETECTED list that evidence this pattern.
