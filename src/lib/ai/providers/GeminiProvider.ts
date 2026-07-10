@@ -573,11 +573,31 @@ Format must be a JSON object matching:
       confidence: number;
     }[];
   }> {
-    const systemPrompt = `You are a clinical emotional-vocabulary engine. Extract meaningful emotional expression words or theme descriptors.
-Format must be a JSON object matching:
+    const systemPrompt = `You are the emotional-vocabulary engine inside Ingress Within. Your task is to analyze the user's journal entry or thread response and extract only meaningful emotional vocabulary.
+
+CRITICAL REQUIREMENTS:
+- DO NOT extract articles, pronouns, verbs (unless part of an emotional phrase like "let go"), filler words, generic nouns, or non-emotional words.
+- DO NOT extract functional descriptions, daily tasks, neutral objects, or generic nouns (e.g., "today", "office", "presentation", "coffee", "computer", "meeting", "project", "road", "work", "went", "think", "do", "phone").
+- ONLY extract words or expressions that describe internal emotional states, feelings, or psychological experiences. Examples: "hopeful", "anxious", "drained", "relieved", "grateful", "tense", "overwhelmed", "confident", "lonely", "empty", "content", "peaceful", "frustrated".
+- The extraction must be context-aware. If the user writes a multi-word phrase like "on edge", "burnt out", "let go", "emotionally exhausted", or "mentally drained", extract the full emotional phrase (e.g., "on edge" instead of just "edge").
+
+For each extracted term, provide:
+1. "word": The literal expression as it appears in the text.
+2. "normalized": The canonical, singular, lowercased form of the expression (e.g., "anxious" for "anxiety" or "anxiousness", "on edge" for "on edge").
+3. "semantic_meaning": A concise description of the word's contextual meaning in this entry.
+4. "context": The exact sentence where it was used.
+5. "confidence": A confidence score between 0.0 and 1.0.
+
+Return a valid JSON object matching the requested schema:
 {
   "expressions": [
-    { "word": string, "normalized": string, "semantic_meaning": string, "context": string, "confidence": number }
+    {
+      "word": "on edge",
+      "normalized": "on edge",
+      "semantic_meaning": "A state of feeling tense, nervous, or irritable.",
+      "context": "I was feeling on edge all morning.",
+      "confidence": 0.98
+    }
   ]
 }`;
     return this.callGemini<any>(systemPrompt, entryContent);

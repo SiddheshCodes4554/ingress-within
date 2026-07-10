@@ -74,10 +74,29 @@ export async function rebuildUserVocabulary(
       await processVocabularyExtraction({ thread_response_id: respId, user_id, bypass_ai });
     }
 
-    // 8. Trigger calculation of final snapshots for completed cycles and overview for active cycle
-    console.log(`[Vocab Rebuild] Precomputing snapshots and caching clusters via Intelligence Layer...`);
-    await VocabularyIntelligenceService.getVocabularyByCycle(user_id);
-    await VocabularyIntelligenceService.getVocabularyOverview(user_id);
+    // 8. Precompute snapshots sequentially for all cycles
+    console.log(`[Vocab Rebuild] Precomputing snapshots for all cycles...`);
+    const { compileAndCacheCycleSnapshot } = await import('../queue/workers/vocabWorker');
+    const { data: userCycles } = await supabase
+      .from('cycles')
+      .select('id')
+      .eq('user_id', user_id);
+
+    if (userCycles) {
+      for (const cy of userCycles) {
+        await compileAndCacheCycleSnapshot(user_id, cy.id);
+      }
+    }
+
+    // Set backfill Completed indicator snapshot
+    await supabase
+      .from('vocab_snapshots')
+      .upsert({
+        user_id,
+        cycle_id: '11111111-1111-1111-1111-111111111111',
+        snapshot_data: { vocab_backfill_completed: true, completed_at: new Date().toISOString() },
+        generated_at: new Date().toISOString()
+      }, { onConflict: 'user_id,cycle_id' });
 
     // 9. Count results
     const { count: wordsCount } = await supabase
