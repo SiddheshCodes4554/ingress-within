@@ -19,7 +19,9 @@ import {
   Info,
   Calendar,
   CheckCircle,
-  FileText
+  FileText,
+  User,
+  Heart
 } from 'lucide-react';
 import DashboardNavbar from '../components/DashboardNavbar';
 
@@ -46,7 +48,6 @@ const CATEGORY_LABELS = {
   communication: 'Communication Style'
 };
 
-// Full built-in emotional dictionary for fallback/full listing (SECTION 2 / SECTION 6)
 const DICTIONARY_FAMILIES = [
   {
     name: "Sadness",
@@ -209,14 +210,21 @@ export default function KnowledgeBankPage({ user, profile: authProfile, onSignOu
   const [snapshots, setSnapshots] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Reframe banner indices
+  // Reframe banner index
   const [reframeIndex, setReframeIndex] = useState(0);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+  const [dbSearchResults, setDbSearchResults] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // Selected Detail Drawer state
   const [selectedDetail, setSelectedDetail] = useState(null); // { type: 'card' | 'word' | 'pattern', data: any }
+  const [resolvedEvidence, setResolvedEvidence] = useState(null);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
+
+  // Developer Audit Mode
+  const [auditMode, setAuditMode] = useState(false);
 
   // Dictionary state
   const [expandedFamilies, setExpandedFamilies] = useState({});
@@ -245,6 +253,65 @@ export default function KnowledgeBankPage({ user, profile: authProfile, onSignOu
     loadAllData();
   }, []);
 
+  // Database Search Debounce & Fetch
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setDbSearchResults(null);
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const res = await fetch(`/api/knowledge/search?q=${encodeURIComponent(searchQuery)}`);
+        const data = await res.json();
+        if (data.success) {
+          setDbSearchResults(data.results);
+        }
+      } catch (err) {
+        console.error('Failed to run database search:', err);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+  // Evidence Excerpt Resolver for active Card
+  useEffect(() => {
+    if (!selectedDetail || selectedDetail.type !== 'card') {
+      setResolvedEvidence(null);
+      return;
+    }
+
+    const card = selectedDetail.data;
+    const entries = card.supporting_entries?.join(',') || '';
+    const reports = card.supporting_reports?.join(',') || '';
+
+    if (!entries && !reports) {
+      setResolvedEvidence({ journals: [], reports: [] });
+      return;
+    }
+
+    async function fetchEvidence() {
+      setEvidenceLoading(true);
+      try {
+        const res = await fetch(`/api/knowledge/evidence?entries=${entries}&reports=${reports}`);
+        const data = await res.json();
+        if (data.success) {
+          setResolvedEvidence(data.evidence);
+        }
+      } catch (err) {
+        console.error('Failed to fetch evidence details:', err);
+      } finally {
+        setEvidenceLoading(false);
+      }
+    }
+
+    fetchEvidence();
+  }, [selectedDetail]);
+
   // Filter profile dimensions with Medium or High confidence (Overview section)
   const confidenceDimensions = useMemo(() => {
     if (!profile) return [];
@@ -267,45 +334,89 @@ export default function KnowledgeBankPage({ user, profile: authProfile, onSignOu
     }));
   }, [confidenceDimensions]);
 
-  // Instant Search Engine
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return null;
-    const query = searchQuery.toLowerCase();
-    
-    // Search cards
-    const matchedCards = cards.filter(c => 
-      c.title.toLowerCase().includes(query) || 
-      c.body.toLowerCase().includes(query) || 
-      c.card_type.toLowerCase().includes(query)
-    );
-
-    // Search relationships
-    const matchedRels = relationships.filter(r => 
-      r.source_node.toLowerCase().includes(query) || 
-      r.target_node.toLowerCase().includes(query) || 
-      r.relationship_type.toLowerCase().includes(query)
-    );
-
-    // Search dictionary words
-    const matchedDict = Object.keys(DICTIONARY_EMOTIONS)
-      .filter(name => name.toLowerCase().includes(query) || DICTIONARY_EMOTIONS[name].aka.includes(query))
-      .map(name => ({ name, ...DICTIONARY_EMOTIONS[name] }));
-
-    return {
-      cards: matchedCards,
-      relationships: matchedRels,
-      words: matchedDict
-    };
-  }, [searchQuery, cards, relationships]);
+  // Filter relationships to only show High/Medium confidence user-facing
+  const visibleRelationships = useMemo(() => {
+    return relationships.filter(r => r.confidence === 'High' || r.confidence === 'Medium');
+  }, [relationships]);
 
   // Format cycle snapshots for Patterns list
   const activePatterns = useMemo(() => {
     if (!profile || !profile.pattern_model) return [];
-    // Extract nodes from pattern model referenced_nodes
     return profile.pattern_model.referenced_nodes || [];
   }, [profile]);
 
-  // Renders the progressive loading screen
+  // Graph-based Card Connections Traversal
+  const relatedCards = useMemo(() => {
+    if (!selectedDetail || selectedDetail.type !== 'card') return [];
+    const card = selectedDetail.data;
+    const refs = card.referenced_nodes || [];
+    if (refs.length === 0) return [];
+
+    const neighbors = new Set();
+    relationships.forEach(r => {
+      const src = r.source_node.toLowerCase();
+      const tgt = r.target_node.toLowerCase();
+      refs.forEach(ref => {
+        const lowerRef = ref.toLowerCase();
+        if (src === lowerRef) {
+          neighbors.add(tgt);
+        } else if (tgt === lowerRef) {
+          neighbors.add(src);
+        }
+      });
+    });
+
+    return cards.filter(c => {
+      if (c.id === card.id) return false;
+      const cRefs = c.referenced_nodes || [];
+      return cRefs.some(cr => neighbors.has(cr.toLowerCase()));
+    });
+  }, [selectedDetail, cards, relationships]);
+
+  // Knowledge Timeline Evolution Events Compiler
+  const timelineEvents = useMemo(() => {
+    if (snapshots.length === 0) return [];
+    const events = [];
+
+    snapshots.forEach((snap, idx) => {
+      const weekNum = snap.week_number;
+      const dateStr = new Date(snap.generated_at).toLocaleDateString();
+
+      // Look at profile model shifts across snapshots
+      const p = snap.snapshot;
+      if (p.vocabulary_model?.supporting_vocabulary?.length > 0) {
+        events.push({
+          week: weekNum,
+          date: dateStr,
+          type: 'vocabulary',
+          title: 'Vocabulary Expanded',
+          desc: `Your emotional grounding lexicon grew to include: ${p.vocabulary_model.supporting_vocabulary.slice(0, 3).join(', ')}.`
+        });
+      }
+      if (p.pattern_model?.referenced_nodes?.length > 0) {
+        events.push({
+          week: weekNum,
+          date: dateStr,
+          type: 'pattern',
+          title: 'Active Patterns Tracked',
+          desc: `Identified patterns in writing: ${p.pattern_model.referenced_nodes.slice(0, 2).join(' & ')}.`
+        });
+      }
+      if (p.growth_model?.summary) {
+        events.push({
+          week: weekNum,
+          date: dateStr,
+          type: 'growth',
+          title: 'Growth Indicators Logged',
+          desc: p.growth_model.summary
+        });
+      }
+    });
+
+    return events.reverse();
+  }, [snapshots]);
+
+  // Renders loading skeleton
   if (loading) {
     return (
       <div className="min-h-screen bg-[#ECEFF0] text-[#1E2A2E] font-sans pb-20">
@@ -369,33 +480,51 @@ export default function KnowledgeBankPage({ user, profile: authProfile, onSignOu
         <div className="max-w-[680px] mx-auto flex">
           <button 
             onClick={() => setActiveTab('explore')}
-            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 flex items-center justify-center gap-2 transition-all border-none bg-transparent cursor-pointer ${
+            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 border-none bg-transparent cursor-pointer ${
               activeTab === 'explore' ? 'text-[#1E2A2E] border-b-[#E0A898]' : 'text-[#4A6A64] hover:text-[#1E2A2E] border-b-transparent'
             }`}
           >
-            <Compass size={14} /> Explore
+            <Compass size={14} className="inline mr-1" /> Explore
           </button>
           <button 
             onClick={() => setActiveTab('patterns')}
-            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 flex items-center justify-center gap-2 transition-all border-none bg-transparent cursor-pointer ${
+            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 border-none bg-transparent cursor-pointer ${
               activeTab === 'patterns' ? 'text-[#1E2A2E] border-b-[#E0A898]' : 'text-[#4A6A64] hover:text-[#1E2A2E] border-b-transparent'
             }`}
           >
-            <TrendingUp size={14} /> Patterns
+            <TrendingUp size={14} className="inline mr-1" /> Patterns
           </button>
           <button 
             onClick={() => setActiveTab('trail')}
-            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 flex items-center justify-center gap-2 transition-all border-none bg-transparent cursor-pointer ${
+            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 border-none bg-transparent cursor-pointer ${
               activeTab === 'trail' ? 'text-[#1E2A2E] border-b-[#E0A898]' : 'text-[#4A6A64] hover:text-[#1E2A2E] border-b-transparent'
             }`}
           >
-            <Route size={14} /> Your Trail
+            <Route size={14} className="inline mr-1" /> Your Trail
           </button>
         </div>
       </div>
 
-      <main className="max-w-[680px] mx-auto px-6 pt-6">
+      <main className="max-w-[680px] mx-auto px-6 pt-6 space-y-6">
         
+        {/* Developer Audit Mode Toggle */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-[#1E2A2E]/5 border border-[#1E2A2E]/10 rounded-xl p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Info size={14} className="text-[#4A6A64]" />
+              <span className="text-xs font-semibold text-[#1E2A2E]">Developer Audit Mode</span>
+            </div>
+            <button 
+              onClick={() => setAuditMode(!auditMode)}
+              className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider cursor-pointer border ${
+                auditMode ? 'bg-[#8DBFB4] border-[#8DBFB4] text-white' : 'bg-white border-[#1E2A2E]/20 text-[#4A6A64]'
+              }`}
+            >
+              {auditMode ? 'Enabled' : 'Disabled'}
+            </button>
+          </div>
+        )}
+
         {/* ================= EXPLORE TAB ================= */}
         {activeTab === 'explore' && (
           <div className="space-y-6">
@@ -426,49 +555,54 @@ export default function KnowledgeBankPage({ user, profile: authProfile, onSignOu
             {/* Instant Search Bar */}
             <div className="space-y-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#8DBFB4] flex items-center gap-1.5">
-                <Search size={12} /> Find a starting word
+                <Search size={12} /> Search Knowledge
               </span>
               <div className="relative">
                 <input 
                   type="text" 
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder='Type your own word - e.g. "burnt out", "on edge", "lonely"...' 
+                  placeholder='Search keywords across cards, patterns, and journal quotes...' 
                   className="w-full bg-white border border-[#1E2A2E]/10 rounded-xl px-4 py-3 text-xs placeholder-[#4A6A64] focus:outline-none focus:border-[#8DBFB4] transition-colors"
                 />
+                {searchLoading && (
+                  <div className="absolute right-3 top-3.5">
+                    <Loader2 size={14} className="animate-spin text-[#8DBFB4]" />
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Render Search Results if query exists */}
-            {searchQuery.trim() !== '' && searchResults && (
-              <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-4 space-y-4">
-                <h3 className="text-xs font-bold text-[#1E2A2E] border-b pb-2">Search Results for "{searchQuery}"</h3>
+            {searchQuery.trim() !== '' && dbSearchResults && (
+              <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 space-y-4">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#8DBFB4] block">Search Results</span>
                 
-                {searchResults.cards.length === 0 && searchResults.relationships.length === 0 && searchResults.words.length === 0 && (
-                  <p className="text-xs text-[#4A6A64] italic">No exact matches found. Try spelling the concept differently.</p>
+                {dbSearchResults.cards.length === 0 && dbSearchResults.entries.length === 0 && dbSearchResults.threads.length === 0 && (
+                  <p className="text-xs text-[#4A6A64] italic">No matches found in your database records.</p>
                 )}
 
-                {searchResults.cards.map((c, i) => (
+                {dbSearchResults.cards.map((c, i) => (
                   <div 
                     key={i} 
                     onClick={() => setSelectedDetail({ type: 'card', data: c })}
                     className="p-3 bg-[#ECEFF0]/50 rounded-lg hover:bg-[#ECEFF0] cursor-pointer border border-[#1E2A2E]/5"
                   >
                     <span className="text-[9px] font-bold text-[#8DBFB4] uppercase block mb-1">{CATEGORY_LABELS[c.card_type]}</span>
-                    <h4 className="text-xs font-semibold text-[#1E2A2E]">{c.title}</h4>
+                    <h4 className="text-xs font-bold text-[#1E2A2E]">{c.title}</h4>
                     <p className="text-xs text-[#4A6A64] line-clamp-2 mt-1">{c.body}</p>
                   </div>
                 ))}
 
-                {searchResults.words.map((w, i) => (
+                {dbSearchResults.entries.map((e, i) => (
                   <div 
-                    key={i} 
-                    onClick={() => setSelectedDetail({ type: 'word', data: w })}
-                    className="p-3 bg-[#ECEFF0]/50 rounded-lg hover:bg-[#ECEFF0] cursor-pointer border border-[#1E2A2E]/5"
+                    key={i}
+                    onClick={() => window.navigateTo(`/entry/${e.id}`)}
+                    className="p-3 bg-[#ECEFF0]/50 rounded-lg hover:bg-[#ECEFF0] cursor-pointer border border-[#1E2A2E]/5 space-y-1"
                   >
-                    <span className="text-[9px] font-bold text-[#B8A8D4] uppercase block mb-1">Vocabulary Word</span>
-                    <h4 className="text-xs font-semibold text-[#1E2A2E]">{w.name}</h4>
-                    <p className="text-xs text-[#4A6A64] line-clamp-2 mt-1">{w.plain}</p>
+                    <span className="text-[9px] font-bold text-[#E0A898] uppercase block">Matching Journal Excerpt</span>
+                    <p className="text-xs text-[#1E2A2E] font-serif italic line-clamp-3">"{e.text}"</p>
+                    <span className="text-[9px] text-[#4A6A64] block">Written on Cycle Day {e.cycle_day}</span>
                   </div>
                 ))}
               </div>
@@ -486,7 +620,7 @@ export default function KnowledgeBankPage({ user, profile: authProfile, onSignOu
                     <div 
                       key={i}
                       onClick={() => setSelectedDetail({ type: 'card', data: card })}
-                      className={`bg-white border rounded-xl p-5 cursor-pointer hover:shadow-sm transition-all flex flex-col justify-between ${theme.border}`}
+                      className={`bg-white border rounded-xl p-5 cursor-pointer hover:shadow-xs transition-all flex flex-col justify-between ${theme.border}`}
                     >
                       <div className="space-y-2">
                         <span 
@@ -640,7 +774,7 @@ export default function KnowledgeBankPage({ user, profile: authProfile, onSignOu
                 </div>
 
                 <div className="space-y-3">
-                  {relationships.filter(r => r.source_type === 'Stress Trigger' || r.source_type === 'Situation').map((rel, idx) => (
+                  {visibleRelationships.filter(r => r.source_type === 'Stress Trigger' || r.source_type === 'Situation').map((rel, idx) => (
                     <div 
                       key={idx}
                       className="p-4 bg-white border border-[#1E2A2E]/10 rounded-xl space-y-2"
@@ -710,7 +844,7 @@ export default function KnowledgeBankPage({ user, profile: authProfile, onSignOu
             )}
 
             {/* Connected Knowledge Graph Visualization */}
-            {relationships.length > 0 && (
+            {visibleRelationships.length > 0 && (
               <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 space-y-4">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#8DBFB4] flex items-center gap-1.5">
                   <Layers size={12} /> Connected Knowledge Graph
@@ -718,7 +852,7 @@ export default function KnowledgeBankPage({ user, profile: authProfile, onSignOu
                 <p className="text-xs text-[#4A6A64]">Dynamic connections between triggers, behaviors, and emotional states.</p>
                 
                 <div className="space-y-3 pt-2">
-                  {relationships.slice(0, 5).map((rel, idx) => (
+                  {visibleRelationships.slice(0, 5).map((rel, idx) => (
                     <div key={idx} className="flex items-center gap-3">
                       <div className="flex-1 p-2 bg-[#ECEFF0] rounded-lg border border-[#1E2A2E]/5 text-center text-xs font-semibold text-[#1E2A2E] truncate">
                         {rel.source_node}
@@ -741,23 +875,19 @@ export default function KnowledgeBankPage({ user, profile: authProfile, onSignOu
               </div>
             )}
 
-            {/* Knowledge Growth Over Time */}
-            {snapshots.length > 0 && (
+            {/* Knowledge Timeline Section */}
+            {timelineEvents.length > 0 && (
               <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5 space-y-4">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#8DBFB4] flex items-center gap-1.5">
-                  <Calendar size={12} /> Knowledge Growth Timeline
+                  <Calendar size={12} /> Knowledge Timeline
                 </span>
                 <div className="border-l-2 border-[#8DBFB4]/30 pl-4 space-y-6 pt-2">
-                  {snapshots.map((snap, i) => (
+                  {timelineEvents.map((ev, i) => (
                     <div key={i} className="relative">
-                      <div className="absolute left-[-21px] top-1 w-2 h-2 rounded-full bg-[#8DBFB4] border-2 border-white" />
-                      <h4 className="text-xs font-bold text-[#1E2A2E]">Week {snap.week_number} Milestone</h4>
-                      <span className="text-[9px] text-[#4A6A64] block mb-1">
-                        Completed at {new Date(snap.generated_at).toLocaleDateString()}
-                      </span>
-                      <p className="text-xs text-[#4A6A64] leading-relaxed line-clamp-3">
-                        {snap.snapshot.identity_model?.summary || snap.snapshot.emotion_model?.summary || 'Stable timeline compiled.'}
-                      </p>
+                      <div className="absolute left-[-21px] top-1 w-2.5 h-2.5 rounded-full bg-[#8DBFB4] border-2 border-white" />
+                      <span className="text-[9px] text-[#4A6A64] block font-bold uppercase tracking-wider">Week {ev.week} · {ev.date}</span>
+                      <h4 className="text-xs font-bold text-[#1E2A2E]">{ev.title}</h4>
+                      <p className="text-xs text-[#4A6A64] leading-relaxed pt-0.5">{ev.desc}</p>
                     </div>
                   ))}
                 </div>
@@ -806,6 +936,19 @@ export default function KnowledgeBankPage({ user, profile: authProfile, onSignOu
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  
+                  {/* Developer Audit Overlay Panel */}
+                  {auditMode && (
+                    <div className="p-4 bg-[#FAECE7] border border-[#712B13]/10 rounded-xl space-y-2 text-[10px] text-[#712B13] font-mono leading-relaxed">
+                      <span className="font-bold text-xs uppercase block">Developer Audit</span>
+                      <div><strong>Confidence:</strong> {selectedDetail.data.confidence || 'N/A'}</div>
+                      <div><strong>Version:</strong> {selectedDetail.data.version || '2.0'}</div>
+                      <div><strong>Database ID:</strong> {selectedDetail.data.id || 'N/A'}</div>
+                      <div><strong>Supporting Entries:</strong> {JSON.stringify(selectedDetail.data.supporting_entries || [])}</div>
+                      <div><strong>Supporting Reports:</strong> {JSON.stringify(selectedDetail.data.supporting_reports || [])}</div>
+                    </div>
+                  )}
+
                   {selectedDetail.type === 'card' && (
                     <div className="space-y-6">
                       <div className="space-y-2">
@@ -823,15 +966,51 @@ export default function KnowledgeBankPage({ user, profile: authProfile, onSignOu
                         <p className="text-xs text-[#1E2A2E] leading-relaxed">{selectedDetail.data.body}</p>
                       </div>
 
-                      {/* Supporting Vocabulary */}
-                      {selectedDetail.data.supporting_vocabulary?.length > 0 && (
-                        <div className="space-y-2 pt-4 border-t border-[#1E2A2E]/5">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#8DBFB4] block">Related Vocabulary</span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {selectedDetail.data.supporting_vocabulary.map((vocab, idx) => (
-                              <span key={idx} className="px-2 py-0.5 bg-[#ECEFF0] rounded text-[10px] text-[#1E2A2E] font-medium border border-[#1E2A2E]/5">
-                                {vocab}
-                              </span>
+                      {/* Expandable Evidence View */}
+                      <div className="space-y-3 pt-4 border-t border-[#1E2A2E]/5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#8DBFB4] block">Why am I seeing this?</span>
+                        
+                        {evidenceLoading ? (
+                          <div className="flex items-center gap-2 text-xs text-[#4A6A64]">
+                            <Loader2 size={12} className="animate-spin text-[#8DBFB4]" />
+                            <span>Resolving evidence excerpts...</span>
+                          </div>
+                        ) : resolvedEvidence ? (
+                          <div className="space-y-3">
+                            {resolvedEvidence.journals.map((e, idx) => (
+                              <div key={idx} className="p-3 bg-[#ECEFF0]/60 border border-[#1E2A2E]/5 rounded-xl space-y-1">
+                                <span className="text-[9px] text-[#4A6A64] uppercase block font-bold">Your Writing Excerpt</span>
+                                <p className="text-xs text-[#1E2A2E] font-serif italic">"{e.text}"</p>
+                              </div>
+                            ))}
+                            {resolvedEvidence.reports.map((r, idx) => (
+                              <div key={idx} className="p-3 bg-[#ECEFF0]/60 border border-[#1E2A2E]/5 rounded-xl space-y-1">
+                                <span className="text-[9px] text-[#4A6A64] uppercase block font-bold">Weekly Report theme</span>
+                                <h5 className="text-xs font-semibold text-[#1E2A2E]">{r.title}</h5>
+                                <p className="text-xs text-[#4A6A64] line-clamp-3">"{r.text}"</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {/* Related Knowledge Cards (Graph connected) */}
+                      {relatedCards.length > 0 && (
+                        <div className="space-y-3 pt-4 border-t border-[#1E2A2E]/5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#8DBFB4] block">Related Knowledge Cards</span>
+                          <div className="space-y-2">
+                            {relatedCards.map((rc, idx) => (
+                              <div 
+                                key={idx}
+                                onClick={() => setSelectedDetail({ type: 'card', data: rc })}
+                                className="p-3 bg-[#ECEFF0]/50 hover:bg-[#ECEFF0] rounded-xl border border-[#1E2A2E]/5 cursor-pointer flex items-center justify-between"
+                              >
+                                <div>
+                                  <h5 className="text-xs font-bold text-[#1E2A2E]">{rc.title}</h5>
+                                  <span className="text-[9px] text-[#4A6A64] uppercase">{rc.card_type}</span>
+                                </div>
+                                <ChevronRight size={14} className="text-[#4A6A64]" />
+                              </div>
                             ))}
                           </div>
                         </div>
