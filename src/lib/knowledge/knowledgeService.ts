@@ -709,7 +709,8 @@ JSON SCHEMA:
 
       // ThreadAnswered
       threadResponses?.forEach(resp => {
-        const cId = resp.threads?.cycle_id || resp.cycle_id || null;
+        const threadsVal = resp.threads;
+        const cId = (Array.isArray(threadsVal) ? threadsVal[0]?.cycle_id : (threadsVal as any)?.cycle_id) || resp.cycle_id || null;
         timeline.push({
           timestamp: resp.created_at || new Date().toISOString(),
           eventType: 'ThreadAnswered',
@@ -881,7 +882,7 @@ JSON SCHEMA:
       ] = await Promise.all([
         supabase.from('entry_scores').select('id, day_ei, day_pr, day_sa, created_at').eq('user_id', userId).order('created_at', { ascending: true }),
         supabase.from('vocab_extractions').select('word, normalized_word, sentence, confidence').eq('user_id', userId),
-        supabase.from('thread_responses').select('response_text').eq('user_id', userId)
+        supabase.from('thread_responses').select('id, response_text').eq('user_id', userId)
       ]);
 
       const historicalSummary = {
