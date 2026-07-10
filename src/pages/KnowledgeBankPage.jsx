@@ -499,7 +499,7 @@ export default function KnowledgeBankPage({ user, profile: authProfile, onSignOu
                         <p className="text-xs text-[#4A6A64] leading-relaxed line-clamp-3">{card.body}</p>
                       </div>
                       <div className="flex items-center gap-1.5 text-[10px] text-[#8DBFB4] font-semibold pt-4">
-                        <span>See cited evidence</span>
+                        <span>View Details</span>
                         <ChevronRight size={12} />
                       </div>
                     </div>
@@ -823,59 +823,19 @@ export default function KnowledgeBankPage({ user, profile: authProfile, onSignOu
                         <p className="text-xs text-[#1E2A2E] leading-relaxed">{selectedDetail.data.body}</p>
                       </div>
 
-                      {/* Cited Evidence */}
-                      <div className="space-y-3 pt-4 border-t border-[#1E2A2E]/5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#8DBFB4] block">Supporting Evidence</span>
-                        
-                        {selectedDetail.data.supporting_vocabulary?.length > 0 && (
-                          <div className="space-y-1">
-                            <span className="text-[9px] text-[#4A6A64] uppercase block">Supporting Vocabulary</span>
-                            <div className="flex flex-wrap gap-1.5">
-                              {selectedDetail.data.supporting_vocabulary.map((vocab, idx) => (
-                                <span key={idx} className="px-2 py-0.5 bg-[#ECEFF0] rounded text-[10px] text-[#1E2A2E] font-medium border border-[#1E2A2E]/5">
-                                  {vocab}
-                                </span>
-                              ))}
-                            </div>
+                      {/* Supporting Vocabulary */}
+                      {selectedDetail.data.supporting_vocabulary?.length > 0 && (
+                        <div className="space-y-2 pt-4 border-t border-[#1E2A2E]/5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#8DBFB4] block">Related Vocabulary</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {selectedDetail.data.supporting_vocabulary.map((vocab, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-[#ECEFF0] rounded text-[10px] text-[#1E2A2E] font-medium border border-[#1E2A2E]/5">
+                                {vocab}
+                              </span>
+                            ))}
                           </div>
-                        )}
-
-                        {selectedDetail.data.supporting_entries?.length > 0 && (
-                          <div className="space-y-1.5">
-                            <span className="text-[9px] text-[#4A6A64] uppercase block">Supporting Journal Entries</span>
-                            <div className="space-y-1">
-                              {selectedDetail.data.supporting_entries.map((id, idx) => (
-                                <button 
-                                  key={idx} 
-                                  onClick={() => window.navigateTo(`/entry/${id}`)}
-                                  className="w-full text-left p-2.5 bg-[#ECEFF0]/50 hover:bg-[#ECEFF0] rounded-lg border border-[#1E2A2E]/5 text-xs text-[#1E2A2E] flex items-center justify-between cursor-pointer"
-                                >
-                                  <span className="truncate">Journal Entry {idx + 1} ({id.substring(0, 8)}...)</span>
-                                  <ArrowUpRight size={14} className="text-[#4A6A64] shrink-0" />
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {selectedDetail.data.supporting_reports?.length > 0 && (
-                          <div className="space-y-1.5">
-                            <span className="text-[9px] text-[#4A6A64] uppercase block">Supporting Reports</span>
-                            <div className="space-y-1">
-                              {selectedDetail.data.supporting_reports.map((id, idx) => (
-                                <button 
-                                  key={idx} 
-                                  onClick={() => window.navigateTo(`/reports`)}
-                                  className="w-full text-left p-2.5 bg-[#ECEFF0]/50 hover:bg-[#ECEFF0] rounded-lg border border-[#1E2A2E]/5 text-xs text-[#1E2A2E] flex items-center justify-between cursor-pointer"
-                                >
-                                  <span className="truncate">Weekly Report {idx + 1} ({id.substring(0, 8)}...)</span>
-                                  <ArrowUpRight size={14} className="text-[#4A6A64] shrink-0" />
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
