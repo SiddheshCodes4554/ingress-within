@@ -381,6 +381,21 @@ export async function processMonthlyReport(jobData: {
     }
 
     console.log(`[Monthly Report Worker] Successfully processed monthly report for user ${user_id}`);
+
+    // Emit AssessmentCompleted event
+    try {
+      const { KnowledgeService } = await import('../../knowledge/knowledgeService');
+      await KnowledgeService.emitKnowledgeEvent(
+        user_id,
+        cycle_id,
+        null,
+        'AssessmentCompleted',
+        'monthly_report_worker',
+        { assessment_id: assessment_id }
+      );
+    } catch (assErr: any) {
+      console.error(`[Monthly Report Worker] Failed to emit AssessmentCompleted event:`, assErr.message);
+    }
   } catch (err: any) {
     console.error(`[Monthly Report Worker] Error generating monthly report:`, err);
     if (assessment_id) {

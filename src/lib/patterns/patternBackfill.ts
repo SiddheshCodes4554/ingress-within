@@ -75,6 +75,11 @@ export async function backfillPatterns(userId: string): Promise<PatternBackfillR
       const seqNum = mIdx + 1;
       console.log(`[Pattern Backfill] Compiling milestone ${seqNum}/${weeklyMilestones.length}: ${milestone.type} (ID: ${milestone.id})`);
       
+      if (mIdx > 0) {
+        console.log(`[Pattern Backfill] Rate limit buffer: sleeping for 20 seconds before milestone ${seqNum}...`);
+        await new Promise(resolve => setTimeout(resolve, 20000));
+      }
+
       // Force rebuild to true since we are manually rebuilding/backfilling
       await PatternIntelligenceService.generatePatternSnapshotForMilestone(userId, milestone, seqNum, true);
       result.snapshotsCreated++;

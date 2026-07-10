@@ -238,6 +238,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
 
+    // Emit ThreadAnswered event
+    try {
+      const { KnowledgeService } = await import('../../../../lib/knowledge/knowledgeService');
+      await KnowledgeService.emitKnowledgeEvent(
+        authUser.userId,
+        thread.cycle_id || null,
+        null,
+        'ThreadAnswered',
+        'guide_conversation',
+        {
+          thread_id: threadId,
+          thread_response_id: newResponse.id
+        }
+      );
+    } catch (threadErr: any) {
+      console.error(`[Thread API Route] Failed to emit ThreadAnswered event:`, threadErr.message);
+    }
+
     // Trigger vocabulary processing (run in background, do not await to avoid blocking HTTP response)
     if (newResponse && newResponse.id) {
       try {

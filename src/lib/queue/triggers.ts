@@ -8,6 +8,23 @@ export async function triggerAIProcessing(entryId: string, userId: string) {
       entry_id: entryId,
       user_id: userId
     });
+
+    // Emit JournalCreated event
+    const { data: entry } = await supabase
+      .from('entries')
+      .select('cycle_id, cycle_day')
+      .eq('id', entryId)
+      .maybeSingle();
+
+    const { KnowledgeService } = await import('../knowledge/knowledgeService');
+    await KnowledgeService.emitKnowledgeEvent(
+      userId,
+      entry?.cycle_id || null,
+      entryId,
+      'JournalCreated',
+      'journal',
+      { entry_id: entryId, cycle_day: entry?.cycle_day }
+    );
   } catch (err: any) {
     console.error(`[Queue Trigger] Error queueing AI processing jobs for entry ${entryId}:`, err.message);
   }
@@ -228,5 +245,24 @@ export async function checkWeeklyAndMonthlySummary(userId: string, cycleId: stri
     } catch (err: any) {
       console.error(`[Queue Trigger] Error checking monthly report:`, err.message);
     }
+  }
+}
+
+export async function triggerKnowledgeProcessing(
+  eventId: string,
+  userId: string,
+  cycleId: string | null,
+  entryId: string | null
+) {
+  console.log(`[Queue Trigger] Enqueueing knowledge processing job for user ${userId}, event: ${eventId}`);
+  try {
+    await queueRegistry.addJob('knowledge_processing', `knowledge_event_${eventId}`, {
+      event_id: eventId,
+      user_id: userId,
+      cycle_id: cycleId || undefined,
+      entry_id: entryId || undefined
+    });
+  } catch (err: any) {
+    console.error(`[Queue Trigger] Error queueing knowledge processing job:`, err.message);
   }
 }

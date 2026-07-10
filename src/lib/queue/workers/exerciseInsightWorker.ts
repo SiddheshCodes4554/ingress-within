@@ -76,6 +76,21 @@ export async function processExerciseInsight(jobData: {
     }
 
     console.log(`[Exercise Insight Worker] Successfully generated insight for exercise ${exercise_id}`);
+
+    // Emit ExerciseCompleted event
+    try {
+      const { KnowledgeService } = await import('../../knowledge/knowledgeService');
+      await KnowledgeService.emitKnowledgeEvent(
+        user_id,
+        exercise.cycle_id || null,
+        null,
+        'ExerciseCompleted',
+        'exercise_insight_worker',
+        { exercise_id: exercise_id }
+      );
+    } catch (exErr: any) {
+      console.error(`[Exercise Insight Worker] Failed to emit ExerciseCompleted event:`, exErr.message);
+    }
   } catch (err: any) {
     console.error(`[Exercise Insight Worker] Error during AI generation:`, err);
     await supabase

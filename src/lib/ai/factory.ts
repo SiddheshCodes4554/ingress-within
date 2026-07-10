@@ -1,6 +1,7 @@
 import { AIProvider } from './types';
 import { GroqProvider } from './providers/GroqProvider';
 import { ClaudeProvider } from './providers/ClaudeProvider';
+import { GeminiProvider } from './providers/GeminiProvider';
 
 export function getAIProvider(providerType?: string): AIProvider {
   const selected = providerType || process.env.AI_PROVIDER || 'groq';
@@ -10,6 +11,8 @@ export function getAIProvider(providerType?: string): AIProvider {
       return new GroqProvider();
     case 'claude':
       return new ClaudeProvider();
+    case 'gemini':
+      return new GeminiProvider();
     default:
       console.warn(`[AI Factory] Unknown provider type "${selected}". Falling back to Groq.`);
       return new GroqProvider();

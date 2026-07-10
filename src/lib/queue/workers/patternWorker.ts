@@ -49,6 +49,21 @@ export async function processPatternExtraction(jobData: PatternWorkerJobData): P
   try {
     await PatternIntelligenceService.generateSnapshotForWeeklyReport(user_id, entry_id);
     console.log(`[Pattern Worker] Successfully generated weekly report snapshot for user ${user_id}, summary ${entry_id}`);
+
+    // Emit PatternUpdated event
+    try {
+      const { KnowledgeService } = await import('../../knowledge/knowledgeService');
+      await KnowledgeService.emitKnowledgeEvent(
+        user_id,
+        jobData.cycle_id || null,
+        null,
+        'PatternUpdated',
+        'pattern_engine',
+        { weekly_summary_id: entry_id }
+      );
+    } catch (patErr: any) {
+      console.error(`[Pattern Worker] Failed to emit PatternUpdated event:`, patErr.message);
+    }
   } catch (err: any) {
     console.error(`[Pattern Worker] Failed to generate weekly report snapshot:`, err.message);
   }

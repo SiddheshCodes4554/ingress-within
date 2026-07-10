@@ -369,6 +369,24 @@ export async function processWeeklySummary(jobData: {
     }
 
     console.log(`[Weekly Summary Worker] Successfully generated weekly report and open thread for week ${week_number}`);
+
+    // Emit WeeklyReportGenerated event
+    try {
+      const { KnowledgeService } = await import('../../knowledge/knowledgeService');
+      await KnowledgeService.emitKnowledgeEvent(
+        user_id,
+        cycle_id,
+        null,
+        'WeeklyReportGenerated',
+        'weekly_report_orchestrator',
+        {
+          weekly_summary_id: actualSummaryId,
+          week_number: week_number
+        }
+      );
+    } catch (wsErr: any) {
+      console.error(`[Weekly Summary Worker] Failed to emit WeeklyReportGenerated event:`, wsErr.message);
+    }
   } catch (err: any) {
     console.error(`[Weekly Summary Worker] Error in weekly report generation:`, err);
     await supabase

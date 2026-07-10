@@ -414,6 +414,24 @@ export async function processVocabularyExtraction(jobData: {
       await supabase.from('thread_responses').update({ vocab_processed: true }).eq('id', thread_response_id);
     }
 
+    // Emit VocabularyUpdated event
+    try {
+      const { KnowledgeService } = await import('../../knowledge/knowledgeService');
+      await KnowledgeService.emitKnowledgeEvent(
+        user_id,
+        cycle_id || null,
+        entry_id || null,
+        'VocabularyUpdated',
+        'vocabulary_engine',
+        {
+          entry_id: entry_id || null,
+          thread_response_id: thread_response_id || null
+        }
+      );
+    } catch (vocabErr: any) {
+      console.error(`[Vocab Worker] Failed to emit VocabularyUpdated event:`, vocabErr.message);
+    }
+
     if (cycle_id) {
       try {
         const sourceType = entry_id ? 'journal' : 'thread';

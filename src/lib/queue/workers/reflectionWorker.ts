@@ -428,6 +428,21 @@ export async function processReflectionGeneration(jobData: {
 
     console.log(`[Reflection Engine] [7/8] [Entry: ${entry_id}] Saved reflection observation to Supabase reflections table.`);
 
+    // Emit ReflectionGenerated event
+    try {
+      const { KnowledgeService } = await import('../../knowledge/knowledgeService');
+      await KnowledgeService.emitKnowledgeEvent(
+        user_id,
+        entry.cycle_id,
+        entry_id,
+        'ReflectionGenerated',
+        'reflection_engine',
+        { reflection_id: reflectionId }
+      );
+    } catch (reflErr: any) {
+      console.error(`[Reflection Engine] Failed to emit ReflectionGenerated event:`, reflErr.message);
+    }
+
     if (entry.cycle_day === 7 || entry.cycle_day === 14 || entry.cycle_day === 21) {
       try {
         const { weeklyReportOrchestrator } = await import('../../weeklyReportOrchestrator');

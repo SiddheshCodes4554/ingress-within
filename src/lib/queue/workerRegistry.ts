@@ -111,6 +111,15 @@ class WorkerRegistry {
       }, defaultWorkerOptions)
     );
 
+    // 11. Knowledge Processing Worker
+    this.workers.set(
+      QUEUE_NAMES.KNOWLEDGE_PROCESSING,
+      new Worker(QUEUE_NAMES.KNOWLEDGE_PROCESSING, async (job) => {
+        const { processKnowledgeExtraction } = await import('./workers/knowledgeWorker');
+        await processKnowledgeExtraction(job.data);
+      }, defaultWorkerOptions)
+    );
+
 
     // Add event listeners for logging
     for (const [name, worker] of this.workers.entries()) {
