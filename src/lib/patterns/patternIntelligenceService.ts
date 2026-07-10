@@ -292,11 +292,7 @@ export class PatternIntelligenceService {
       return this.getEmptyOverview();
     }
 
-    // Re-sequence snapshots on the fly to prevent gaps/inflated cycle numbers from unfiltered milestones
-    const orderedSnapshots = snapshots.map((snap, index) => ({
-      ...snap,
-      cycle_number: index + 1
-    }));
+    const orderedSnapshots = await this.resolveActualCycleSnapshots(userId, snapshots);
 
     const latestSnapshot = orderedSnapshots[orderedSnapshots.length - 1];
     const totalCycles = orderedSnapshots.length;
@@ -350,8 +346,8 @@ export class PatternIntelligenceService {
         connected = currentPat.connected_patterns || [];
       } else {
         status = 'quiet';
-        body = `Active in early weeks. Has not appeared in recent reports.`;
-        orientation = `This pattern went quiet in Week ${lastAppearedCycle}.`;
+        body = `Active in early cycles. Has not appeared in recent reports.`;
+        orientation = `This pattern went quiet in Cycle ${lastAppearedCycle}.`;
       }
 
       // Build timeline array across ALL cycles chronologically
@@ -362,9 +358,9 @@ export class PatternIntelligenceService {
         timeline.push(cyclePat ? cyclePat.status : 'absent');
       }
 
-      const firstSeenLabel = `Week ${firstAppearedCycle}`;
-      const lastSeenLabel = `Week ${lastAppearedCycle}`;
-      const nextSeenLabel = `Week ${lastAppearedCycle + 1}`;
+      const firstSeenLabel = `Cycle ${firstAppearedCycle}`;
+      const lastSeenLabel = `Cycle ${lastAppearedCycle}`;
+      const nextSeenLabel = `Cycle ${lastAppearedCycle + 1}`;
 
       let meta = '';
       if (status === 'quiet') {
@@ -404,7 +400,7 @@ export class PatternIntelligenceService {
       else if (c.status === 'returned') returnedCount++;
     });
 
-    const summarySentence = `You have ${cards.length} pattern${cards.length === 1 ? '' : 's'} identified across ${totalCycles} weeks. ${presentCount} ${presentCount === 1 ? 'is' : 'are'} still present, ${shiftingCount} ${shiftingCount === 1 ? 'is' : 'are'} shifting, and ${quietCount} ${quietCount === 1 ? 'has' : 'have'} gone quiet. Having more patterns isn't worse — it means the writing has been honest enough to surface them.`;
+    const summarySentence = `You have ${cards.length} pattern${cards.length === 1 ? '' : 's'} identified across ${totalCycles} cycles. ${presentCount} ${presentCount === 1 ? 'is' : 'are'} still present, ${shiftingCount} ${shiftingCount === 1 ? 'is' : 'are'} shifting, and ${quietCount} ${quietCount === 1 ? 'has' : 'have'} gone quiet. Having more patterns isn't worse — it means the writing has been honest enough to surface them.`;
 
     return {
       patterns: cards,
@@ -457,11 +453,7 @@ export class PatternIntelligenceService {
       return null;
     }
 
-    // Re-sequence snapshots on the fly to prevent gaps/inflated cycle numbers from unfiltered milestones
-    const orderedSnapshots = snapshots.map((snap, index) => ({
-      ...snap,
-      cycle_number: index + 1
-    }));
+    const orderedSnapshots = await this.resolveActualCycleSnapshots(userId, snapshots);
 
     const totalCycles = orderedSnapshots.length;
     
@@ -520,12 +512,12 @@ export class PatternIntelligenceService {
       body = latestPat.summary || latestPat.body || '';
       orientation = latestPat.why_it_matters || latestPat.orientation || '';
     } else {
-      orientation = `This pattern went quiet in Week ${lastAppearedCycle}.`;
+      orientation = `This pattern went quiet in Cycle ${lastAppearedCycle}.`;
     }
 
-    const firstSeenLabel = `Week ${firstAppearedCycle}`;
-    const lastSeenLabel = `Week ${lastAppearedCycle}`;
-    const nextSeenLabel = `Week ${lastAppearedCycle + 1}`;
+    const firstSeenLabel = `Cycle ${firstAppearedCycle}`;
+    const lastSeenLabel = `Cycle ${lastAppearedCycle}`;
+    const nextSeenLabel = `Cycle ${lastAppearedCycle + 1}`;
 
     let meta = '';
     if (status === 'quiet') {
@@ -561,7 +553,7 @@ export class PatternIntelligenceService {
         n: c,
         s: state,
         l: label,
-        milestoneLabel: `Week ${c}`
+        milestoneLabel: `Cycle ${c}`
       });
     }
 
@@ -570,7 +562,7 @@ export class PatternIntelligenceService {
     for (let c = 1; c <= totalCycles; c++) {
       const snap = orderedSnapshots.find(s => s.cycle_number === c);
       const pat = (snap?.snapshot_data?.patterns || []).find((p: any) => (p.pattern_name || p.name) === matchedName);
-      const milestoneLabel = `Week ${c}`;
+      const milestoneLabel = `Cycle ${c}`;
       
       const entries: { t: string; m: string }[] = [];
       if (pat) {
@@ -1228,6 +1220,70 @@ If no patterns are found, return: []`;
     return transitions;
   }
 
+
+  private static async resolveActualCycleSnapshots(userId: string, snapshots: any[]): Promise<any[]> {
+    if (!snapshots || snapshots.length === 0) return [];
+
+    // Fetch all user weekly summaries
+    const { data: weeklySummaries } = await supabase
+      .from('weekly_summaries')
+      .select('id, cycle_id, week_number')
+      .eq('user_id', userId);
+
+    // Fetch all user cycles
+    const { data: cycles } = await supabase
+      .from('cycles')
+      .select('id, cycle_number, status')
+      .eq('user_id', userId)
+      .order('cycle_number', { ascending: true });
+
+    // Map each snapshot to its actual cycle number and week number
+    const mappedSnapshots = snapshots.map(snap => {
+      const ws = weeklySummaries?.find(w => w.id === snap.cycle_id);
+      let actualCycleNum = snap.cycle_number;
+      let actualCycleId = snap.cycle_id;
+      let weekNum = ws?.week_number || 1;
+
+      if (ws && cycles) {
+        const cycle = cycles.find(c => c.id === ws.cycle_id);
+        if (cycle) {
+          actualCycleNum = cycle.cycle_number;
+          actualCycleId = cycle.id;
+        }
+      }
+
+      return {
+        ...snap,
+        actual_cycle_number: actualCycleNum,
+        actual_cycle_id: actualCycleId,
+        week_number: weekNum
+      };
+    });
+
+    // Group mapped snapshots by actual cycle number
+    const snapshotsByCycle = new Map<number, any[]>();
+    mappedSnapshots.forEach(snap => {
+      const arr = snapshotsByCycle.get(snap.actual_cycle_number) || [];
+      arr.push(snap);
+      snapshotsByCycle.set(snap.actual_cycle_number, arr);
+    });
+
+    // For each cycle, select the snapshot from the latest week (e.g. Week 4 or highest week_number)
+    const cycleSnapshots: any[] = [];
+    snapshotsByCycle.forEach((snapsInCycle, cycleNum) => {
+      const sortedSnaps = snapsInCycle.sort((a, b) => b.week_number - a.week_number);
+      const representativeSnap = sortedSnaps[0]; // latest week of this cycle
+
+      cycleSnapshots.push({
+        ...representativeSnap,
+        cycle_number: cycleNum,
+        cycle_id: representativeSnap.actual_cycle_id
+      });
+    });
+
+    // Sort cycleSnapshots by cycle_number ascending
+    return cycleSnapshots.sort((a, b) => a.cycle_number - b.cycle_number);
+  }
 
   /**
    * Returns a canonical empty overview for users with no snapshots.
