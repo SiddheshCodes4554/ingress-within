@@ -45,6 +45,12 @@ export async function GET(request: NextRequest) {
       .from('knowledge_profile')
       .select('*, profiles(full_name)');
 
+    // 5. Fetch all relationships for the audit
+    const { data: graphEdges } = await supabase
+      .from('knowledge_relationships')
+      .select('*, profiles(full_name)')
+      .order('strength', { ascending: false });
+
     return NextResponse.json({
       success: true,
       number_of_events: eventsCount || 0,
@@ -87,6 +93,21 @@ export async function GET(request: NextRequest) {
           stress: p.stress_model,
           values: p.values_model
         }
+      })) || [],
+      graph_relationships: graphEdges?.map(e => ({
+        user_id: e.user_id,
+        user_name: e.profiles?.full_name || 'Unknown',
+        source: `${e.source_node} (${e.source_type})`,
+        target: `${e.target_node} (${e.target_type})`,
+        type: e.relationship_type,
+        strength: Number(e.strength).toFixed(2),
+        confidence: e.confidence,
+        supporting_events: e.supporting_events || [],
+        supporting_entries: e.supporting_entries || [],
+        supporting_reports: e.supporting_reports || [],
+        supporting_patterns: e.supporting_patterns || [],
+        first_seen: e.first_seen,
+        last_seen: e.last_seen
       })) || []
     });
 

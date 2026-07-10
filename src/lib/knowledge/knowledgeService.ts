@@ -11,6 +11,7 @@ export interface ProfileDimensionModel {
     patterns: string[];
   };
   supporting_vocabulary: string[];
+  referenced_nodes?: string[];
   last_updated: string;
 }
 
@@ -278,6 +279,10 @@ export class KnowledgeService {
       }
     }
 
+    // 3.5 Update relationship graph nodes based on the new daily/weekly context
+    console.log(`[Knowledge Service] Updating relationship graph via AI for user ${userId}...`);
+    await this.updateGraphWithAI(userId, event, newContext);
+
     // 4. Update the knowledge profile models using AI
     console.log(`[Knowledge Service] Updating knowledge profile models via AI for user ${userId}...`);
     const updatedModels = await this.updateProfileModelsWithAI(currentProfile, event, newContext);
@@ -386,7 +391,8 @@ INSTRUCTIONS:
    - For weekly summary/pattern updates, append the new weekly summary ID to "reports" and the pattern snapshot ID to "patterns".
    - Ensure you keep the existing supporting IDs that are still relevant.
    - Extract up to 5 supporting vocabulary words from the context and append them to "supporting_vocabulary".
-8. Return ONLY a valid JSON object matching the schema below. Do not include markdown code block formatting (e.g. \`\`\`json), no preamble, no explanation.
+8. GRAPH REFERENCE: Identify key concepts in this dimension observation that map to nodes in the user's Knowledge Relationship Graph, and list them in the "referenced_nodes" array (e.g. ["boundaries", "overthinking", "burnout"]).
+9. Return ONLY a valid JSON object matching the schema below. Do not include markdown code block formatting (e.g. \`\`\`json), no preamble, no explanation.
 
 JSON SCHEMA:
 {
@@ -395,6 +401,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "emotion_model": {
@@ -402,6 +409,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "vocabulary_model": {
@@ -409,6 +417,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "pattern_model": {
@@ -416,6 +425,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "agency_model": {
@@ -423,6 +433,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "relationship_model": {
@@ -430,6 +441,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "decision_model": {
@@ -437,6 +449,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "growth_model": {
@@ -444,6 +457,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "communication_model": {
@@ -451,6 +465,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "stress_model": {
@@ -458,6 +473,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "values_model": {
@@ -465,6 +481,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   }
 }`;
@@ -515,6 +532,7 @@ JSON SCHEMA:
     // 1. If force flag is active, delete existing knowledge data
     if (force) {
       console.log(`[Knowledge Service] Force flag active. Purging existing knowledge data for user ${userId}...`);
+      await supabase.from('knowledge_relationships').delete().eq('user_id', userId);
       await supabase.from('knowledge_cards').delete().eq('user_id', userId);
       await supabase.from('knowledge_snapshots').delete().eq('user_id', userId);
       await supabase.from('knowledge_profile').delete().eq('user_id', userId);
@@ -857,6 +875,10 @@ JSON SCHEMA:
         })) || []
       };
 
+      // 7.5 Generate consolidated relationship graph via 1 unified AI call
+      console.log(`[Knowledge Service] Generating Knowledge Graph via AI...`);
+      await this.generateConsolidatedGraphWithAI(userId, historicalSummary);
+
       // 8. Generate long-term Knowledge Profile via 1 unified AI call
       await supabase
         .from('knowledge_backfill_status')
@@ -982,7 +1004,8 @@ INSTRUCTIONS:
 3. STRICT TONE REQUIREMENT: Write all summaries and descriptions in either the first-person ("I", "my") or address the user directly as "you" ("your"). NEVER refer to the writer in the third person (e.g. "the user", "the writer", "he/she", "they").
 4. CONFIDENCE: Rate the confidence for each observation as "High" (repeated evidence), "Medium" (some evidence), or "Low" (insufficient/initial evidence).
 5. AUDIT TRAIL: For each observation, map the corresponding supporting journal UUIDs (from journals array), report UUIDs (from weekly_summaries), and pattern snapshot UUIDs (from patterns) in the "supporting_events" object. Identify supporting vocabulary words and place them in "supporting_vocabulary".
-6. Return ONLY a valid JSON object matching the schema below. Do not include markdown code block formatting (e.g. \`\`\`json), no preamble, no explanation.
+6. GRAPH REFERENCE: Identify key concepts in this dimension observation that map to nodes in the user's Knowledge Relationship Graph, and list them in the "referenced_nodes" array (e.g. ["boundaries", "overthinking", "burnout"]).
+7. Return ONLY a valid JSON object matching the schema below. Do not include markdown code block formatting (e.g. \`\`\`json), no preamble, no explanation.
 
 JSON SCHEMA:
 {
@@ -991,6 +1014,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "emotion_model": {
@@ -998,6 +1022,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "vocabulary_model": {
@@ -1005,6 +1030,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "pattern_model": {
@@ -1012,6 +1038,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "agency_model": {
@@ -1019,6 +1046,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "relationship_model": {
@@ -1026,6 +1054,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "decision_model": {
@@ -1033,6 +1062,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "growth_model": {
@@ -1040,6 +1070,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "communication_model": {
@@ -1047,6 +1078,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "stress_model": {
@@ -1054,6 +1086,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   },
   "values_model": {
@@ -1061,6 +1094,7 @@ JSON SCHEMA:
     "confidence": "High / Medium / Low",
     "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
     "supporting_vocabulary": ["vocab_word"],
+    "referenced_nodes": ["node_name"],
     "last_updated": "ISO Timestamp"
   }
 }`;
@@ -1101,6 +1135,7 @@ INSTRUCTIONS:
    - Provide a "body" (2-4 sentences) presenting the insight. Write in either the first-person ("I") or direct address ("you"). Never refer to the writer in the third person.
    - Set "confidence" matching the profile dimension's confidence ("High" or "Medium").
    - Populate the "supporting_patterns" array, "supporting_vocabulary" array, "supporting_entries" array, and "supporting_reports" array with the cited UUIDs and terms directly from the corresponding profile dimension.
+   - GRAPH REFERENCE: Identify key concepts in this card that map to nodes in the user's Knowledge Relationship Graph, and list them in the "referenced_nodes" array.
 5. Suppress duplicates: only generate one card per category.
 6. Return ONLY a valid JSON array of card objects. Do not include markdown code block formatting (e.g. \`\`\`json), no preamble, no explanation.
 
@@ -1115,7 +1150,8 @@ JSON SCHEMA:
     "supporting_patterns": ["pattern_id_or_name"],
     "supporting_vocabulary": ["vocab_word"],
     "supporting_entries": ["journal_uuid"],
-    "supporting_reports": ["report_uuid"]
+    "supporting_reports": ["report_uuid"],
+    "referenced_nodes": ["node_name"]
   }
 ]`;
 
@@ -1154,6 +1190,7 @@ JSON SCHEMA:
             supporting_vocabulary: c.supporting_vocabulary || [],
             supporting_entries: c.supporting_entries || [],
             supporting_reports: c.supporting_reports || [],
+            referenced_nodes: c.referenced_nodes || [],
             version: '2.0',
             generated_from_event: eventId
           }));
@@ -1175,6 +1212,355 @@ JSON SCHEMA:
     } catch (err: any) {
       console.error(`[Knowledge Service] AI card generation error:`, err.message || err);
     }
+  }
+
+  public static async updateGraphWithAI(
+    userId: string,
+    event: any,
+    newContext: any
+  ): Promise<void> {
+    const prompt = `You are the core Knowledge Intelligence Engine for Ingress Within, a therapeutic writing platform.
+Your task is to analyze a new daily writing or weekly report context and extract the concept relationships to build a living Knowledge Relationship Graph.
+
+NEW COMPLETED STEP CONTEXT:
+- event_type: ${event.event_type}
+- event_id: ${event.id}
+- context_details: ${JSON.stringify(newContext, null, 2)}
+
+INSTRUCTIONS:
+1. Identify key concepts (nodes) and their relationships (edges) observed in the context.
+2. Dynamic Node Types: classify nodes dynamically (e.g. "Emotion", "Vocabulary", "Behaviour", "Pattern", "Situation", "Work", "Recovery", "Value", "Decision", "Identity", "Stress Trigger"). Do not limit yourself to a predefined list.
+3. Dynamic Edge Types: classify the relationship types dynamically (e.g. "Leads To", "Associated With", "Often Follows", "Strengthens", "Weakens", "Recovered By", "Returned After").
+4. Ensure all extracted relationships are strictly grounded in the raw text/data. Never invent relationships.
+5. Return ONLY a valid JSON array of relationship objects. Do not include markdown code block formatting (e.g. \`\`\`json), no preamble, no explanation.
+
+JSON SCHEMA:
+[
+  {
+    "source_node": "Work pressure",
+    "source_type": "Stress Trigger",
+    "target_node": "Overthinking",
+    "target_type": "Behaviour",
+    "relationship_type": "Leads To"
+  }
+]`;
+
+    try {
+      const response = await aiProvider.callRaw(prompt);
+      let cleaned = response.trim();
+      if (cleaned.startsWith('```')) {
+        const lines = cleaned.split('\n');
+        cleaned = lines.slice(1, -1).join('\n').trim();
+      }
+
+      const relations: any[] = JSON.parse(cleaned);
+      if (!Array.isArray(relations)) return;
+
+      const eventId = event.id;
+      const entryId = event.entry_id || event.payload?.entry_id || null;
+      const weeklySummaryId = event.payload?.weekly_summary_id || null;
+      const cycleId = event.cycle_id || null;
+
+      // Keep track of active upserted relationship IDs to run decay on the rest
+      const activeIds: string[] = [];
+
+      for (const rel of relations) {
+        if (!rel.source_node || !rel.target_node || !rel.relationship_type) continue;
+
+        // Norm nodes and types
+        const src = rel.source_node.trim();
+        const srcType = (rel.source_type || 'Situation').trim();
+        const tgt = rel.target_node.trim();
+        const tgtType = (rel.target_type || 'Situation').trim();
+        const relType = rel.relationship_type.trim();
+
+        // 1. Fetch existing relation
+        const { data: existing } = await supabase
+          .from('knowledge_relationships')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('source_node', src)
+          .eq('target_node', tgt)
+          .eq('relationship_type', relType)
+          .maybeSingle();
+
+        // Prepare lists
+        const mergeArray = (arr1: any[], item: any) => {
+          if (!item) return arr1;
+          const set = new Set([...arr1, item]);
+          return Array.from(set);
+        };
+
+        let strength = 0.5;
+        let confidence: 'Low' | 'Medium' | 'High' = 'Low';
+        let supportingEvents = [eventId];
+        let supportingEntries = entryId ? [entryId] : [];
+        let supportingReports = weeklySummaryId ? [weeklySummaryId] : [];
+        let supportingPatterns = cycleId ? [cycleId] : [];
+        const first_seen = existing ? existing.first_seen : new Date().toISOString();
+
+        if (existing) {
+          strength = Math.min(1.0, Number(existing.strength) + 0.1);
+          confidence = existing.confidence === 'Low' ? 'Medium' : 'High';
+          supportingEvents = mergeArray(existing.supporting_events || [], eventId);
+          supportingEntries = entryId ? mergeArray(existing.supporting_entries || [], entryId) : (existing.supporting_entries || []);
+          supportingReports = weeklySummaryId ? mergeArray(existing.supporting_reports || [], weeklySummaryId) : (existing.supporting_reports || []);
+          supportingPatterns = cycleId ? mergeArray(existing.supporting_patterns || [], cycleId) : (existing.supporting_patterns || []);
+        }
+
+        const { data: saved, error: upsertErr } = await supabase
+          .from('knowledge_relationships')
+          .upsert({
+            id: existing?.id || crypto.randomUUID(),
+            user_id: userId,
+            source_node: src,
+            source_type: srcType,
+            target_node: tgt,
+            target_type: tgtType,
+            relationship_type: relType,
+            strength,
+            confidence,
+            supporting_events: supportingEvents,
+            supporting_entries: supportingEntries,
+            supporting_reports: supportingReports,
+            supporting_patterns: supportingPatterns,
+            first_seen,
+            last_seen: new Date().toISOString(),
+            version: '2.0',
+            updated_at: new Date().toISOString()
+          })
+          .select('id')
+          .single();
+
+        if (upsertErr) {
+          console.error(`[Knowledge Service] Upsert relationship error:`, upsertErr.message);
+        } else if (saved) {
+          activeIds.push(saved.id);
+        }
+      }
+
+      // 2. Decay Step: slowly weaken unused relationships
+      const { data: allRelations } = await supabase
+        .from('knowledge_relationships')
+        .select('id, strength')
+        .eq('user_id', userId);
+
+      if (allRelations) {
+        for (const edge of allRelations) {
+          if (activeIds.includes(edge.id)) continue;
+          const decayedStrength = Math.max(0.01, Number(edge.strength) * 0.95);
+          await supabase
+            .from('knowledge_relationships')
+            .update({
+              strength: decayedStrength,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', edge.id);
+        }
+      }
+
+      console.log(`[Knowledge Service] Successfully updated graph with ${relations.length} relationships for user ${userId}.`);
+    } catch (err: any) {
+      console.error(`[Knowledge Service] Graph update error:`, err.message || err);
+    }
+  }
+
+  private static async generateConsolidatedGraphWithAI(
+    userId: string,
+    historicalSummary: any
+  ): Promise<void> {
+    const prompt = `You are the core Knowledge Intelligence Engine for Ingress Within, a therapeutic writing platform.
+Your task is to analyze the user's complete historical timeline summary and generate the complete starting Knowledge Relationship Graph.
+
+USER HISTORICAL INTEL SUMMARY:
+${JSON.stringify(historicalSummary, null, 2)}
+
+INSTRUCTIONS:
+1. Review the complete history. Identify key concepts (nodes) and the relationships (edges) between them that emerged across their journals, weekly reports, and patterns.
+2. Nodes classification must be dynamic (e.g. "Emotion", "Vocabulary", "Behaviour", "Pattern", "Situation", "Work", "Recovery", "Value", "Decision", "Identity", "Stress Trigger").
+3. Edges classification must be dynamic (e.g. "Leads To", "Associated With", "Strengthens", "Weakens", "Recovered By", "Returned After").
+4. Assign a "strength" rating (0.1 to 1.0) and "confidence" rating ("High" or "Medium" or "Low") based on how frequently and consistently the relationship appears in the history.
+5. Identify cited supporting entry UUIDs (from journals array), weekly report UUIDs (from weekly_summaries), and pattern snapshot UUIDs (from patterns) for each relationship, and populate the respective arrays.
+6. Return ONLY a valid JSON array of relationship objects. Do not include markdown code block formatting (e.g. \`\`\`json), no preamble, no explanation.
+
+JSON SCHEMA:
+[
+  {
+    "source_node": "...",
+    "source_type": "...",
+    "target_node": "...",
+    "target_type": "...",
+    "relationship_type": "...",
+    "strength": 0.8,
+    "confidence": "High",
+    "supporting_events": [],
+    "supporting_entries": ["uuid"],
+    "supporting_reports": ["uuid"],
+    "supporting_patterns": ["uuid"]
+  }
+]`;
+
+    try {
+      const response = await aiProvider.callRaw(prompt);
+      let cleaned = response.trim();
+      if (cleaned.startsWith('```')) {
+        const lines = cleaned.split('\n');
+        cleaned = lines.slice(1, -1).join('\n').trim();
+      }
+
+      const relations: any[] = JSON.parse(cleaned);
+      if (!Array.isArray(relations)) return;
+
+      // Purge old relationships for user if resetting
+      await supabase
+        .from('knowledge_relationships')
+        .delete()
+        .eq('user_id', userId);
+
+      const dbRelations = relations.map(r => ({
+        user_id: userId,
+        source_node: r.source_node.trim(),
+        source_type: r.source_type.trim(),
+        target_node: r.target_node.trim(),
+        target_type: r.target_type.trim(),
+        relationship_type: r.relationship_type.trim(),
+        strength: Number(r.strength) || 0.5,
+        confidence: r.confidence || 'Low',
+        supporting_events: r.supporting_events || [],
+        supporting_entries: r.supporting_entries || [],
+        supporting_reports: r.supporting_reports || [],
+        supporting_patterns: r.supporting_patterns || [],
+        first_seen: new Date().toISOString(),
+        last_seen: new Date().toISOString(),
+        version: '2.0',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+
+      if (dbRelations.length > 0) {
+        const { error } = await supabase
+          .from('knowledge_relationships')
+          .insert(dbRelations);
+        if (error) {
+          console.error(`[Knowledge Service] Failed to insert consolidated relationships:`, error.message);
+        } else {
+          console.log(`[Knowledge Service] Successfully generated consolidated relationship graph with ${dbRelations.length} edges.`);
+        }
+      }
+    } catch (err: any) {
+      console.error(`[Knowledge Service] consolidated graph AI error:`, err.message || err);
+    }
+  }
+
+  public static async searchGraph(
+    userId: string,
+    query: string
+  ): Promise<any> {
+    // 1. Fetch all user relationships
+    const { data: allEdges, error } = await supabase
+      .from('knowledge_relationships')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (error || !allEdges) {
+      return { categorized_nodes: {}, connections: [], supporting_entries: [], supporting_reports: [] };
+    }
+
+    // 2. Find starting nodes matching the query
+    const searchLower = query.toLowerCase();
+    const visited = new Set<string>();
+    const matchedNodes = new Set<string>();
+
+    allEdges.forEach(e => {
+      if (e.source_node.toLowerCase().includes(searchLower)) {
+        matchedNodes.add(e.source_node);
+      }
+      if (e.target_node.toLowerCase().includes(searchLower)) {
+        matchedNodes.add(e.target_node);
+      }
+    });
+
+    const resultEdges: any[] = [];
+    const queue: { node: string; hop: number }[] = [];
+
+    matchedNodes.forEach(node => {
+      queue.push({ node, hop: 0 });
+      visited.add(node);
+    });
+
+    // BFS Traversal
+    while (queue.length > 0) {
+      const { node, hop } = queue.shift()!;
+      if (hop >= 2) continue;
+
+      allEdges.forEach(e => {
+        let neighbor: string | null = null;
+        if (e.source_node === node) {
+          neighbor = e.target_node;
+        } else if (e.target_node === node) {
+          neighbor = e.source_node;
+        }
+
+        if (neighbor) {
+          resultEdges.push(e);
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor);
+            queue.push({ node: neighbor, hop: hop + 1 });
+          }
+        }
+      });
+    }
+
+    // De-duplicate result edges
+    const uniqueEdgesMap = new Map<string, any>();
+    resultEdges.forEach(e => {
+      uniqueEdgesMap.set(e.id, e);
+    });
+    const uniqueEdges = Array.from(uniqueEdgesMap.values());
+
+    // Gather and group connected nodes
+    const nodeDetails = new Map<string, { name: string; type: string }>();
+    uniqueEdges.forEach(e => {
+      nodeDetails.set(e.source_node, { name: e.source_node, type: e.source_type });
+      nodeDetails.set(e.target_node, { name: e.target_node, type: e.target_type });
+    });
+
+    const categorizedNodes: Record<string, string[]> = {};
+    nodeDetails.forEach(n => {
+      const cat = n.type.toLowerCase().replace(/\s+/g, '_') + 's';
+      if (!categorizedNodes[cat]) {
+        categorizedNodes[cat] = [];
+      }
+      if (!categorizedNodes[cat].includes(n.name)) {
+        categorizedNodes[cat].push(n.name);
+      }
+    });
+
+    // Collect cited entries and reports
+    const entriesSet = new Set<string>();
+    const reportsSet = new Set<string>();
+    uniqueEdges.forEach(e => {
+      if (Array.isArray(e.supporting_entries)) {
+        e.supporting_entries.forEach((id: string) => entriesSet.add(id));
+      }
+      if (Array.isArray(e.supporting_reports)) {
+        e.supporting_reports.forEach((id: string) => reportsSet.add(id));
+      }
+    });
+
+    return {
+      query,
+      categorized_nodes: categorizedNodes,
+      connections: uniqueEdges.map(e => ({
+        source: e.source_node,
+        target: e.target_node,
+        type: e.relationship_type,
+        strength: e.strength,
+        confidence: e.confidence
+      })),
+      supporting_entries: Array.from(entriesSet),
+      supporting_reports: Array.from(reportsSet)
+    };
   }
 }
 
