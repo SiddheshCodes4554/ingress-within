@@ -475,37 +475,51 @@ export default function KnowledgeBankPage({ user, profile: authProfile, onSignOu
     <div className="min-h-screen bg-[#ECEFF0] text-[#1E2A2E] font-sans pb-20">
       <DashboardNavbar activeTab="knowledge" />
       
-      {/* Sticky Tab bar */}
-      <div className="sticky top-[60px] z-40 bg-white border-b border-[#1E2A2E]/10">
-        <div className="max-w-[680px] mx-auto flex">
-          <button 
-            onClick={() => setActiveTab('explore')}
-            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 border-none bg-transparent cursor-pointer ${
-              activeTab === 'explore' ? 'text-[#1E2A2E] border-b-[#E0A898]' : 'text-[#4A6A64] hover:text-[#1E2A2E] border-b-transparent'
-            }`}
-          >
-            <Compass size={14} className="inline mr-1" /> Explore
-          </button>
-          <button 
-            onClick={() => setActiveTab('patterns')}
-            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 border-none bg-transparent cursor-pointer ${
-              activeTab === 'patterns' ? 'text-[#1E2A2E] border-b-[#E0A898]' : 'text-[#4A6A64] hover:text-[#1E2A2E] border-b-transparent'
-            }`}
-          >
-            <TrendingUp size={14} className="inline mr-1" /> Patterns
-          </button>
-          <button 
-            onClick={() => setActiveTab('trail')}
-            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 border-none bg-transparent cursor-pointer ${
-              activeTab === 'trail' ? 'text-[#1E2A2E] border-b-[#E0A898]' : 'text-[#4A6A64] hover:text-[#1E2A2E] border-b-transparent'
-            }`}
-          >
-            <Route size={14} className="inline mr-1" /> Your Trail
-          </button>
+      <main className="max-w-[680px] mx-auto px-6 pt-8 space-y-6">
+        
+        {/* Page Title Header */}
+        <div className="text-center space-y-1.5 mb-2">
+          <h1 className="font-serif text-2xl font-normal tracking-tight text-[#1E2A2E] mb-0">Knowledge Bank</h1>
+          <p className="text-xs text-[#4A6A64] max-w-[420px] mx-auto leading-relaxed mt-0">
+            Your evolved vocabulary, behavioral patterns, and insights compiled over time.
+          </p>
         </div>
-      </div>
 
-      <main className="max-w-[680px] mx-auto px-6 pt-6 space-y-6">
+        {/* Pill-shaped Segmented Tab Control */}
+        <div className="flex justify-center mb-2">
+          <div className="bg-white/40 backdrop-blur-xs border border-[#1E2A2E]/10 rounded-full p-1 inline-flex gap-1 shadow-xs">
+            <button 
+              onClick={() => setActiveTab('explore')}
+              className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all border-none cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'explore' 
+                  ? 'bg-[#1E2A2E] text-white shadow-xs' 
+                  : 'bg-transparent text-[#4A6A64] hover:text-[#1E2A2E]'
+              }`}
+            >
+              <Compass size={12} /> Explore
+            </button>
+            <button 
+              onClick={() => setActiveTab('patterns')}
+              className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all border-none cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'patterns' 
+                  ? 'bg-[#1E2A2E] text-white shadow-xs' 
+                  : 'bg-transparent text-[#4A6A64] hover:text-[#1E2A2E]'
+              }`}
+            >
+              <TrendingUp size={12} /> Patterns
+            </button>
+            <button 
+              onClick={() => setActiveTab('trail')}
+              className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all border-none cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'trail' 
+                  ? 'bg-[#1E2A2E] text-white shadow-xs' 
+                  : 'bg-transparent text-[#4A6A64] hover:text-[#1E2A2E]'
+              }`}
+            >
+              <Route size={12} /> Your Trail
+            </button>
+          </div>
+        </div>
         
         {/* Developer Audit Mode Toggle */}
         {process.env.NODE_ENV === 'development' && (
