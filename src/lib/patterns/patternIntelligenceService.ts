@@ -416,7 +416,8 @@ export class PatternIntelligenceService {
         returned: returnedCount
       },
       totalCyclesObserved: totalCycles,
-      isAvailable: true
+      isAvailable: true,
+      snapshots: orderedSnapshots
     };
   }
 

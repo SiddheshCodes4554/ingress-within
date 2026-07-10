@@ -130,6 +130,14 @@ export default function PatternsPage({ user, profile, onSignOut }) {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [expandedCycles, setExpandedCycles] = useState({});
+  const [listExpandedCycles, setListExpandedCycles] = useState({});
+
+  const toggleListCycleCard = (cycleNumber) => {
+    setListExpandedCycles(prev => ({
+      ...prev,
+      [cycleNumber]: !prev[cycleNumber]
+    }));
+  };
 
   const pollingRef = useRef(null);
   const backfillTriggeredRef = useRef(false);
@@ -465,6 +473,145 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                 </>
               )}
             </div>
+
+            {/* BY CYCLE ACCORDIONS */}
+            {overview?.snapshots && overview.snapshots.length > 0 && (
+              <div className="space-y-3 pt-4 text-left">
+                <div className="text-[10px] font-bold tracking-widest text-[#8DBFB4] uppercase">By cycle</div>
+                
+                <div className="space-y-2.5">
+                  {[...overview.snapshots]
+                    .sort((a, b) => b.cycle_number - a.cycle_number)
+                    .map((snap) => {
+                      const cycleNum = snap.cycle_number;
+                      const isOpen = !!listExpandedCycles[cycleNum];
+                      const snapPatterns = snap.snapshot_data?.patterns || [];
+                      const activePats = snapPatterns.filter(p => p.status !== 'absent' && p.status !== 'quiet');
+                      const milestoneLabel = snap.snapshot_data?.milestone_label || `Week ${cycleNum}`;
+                      const formattedDate = snap.updated_at ? new Date(snap.updated_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '';
+                      const borderColors = {
+                        present: 'bg-[#E0A898]',
+                        new: 'bg-[#B8A8D4]',
+                        shifting: 'bg-[#8DBFB4]',
+                        quiet: 'bg-primary/20',
+                        returned: 'bg-[#E0A898]'
+                      };
+
+                      return (
+                        <div 
+                          key={snap.id} 
+                          className="bg-white border border-[#1E2A2E]/10 rounded-xl overflow-hidden shadow-xs"
+                        >
+                          <div 
+                            onClick={() => toggleListCycleCard(cycleNum)}
+                            className="p-4 flex items-center justify-between cursor-pointer hover:bg-[#F8FAFA] transition-colors"
+                          >
+                            <div className="flex-1 pr-4">
+                              <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
+                                <span className="text-[12px] font-bold text-primary">{milestoneLabel}</span>
+                                {formattedDate && (
+                                  <span className="text-[10px] text-mid/60">{formattedDate}</span>
+                                )}
+                              </div>
+                              {/* Horizontal preview list of pattern tags */}
+                              <div className="flex gap-1.5 flex-wrap">
+                                {activePats.map((p, pIdx) => {
+                                  const dotColor = dotLabels[p.status] || dotLabels.present;
+                                  return (
+                                    <span key={pIdx} className="text-[10.5px] font-medium px-2 py-0.5 rounded bg-mint-grey/50 text-[#4A6A64] border border-[#1E2A2E]/5 flex items-center gap-1.5">
+                                      <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+                                      {p.pattern_name || p.name}
+                                    </span>
+                                  );
+                                })}
+                                {activePats.length === 0 && (
+                                  <span className="text-[11px] text-mid/60 italic">No patterns active this week.</span>
+                                )}
+                              </div>
+                            </div>
+                            <ChevronDown size={14} className={`text-[#4A6A64] transition-transform shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+                          </div>
+
+                          {isOpen && (
+                            <div className="border-t border-[#1E2A2E]/5 p-4.5 bg-[#FAFBFB] space-y-3.5">
+                              {activePats.map((p, pIdx) => {
+                                const badge = getStatusBadge(p.status);
+                                const details = overview.patterns.find(op => op.name.toLowerCase() === (p.pattern_name || p.name).toLowerCase());
+                                return (
+                                  <div 
+                                    key={pIdx}
+                                    className="bg-white border border-[#1E2A2E]/5 p-3.5 rounded-xl space-y-2 relative overflow-hidden pl-4 group hover:shadow-sm transition-all"
+                                    onClick={(e) => {
+                                      if (details) {
+                                        e.stopPropagation();
+                                        handleOpenPattern(details.id);
+                                      }
+                                    }}
+                                    style={{ cursor: details ? 'pointer' : 'default' }}
+                                  >
+                                    <div className={`absolute left-0 top-0 bottom-0 w-[2.5px] ${borderColors[p.status] || 'bg-[#E0A898]'}`} />
+                                    <div className="flex justify-between items-start gap-2">
+                                      <h4 className="text-[13px] font-bold text-primary group-hover:text-[#E0A898] transition-colors">
+                                        {p.pattern_name || p.name}
+                                      </h4>
+                                      <span className={`px-2 py-0.5 rounded text-[8.5px] font-semibold uppercase shrink-0 ${badge.className}`}>
+                                        {badge.text}
+                                      </span>
+                                    </div>
+                                    
+                                    {p.summary && (
+                                      <p className="text-[12px] text-mid leading-relaxed italic">
+                                        "{p.summary}"
+                                      </p>
+                                    )}
+
+                                    {p.why_it_matters && (
+                                      <div className="text-[11.5px] text-[#4A6A64] font-serif leading-relaxed">
+                                        {p.why_it_matters}
+                                      </div>
+                                    )}
+
+                                    {/* Supporting vocabulary */}
+                                    {p.supporting_vocabulary && p.supporting_vocabulary.length > 0 && (
+                                      <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                                        <span className="text-[9px] font-bold tracking-wider uppercase text-mid/60 shrink-0">Vocabulary:</span>
+                                        {p.supporting_vocabulary.map((v, vIdx) => (
+                                          <span key={vIdx} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#1E2A2E]/5 text-[#4A6A64] border border-[#1E2A2E]/10">
+                                            {v}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Supporting journal quotes */}
+                                    {p.supporting_entries && p.supporting_entries.length > 0 && (
+                                      <div className="space-y-1.5 pt-1.5 border-t border-[#1E2A2E]/5">
+                                        <div className="text-[9px] font-bold tracking-wider uppercase text-mid/60">Journal Quotes</div>
+                                        {p.supporting_entries.map((q, qIdx) => (
+                                          <p key={qIdx} className="text-[11.5px] text-primary italic leading-relaxed pl-2 border-l-2 border-[#8DBFB4]/40 font-serif">
+                                            "{q}"
+                                          </p>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {details && (
+                                      <div className="text-[10px] font-semibold text-[#8DBFB4] hover:text-[#2E7A70] text-right select-none pt-1">
+                                        See full pattern history →
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
