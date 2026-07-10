@@ -1,53 +1,135 @@
 import fs from 'fs';
 import path from 'path';
+import { pathToFileURL } from 'url';
 
-// Load .env file
-try {
-  const envContent = fs.readFileSync(path.resolve(process.cwd(), '.env'), 'utf8');
-  envContent.split('\n').forEach(line => {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) return;
-    const eqIdx = trimmed.indexOf('=');
-    if (eqIdx > -1) {
-      const key = trimmed.substring(0, eqIdx).trim();
-      let val = trimmed.substring(eqIdx + 1).trim();
-      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-        val = val.substring(1, val.length - 1);
+function loadEnv() {
+  const envPath = path.resolve(process.cwd(), '.env');
+  if (fs.existsSync(envPath)) {
+    const content = fs.readFileSync(envPath, 'utf8');
+    content.split('\n').forEach(line => {
+      if (line.trim().startsWith('#') || !line.trim()) return;
+      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+      if (match) {
+        const key = match[1];
+        let value = (match[2] || '').trim();
+        if (value.startsWith('"') && value.endsWith('"')) {
+          value = value.substring(1, value.length - 1);
+        } else if (value.startsWith("'") && value.endsWith("'")) {
+          value = value.substring(1, value.length - 1);
+        }
+        process.env[key] = value;
       }
-      process.env[key] = val;
-    }
-  });
-} catch (e: any) {
-  console.error('Could not read .env file:', e.message);
+    });
+  }
 }
 
-async function runBackfill() {
-  const { supabase } = await import('../src/lib/db');
-  const { backfillWeeklyReports } = await import('../src/lib/weeklyReportBackfill');
+loadEnv();
 
-  console.log('Fetching all users in the system...');
-  const { data: users, error: usersErr } = await supabase.from('users').select('id, name');
-  if (usersErr || !users) {
-    console.error('Failed to fetch users:', usersErr?.message);
-    return;
-  }
+async function main() {
+  const dbPath = pathToFileURL(path.join(process.cwd(), 'src/lib/db.ts')).href;
+  const { supabase: db } = await import(dbPath);
 
-  console.log(`Found ${users.length} users in the database. Starting weekly summaries backfill audit...\n`);
+  const knowledgePath = pathToFileURL(path.join(process.cwd(), 'src/lib/knowledge/knowledgeService.ts')).href;
+  const { KnowledgeService } = await import(knowledgePath);
 
-  for (const user of users) {
-    console.log(`===============================================`);
-    console.log(`Processing User: ${user.name || 'Anonymous'} (${user.id})`);
-    console.log(`===============================================`);
+  const args = process.argv.slice(2);
+  const isAll = args.includes('--all');
+  const force = args.includes('--force');
+  const targetUserId = args.find(arg => !arg.startsWith('--'));
+
+  console.log(`=== Knowledge Engine: Rebuild & Backfill CLI ===`);
+  console.log(`Options: force=${force}`);
+
+  if (isAll) {
+    console.log('\nRunning global backfill for all existing users...');
+    
+    // Fetch all profiles
+    const { data: profiles, error: profErr } = await db
+      .from('profiles')
+      .select('id, full_name');
+
+    if (profErr || !profiles) {
+      console.error('Failed to load profiles:', profErr?.message);
+      process.exit(1);
+    }
+
+    console.log(`Found ${profiles.length} profiles to check.`);
+
+    let processed = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (const profile of profiles) {
+      const userId = profile.id;
+      const name = profile.full_name || 'Unknown';
+
+      // Check if user has any entries or thread responses
+      const [
+        { count: entryCount },
+        { count: threadCount }
+      ] = await Promise.all([
+        db.from('entries').select('*', { count: 'exact', head: true }).eq('user_id', userId),
+        db.from('thread_responses').select('*', { count: 'exact', head: true }).eq('user_id', userId)
+      ]);
+
+      if ((entryCount || 0) === 0 && (threadCount || 0) === 0) {
+        console.log(`Skipping user ${name} (${userId}) — no entries or thread responses found.`);
+        skipped++;
+        continue;
+      }
+
+      console.log(`\n---------------------------------------------`);
+      console.log(`Starting backfill for: ${name} (${userId})`);
+      console.log(`---------------------------------------------`);
+
+      try {
+        await KnowledgeService.backfillUser(userId, force);
+        console.log(`Completed backfill for ${name}.`);
+        processed++;
+      } catch (err: any) {
+        console.error(`Failed backfill for ${name}:`, err.message || err);
+        failed++;
+      }
+    }
+
+    console.log(`\n=== Global Backfill Finished ===`);
+    console.log(`Processed: ${processed}`);
+    console.log(`Skipped: ${skipped}`);
+    console.log(`Failed: ${failed}`);
+
+  } else if (targetUserId) {
+    // Single user
+    console.log(`\nRunning backfill for target user: ${targetUserId}`);
+
+    const { data: profile, error: profErr } = await db
+      .from('profiles')
+      .select('id, full_name')
+      .eq('id', targetUserId)
+      .maybeSingle();
+
+    if (profErr || !profile) {
+      console.error(`Failed to find profile for user ${targetUserId}:`, profErr?.message || 'Not found');
+      process.exit(1);
+    }
+
+    console.log(`Found profile: ${profile.full_name || 'Unknown'}`);
+
     try {
-      const result = await backfillWeeklyReports(user.id);
-      console.log(`Result:`, result);
-    } catch (e: any) {
-      console.error(`Failed to backfill user ${user.id}:`, e.message || e);
+      const status = await KnowledgeService.backfillUser(targetUserId, force);
+      console.log(`Backfill result status:`, status.status);
+      console.log(`Step:`, status.current_step);
+      console.log(`Events: processed=${status.processed_events}, remaining=${status.remaining_events}`);
+    } catch (err: any) {
+      console.error(`Backfill execution failed:`, err.message || err);
+      process.exit(1);
     }
-    console.log('\n');
+  } else {
+    console.error('Error: Please specify a target user ID or run with --all.');
+    console.log('Usage:');
+    console.log('  npx tsx scratch/run-backfill.ts <user-uuid> [--force]');
+    console.log('  npx tsx scratch/run-backfill.ts --all [--force]');
+    process.exit(1);
   }
-
-  console.log('Weekly summary backfill audit completed for all users.');
 }
 
-runBackfill().catch(console.error);
+main().catch(console.error);
