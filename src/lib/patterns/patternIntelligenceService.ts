@@ -68,6 +68,7 @@ export interface PatternOverview {
   summary: SummaryStrip;
   totalCyclesObserved: number;
   isAvailable: boolean;
+  snapshots?: any[];
 }
 
 export type PatternUserStateType = 'new_user' | 'backfill_pending' | 'active';
