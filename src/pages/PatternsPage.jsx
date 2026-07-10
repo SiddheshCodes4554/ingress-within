@@ -107,7 +107,7 @@ function NewUserEmptyScreen() {
           </div>
           <h3 className="text-sm font-bold text-primary">No patterns established yet</h3>
           <p className="text-xs text-[#4A6A64] max-w-[320px] mx-auto leading-relaxed">
-            Patterns begin appearing after your first completed week of writing.
+            Patterns begin appearing after your first completed cycle of writing.
           </p>
           <button
             onClick={() => window.navigateTo('/dashboard')}
@@ -291,9 +291,9 @@ export default function PatternsPage({ user, profile, onSignOut }) {
   }
 
   // Group patterns for display
-  const presentPatterns = overview.patterns.filter(p => p.status === 'present' || p.status === 'new' || p.status === 'returned');
-  const shiftingPatterns = overview.patterns.filter(p => p.status === 'shifting');
-  const quietPatterns = overview.patterns.filter(p => p.status === 'quiet');
+  const presentPatterns = overview.patterns.filter(p => p.status === 'present' || p.status === 'new' || p.status === 'returned').slice(0, 3);
+  const shiftingPatterns = overview.patterns.filter(p => p.status === 'shifting').slice(0, 3);
+  const quietPatterns = overview.patterns.filter(p => p.status === 'quiet').slice(0, 3);
 
   return (
     <div className="min-h-screen bg-mint-grey text-primary font-sans relative pb-20">
@@ -360,7 +360,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
 
                         {/* Timeline preview */}
                         <div className="space-y-1 mb-2.5">
-                          <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across {p.timeline.length} weeks/summaries</div>
+                          <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across {p.timeline.length} cycles</div>
                           <div className="flex gap-2 flex-wrap">
                             {p.timeline.map((s, idx) => (
                               <div key={idx} className="flex flex-col items-center">
@@ -405,7 +405,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
 
                         {/* Timeline preview */}
                         <div className="space-y-1 mb-2.5">
-                          <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across {p.timeline.length} weeks/summaries</div>
+                          <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across {p.timeline.length} cycles</div>
                           <div className="flex gap-2 flex-wrap">
                             {p.timeline.map((s, idx) => (
                               <div key={idx} className="flex flex-col items-center">
@@ -450,7 +450,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
 
                         {/* Timeline preview */}
                         <div className="space-y-1 mb-2.5">
-                          <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across {p.timeline.length} weeks/summaries</div>
+                          <div className="text-[8.5px] tracking-wider uppercase text-[#8DBFB4] font-bold">Across {p.timeline.length} cycles</div>
                           <div className="flex gap-2 flex-wrap">
                             {p.timeline.map((s, idx) => (
                               <div key={idx} className="flex flex-col items-center">
@@ -486,8 +486,8 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                       const cycleNum = snap.cycle_number;
                       const isOpen = !!listExpandedCycles[cycleNum];
                       const snapPatterns = snap.snapshot_data?.patterns || [];
-                      const activePats = snapPatterns.filter(p => p.status !== 'absent' && p.status !== 'quiet');
-                      const milestoneLabel = snap.snapshot_data?.milestone_label || `Week ${cycleNum}`;
+                      const activePats = snapPatterns.filter(p => p.status !== 'absent' && p.status !== 'quiet').slice(0, 3);
+                      const milestoneLabel = `Cycle ${cycleNum}`;
                       const formattedDate = snap.updated_at ? new Date(snap.updated_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '';
                       const borderColors = {
                         present: 'bg-[#E0A898]',
@@ -525,7 +525,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                                   );
                                 })}
                                 {activePats.length === 0 && (
-                                  <span className="text-[11px] text-mid/60 italic">No patterns active this week.</span>
+                                  <span className="text-[11px] text-mid/60 italic">No patterns active this cycle.</span>
                                 )}
                               </div>
                             </div>
@@ -705,7 +705,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                             <div className={`w-[22px] h-[22px] rounded-full flex items-center justify-center z-10 transition-transform ${dotLabels[item.s] || dotLabels.absent} ${!isCardEmpty ? 'group-hover:scale-115' : ''}`}>
                               <div className="w-1.5 h-1.5 rounded-full bg-white/40" />
                             </div>
-                            <span className="text-[9px] font-bold text-primary mt-1">{item.milestoneLabel || `C${item.n}`}</span>
+                            <span className="text-[9px] font-bold text-primary mt-1">{`C${item.n}`}</span>
                             <span className="text-[7.5px] uppercase font-mono text-mid/60 mt-0.5 leading-none">
                               {item.l}
                             </span>
@@ -758,7 +758,7 @@ export default function PatternsPage({ user, profile, onSignOut }) {
                                 <span className={`px-2 py-0.5 rounded text-[9px] font-semibold ${isCur ? 'bg-[#e0a898]/12 text-[#8a3020]' : 'bg-mint-grey text-primary'}`}>
                                   {isCur ? 'Current' : 'Done'}
                                 </span>
-                                  <span className="text-[13px] font-bold text-primary">{timelineItem?.milestoneLabel || `Cycle ${cycleNum}`}</span>
+                                  <span className="text-[13px] font-bold text-primary">{`Cycle ${cycleNum}`}</span>
                               </div>
                               <div className="flex items-center gap-3">
                                 <span className={`px-2 py-0.5 rounded text-[9px] font-semibold uppercase ${dotLabels[timelineStatus] || dotLabels.absent}`}>
