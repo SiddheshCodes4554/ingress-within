@@ -503,78 +503,7 @@ JSON SCHEMA:
     profile: KnowledgeProfile,
     eventId: string
   ): Promise<void> {
-    const prompt = `You are the core Knowledge Intelligence Engine for Ingress Within, a therapeutic writing platform.
-Based on the user's updated long-term knowledge profile, generate a set of 3 to 4 distinct user-facing "Knowledge Cards".
-Each card should represent a deep, therapeutic insight about their long-term identity, patterns, growth, relationships, or values.
-
-USER KNOWLEDGE PROFILE:
-${JSON.stringify(profile, null, 2)}
-
-INSTRUCTIONS:
-1. Generate between 3 and 4 knowledge cards.
-2. Each card must have:
-   - A standard type (e.g. "identity", "patterns", "relationships", "growth", "decisions").
-   - A supportive, descriptive title.
-   - A content paragraph (2-4 sentences) presenting the insight.
-   - STRICT TONE REQUIREMENT: Write the card content in either the first-person ("I", "my") or address the user directly as "you" ("your"). NEVER refer to the writer in the third person (e.g. "the user", "the writer", "he/she", "they").
-3. Return ONLY a valid JSON array of card objects. Do not include markdown code block formatting (e.g. \`\`\`json), no preamble, no explanation.
-
-JSON SCHEMA:
-[
-  {
-    "card_type": "patterns",
-    "title": "Conflict Avoidance & Self-Pressure",
-    "content": "You notice that you put significant pressure on yourself to keep the peace. When tensions arise in your daily routines, your default reflex is to stay quiet to protect others from disappointment.",
-    "json_data": {
-      "key_indicators": ["suppressed expression", "high emotional intensity"]
-    }
-  }
-]`;
-
-    try {
-      const response = await aiProvider.callRaw(prompt);
-      let cleaned = response.trim();
-      if (cleaned.startsWith('```')) {
-        const lines = cleaned.split('\n');
-        cleaned = lines.slice(1, -1).join('\n').trim();
-      }
-      
-      const cards: any[] = JSON.parse(cleaned);
-      if (Array.isArray(cards)) {
-        // Clear old cards for the user to prevent duplication
-        const { error: deleteErr } = await supabase
-          .from('knowledge_cards')
-          .delete()
-          .eq('user_id', userId);
-
-        if (deleteErr) {
-          throw deleteErr;
-        }
-
-        // Insert new cards
-        const dbCards = cards.map(c => ({
-          user_id: userId,
-          card_type: c.card_type,
-          title: c.title,
-          content: c.content,
-          json_data: c.json_data || {},
-          version: '1.0',
-          generated_from_event: eventId
-        }));
-
-        const { error: insertErr } = await supabase
-          .from('knowledge_cards')
-          .insert(dbCards);
-
-        if (insertErr) {
-          console.error(`[Knowledge Service] Failed to insert knowledge cards:`, insertErr.message);
-        } else {
-          console.log(`[Knowledge Service] Successfully generated and saved ${dbCards.length} knowledge cards for user ${userId}.`);
-        }
-      }
-    } catch (err: any) {
-      console.error(`[Knowledge Service] AI card generation error:`, err.message || err);
-    }
+    return this.generateCardsWithAI(userId, profile, eventId);
   }
 
   /**
@@ -1150,67 +1079,101 @@ JSON SCHEMA:
    */
   private static async generateCardsWithAI(
     userId: string,
-    profile: KnowledgeProfile
+    profile: KnowledgeProfile,
+    eventId: string | null = null
   ): Promise<void> {
     const prompt = `You are the core Knowledge Intelligence Engine for Ingress Within, a therapeutic writing platform.
-Based on the user's completed long-term knowledge profile, generate a set of 3 to 4 distinct user-facing "Knowledge Cards".
-Each card should represent a deep, therapeutic insight about their long-term identity, patterns, growth, relationships, or values.
+Your task is to analyze the user's structured 11-dimension long-term knowledge profile and generate a set of distinct, evidence-backed user-facing "Knowledge Cards".
 
 USER KNOWLEDGE PROFILE:
 ${JSON.stringify(profile, null, 2)}
 
 INSTRUCTIONS:
-1. Generate between 3 and 4 knowledge cards.
-2. Each card must have:
-   - A standard type ("identity", "patterns", "relationships", "growth", "decisions").
-   - A supportive, descriptive title.
-   - A content paragraph (2-4 sentences) presenting the insight.
-   - STRICT TONE REQUIREMENT: Write the card content in either the first-person ("I", "my") or address the user directly as "you" ("your"). NEVER refer to the writer in the third person (e.g. "the user", "the writer", "he/she", "they").
-3. Return ONLY a valid JSON array of card objects. Do not include markdown code block formatting (e.g. \`\`\`json), no preamble, no explanation.
+1. Examine the 11 profile dimensions.
+2. For each dimension, evaluate the confidence rating:
+   - ONLY generate a card if the supporting profile dimension has a confidence of "High" or "Medium".
+   - If a dimension has "Low" confidence, do NOT generate a card for it.
+   - If there is insufficient evidence across the profile, it is perfectly fine to return an empty array []. Quality over quantity is paramount: never generate placeholder cards, mock data, or generic advice.
+3. The cards must belong to these valid categories: "emotion_language", "behaviour", "growth", "relationships", "decision_making", "recovery", "values", "communication".
+4. For each card:
+   - Provide a supportive, descriptive "title".
+   - Provide a "subtitle" giving context (e.g. "Observation from your writing history").
+   - Provide a "body" (2-4 sentences) presenting the insight. Write in either the first-person ("I") or direct address ("you"). Never refer to the writer in the third person.
+   - Set "confidence" matching the profile dimension's confidence ("High" or "Medium").
+   - Populate the "supporting_patterns" array, "supporting_vocabulary" array, "supporting_entries" array, and "supporting_reports" array with the cited UUIDs and terms directly from the corresponding profile dimension.
+5. Suppress duplicates: only generate one card per category.
+6. Return ONLY a valid JSON array of card objects. Do not include markdown code block formatting (e.g. \`\`\`json), no preamble, no explanation.
 
 JSON SCHEMA:
 [
   {
-    "card_type": "patterns",
-    "title": "Conflict Avoidance & Self-Pressure",
-    "content": "You notice that you put significant pressure on yourself to keep the peace. When tensions arise in your daily routines, your default reflex is to stay quiet to protect others from disappointment.",
-    "json_data": {
-      "key_indicators": ["suppressed expression", "high emotional intensity"]
-    }
+    "card_type": "relationships",
+    "title": "...",
+    "subtitle": "...",
+    "body": "...",
+    "confidence": "High",
+    "supporting_patterns": ["pattern_id_or_name"],
+    "supporting_vocabulary": ["vocab_word"],
+    "supporting_entries": ["journal_uuid"],
+    "supporting_reports": ["report_uuid"]
   }
 ]`;
 
-    const response = await aiProvider.callRaw(prompt);
-    let cleaned = response.trim();
-    if (cleaned.startsWith('```')) {
-      const lines = cleaned.split('\n');
-      cleaned = lines.slice(1, -1).join('\n').trim();
-    }
-    
-    const cards: any[] = JSON.parse(cleaned);
-    if (Array.isArray(cards)) {
-      // Clear old cards to prevent duplication
-      await supabase
-        .from('knowledge_cards')
-        .delete()
-        .eq('user_id', userId);
-
-      const dbCards = cards.map(c => ({
-        user_id: userId,
-        card_type: c.card_type,
-        title: c.title,
-        content: c.content,
-        json_data: c.json_data || {},
-        version: '1.0'
-      }));
-
-      const { error: insertErr } = await supabase
-        .from('knowledge_cards')
-        .insert(dbCards);
-
-      if (insertErr) {
-        throw new Error(`Failed to insert generated cards: ${insertErr.message}`);
+    try {
+      const response = await aiProvider.callRaw(prompt);
+      let cleaned = response.trim();
+      if (cleaned.startsWith('```')) {
+        const lines = cleaned.split('\n');
+        cleaned = lines.slice(1, -1).join('\n').trim();
       }
+      
+      const cards: any[] = JSON.parse(cleaned);
+      if (Array.isArray(cards)) {
+        // Clear old cards for the user to prevent duplication
+        const { error: deleteErr } = await supabase
+          .from('knowledge_cards')
+          .delete()
+          .eq('user_id', userId);
+
+        if (deleteErr) {
+          throw deleteErr;
+        }
+
+        // Insert new cards
+        const dbCards = cards
+          .filter(c => c.confidence === 'High' || c.confidence === 'Medium')
+          .map(c => ({
+            user_id: userId,
+            card_type: c.card_type,
+            title: c.title,
+            subtitle: c.subtitle || '',
+            body: c.body || c.content || '',
+            content: c.body || c.content || '', // Keep for compatibility with existing queries
+            confidence: c.confidence,
+            supporting_patterns: c.supporting_patterns || [],
+            supporting_vocabulary: c.supporting_vocabulary || [],
+            supporting_entries: c.supporting_entries || [],
+            supporting_reports: c.supporting_reports || [],
+            version: '2.0',
+            generated_from_event: eventId
+          }));
+
+        if (dbCards.length > 0) {
+          const { error: insertErr } = await supabase
+            .from('knowledge_cards')
+            .insert(dbCards);
+
+          if (insertErr) {
+            console.error(`[Knowledge Service] Failed to insert knowledge cards:`, insertErr.message);
+          } else {
+            console.log(`[Knowledge Service] Successfully generated and saved ${dbCards.length} knowledge cards for user ${userId}.`);
+          }
+        } else {
+          console.log(`[Knowledge Service] Insufficient confidence to generate any cards for user ${userId}.`);
+        }
+      }
+    } catch (err: any) {
+      console.error(`[Knowledge Service] AI card generation error:`, err.message || err);
     }
   }
 }
