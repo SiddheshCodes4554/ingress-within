@@ -53,8 +53,30 @@ async function main() {
     console.log(`  Status: ${s.status}`);
     console.log(`  Step: ${s.current_step}`);
     console.log(`  Events: processed=${s.processed_events}, remaining=${s.remaining_events}`);
-    console.log(`  Started: ${s.started_at}`);
-    console.log(`  Completed: ${s.completed_at}`);
+  });
+
+  console.log('\n=== Detailed Profiles Audit ===');
+  const { data: fullProfiles } = await db.from('knowledge_profile').select('*, profiles(full_name)');
+  fullProfiles?.forEach((p: any) => {
+    console.log(`\n--------------------------------------------------`);
+    console.log(`User: ${p.profiles?.full_name || 'Unknown'} (${p.user_id})`);
+    console.log(`Provider: ${p.provider} | Model: ${p.model} | Prompt V: ${p.prompt_version}`);
+    console.log(`--------------------------------------------------`);
+    
+    const dims = [
+      'identity_model', 'emotion_model', 'vocabulary_model', 'pattern_model',
+      'agency_model', 'relationship_model', 'decision_model', 'growth_model',
+      'communication_model', 'stress_model', 'values_model'
+    ];
+
+    dims.forEach(d => {
+      const model = p[d];
+      console.log(`[${d.toUpperCase()}]`);
+      console.log(`  Summary: ${model?.summary}`);
+      console.log(`  Confidence: ${model?.confidence}`);
+      console.log(`  Citations: journals=${model?.supporting_events?.journals?.length || 0}, reports=${model?.supporting_events?.reports?.length || 0}, patterns=${model?.supporting_events?.patterns?.length || 0}`);
+      console.log(`  Vocabulary: ${JSON.stringify(model?.supporting_vocabulary)}`);
+    });
   });
 }
 

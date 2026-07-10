@@ -40,6 +40,11 @@ export async function GET(request: NextRequest) {
       .limit(1)
       .maybeSingle();
 
+    // 4. Fetch detailed profiles for developer audit inspection
+    const { data: profilesList } = await supabase
+      .from('knowledge_profile')
+      .select('*, profiles(full_name)');
+
     return NextResponse.json({
       success: true,
       number_of_events: eventsCount || 0,
@@ -60,7 +65,29 @@ export async function GET(request: NextRequest) {
         processed_events: lastBackfillRecord.processed_events,
         remaining_events: lastBackfillRecord.remaining_events
       } : null,
-      processing_status: lastBackfillRecord?.status || 'idle'
+      processing_status: lastBackfillRecord?.status || 'idle',
+      profiles_detailed: profilesList?.map(p => ({
+        user_id: p.user_id,
+        user_name: p.profiles?.full_name || 'Unknown',
+        updated_at: p.updated_at,
+        knowledge_version: p.knowledge_version,
+        provider: p.provider,
+        model: p.model,
+        prompt_version: p.prompt_version,
+        dimensions: {
+          identity: p.identity_model,
+          emotion: p.emotion_model,
+          vocabulary: p.vocabulary_model,
+          pattern: p.pattern_model,
+          agency: p.agency_model,
+          relationship: p.relationship_model,
+          decision: p.decision_model,
+          growth: p.growth_model,
+          communication: p.communication_model,
+          stress: p.stress_model,
+          values: p.values_model
+        }
+      })) || []
     });
 
   } catch (error: any) {

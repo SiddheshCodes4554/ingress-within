@@ -2,17 +2,34 @@ import { supabase } from '../db';
 import { aiProvider } from '../ai/factory';
 import crypto from 'crypto';
 
+export interface ProfileDimensionModel {
+  summary: string;
+  confidence: 'High' | 'Medium' | 'Low';
+  supporting_events: {
+    journals: string[];
+    reports: string[];
+    patterns: string[];
+  };
+  supporting_vocabulary: string[];
+  last_updated: string;
+}
+
 export interface KnowledgeProfile {
   user_id: string;
-  identity_model: any;
-  emotion_model: any;
-  vocabulary_model: any;
-  pattern_model: any;
-  agency_model: any;
-  relationship_model: any;
-  decision_model: any;
-  growth_model: any;
-  communication_model: any;
+  identity_model: ProfileDimensionModel;
+  emotion_model: ProfileDimensionModel;
+  vocabulary_model: ProfileDimensionModel;
+  pattern_model: ProfileDimensionModel;
+  agency_model: ProfileDimensionModel;
+  relationship_model: ProfileDimensionModel;
+  decision_model: ProfileDimensionModel;
+  growth_model: ProfileDimensionModel;
+  communication_model: ProfileDimensionModel;
+  stress_model: ProfileDimensionModel;
+  values_model: ProfileDimensionModel;
+  provider?: string;
+  model?: string;
+  prompt_version?: string;
   knowledge_version: string;
   updated_at?: string;
 }
@@ -79,6 +96,16 @@ export class KnowledgeService {
    * Main entrypoint for processing a knowledge event in the background.
    * Performs idempotency check, updates profile, and regenerates cards.
    */
+  private static createDefaultDimension(): ProfileDimensionModel {
+    return {
+      summary: 'No observations recorded yet.',
+      confidence: 'Low',
+      supporting_events: { journals: [], reports: [], patterns: [] },
+      supporting_vocabulary: [],
+      last_updated: new Date().toISOString()
+    };
+  }
+
   public static async processKnowledgeEvent(eventId: string): Promise<void> {
     console.log(`[Knowledge Service] Processing event ${eventId}`);
 
@@ -105,6 +132,27 @@ export class KnowledgeService {
     }
 
     const userId = event.user_id;
+    const eventType = event.event_type;
+
+    // Gatekeeper: only update profile on complete pipelines
+    const isCompletePipelineEvent = eventType === 'VocabularyUpdated' || eventType === 'PatternUpdated';
+
+    if (!isCompletePipelineEvent) {
+      console.log(`[Knowledge Service] Event ${eventType} is an intermediate step. Skipping AI profile update for efficiency.`);
+      
+      const { error: updateErr } = await supabase
+        .from('knowledge_events')
+        .update({
+          processed: true,
+          processed_at: new Date().toISOString()
+        })
+        .eq('id', eventId);
+
+      if (updateErr) {
+        console.error(`[Knowledge Service] Failed to mark event ${eventId} as processed:`, updateErr.message);
+      }
+      return;
+    }
 
     // 2. Fetch the current knowledge profile
     const { data: existingProfile, error: profileErr } = await supabase
@@ -119,25 +167,128 @@ export class KnowledgeService {
 
     const currentProfile: KnowledgeProfile = existingProfile || {
       user_id: userId,
-      identity_model: {},
-      emotion_model: {},
-      vocabulary_model: {},
-      pattern_model: {},
-      agency_model: {},
-      relationship_model: {},
-      decision_model: {},
-      growth_model: {},
-      communication_model: {},
-      knowledge_version: '1.0'
+      identity_model: this.createDefaultDimension(),
+      emotion_model: this.createDefaultDimension(),
+      vocabulary_model: this.createDefaultDimension(),
+      pattern_model: this.createDefaultDimension(),
+      agency_model: this.createDefaultDimension(),
+      relationship_model: this.createDefaultDimension(),
+      decision_model: this.createDefaultDimension(),
+      growth_model: this.createDefaultDimension(),
+      communication_model: this.createDefaultDimension(),
+      stress_model: this.createDefaultDimension(),
+      values_model: this.createDefaultDimension(),
+      provider: 'gemini',
+      model: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
+      prompt_version: '2.0',
+      knowledge_version: '2.0',
+      updated_at: new Date().toISOString()
     };
 
-    // 3. Update the knowledge profile models using AI
+    // 3. Fetch detailed context details for complete pipeline processing
+    let newContext: any = {};
+    if (eventType === 'VocabularyUpdated') {
+      const entryId = event.entry_id || event.payload?.entry_id;
+      const threadResponseId = event.payload?.thread_response_id;
+
+      if (entryId) {
+        const { data: entry } = await supabase
+          .from('entries')
+          .select('id, content, cycle_day, written_at')
+          .eq('id', entryId)
+          .maybeSingle();
+
+        const { data: reflection } = await supabase
+          .from('reflections')
+          .select('reflection_text, reflection_observation')
+          .eq('entry_id', entryId)
+          .maybeSingle();
+
+        const { data: score } = await supabase
+          .from('entry_scores')
+          .select('day_ei, day_pr, day_sa')
+          .eq('entry_id', entryId)
+          .maybeSingle();
+
+        const { data: vocabs } = await supabase
+          .from('vocab_extractions')
+          .select('word, normalized_word, sentence, confidence')
+          .eq('entry_id', entryId);
+
+        newContext = {
+          type: 'journal_entry',
+          entry_id: entryId,
+          content: entry?.content || '',
+          cycle_day: entry?.cycle_day,
+          written_at: entry?.written_at,
+          reflection: reflection?.reflection_text || reflection?.reflection_observation || '',
+          scores: score ? {
+            emotional_intensity: score.day_ei,
+            processing_depth: score.day_pr,
+            self_agency: score.day_sa
+          } : null,
+          vocabulary: vocabs?.map(v => ({ word: v.word, normalized: v.normalized_word, confidence: v.confidence })) || []
+        };
+      } else if (threadResponseId) {
+        const { data: threadRes } = await supabase
+          .from('thread_responses')
+          .select('id, response_text, created_at')
+          .eq('id', threadResponseId)
+          .maybeSingle();
+
+        const { data: vocabs } = await supabase
+          .from('vocab_extractions')
+          .select('word, normalized_word, sentence, confidence')
+          .eq('thread_response_id', threadResponseId);
+
+        newContext = {
+          type: 'thread_response',
+          thread_response_id: threadResponseId,
+          response_text: threadRes?.response_text || '',
+          created_at: threadRes?.created_at,
+          vocabulary: vocabs?.map(v => ({ word: v.word, normalized: v.normalized_word, confidence: v.confidence })) || []
+        };
+      }
+    } else if (eventType === 'PatternUpdated') {
+      const weeklySummaryId = event.payload?.weekly_summary_id;
+      if (weeklySummaryId) {
+        const { data: summary } = await supabase
+          .from('weekly_summaries')
+          .select('id, week_number, title, why, body, open_question')
+          .eq('id', weeklySummaryId)
+          .maybeSingle();
+
+        const { data: patterns } = await supabase
+          .from('pattern_snapshots')
+          .select('snapshot_data, cycle_number')
+          .eq('user_id', userId)
+          .eq('cycle_id', event.cycle_id)
+          .maybeSingle();
+
+        newContext = {
+          type: 'weekly_report',
+          weekly_summary_id: weeklySummaryId,
+          week_number: summary?.week_number,
+          title: summary?.title,
+          why: summary?.why,
+          body: summary?.body,
+          open_question: summary?.open_question,
+          patterns: patterns?.snapshot_data?.patterns || []
+        };
+      }
+    }
+
+    // 4. Update the knowledge profile models using AI
     console.log(`[Knowledge Service] Updating knowledge profile models via AI for user ${userId}...`);
-    const updatedModels = await this.updateProfileModelsWithAI(currentProfile, event);
+    const updatedModels = await this.updateProfileModelsWithAI(currentProfile, event, newContext);
 
     const updatedProfile: KnowledgeProfile = {
       ...currentProfile,
       ...updatedModels,
+      provider: 'gemini',
+      model: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
+      prompt_version: '2.0',
+      knowledge_version: '2.0',
       updated_at: new Date().toISOString()
     };
 
@@ -151,9 +302,16 @@ export class KnowledgeService {
     }
     console.log(`[Knowledge Service] Successfully saved knowledge profile for user ${userId}.`);
 
-    // 4. If the event is WeeklyReportGenerated, save a snapshot and regenerate knowledge cards
-    if (event.event_type === 'WeeklyReportGenerated') {
-      const weekNumber = event.payload?.week_number || 1;
+    // 5. Save completed weekly snapshots and regenerate cards only on PatternUpdated
+    if (eventType === 'PatternUpdated') {
+      const weeklySummaryId = event.payload?.weekly_summary_id;
+      const { data: summary } = await supabase
+        .from('weekly_summaries')
+        .select('week_number, generated_at, created_at')
+        .eq('id', weeklySummaryId)
+        .maybeSingle();
+
+      const weekNumber = summary?.week_number || 1;
       
       console.log(`[Knowledge Service] Generating weekly snapshot for week ${weekNumber}...`);
       const { error: snapErr } = await supabase
@@ -161,7 +319,8 @@ export class KnowledgeService {
         .insert({
           user_id: userId,
           week_number: weekNumber,
-          snapshot: updatedProfile
+          snapshot: updatedProfile,
+          generated_at: summary?.generated_at || summary?.created_at || new Date().toISOString()
         });
 
       if (snapErr) {
@@ -172,7 +331,7 @@ export class KnowledgeService {
       await this.regenerateKnowledgeCards(userId, updatedProfile, eventId);
     }
 
-    // 5. Mark event as processed (idempotency update)
+    // 6. Mark event as processed (idempotency update)
     const { error: updateErr } = await supabase
       .from('knowledge_events')
       .update({
@@ -188,17 +347,15 @@ export class KnowledgeService {
     }
   }
 
-  /**
-   * Calls AI to evolve the 9 profile models based on the new event payload.
-   */
   private static async updateProfileModelsWithAI(
     current: KnowledgeProfile,
-    event: any
+    event: any,
+    newContext: any
   ): Promise<Partial<KnowledgeProfile>> {
     const prompt = `You are the core Knowledge Intelligence Engine for Ingress Within, a therapeutic writing platform.
-Your task is to update the long-term knowledge profile of the user based on the current profile models and a new system event.
+Your task is to update the long-term knowledge profile of the user based on the current profile models and a new completed daily/weekly processing step.
 
-CURRENT KNOWLEDGE MODELS:
+CURRENT KNOWLEDGE PROFILE DIMENSIONS:
 - identity_model: ${JSON.stringify(current.identity_model)}
 - emotion_model: ${JSON.stringify(current.emotion_model)}
 - vocabulary_model: ${JSON.stringify(current.vocabulary_model)}
@@ -208,57 +365,107 @@ CURRENT KNOWLEDGE MODELS:
 - decision_model: ${JSON.stringify(current.decision_model)}
 - growth_model: ${JSON.stringify(current.growth_model)}
 - communication_model: ${JSON.stringify(current.communication_model)}
+- stress_model: ${JSON.stringify(current.stress_model)}
+- values_model: ${JSON.stringify(current.values_model)}
 
-NEW EVENT:
+NEW COMPLETED STEP CONTEXT:
 - event_type: ${event.event_type}
 - source: ${event.source}
-- payload: ${JSON.stringify(event.payload)}
+- event_id: ${event.id}
+- context_details: ${JSON.stringify(newContext, null, 2)}
 
 INSTRUCTIONS:
-1. Review the new event. Evolve and update the 9 models in the user's profile.
-2. Maintain long-term understanding. Do not delete historical knowledge unless the new event explicitly corrects it or shows a significant shift.
-3. Keep descriptions and summaries grounded strictly in the user's actual history and events.
-4. STRICT TONE REQUIREMENT: Write all summaries, traits, and descriptions in either the first-person ("I", "my") or address the user directly as "you" ("your"). NEVER refer to the writer in the third person (e.g. "the user", "the writer", "he/she", "they").
-5. Return ONLY a valid JSON object matching the schema below. Do not include markdown code block formatting (e.g. \`\`\`json), no preamble, no explanation.
+1. Evolve and update the 11 dimensions in the user's profile based on the new context details.
+2. STABILITY CONSTRAINT: Evolve slowly. One day's entry or one week's report should never completely rewrite previous understanding. Use weighted history: weight the new event details, but maintain existing high-confidence observations unless there is sustained conflicting evidence.
+3. EVIDENCE-DRIVEN: Base all observations strictly on the user's own writing in the new context and existing models. Do NOT invent or assume.
+4. NO PSYCHOLOGICAL LABELS: Do not use labels like "clinical depression", "BPD", "PTSD", etc. Use descriptive, behavioral, and emotional observations.
+5. STRICT TONE REQUIREMENT: Write the "summary" in either the first-person ("I", "my") or address the user directly as "you" ("your"). NEVER refer to the writer in the third person (e.g. "the user", "the writer", "he/she", "they").
+6. CONFIDENCE: Rate the confidence for each observation as "High" (repeated evidence over multiple cycles/days), "Medium" (some evidence), or "Low" (insufficient/initial evidence).
+7. AUDIT TRAIL: Populate the "supporting_events" object.
+   - For journals/daily updates, append the new journal entry ID to "journals".
+   - For weekly summary/pattern updates, append the new weekly summary ID to "reports" and the pattern snapshot ID to "patterns".
+   - Ensure you keep the existing supporting IDs that are still relevant.
+   - Extract up to 5 supporting vocabulary words from the context and append them to "supporting_vocabulary".
+8. Return ONLY a valid JSON object matching the schema below. Do not include markdown code block formatting (e.g. \`\`\`json), no preamble, no explanation.
 
 JSON SCHEMA:
 {
   "identity_model": {
-    "core_narrative": "1-2 sentences summarizing how they describe themselves and their story",
-    "persona_traits": ["trait1", "trait2"]
+    "summary": "Observation summary in 1st/2nd person",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   },
   "emotion_model": {
-    "dominant_states": ["emotion1", "emotion2"],
-    "triggers": ["trigger1", "trigger2"],
-    "defense_mechanisms": ["mechanism1", "mechanism2"]
+    "summary": "Observation summary in 1st/2nd person. Focus on direct/reserved/avoidant emotional expression style",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   },
   "vocabulary_model": {
-    "preferred_descriptors": ["word1", "word2"],
-    "linguistic_clusters": ["cluster1", "cluster2"]
+    "summary": "Observation summary in 1st/2nd person",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   },
   "pattern_model": {
-    "active_patterns": ["pattern1", "pattern2"],
-    "evolution": "Description of how their behavioral patterns are changing"
+    "summary": "Observation summary in 1st/2nd person",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   },
   "agency_model": {
-    "locus_of_control": "internal / external / mixed",
-    "self_efficacy_rating": "low / medium / high",
-    "observations": "1-2 sentences about how much control they feel they have over their life"
+    "summary": "Observation summary in 1st/2nd person. Focus on locus of control (e.g. 'I chose', 'I had to', 'It happened', 'I can't', 'I'm learning')",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   },
   "relationship_model": {
-    "dynamics": "Relational behaviors and boundaries",
-    "relational_triggers": ["trigger1"]
+    "summary": "Observation summary in 1st/2nd person. Focus on boundary language, support, conflict, isolation, dependence, boundaries, trust",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   },
   "decision_model": {
-    "choice_making_behavior": "Description of how they face choices or dilemmas",
-    "core_values": ["value1", "value2"]
+    "summary": "Observation summary in 1st/2nd person. Focus on overthinking, acting quickly, needing reassurance, deep reflection, or decision avoidance",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   },
   "growth_model": {
-    "insights_achieved": ["insight1"],
-    "growth_areas": ["area1"]
+    "summary": "Observation summary in 1st/2nd person. Focus on recovery signals (walking, writing, nature, friends, etc.) and growth indicators (richer vocabulary, higher agency, less avoidance, boundary language)",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   },
   "communication_model": {
-    "conversational_style": "Description of their expression, defensiveness, or transparency"
+    "summary": "Observation summary in 1st/2nd person",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
+  },
+  "stress_model": {
+    "summary": "Observation summary in 1st/2nd person. Focus on stress response styles: withdrawal, overworking, seeking support, self criticism, reflection, planning",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
+  },
+  "values_model": {
+    "summary": "Observation summary in 1st/2nd person. Focus on work and purpose themes: pressure, achievement, meaning, burnout, growth, balance",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   }
 }`;
 
@@ -272,7 +479,6 @@ JSON SCHEMA:
       return JSON.parse(cleaned);
     } catch (err: any) {
       console.error(`[Knowledge Service] AI profile update error:`, err.message || err);
-      // Fallback: return unchanged models
       return {
         identity_model: current.identity_model,
         emotion_model: current.emotion_model,
@@ -282,7 +488,9 @@ JSON SCHEMA:
         relationship_model: current.relationship_model,
         decision_model: current.decision_model,
         growth_model: current.growth_model,
-        communication_model: current.communication_model
+        communication_model: current.communication_model,
+        stress_model: current.stress_model,
+        values_model: current.values_model
       };
     }
   }
@@ -684,7 +892,13 @@ JSON SCHEMA:
           processing_depth: entryScores && entryScores.length > 0 ? (entryScores.reduce((acc, s) => acc + (s.day_pr || 0), 0) / entryScores.length).toFixed(2) : '4.5',
           self_agency: entryScores && entryScores.length > 0 ? (entryScores.reduce((acc, s) => acc + (s.day_sa || 0), 0) / entryScores.length).toFixed(2) : '5.5'
         },
+        journals: entries?.map(e => ({
+          id: e.id,
+          cycle_day: e.cycle_day,
+          created_at: e.created_at
+        })) || [],
         weekly_summaries: weeklySummaries?.map(ws => ({
+          id: ws.id,
           week: ws.week_number,
           title: ws.title,
           realization: ws.why,
@@ -692,6 +906,7 @@ JSON SCHEMA:
           open_question: ws.open_question
         })) || [],
         patterns: patternSnapshots?.map(ps => ({
+          id: ps.id,
           week: ps.cycle_number,
           active_patterns: (ps.snapshot_data?.patterns || [])
             .filter((p: any) => p.status !== 'absent' && p.status !== 'quiet')
@@ -706,7 +921,10 @@ JSON SCHEMA:
           normalized: v.normalized_word,
           confidence: v.confidence
         })) || [],
-        thread_responses: finalThreadResponses?.map(tr => tr.response_text) || []
+        thread_responses: finalThreadResponses?.map(tr => ({
+          id: tr.id,
+          text: tr.response_text
+        })) || []
       };
 
       // 8. Generate long-term Knowledge Profile via 1 unified AI call
@@ -723,16 +941,21 @@ JSON SCHEMA:
       
       const newProfile: KnowledgeProfile = {
         user_id: userId,
-        identity_model: profileModels.identity_model || {},
-        emotion_model: profileModels.emotion_model || {},
-        vocabulary_model: profileModels.vocabulary_model || {},
-        pattern_model: profileModels.pattern_model || {},
-        agency_model: profileModels.agency_model || {},
-        relationship_model: profileModels.relationship_model || {},
-        decision_model: profileModels.decision_model || {},
-        growth_model: profileModels.growth_model || {},
-        communication_model: profileModels.communication_model || {},
-        knowledge_version: '1.0',
+        identity_model: profileModels.identity_model || this.createDefaultDimension(),
+        emotion_model: profileModels.emotion_model || this.createDefaultDimension(),
+        vocabulary_model: profileModels.vocabulary_model || this.createDefaultDimension(),
+        pattern_model: profileModels.pattern_model || this.createDefaultDimension(),
+        agency_model: profileModels.agency_model || this.createDefaultDimension(),
+        relationship_model: profileModels.relationship_model || this.createDefaultDimension(),
+        decision_model: profileModels.decision_model || this.createDefaultDimension(),
+        growth_model: profileModels.growth_model || this.createDefaultDimension(),
+        communication_model: profileModels.communication_model || this.createDefaultDimension(),
+        stress_model: profileModels.stress_model || this.createDefaultDimension(),
+        values_model: profileModels.values_model || this.createDefaultDimension(),
+        provider: 'gemini',
+        model: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
+        prompt_version: '2.0',
+        knowledge_version: '2.0',
         updated_at: new Date().toISOString()
       };
 
@@ -818,55 +1041,97 @@ JSON SCHEMA:
     historicalSummary: any
   ): Promise<any> {
     const prompt = `You are the core Knowledge Intelligence Engine for Ingress Within, a therapeutic writing platform.
-Your task is to generate a comprehensive, long-term therapeutic Knowledge Profile (representing a deep clinical registers of understanding) based on the user's complete historical timeline.
+Your task is to generate a comprehensive, long-term therapeutic Knowledge Profile based on the user's complete historical timeline.
 
 USER HISTORICAL INTEL SUMMARY:
 ${JSON.stringify(historicalSummary, null, 2)}
 
 INSTRUCTIONS:
-1. Review the complete history. Generate a consolidated profile of the user across the 9 models.
-2. Ensure the narrative is grounded strictly in the actual weekly reports, patterns, and scores provided. Do not invent details.
-3. STRICT TONE REQUIREMENT: Write all summaries, traits, and descriptions in either the first-person ("I", "my") or address the user directly as "you" ("your"). NEVER refer to the writer in the third person (e.g. "the user", "the writer", "he/she", "they").
-4. Return ONLY a valid JSON object matching the schema below. Do not include markdown code block formatting (e.g. \`\`\`json), no preamble, no explanation.
+1. Review the complete history. Generate a consolidated profile of the user across the 11 dimensions.
+2. Ensure the narrative is grounded strictly in the actual weekly reports, patterns, journals, and vocabulary provided. Do not invent details.
+3. STRICT TONE REQUIREMENT: Write all summaries and descriptions in either the first-person ("I", "my") or address the user directly as "you" ("your"). NEVER refer to the writer in the third person (e.g. "the user", "the writer", "he/she", "they").
+4. CONFIDENCE: Rate the confidence for each observation as "High" (repeated evidence), "Medium" (some evidence), or "Low" (insufficient/initial evidence).
+5. AUDIT TRAIL: For each observation, map the corresponding supporting journal UUIDs (from journals array), report UUIDs (from weekly_summaries), and pattern snapshot UUIDs (from patterns) in the "supporting_events" object. Identify supporting vocabulary words and place them in "supporting_vocabulary".
+6. Return ONLY a valid JSON object matching the schema below. Do not include markdown code block formatting (e.g. \`\`\`json), no preamble, no explanation.
 
 JSON SCHEMA:
 {
   "identity_model": {
-    "core_narrative": "1-2 sentences summarizing how they describe themselves and their story",
-    "persona_traits": ["trait1", "trait2"]
+    "summary": "Observation summary in 1st/2nd person",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   },
   "emotion_model": {
-    "dominant_states": ["emotion1", "emotion2"],
-    "triggers": ["trigger1", "trigger2"],
-    "defense_mechanisms": ["mechanism1", "mechanism2"]
+    "summary": "Observation summary in 1st/2nd person. Focus on direct/reserved/avoidant emotional expression style",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   },
   "vocabulary_model": {
-    "preferred_descriptors": ["word1", "word2"],
-    "linguistic_clusters": ["cluster1", "cluster2"]
+    "summary": "Observation summary in 1st/2nd person",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   },
   "pattern_model": {
-    "active_patterns": ["pattern1", "pattern2"],
-    "evolution": "Description of how their behavioral patterns are changing"
+    "summary": "Observation summary in 1st/2nd person",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   },
   "agency_model": {
-    "locus_of_control": "internal / external / mixed",
-    "self_efficacy_rating": "low / medium / high",
-    "observations": "1-2 sentences about how much control they feel they have over their life"
+    "summary": "Observation summary in 1st/2nd person. Focus on locus of control (e.g. 'I chose', 'I had to', 'It happened', 'I can't', 'I'm learning')",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   },
   "relationship_model": {
-    "dynamics": "Relational behaviors and boundaries",
-    "relational_triggers": ["trigger1"]
+    "summary": "Observation summary in 1st/2nd person. Focus on boundary language, support, conflict, isolation, dependence, boundaries, trust",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   },
   "decision_model": {
-    "choice_making_behavior": "Description of how they face choices or dilemmas",
-    "core_values": ["value1", "value2"]
+    "summary": "Observation summary in 1st/2nd person. Focus on overthinking, acting quickly, needing reassurance, deep reflection, or decision avoidance",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   },
   "growth_model": {
-    "insights_achieved": ["insight1"],
-    "growth_areas": ["area1"]
+    "summary": "Observation summary in 1st/2nd person. Focus on recovery signals (walking, writing, nature, friends, etc.) and growth indicators (richer vocabulary, higher agency, less avoidance, boundary language)",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   },
   "communication_model": {
-    "conversational_style": "Description of their expression, defensiveness, or transparency"
+    "summary": "Observation summary in 1st/2nd person",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
+  },
+  "stress_model": {
+    "summary": "Observation summary in 1st/2nd person. Focus on stress response styles: withdrawal, overworking, seeking support, self criticism, reflection, planning",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
+  },
+  "values_model": {
+    "summary": "Observation summary in 1st/2nd person. Focus on work and purpose themes: pressure, achievement, meaning, burnout, growth, balance",
+    "confidence": "High / Medium / Low",
+    "supporting_events": { "journals": ["uuid"], "reports": ["uuid"], "patterns": ["uuid"] },
+    "supporting_vocabulary": ["vocab_word"],
+    "last_updated": "ISO Timestamp"
   }
 }`;
 

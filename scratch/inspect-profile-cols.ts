@@ -27,11 +27,11 @@ async function main() {
   const dbPath = pathToFileURL(path.join(process.cwd(), 'src/lib/db.ts')).href;
   const { supabase: db } = await import(dbPath);
 
-  const { data, error } = await db.from('users').select('*').limit(1).single();
+  const { data, error } = await db.from('knowledge_profile').select('*').limit(1).single();
   if (error) {
-    console.error('Error fetching user:', error.message);
+    console.error('Error fetching knowledge profile:', error.message);
   } else {
-    console.log('User columns:', Object.keys(data));
+    console.log('Knowledge Profile columns:', Object.keys(data));
   }
 }
 
