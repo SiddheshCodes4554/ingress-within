@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Home, PenLine, FileText, TrendingUp, Settings } from 'lucide-react';
+import { User, Home, PenLine, FileText, TrendingUp, Settings, BookOpen } from 'lucide-react';
 
 export default function DashboardNavbar({ activeTab }) {
   const isMobileNavHidden = typeof window !== 'undefined' && (
@@ -39,6 +39,7 @@ export default function DashboardNavbar({ activeTab }) {
             <button className={getTabClass('write')} onClick={() => window.navigateTo('/write')}>Write</button>
             <button className={getTabClass('reports')} onClick={() => window.navigateTo('/reports')}>Reports</button>
             <button className={getTabClass('patterns')} onClick={() => window.navigateTo('/patterns')}>Patterns</button>
+            <button className={getTabClass('knowledge')} onClick={() => window.navigateTo('/knowledge')}>Knowledge</button>
             <button className={getTabClass('settings')} onClick={() => window.navigateTo('/settings')}>Settings</button>
           </nav>
 
@@ -90,6 +91,11 @@ export default function DashboardNavbar({ activeTab }) {
             <TrendingUp size={17} className={activeTab === 'patterns' ? 'text-secondary mb-0.5' : 'text-mid/50 mb-0.5'} />
             <span>Patterns</span>
             {activeTab === 'patterns' && <div className="absolute bottom-0 w-1 h-1 rounded-full bg-secondary" />}
+          </button>
+          <button onClick={() => window.navigateTo('/knowledge')} className={getMobileTabClass('knowledge')}>
+            <BookOpen size={17} className={activeTab === 'knowledge' ? 'text-secondary mb-0.5' : 'text-mid/50 mb-0.5'} />
+            <span>Knowledge</span>
+            {activeTab === 'knowledge' && <div className="absolute bottom-0 w-1 h-1 rounded-full bg-secondary" />}
           </button>
           <button onClick={() => window.navigateTo('/settings')} className={getMobileTabClass('settings')}>
             <Settings size={17} className={activeTab === 'settings' ? 'text-secondary mb-0.5' : 'text-mid/50 mb-0.5'} />

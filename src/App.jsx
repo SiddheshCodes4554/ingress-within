@@ -18,6 +18,7 @@ const WritePage = lazy(() => import('./pages/WritePage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const PatternsPage = lazy(() => import('./pages/PatternsPage'));
 const VocabPage = lazy(() => import('./pages/VocabPage'));
+const KnowledgeBankPage = lazy(() => import('./pages/KnowledgeBankPage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
 const SessionFlowPage = lazy(() => import('./pages/SessionFlowPage'));
 const ThreadDetailPage = lazy(() => import('./pages/ThreadDetailPage'));
@@ -328,6 +329,9 @@ export default function App() {
       } else if (path === '/vocab' || path === '/vocab/') {
         setCurrentRoute('vocab');
         window.scrollTo(0, 0);
+      } else if (path === '/knowledge' || path === '/knowledge/') {
+        setCurrentRoute('knowledge');
+        window.scrollTo(0, 0);
       } else if (path === '/support' || path === '/support/') {
         setCurrentRoute('support');
         window.scrollTo(0, 0);
@@ -417,7 +421,7 @@ export default function App() {
 
   const renderPage = () => {
     const path = window.location.pathname;
-    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread') || path.startsWith('/entry');
+    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread') || path.startsWith('/entry') || path.startsWith('/knowledge');
 
     if (isProtectedRoute && (!authChecked || isLoading)) {
       return <LoadingScreen />;
@@ -457,6 +461,8 @@ export default function App() {
         return <PatternsPage user={user} profile={profile} onSignOut={handleSignOut} />;
       case 'vocab':
         return <VocabPage user={user} profile={profile} onSignOut={handleSignOut} />;
+      case 'knowledge':
+        return <KnowledgeBankPage user={user} profile={profile} onSignOut={handleSignOut} />;
       case 'support':
         return <SupportPage />;
       case 'session':
