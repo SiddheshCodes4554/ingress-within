@@ -172,7 +172,7 @@ class WeeklyReportOrchestrator {
   /**
    * Final validation audit to verify data completeness prior to Weekly Report generation.
    */
-  public async validateAndGenerateReport(summaryId: string, userId: string, cycleId: string, weekNumber: number) {
+  public async validateAndGenerateReport(summaryId: string, userId: string, cycleId: string, weekNumber: number, orchestrator_job_id?: string) {
     console.log(`[WeeklyReportOrchestrator] Final validation check for weekly summary ${summaryId}...`);
 
     // Fetch summary
@@ -306,7 +306,8 @@ class WeeklyReportOrchestrator {
         cycle_id: cycleId,
         user_id: userId,
         week_number: weekNumber,
-        summary_id: summaryId
+        summary_id: summaryId,
+        orchestrator_job_id
       });
 
       const duration = Date.now() - startTime;

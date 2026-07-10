@@ -9,10 +9,20 @@ export async function processWeeklySummary(jobData: {
   user_id: string;
   week_number: number;
   summary_id?: string;
+  orchestrator_job_id?: string;
 }) {
-  const { cycle_id, user_id, week_number, summary_id } = jobData;
+  const { cycle_id, user_id, week_number, summary_id, orchestrator_job_id } = jobData;
 
   console.log(`[Weekly Summary Worker] Starting weekly summary for week ${week_number} (cycle ${cycle_id})`);
+
+  if (orchestrator_job_id) {
+    try {
+      const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+      await IntelligenceOrchestrator.startJob(orchestrator_job_id);
+    } catch (err: any) {
+      console.warn(`[Weekly Summary Worker] Failed to start orchestrator job ${orchestrator_job_id}:`, err.message);
+    }
+  }
 
   // 1. Fetch the weekly summary row
   let summaryRow: any = null;
@@ -359,33 +369,28 @@ export async function processWeeklySummary(jobData: {
 
     }
 
-    // 7. Trigger the Pattern Engine processing for this weekly report
-    try {
-      const { triggerPatternProcessing } = await import('../triggers');
-      await triggerPatternProcessing(actualSummaryId, user_id, cycle_id, 'weekly_report');
-      console.log(`[Weekly Summary Worker] Triggered pattern engine for weekly report ${actualSummaryId}`);
-    } catch (patternErr: any) {
-      console.error(`[Weekly Summary Worker] Failed to trigger pattern engine:`, patternErr.message);
+    if (orchestrator_job_id) {
+      try {
+        const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+        await IntelligenceOrchestrator.completeJob(orchestrator_job_id, user_id, 'weekly_report', {
+          lastProcessedWeek: week_number
+        });
+      } catch (err: any) {
+        console.error(`[Weekly Summary Worker] Failed to complete orchestrator job:`, err.message);
+      }
     }
 
-    console.log(`[Weekly Summary Worker] Successfully generated weekly report and open thread for week ${week_number}`);
-
-    // Emit WeeklyReportGenerated event
+    // Publish WeeklyReportCompleted event to the Event Bus
     try {
-      const { KnowledgeService } = await import('../../knowledge/knowledgeService');
-      await KnowledgeService.emitKnowledgeEvent(
-        user_id,
+      const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+      await IntelligenceOrchestrator.emitEvent(user_id, 'WeeklyReportCompleted', {
+        summary_id: actualSummaryId,
         cycle_id,
-        null,
-        'WeeklyReportGenerated',
-        'weekly_report_orchestrator',
-        {
-          weekly_summary_id: actualSummaryId,
-          week_number: week_number
-        }
-      );
-    } catch (wsErr: any) {
-      console.error(`[Weekly Summary Worker] Failed to emit WeeklyReportGenerated event:`, wsErr.message);
+        week_number
+      });
+      console.log(`[Weekly Summary Worker] Emitted WeeklyReportCompleted event for user ${user_id}, summary ${actualSummaryId}`);
+    } catch (eventErr: any) {
+      console.error(`[Weekly Summary Worker] Error emitting WeeklyReportCompleted event:`, eventErr.message);
     }
   } catch (err: any) {
     console.error(`[Weekly Summary Worker] Error in weekly report generation:`, err);
@@ -393,6 +398,15 @@ export async function processWeeklySummary(jobData: {
       .from('weekly_summaries')
       .update({ status: 'FAILED' })
       .eq('id', actualSummaryId);
+
+    if (orchestrator_job_id) {
+      try {
+        const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+        await IntelligenceOrchestrator.failJob(orchestrator_job_id, user_id, 'weekly_report', err.message || String(err));
+      } catch (errOrch: any) {
+        console.error(`[Weekly Summary Worker] Failed to report failure to orchestrator:`, errOrch.message);
+      }
+    }
     throw err;
   }
 }

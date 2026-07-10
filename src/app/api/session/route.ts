@@ -475,7 +475,6 @@ export async function POST(request: NextRequest) {
 
       if (journalRecord) {
         triggerAIProcessing(journalRecord.id, authUser.userId);
-        checkWeeklyAndMonthlySummary(authUser.userId, journalRecord.cycle_id, journalRecord.cycle_day);
       }
 
       return NextResponse.json({

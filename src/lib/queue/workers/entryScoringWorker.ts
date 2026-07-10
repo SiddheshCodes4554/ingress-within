@@ -4,10 +4,19 @@ import { executeScoringPipeline } from '../../ai/pipeline';
 import { evaluateCrisisLayers } from '../../crisis-detector';
 import { queueRegistry } from '../registry';
 
-export async function processEntryScoring(jobData: { entry_id: string; user_id: string }) {
-  const { entry_id, user_id } = jobData;
+export async function processEntryScoring(jobData: { entry_id: string; user_id: string; orchestrator_job_id?: string }) {
+  const { entry_id, user_id, orchestrator_job_id } = jobData;
 
   console.log(`[Entry Scoring Worker] Processing entry ${entry_id} for user ${user_id}`);
+
+  if (orchestrator_job_id) {
+    try {
+      const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+      await IntelligenceOrchestrator.startJob(orchestrator_job_id);
+    } catch (err: any) {
+      console.warn(`[Entry Scoring Worker] Failed to start orchestrator job ${orchestrator_job_id}:`, err.message);
+    }
+  }
 
   // 1. Fetch entry
   const { data: entry, error: entryError } = await supabase
@@ -342,15 +351,27 @@ export async function processEntryScoring(jobData: { entry_id: string; user_id: 
     }
   }
 
-  // Chained sequential pipeline: trigger crisis detection next
+  if (orchestrator_job_id) {
+    try {
+      const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+      await IntelligenceOrchestrator.completeJob(orchestrator_job_id, user_id, 'entry_scoring', {
+        lastProcessedEntry: entry_id
+      });
+    } catch (err: any) {
+      console.error(`[Entry Scoring Worker] Failed to complete orchestrator job:`, err.message);
+    }
+  }
+
+  // Publish JournalSubmitted event to the Event Bus (Orchestrator)
   try {
-    await queueRegistry.addJob('crisis_detection', `crisis_${entry_id}`, {
+    const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+    await IntelligenceOrchestrator.emitEvent(user_id, 'JournalSubmitted', {
       entry_id,
-      user_id
+      cycle_id: entry.cycle_id
     });
-    console.log(`[Entry Scoring Worker] Chained crisis detection job for entry ${entry_id}`);
-  } catch (chainErr: any) {
-    console.error(`[Entry Scoring Worker] Error queueing crisis detection:`, chainErr.message);
+    console.log(`[Entry Scoring Worker] Emitted JournalSubmitted event for entry ${entry_id}`);
+  } catch (eventErr: any) {
+    console.error(`[Entry Scoring Worker] Error emitting JournalSubmitted event:`, eventErr.message);
   }
 }
 

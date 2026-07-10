@@ -339,9 +339,19 @@ export async function processVocabularyExtraction(jobData: {
   thread_response_id?: string;
   user_id: string;
   bypass_ai?: boolean;
+  orchestrator_job_id?: string;
 }) {
-  const { user_id } = jobData;
+  const { user_id, orchestrator_job_id } = jobData;
   
+  if (orchestrator_job_id) {
+    try {
+      const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+      await IntelligenceOrchestrator.startJob(orchestrator_job_id);
+    } catch (err: any) {
+      console.warn(`[Vocab Worker] Failed to start orchestrator job ${orchestrator_job_id}:`, err.message);
+    }
+  }
+
   // Ensure chronological historical backfill runs first (idempotent, once per user)
   await ensureChronologicalBackfill(user_id);
 
@@ -357,8 +367,9 @@ async function processSingleVocabularyExtraction(jobData: {
   thread_response_id?: string;
   user_id: string;
   bypass_ai?: boolean;
+  orchestrator_job_id?: string;
 }) {
-  const { entry_id, thread_response_id, user_id, bypass_ai } = jobData;
+  const { entry_id, thread_response_id, user_id, bypass_ai, orchestrator_job_id } = jobData;
 
   let cycle_id = '';
   let fullText = '';
@@ -554,14 +565,40 @@ async function processSingleVocabularyExtraction(jobData: {
       console.error(`[Vocab Worker] Failed to emit Knowledge event:`, e);
     }
 
-    // Trigger Pattern processing
-    if (cycle_id) {
-      const sourceType = entry_id ? 'journal' : 'thread';
-      await triggerPatternProcessing(entry_id || thread_response_id || null, user_id, cycle_id, sourceType);
+    if (orchestrator_job_id) {
+      try {
+        const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+        await IntelligenceOrchestrator.completeJob(orchestrator_job_id, user_id, 'vocabulary', {
+          lastProcessedEntry: entry_id
+        });
+      } catch (err: any) {
+        console.error(`[Vocab Worker] Failed to complete orchestrator job:`, err.message);
+      }
     }
 
-  } catch (err) {
+    // Publish VocabularyCompleted event to the Event Bus
+    try {
+      const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+      await IntelligenceOrchestrator.emitEvent(user_id, 'VocabularyCompleted', {
+        entry_id: entry_id || null,
+        thread_response_id: thread_response_id || null,
+        cycle_id: cycle_id || null
+      });
+      console.log(`[Vocab Worker] Emitted VocabularyCompleted event for user ${user_id}`);
+    } catch (eventErr: any) {
+      console.error(`[Vocab Worker] Error emitting VocabularyCompleted event:`, eventErr.message);
+    }
+
+  } catch (err: any) {
     console.error(`[Vocab Worker] Error processing single vocabulary extraction:`, err);
+    if (orchestrator_job_id) {
+      try {
+        const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+        await IntelligenceOrchestrator.failJob(orchestrator_job_id, user_id, 'vocabulary', err.message || String(err));
+      } catch (errOrch: any) {
+        console.error(`[Vocab Worker] Failed to report failure to orchestrator:`, errOrch.message);
+      }
+    }
     throw err;
   }
 }

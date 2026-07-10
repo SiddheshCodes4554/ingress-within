@@ -135,13 +135,23 @@ export async function processReflectionGeneration(jobData: {
   entry_id: string;
   user_id: string;
   bypass_ai?: boolean;
+  orchestrator_job_id?: string;
 }) {
-  const { entry_id, user_id, bypass_ai } = jobData;
+  const { entry_id, user_id, bypass_ai, orchestrator_job_id } = jobData;
   const startTime = Date.now();
   const providerName = process.env.AI_PROVIDER || 'groq';
   const modelName = (aiProvider as any).model || 'unknown';
 
   console.log(`[Reflection Engine] [1/8] [Entry: ${entry_id}] Starting reflection pipeline. Provider: ${providerName}, Model: ${modelName}`);
+
+  if (orchestrator_job_id) {
+    try {
+      const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+      await IntelligenceOrchestrator.startJob(orchestrator_job_id);
+    } catch (err: any) {
+      console.warn(`[Reflection Engine] Failed to start orchestrator job ${orchestrator_job_id}:`, err.message);
+    }
+  }
 
   // 1. Fetch entry
   const { data: entry, error: entryError } = await supabase
@@ -508,21 +518,41 @@ export async function processReflectionGeneration(jobData: {
       }
     }
 
-    // 9. Chain sequential pipeline: trigger vocabulary processing
+    if (orchestrator_job_id) {
+      try {
+        const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+        await IntelligenceOrchestrator.completeJob(orchestrator_job_id, user_id, 'reflection', {
+          lastProcessedEntry: entry_id
+        });
+      } catch (err: any) {
+        console.error(`[Reflection Engine] Failed to complete orchestrator job:`, err.message);
+      }
+    }
+
+    // Publish ReflectionCompleted event to the Event Bus
     try {
-      await queueRegistry.addJob('vocab_processing', `vocab_${entry_id}`, {
+      const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+      await IntelligenceOrchestrator.emitEvent(user_id, 'ReflectionCompleted', {
         entry_id,
-        user_id
+        cycle_id: entry.cycle_id
       });
-      console.log(`[Reflection Engine] [8/8] [Entry: ${entry_id}] Chained vocabulary processing job.`);
-    } catch (chainErr: any) {
-      console.error(`[Reflection Engine] Failed to chain vocabulary processing:`, chainErr.message);
+      console.log(`[Reflection Engine] Emitted ReflectionCompleted event for entry ${entry_id}`);
+    } catch (eventErr: any) {
+      console.error(`[Reflection Engine] Error emitting ReflectionCompleted event:`, eventErr.message);
     }
 
     const duration = Date.now() - startTime;
     console.log(`[Reflection Engine] Successfully completed reflection generation for entry ${entry_id} in ${duration}ms.`);
   } catch (err: any) {
     console.error(`[Reflection Engine] [7/8] Error saving reflection to database:`, err.message || err);
+    if (orchestrator_job_id) {
+      try {
+        const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+        await IntelligenceOrchestrator.failJob(orchestrator_job_id, user_id, 'reflection', err.message || String(err));
+      } catch (errOrch: any) {
+        console.error(`[Reflection Engine] Failed to report failure to orchestrator:`, errOrch.message);
+      }
+    }
     throw err;
   }
 }

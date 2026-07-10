@@ -388,9 +388,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (newEntry) {
-      // Trigger background AI tasks and check weekly/monthly milestones
+      // Trigger background AI tasks
       triggerAIProcessing(newEntry.id, authUser.userId);
-      checkWeeklyAndMonthlySummary(authUser.userId, newEntry.cycle_id, newEntry.cycle_day);
     }
 
     return NextResponse.json({

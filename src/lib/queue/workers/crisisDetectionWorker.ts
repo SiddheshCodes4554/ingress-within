@@ -6,10 +6,20 @@ import { queueRegistry } from '../registry';
 export async function processCrisisDetection(jobData: {
   entry_id: string;
   user_id: string;
+  orchestrator_job_id?: string;
 }) {
-  const { entry_id, user_id } = jobData;
+  const { entry_id, user_id, orchestrator_job_id } = jobData;
 
   console.log(`[Crisis Detection Worker] Scanning entry ${entry_id} for user ${user_id}`);
+
+  if (orchestrator_job_id) {
+    try {
+      const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+      await IntelligenceOrchestrator.startJob(orchestrator_job_id);
+    } catch (err: any) {
+      console.warn(`[Crisis Detection Worker] Failed to start orchestrator job ${orchestrator_job_id}:`, err.message);
+    }
+  }
 
   // 1. Fetch entry
   const { data: entry, error: entryError } = await supabase
@@ -170,20 +180,41 @@ export async function processCrisisDetection(jobData: {
       } else {
         await supabase.from('reflections').insert(reflectionPayload);
       }
-    } else {
-      // If no crisis, trigger the reflection generation job in queue
+    }
+
+    if (orchestrator_job_id) {
       try {
-        await queueRegistry.addJob('reflection_generation', `refl_${entry_id}`, {
-          entry_id,
-          user_id
+        const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+        await IntelligenceOrchestrator.completeJob(orchestrator_job_id, user_id, 'crisis_detection', {
+          lastProcessedEntry: entry_id
         });
-        console.log(`[Crisis Detection Worker] Chained reflection generation job for entry ${entry_id}`);
-      } catch (chainErr: any) {
-        console.error(`[Crisis Detection Worker] Error queueing reflection generation:`, chainErr.message);
+      } catch (err: any) {
+        console.error(`[Crisis Detection Worker] Failed to complete orchestrator job:`, err.message);
       }
+    }
+
+    // Emit CrisisDetected event to Event Bus
+    try {
+      const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+      await IntelligenceOrchestrator.emitEvent(user_id, 'CrisisDetected', {
+        entry_id,
+        cycle_id: entry.cycle_id,
+        has_crisis: result.crisisFlag
+      });
+      console.log(`[Crisis Detection Worker] Emitted CrisisDetected event (has_crisis: ${result.crisisFlag}) for entry ${entry_id}`);
+    } catch (eventErr: any) {
+      console.error(`[Crisis Detection Worker] Error emitting CrisisDetected event:`, eventErr.message);
     }
   } catch (err: any) {
     console.error(`[Crisis Detection Worker] Error during crisis detection:`, err);
+    if (orchestrator_job_id) {
+      try {
+        const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+        await IntelligenceOrchestrator.failJob(orchestrator_job_id, user_id, 'crisis_detection', err.message || String(err));
+      } catch (errOrch: any) {
+        console.error(`[Crisis Detection Worker] Failed to report failure to orchestrator:`, errOrch.message);
+      }
+    }
     throw err;
   }
 }
