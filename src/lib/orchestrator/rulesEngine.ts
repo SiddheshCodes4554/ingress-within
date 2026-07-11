@@ -97,9 +97,9 @@ export const ORCHESTRATION_RULES: OrchestrationRule[] = [
       if (!entry || !entry.cycle_id) return false;
 
       const weeksToCheck = [
-        { weekNum: 1, triggerDay: 8, startDay: 1, endDay: 7 },
+        { weekNum: 3, triggerDay: 22, startDay: 15, endDay: 21 },
         { weekNum: 2, triggerDay: 15, startDay: 8, endDay: 14 },
-        { weekNum: 3, triggerDay: 22, startDay: 15, endDay: 21 }
+        { weekNum: 1, triggerDay: 8, startDay: 1, endDay: 7 }
       ];
       const dueWeek = weeksToCheck.find(w => entry.cycle_day >= w.triggerDay);
       if (!dueWeek) return false;
@@ -116,9 +116,9 @@ export const ORCHESTRATION_RULES: OrchestrationRule[] = [
     },
     action: async (userId, payload, ctx) => {
       const weeksToCheck = [
-        { weekNum: 1, triggerDay: 8, startDay: 1, endDay: 7 },
+        { weekNum: 3, triggerDay: 22, startDay: 15, endDay: 21 },
         { weekNum: 2, triggerDay: 15, startDay: 8, endDay: 14 },
-        { weekNum: 3, triggerDay: 22, startDay: 15, endDay: 21 }
+        { weekNum: 1, triggerDay: 8, startDay: 1, endDay: 7 }
       ];
       const { data: entry } = await supabase
         .from('entries')
@@ -172,9 +172,9 @@ export const ORCHESTRATION_RULES: OrchestrationRule[] = [
       if (!entry || !entry.cycle_id) return true;
 
       const weeksToCheck = [
-        { weekNum: 1, triggerDay: 8, startDay: 1, endDay: 7 },
+        { weekNum: 3, triggerDay: 22, startDay: 15, endDay: 21 },
         { weekNum: 2, triggerDay: 15, startDay: 8, endDay: 14 },
-        { weekNum: 3, triggerDay: 22, startDay: 15, endDay: 21 }
+        { weekNum: 1, triggerDay: 8, startDay: 1, endDay: 7 }
       ];
       const dueWeek = weeksToCheck.find(w => entry.cycle_day >= w.triggerDay);
       if (!dueWeek) return true;
