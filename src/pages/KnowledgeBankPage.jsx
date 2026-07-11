@@ -710,7 +710,7 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
     <div className="min-h-screen bg-[#f4f6f5] text-[#1E2A2E] font-sans pb-20">
       <DashboardNavbar activeTab="knowledge" />
 
-      <div className="app">
+      <div className="kb-app">
         {/* Navigation Tab Bar */}
         <div className="tab-bar" role="tablist">
           <button 

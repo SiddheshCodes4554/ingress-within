@@ -7,12 +7,8 @@
   stroke-linecap:round;stroke-linejoin:round;
 }
 
-/* ── Reset ── */
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100%;}
-
-/* ── Brand tokens ── */
-:root{
+/* ── Brand tokens & Wrapper ── */
+.kb-app {
   --teal-black:#1E2A2E;
   --mint-grey:#ECEFF0;
   --terracotta:#E0A898;
@@ -28,20 +24,7 @@ html,body{height:100%;}
   --font-sans:'Instrument Sans',system-ui,sans-serif;
   --font-serif:'Lora','Georgia',serif;
   --ease:0.15s ease;
-}
 
-body{
-  font-family:var(--font-sans);
-  background:var(--page-bg);
-  color:var(--teal-black);
-  font-size:15px;
-  line-height:1.6;
-  -webkit-font-smoothing:antialiased;
-  overflow-x:hidden;
-}
-
-/* ── Shell ── */
-.app{
   max-width:680px;
   margin:0 auto;
   min-height:100vh;
@@ -51,7 +34,7 @@ body{
 }
 
 /* ── Top nav ── */
-.app-nav{
+.kb-app .app-nav{
   background:var(--teal-black);
   padding:0 24px;
   height:52px;
@@ -62,15 +45,15 @@ body{
   top:0;
   z-index:20;
 }
-.nav-logo{display:flex;align-items:center;gap:8px;}
-.logo-ring{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--ocean-sage);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.logo-dot{width:5px;height:5px;border-radius:50%;background:var(--ocean-sage);}
-.logo-text{font-size:13px;font-weight:600;color:#fff;letter-spacing:0.01em;}
-.logo-text em{color:var(--ocean-sage);font-style:normal;}
-.nav-label{font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted-dark);}
+.kb-app .nav-logo{display:flex;align-items:center;gap:8px;}
+.kb-app .logo-ring{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--ocean-sage);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.kb-app .logo-dot{width:5px;height:5px;border-radius:50%;background:var(--ocean-sage);}
+.kb-app .logo-text{font-size:13px;font-weight:600;color:#fff;letter-spacing:0.01em;}
+.kb-app .logo-text em{color:var(--ocean-sage);font-style:normal;}
+.kb-app .nav-label{font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted-dark);}
 
 /* ── Tab bar ── */
-.tab-bar{
+.kb-app .tab-bar{
   display:flex;
   border-bottom:1px solid var(--border-teal);
   background:#fff;
@@ -78,7 +61,7 @@ body{
   top:52px;
   z-index:10;
 }
-.tab-btn{
+.kb-app .tab-btn{
   background:none;border:none;
   border-bottom:2px solid transparent;
   padding:12px 20px 13px;
@@ -90,9 +73,9 @@ body{
   transition:color var(--ease),border-color var(--ease);
   letter-spacing:0.01em;
 }
-.tab-btn.active{color:var(--teal-black);border-bottom-color:var(--terracotta);}
-.tab-btn:hover:not(.active){color:var(--teal-black);}
-.trail-badge{
+.kb-app .tab-btn.active{color:var(--teal-black);border-bottom-color:var(--terracotta);}
+.kb-app .tab-btn:hover:not(.active){color:var(--teal-black);}
+.kb-app .trail-badge{
   display:none;
   background:var(--terracotta);
   color:var(--teal-black);
@@ -103,12 +86,12 @@ body{
 }
 
 /* ── Content ── */
-.content{flex:1;padding:28px 24px;}
-.screen{display:none;}
-.screen.active{display:block;}
+.kb-app .content{flex:1;padding:28px 24px;}
+.kb-app .screen{display:none;}
+.kb-app .screen.active{display:block;}
 
 /* ── Reframe banner ── */
-.reframe-banner{
+.kb-app .reframe-banner{
   background:var(--teal-black);
   border-radius:12px;
   padding:18px 20px;
@@ -118,8 +101,8 @@ body{
   transition:opacity var(--ease);
   user-select:none;
 }
-.reframe-banner:hover{opacity:0.92;}
-.rf-glyph{
+.kb-app .reframe-banner:hover{opacity:0.92;}
+.kb-app .rf-glyph{
   width:32px;height:32px;
   border-radius:6px;
   background:rgba(141,191,180,0.15);
@@ -128,14 +111,14 @@ body{
   color:var(--ocean-sage);
   font-size:16px;
 }
-.rf-kicker{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted-dark);margin-bottom:5px;}
-.rf-text{font-size:14px;font-weight:500;color:#fff;line-height:1.55;}
-.rf-sub{font-size:12px;color:var(--muted-dark);margin-top:4px;line-height:1.5;}
-.rf-meta{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;}
-.rf-count{font-size:10px;color:var(--muted-dark);letter-spacing:0.04em;}
+.kb-app .rf-kicker{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted-dark);margin-bottom:5px;}
+.kb-app .rf-text{font-size:14px;font-weight:500;color:#fff;line-height:1.55;}
+.kb-app .rf-sub{font-size:12px;color:var(--muted-dark);margin-top:4px;line-height:1.5;}
+.kb-app .rf-meta{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;}
+.kb-app .rf-count{font-size:10px;color:var(--muted-dark);letter-spacing:0.04em;}
 
 /* ── Section eyebrow ── */
-.eyebrow{
+.kb-app .eyebrow{
   font-size:10px;font-weight:600;
   letter-spacing:0.12em;text-transform:uppercase;
   color:var(--ocean-sage);
@@ -789,7 +772,7 @@ body{
 
 
 /* Custom layout fixes for Ingress Within app container integration */
-.app {
+.kb-app {
   max-width: 680px;
   margin: 0 auto;
   min-height: 100vh;
