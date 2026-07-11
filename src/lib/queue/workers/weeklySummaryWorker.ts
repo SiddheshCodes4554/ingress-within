@@ -327,7 +327,7 @@ export async function processWeeklySummary(jobData: {
           crisis_review: {
             occurred: collectedData.crisisEvents.length > 0,
             summary: collectedData.crisisEvents.length > 0
-              ? `Crisis indicators detected: ${Array.from(new Set(collectedData.crisisEvents.map(e => e.crisis_type))).join(', ')}`
+              ? `Crisis indicators detected: ${Array.from(new Set(collectedData.crisisEvents.map(e => e.crisis_type))).map((t: any) => t.replace(/_/g, ' ')).join(', ')}`
               : null
           },
           audit: collectedData.audit,
