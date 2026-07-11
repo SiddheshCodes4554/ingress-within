@@ -1504,25 +1504,24 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
               )}
             </div>
           )}
-
           {/* ======================= TRAIL TAB ======================= */}
           {activeTab === 'trail' && (
             <div className="screen active">
               
               {/* Trail analysis overview banner */}
-              <div className="bg-[#1E2A2E] rounded-xl p-5 text-white space-y-4" style={{ marginBottom: '28px' }}>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#8DBFB4] block">Your Trail Analysis</span>
-                <p className="text-sm font-serif italic text-[#D8ECEA] leading-relaxed">
+              <div className="trail-analysis-banner">
+                <span className="trail-analysis-title">Your Trail Analysis</span>
+                <p className="trail-analysis-quote">
                   "We trace the emotional language, patterns, and growth markers appearing in your writing over time."
                 </p>
-                <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-4" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-                  <div>
-                    <span className="text-[9px] text-[#A8D4CE] uppercase block font-semibold tracking-wider">Active Lexicon</span>
-                    <span className="text-xl font-bold text-[#8DBFB4]">{userWords.length} words</span>
+                <div className="trail-stats-grid">
+                  <div className="trail-stat-card">
+                    <span className="trail-stat-label">Active Lexicon</span>
+                    <span className="trail-stat-value">{userWords.length} words</span>
                   </div>
-                  <div>
-                    <span className="text-[9px] text-[#A8D4CE] uppercase block font-semibold tracking-wider">Milestones Tracked</span>
-                    <span className="text-xl font-bold text-[#8DBFB4]">{snapshots.length} summaries</span>
+                  <div className="trail-stat-card">
+                    <span className="trail-stat-label">Milestones Tracked</span>
+                    <span className="trail-stat-value">{snapshots.length} summaries</span>
                   </div>
                 </div>
               </div>
@@ -1548,22 +1547,22 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
 
               {/* Recent Discoveries (Knowledge Cards) */}
               <div className="trail-section-label">Recent discoveries</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px', marginBottom: '28px' }}>
+              <div className="discoveries-grid">
                 {cards.map((c, idx) => (
                   <div 
                     key={idx} 
-                    className="p-5 bg-white border border-[#1E2A2E]/10 rounded-xl cursor-pointer hover:shadow-md transition-shadow flex flex-col justify-between"
+                    className="discovery-card"
                     onClick={() => setSelectedCard(c)}
                   >
-                    <div className="space-y-2">
-                      <span className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider block w-fit bg-[#ECEFF0] text-[#1E2A2E]">
+                    <div>
+                      <span className="discovery-tag">
                         {c.card_type.replace('_', ' ')}
                       </span>
-                      <h4 className="text-sm font-bold text-[#1E2A2E] leading-snug">{c.title}</h4>
-                      <p className="text-xs text-[#4A6A64] line-clamp-3 leading-relaxed">{c.body || c.content}</p>
+                      <h4 className="discovery-title">{c.title}</h4>
+                      <p className="discovery-body">{c.body || c.content}</p>
                     </div>
-                    <div className="flex items-center gap-1 text-[10px] text-[#8DBFB4] font-semibold pt-4">
-                      <span>View details</span>
+                    <div className="discovery-footer">
+                      <span>View details & reflect</span>
                       <TiIcon name="chevron-right" />
                     </div>
                   </div>
@@ -1572,7 +1571,7 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
 
               {/* Saved Insights & Reflection Notes */}
               <div className="trail-section-label">Saved Insights & Notes</div>
-              <div className="space-y-3" style={{ marginBottom: '28px' }}>
+              <div className="saved-insights-wrap">
                 {resonanceData.cards.length === 0 && resonanceData.patterns.length === 0 ? (
                   <div className="your-words-empty">No saved insights yet. Rate how cards or patterns resonate with you to save them.</div>
                 ) : (
@@ -1580,14 +1579,14 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
                     ...resonanceData.cards.map(c => ({ ...c, label: 'Knowledge Card' })),
                     ...resonanceData.patterns.map(p => ({ ...p, label: 'Behavioral Pattern' }))
                   ].map((item, idx) => (
-                    <div key={idx} className="p-4 bg-white border border-[#1E2A2E]/10 rounded-xl space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-[#8DBFB4]">{item.label}</span>
-                        <span className="text-xs font-semibold text-[#E0A898]">{item.score}/5 Resonance</span>
+                    <div key={idx} className="saved-insight-card">
+                      <div className="saved-insight-header">
+                        <span className="saved-insight-tag">{item.label}</span>
+                        <span className="saved-insight-score">{item.score}/5 Resonance</span>
                       </div>
-                      <h5 className="text-xs font-bold text-[#1E2A2E]">{item.concept_name}</h5>
+                      <h5 className="saved-insight-title">{item.concept_name}</h5>
                       {item.notes && (
-                        <p className="text-xs text-[#4A6A64] leading-relaxed italic font-serif">
+                        <p className="saved-insight-notes">
                           "{item.notes}"
                         </p>
                       )}
@@ -1598,19 +1597,19 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
 
               {/* Quiz History Logs */}
               <div className="trail-section-label">Quiz history</div>
-              <div className="space-y-2" style={{ marginBottom: '28px' }}>
+              <div className="quiz-history-wrap">
                 {quizHistory.length === 0 ? (
                   <div className="your-words-empty">No quiz attempts logged yet. Test yourself from the Explore screen!</div>
                 ) : (
                   quizHistory.map((q, idx) => (
-                    <div key={idx} className="p-3 bg-white border border-[#1E2A2E]/10 rounded-lg flex justify-between items-center">
-                      <div>
-                        <span className="text-[9px] text-[#4A6A64] block font-bold uppercase">Concept Tested</span>
-                        <span className="text-xs font-bold text-[#1E2A2E]">{q.concept_name}</span>
+                    <div key={idx} className="quiz-history-card">
+                      <div className="quiz-history-meta">
+                        <span className="quiz-history-label">Concept Tested</span>
+                        <span className="quiz-history-concept">{q.concept_name}</span>
                       </div>
-                      <div className="text-right">
-                        <span className="text-xs font-bold text-[#3A9E8A]">{q.score_correct} / {q.score_total} correct</span>
-                        <span className="text-[9px] text-[#4A6A64] block">
+                      <div className="quiz-history-stats">
+                        <span className="quiz-history-score">{q.score_correct} / {q.score_total} correct</span>
+                        <span className="quiz-history-date">
                           {new Date(q.created_at).toLocaleDateString()}
                         </span>
                       </div>
@@ -1621,8 +1620,8 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
 
               {/* Depth Path / Emotional Progression Graph */}
               <div className="trail-section-label">Your Depth Path</div>
-              <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5" style={{ marginBottom: '28px' }}>
-                <p className="text-xs text-[#4A6A64] style={{ marginBottom: '14px' }}">Dynamic progress showing which categories and depths of emotions you've visited:</p>
+              <div className="depth-path-card">
+                <p className="depth-path-intro">Dynamic progress showing which categories and depths of emotions you've visited:</p>
                 
                 <div className="family-list">
                   {Object.entries(DEPTH_MAP).map(([fam, nodes], idx) => {
@@ -1631,34 +1630,28 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
                     if (activeNodes.length === 0) return null;
 
                     return (
-                      <div key={idx} style={{ padding: '8px 0', borderBottom: '1px solid var(--border-teal)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color, marginBottom: '6px' }}>
-                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: color }}></span>
+                      <div key={idx} className="depth-path-row">
+                        <div className="depth-path-family-header" style={{ color }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: color, display: 'inline-block', marginRight: '6px' }}></span>
                           {fam}
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div className="depth-path-track-list">
                           {nodes.map((node, nIdx) => {
                             const isVis = visited.includes(node.name);
                             return (
                               <React.Fragment key={nIdx}>
                                 {nIdx > 0 && (
-                                  <div style={{ flex: 1, height: '2px', background: isVis && visited.includes(nodes[nIdx - 1].name) ? color : 'var(--border-teal)' }}></div>
+                                  <div className={`depth-path-connection-line ${isVis && visited.includes(nodes[nIdx - 1].name) ? 'active' : ''}`} style={{ color }}></div>
                                 )}
                                 <div 
                                   onClick={() => openEmotionDirect(node.name)}
-                                  style={{ cursor: 'pointer', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                                  className="depth-path-node-item"
                                 >
                                   <div 
-                                    style={{ 
-                                      width: '10px', 
-                                      height: '10px', 
-                                      borderRadius: '50%', 
-                                      background: isVis ? color : '#fff', 
-                                      border: `2px solid ${isVis ? color : 'var(--border-teal)'}`,
-                                      transition: 'background 0.2s' 
-                                    }}
+                                    className={`depth-path-node-dot ${isVis ? 'active' : ''}`} 
+                                    style={{ color: isVis ? color : undefined }}
                                   ></div>
-                                  <span style={{ fontSize: '10px', fontWeight: isVis ? 600 : 400, color: isVis ? 'var(--teal-black)' : 'var(--body-light)', marginTop: '2px' }}>
+                                  <span className={`depth-path-node-name ${isVis ? 'active' : ''}`}>
                                     {node.name}
                                   </span>
                                 </div>
@@ -1677,20 +1670,19 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
               {timelineEvents.length === 0 ? (
                 <div className="your-words-empty">Timeline will populate as weekly summaries are generated.</div>
               ) : (
-                <div className="bg-white border border-[#1E2A2E]/10 rounded-xl p-5">
-                  <div className="border-l-2 border-[#8DBFB4]/30 pl-4 space-y-6">
+                <div className="timeline-card">
+                  <div className="timeline-track">
                     {timelineEvents.map((ev, i) => (
-                      <div key={i} className="relative" style={{ position: 'relative' }}>
-                        <div style={{ position: 'absolute', left: '-21px', top: '4px', width: '10px', height: '10px', borderRadius: '50%', background: '#8DBFB4', border: '2px solid #fff' }} />
-                        <span className="text-[9px] text-[#4A6A64] block font-bold uppercase tracking-wider">Week {ev.week} · {ev.date}</span>
-                        <h4 className="text-xs font-bold text-[#1E2A2E]">{ev.title}</h4>
-                        <p className="text-xs text-[#4A6A64] leading-relaxed pt-0.5">{ev.desc}</p>
+                      <div key={i} className="timeline-node">
+                        <div className="timeline-marker" />
+                        <span className="timeline-meta">Week {ev.week} · {ev.date}</span>
+                        <h4 className="timeline-title">{ev.title}</h4>
+                        <p className="timeline-desc">{ev.desc}</p>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-
             </div>
           )}
         </main>
