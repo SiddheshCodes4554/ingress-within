@@ -55,11 +55,11 @@ export async function checkWeeklyAndMonthlySummary(userId: string, cycleId: stri
 
   console.log(`[Queue Trigger] Checking cycle day milestones for user ${userId}, day ${cycleDay}`);
 
-  // 1. Check Weekly Summaries (Trigger Week 1 at Day 8+, Week 2 at Day 15+, Week 3 at Day 22+)
   const weeksToCheck = [
     { weekNum: 1, triggerDay: 8, startDay: 1, endDay: 7 },
     { weekNum: 2, triggerDay: 15, startDay: 8, endDay: 14 },
-    { weekNum: 3, triggerDay: 22, startDay: 15, endDay: 21 }
+    { weekNum: 3, triggerDay: 22, startDay: 15, endDay: 21 },
+    { weekNum: 4, triggerDay: 29, startDay: 22, endDay: 28 }
   ];
 
   for (const w of weeksToCheck) {

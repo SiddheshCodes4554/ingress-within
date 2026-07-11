@@ -884,12 +884,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                         </div>
 
                         {(() => {
-                          const weeksList = [1, 2, 3];
-                          const currentWeek = Math.floor(((cycle.current_day || 1) - 1) / 7) + 1;
-                          const isActiveCycle = cycle.status?.toUpperCase() !== 'COMPLETED' && cycle.status?.toUpperCase() !== 'COMPLETE';
-                          if (currentWeek > 3 && currentWeek <= 4 && isActiveCycle) {
-                            weeksList.push(currentWeek);
-                          }
+                          const weeksList = [1, 2, 3, 4];
                           return weeksList.map(weekNum => {
                             const report = cycleReports.find(r => r.week_number === weekNum);
                             const isWeekCompleted = (cycle.current_day || 1) > (weekNum * 7) || (report && report.status?.toUpperCase() === 'READY');

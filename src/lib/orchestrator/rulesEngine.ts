@@ -97,6 +97,7 @@ export const ORCHESTRATION_RULES: OrchestrationRule[] = [
       if (!entry || !entry.cycle_id) return false;
 
       const weeksToCheck = [
+        { weekNum: 4, triggerDay: 29, startDay: 22, endDay: 28 },
         { weekNum: 3, triggerDay: 22, startDay: 15, endDay: 21 },
         { weekNum: 2, triggerDay: 15, startDay: 8, endDay: 14 },
         { weekNum: 1, triggerDay: 8, startDay: 1, endDay: 7 }
@@ -116,6 +117,7 @@ export const ORCHESTRATION_RULES: OrchestrationRule[] = [
     },
     action: async (userId, payload, ctx) => {
       const weeksToCheck = [
+        { weekNum: 4, triggerDay: 29, startDay: 22, endDay: 28 },
         { weekNum: 3, triggerDay: 22, startDay: 15, endDay: 21 },
         { weekNum: 2, triggerDay: 15, startDay: 8, endDay: 14 },
         { weekNum: 1, triggerDay: 8, startDay: 1, endDay: 7 }
@@ -172,6 +174,7 @@ export const ORCHESTRATION_RULES: OrchestrationRule[] = [
       if (!entry || !entry.cycle_id) return true;
 
       const weeksToCheck = [
+        { weekNum: 4, triggerDay: 29, startDay: 22, endDay: 28 },
         { weekNum: 3, triggerDay: 22, startDay: 15, endDay: 21 },
         { weekNum: 2, triggerDay: 15, startDay: 8, endDay: 14 },
         { weekNum: 1, triggerDay: 8, startDay: 1, endDay: 7 }
