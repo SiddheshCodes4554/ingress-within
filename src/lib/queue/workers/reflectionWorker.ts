@@ -165,6 +165,28 @@ export async function processReflectionGeneration(jobData: {
     throw new Error(`Failed to fetch entry ${entry_id}: ${entryError?.message || 'Not found'}`);
   }
 
+  // Idempotency: Skip if reflection is already generated and ready
+  const { data: existingRefl } = await supabase
+    .from('reflections')
+    .select('status')
+    .eq('entry_id', entry_id)
+    .maybeSingle();
+
+  if (existingRefl && existingRefl.status === 'ready') {
+    console.log(`[Reflection Engine] [Entry: ${entry_id}] Reflection already generated and ready. Skipping.`);
+    if (orchestrator_job_id) {
+      try {
+        const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+        await IntelligenceOrchestrator.completeJob(orchestrator_job_id, user_id, 'reflection', {
+          lastProcessedEntry: entry_id
+        });
+      } catch (err: any) {
+        console.error(`[Reflection Engine] Failed to complete orchestrator job:`, err.message);
+      }
+    }
+    return;
+  }
+
   // 2. Crisis Protocol Suppression Check
   if (entry.crisis_flag || entry.reflection_suppressed) {
     console.log(`[Reflection Engine] [3/8] [Entry: ${entry_id}] Crisis flagged or reflection suppressed. Logging crisis placeholder and exiting.`);

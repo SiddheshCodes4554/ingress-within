@@ -387,14 +387,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let reflectionRecord = null;
     if (newEntry) {
-      // Trigger background AI tasks
-      triggerAIProcessing(newEntry.id, authUser.userId);
+      // 1. Run crisis detection and reflection generation synchronously to return it instantly!
+      try {
+        console.log(`[API Entries POST] Running crisis detection synchronously for entry ${newEntry.id}...`);
+        const { processCrisisDetection } = await import('../../../lib/queue/workers/crisisDetectionWorker');
+        await processCrisisDetection({ entry_id: newEntry.id, user_id: authUser.userId });
+
+        console.log(`[API Entries POST] Running reflection generation synchronously for entry ${newEntry.id}...`);
+        const { processReflectionGeneration } = await import('../../../lib/queue/workers/reflectionWorker');
+        await processReflectionGeneration({ entry_id: newEntry.id, user_id: authUser.userId });
+
+        // Retrieve the generated reflection
+        const { data: dbReflection } = await supabase
+          .from('reflections')
+          .select('*')
+          .eq('entry_id', newEntry.id)
+          .maybeSingle();
+
+        reflectionRecord = dbReflection;
+      } catch (err: any) {
+        console.error(`[API Entries POST] Synchronous AI generation failed:`, err.message);
+      }
+
+      // 2. Trigger other background AI tasks (scoring, vocabulary, metadata)
+      void triggerAIProcessing(newEntry.id, authUser.userId).catch(err => {
+        console.error('[API Entries POST] Background trigger error:', err);
+      });
     }
 
     return NextResponse.json({
       success: true,
-      entry: newEntry
+      entry: {
+        ...newEntry,
+        reflection: reflectionRecord
+      }
     });
 
   } catch (error) {

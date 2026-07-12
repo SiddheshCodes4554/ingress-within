@@ -226,6 +226,19 @@ export default function WritePage({ user, profile, onSignOut }) {
       const entryObj = await DashboardService.saveJournalEntry(entryText);
       localStorage.removeItem('iw_free_write_draft'); // Clear draft on successful save
       
+      // If reflection or crisis is returned synchronously, transition instantly!
+      if (entryObj.crisis_flag || entryObj.reflection) {
+        setIsSavingEntry(false);
+        if (entryObj.crisis_flag) {
+          setCrisisType(entryObj.crisis_type);
+          setScreenState('crisis');
+        } else {
+          setGeneratedReflection(entryObj.reflection);
+          setScreenState('reflection');
+        }
+        return;
+      }
+
       const startTime = Date.now();
       const pollInterval = setInterval(async () => {
         try {

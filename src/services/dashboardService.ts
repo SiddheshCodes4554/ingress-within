@@ -403,7 +403,10 @@ export class DashboardService {
       text: entry.content,
       date: new Date(entry.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
       words: entry.word_count,
-      type: 'entry'
+      type: 'entry',
+      reflection: entry.reflection || null,
+      crisis_flag: entry.crisis_flag || false,
+      crisis_type: entry.crisis_type || null
     };
   }
 

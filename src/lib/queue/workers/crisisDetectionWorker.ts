@@ -32,6 +32,22 @@ export async function processCrisisDetection(jobData: {
     throw new Error(`Failed to fetch entry ${entry_id}: ${entryError?.message || 'Not found'}`);
   }
 
+  // Idempotency: Skip if already checked
+  if (entry.crisis_checked) {
+    console.log(`[Crisis Detection Worker] Entry ${entry_id} has already been checked for crisis. Skipping.`);
+    if (orchestrator_job_id) {
+      try {
+        const { IntelligenceOrchestrator } = await import('../../orchestrator/intelligenceOrchestrator');
+        await IntelligenceOrchestrator.completeJob(orchestrator_job_id, user_id, 'crisis_detection', {
+          lastProcessedEntry: entry_id
+        });
+      } catch (err: any) {
+        console.warn(`[Crisis Detection Worker] Failed to complete orchestrator job:`, err.message);
+      }
+    }
+    return;
+  }
+
   // 2. Decrypt entry text
   const entryText = decrypt(entry.new_entry_text_encrypted, entry.new_entry_text_iv) || entry.content;
 
