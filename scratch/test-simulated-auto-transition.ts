@@ -137,7 +137,7 @@ async function main() {
   const nextCycleNumber = (cycle.cycle_number || cycle.number || 1) + 1;
   const todayStr = new Date().toISOString().split('T')[0];
 
-  let newCycle = null;
+  let newCycle: any = null;
   const { data: insCycle, error: createCycleErr } = await db
     .from('cycles')
     .insert({
