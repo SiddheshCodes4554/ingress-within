@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = authUser.userId;
+    let isAssessmentGate = false;
 
     // 1. Fetch active cycle
     let { data: cycle, error: cycleErr } = await supabase
@@ -70,11 +71,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let isAssessmentGate = false;
-
-    // If no active cycle, check if there's a completed cycle requiring assessment
     if (!cycle) {
-      const { data: completedCycle, error: completedErr } = await supabase
+      const { data: fallbackCycle } = await supabase
+        .from('cycles')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (fallbackCycle) {
+        cycle = fallbackCycle;
+      }
+    }
+
+    let completedCycleNeedAssessment: any = null;
+    if (!cycle) {
+      const { data: completedCycle } = await supabase
         .from('cycles')
         .select('*')
         .eq('user_id', userId)
@@ -83,36 +94,14 @@ export async function GET(request: NextRequest) {
         .order('cycle_number', { ascending: false })
         .limit(1)
         .maybeSingle();
-
-      if (completedErr) {
-        console.error('[API Cycles Status] Error fetching completed cycle:', completedErr);
-      }
-
       if (completedCycle) {
-        cycle = completedCycle;
-        isAssessmentGate = true;
-      } else {
-        // If neither exists, let's look for any active cycle (perhaps using lowercase status fallback)
-        const { data: fallbackCycle } = await supabase
-          .from('cycles')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('status', 'active')
-          .maybeSingle();
-
-        if (fallbackCycle) {
-          cycle = fallbackCycle;
-        } else {
-          return NextResponse.json({
-            success: true,
-            hasCycle: false,
-            message: 'No active cycle. Onboarding may be incomplete.'
-          });
-        }
+        completedCycleNeedAssessment = completedCycle;
       }
     }
 
-    // 2. Perform day calculation and check duration without mutating stored cycle state.
+    let needsTransition = false;
+    let transitionBaseCycle: any = null;
+
     const clientDateStr = request.headers.get('x-client-date');
     let todayMidnight: Date;
     if (clientDateStr) {
@@ -122,6 +111,159 @@ export async function GET(request: NextRequest) {
       todayMidnight = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
     }
 
+    if (cycle) {
+      const startDateStr = (cycle.start_date || cycle.started_at || '').split('T')[0];
+      const startMidnight = new Date(startDateStr + 'T00:00:00Z');
+      const diffTime = todayMidnight.getTime() - startMidnight.getTime();
+      const calculatedDay = Math.floor(diffTime / (24 * 60 * 60 * 1000)) + 1;
+      
+      if (calculatedDay > cycle.total_days && (cycle.status === 'ACTIVE' || cycle.status === 'active')) {
+        needsTransition = true;
+        transitionBaseCycle = cycle;
+      }
+    } else if (completedCycleNeedAssessment) {
+      needsTransition = true;
+      transitionBaseCycle = completedCycleNeedAssessment;
+    }
+
+    if (needsTransition && transitionBaseCycle) {
+      console.log(`[API Cycles Status] Auto-transitioning cycle ${transitionBaseCycle.id} to next cycle.`);
+      // 1. Create assessments record (mock/auto-fill for DB integrity)
+      try {
+        const { data: scores } = await supabase
+          .from('entry_scores')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('cycle_id', transitionBaseCycle.id);
+
+        let ei_sum = 0, pr_sum = 0, sa_sum = 0, validScoresCount = 0;
+        if (scores && scores.length > 0) {
+          scores.forEach(s => {
+            if (s.day_ei !== null && s.day_ei !== undefined) {
+              ei_sum += Number(s.day_ei);
+              pr_sum += Number(s.day_pr);
+              sa_sum += Number(s.day_sa);
+              validScoresCount++;
+            }
+          });
+        }
+        const ei_avg = validScoresCount > 0 ? (ei_sum / validScoresCount) : 5.0;
+        const pr_avg = validScoresCount > 0 ? (pr_sum / validScoresCount) : 4.0;
+        const sa_avg = validScoresCount > 0 ? (sa_sum / validScoresCount) : 6.0;
+        const dt_score = Math.round((ei_avg + pr_avg) / 2 * 10);
+        const normalised_sa = Math.round(sa_avg * 10);
+
+        const { count: entriesCount } = await supabase
+          .from('entries')
+          .select('id', { count: 'exact', head: true })
+          .eq('cycle_id', transitionBaseCycle.id)
+          .eq('user_id', userId);
+
+        await supabase
+          .from('assessments')
+          .delete()
+          .eq('user_id', userId);
+
+        await supabase
+          .from('assessments')
+          .insert({
+            user_id: userId,
+            cycle_id: transitionBaseCycle.id,
+            ei_avg,
+            pr_avg,
+            sa_avg,
+            dt_score,
+            normalised_sa,
+            risk_total: 0,
+            path_assignment: 'second_cycle',
+            branch_assignment: 'A',
+            stability_gate_triggered: false,
+            entry_count: entriesCount || 0,
+            generation_status: 'ready',
+            report_text: `Auto-Transition Assessment for Cycle ${transitionBaseCycle.cycle_number || transitionBaseCycle.number}.`,
+            unlocked_at: new Date().toISOString(),
+            generated_at: new Date().toISOString()
+          });
+      } catch (err) {
+        console.error('[API Cycles Status] Non-fatal error inserting auto-assessment:', err);
+      }
+
+      // 2. Mark current cycle as completed
+      try {
+        await supabase
+          .from('cycles')
+          .update({
+            status: 'COMPLETED',
+            assessment_completed: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', transitionBaseCycle.id);
+      } catch (err) {
+        console.error('[API Cycles Status] Error marking cycle completed:', err);
+      }
+
+      // 3. Create next cycle
+      const nextCycleNumber = (transitionBaseCycle.cycle_number || transitionBaseCycle.number || 1) + 1;
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      let newCycle = null;
+      const { data: insCycle, error: createCycleErr } = await supabase
+        .from('cycles')
+        .insert({
+          user_id: userId,
+          cycle_number: nextCycleNumber,
+          status: 'ACTIVE',
+          start_date: todayStr,
+          total_days: 30,
+          current_day: 1,
+          days_completed: 0,
+          entries_count: 0,
+          assessment_completed: false,
+          assessment_available: false
+        })
+        .select()
+        .maybeSingle();
+
+      if (createCycleErr) {
+        console.warn('[API Cycles Status] Standard cycle insert failed, trying fallback:', createCycleErr.message);
+        const { data: fallbackNewCycle } = await supabase
+          .from('cycles')
+          .insert({
+            user_id: userId,
+            number: nextCycleNumber,
+            status: 'active',
+            started_at: todayStr,
+            total_days: 30
+          })
+          .select()
+          .maybeSingle();
+        newCycle = fallbackNewCycle;
+      } else {
+        newCycle = insCycle;
+      }
+
+      if (newCycle) {
+        cycle = newCycle;
+      } else {
+        const { data: reloaded } = await supabase
+          .from('cycles')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('status', 'ACTIVE')
+          .maybeSingle();
+        if (reloaded) cycle = reloaded;
+      }
+    }
+
+    if (!cycle) {
+      return NextResponse.json({
+        success: true,
+        hasCycle: false,
+        message: 'No active cycle. Onboarding may be incomplete.'
+      });
+    }
+
+    // 2. Perform day calculation and check duration without mutating stored cycle state.
     const startDateStr = (cycle.start_date || cycle.started_at || '').split('T')[0];
     const startMidnight = new Date(startDateStr + 'T00:00:00Z');
     const diffTime = todayMidnight.getTime() - startMidnight.getTime();

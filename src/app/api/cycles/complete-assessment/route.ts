@@ -68,6 +68,12 @@ export async function POST(request: NextRequest) {
       .eq('user_id', userId);
 
     // 3. Create transition assessment report
+    // Delete existing assessments for this user to satisfy assessments_user_id_key unique constraint
+    await supabase
+      .from('assessments')
+      .delete()
+      .eq('user_id', userId);
+
     const { error: assessmentErr } = await supabase
       .from('assessments')
       .insert({
@@ -79,11 +85,11 @@ export async function POST(request: NextRequest) {
         dt_score,
         normalised_sa,
         risk_total: 0,
-        path_assignment: 'Guided Integration',
-        branch_assignment: 'Contemplative Focus',
+        path_assignment: 'second_cycle',
+        branch_assignment: 'A',
         stability_gate_triggered: false,
         entry_count: entriesCount || 0,
-        generation_status: 'complete',
+        generation_status: 'ready',
         report_text: `Completed Transition Assessment for Cycle ${cycle.cycle_number || cycle.number}. Answers: ${JSON.stringify(answers || {})}`,
         unlocked_at: new Date().toISOString(),
         generated_at: new Date().toISOString()
