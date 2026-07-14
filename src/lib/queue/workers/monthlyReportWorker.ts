@@ -299,10 +299,10 @@ Format your response as a strict JSON object with the following schema:
       "confidence": 0.9,
       "supportingEvidence": ["Real quote from entries indicating this pattern"],
       "loopNodes": [
-        { "step": 1, "title": "Step 1 name", "sub": "subtitle" },
-        { "step": 2, "title": "Step 2 name", "sub": "subtitle" },
-        { "step": 3, "title": "Step 3 name", "sub": "subtitle" },
-        { "step": 4, "title": "Step 4 name", "sub": "subtitle" }
+        { "step": 1, "title": "Step 1 title (MUST be 1-2 words, max 10 chars, e.g. 'Happens')", "sub": "subtitle (MUST be 1-2 words, max 12 chars, e.g. 'at work')" },
+        { "step": 2, "title": "Step 2 title (MUST be 1-2 words, max 10 chars, e.g. 'Notice')", "sub": "subtitle (MUST be 1-2 words, max 12 chars, e.g. 'name it')" },
+        { "step": 3, "title": "Step 3 title (MUST be 1-2 words, max 10 chars, e.g. 'Dismiss')", "sub": "subtitle (MUST be 1-2 words, max 12 chars, e.g. 'probably fine')" },
+        { "step": 4, "title": "Step 4 title (MUST be 1-2 words, max 10 chars, e.g. 'Say okay')", "sub": "subtitle (MUST be 1-2 words, max 12 chars, e.g. 'move on')" }
       ]
     }
   ],

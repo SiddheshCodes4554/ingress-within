@@ -20,6 +20,20 @@ export default function ReportsPage({ user, profile, onSignOut }) {
   const [selectedAssessment, setSelectedAssessment] = useState(null);
   const [chartLoaded, setChartLoaded] = useState(false);
 
+  const getFontSize = (text) => {
+    if (!text) return 11;
+    if (text.length > 12) return 8.5;
+    if (text.length > 10) return 9.5;
+    return 11;
+  };
+
+  const getSubFontSize = (text) => {
+    if (!text) return 9;
+    if (text.length > 15) return 7;
+    if (text.length > 12) return 8;
+    return 9;
+  };
+
   // Accordion states: maps cycleId to boolean
   const [openCycles, setOpenCycles] = useState({});
 
@@ -638,20 +652,20 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                                 </marker>
                               </defs>
                               <rect x="4" y="4" width="68" height="34" rx="8" fill="${pat.tagClass === 'tag-red' ? 'rgba(224,168,152,0.15)' : pat.tagClass === 'tag-purple' ? 'rgba(184,168,212,0.15)' : 'rgba(141,191,180,0.15)'}" stroke="${pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'}" stroke-width="1.5" />
-                              <text x="38" y="19" text-anchor="middle" font-size="11" font-weight="700" fill="${pat.tagClass === 'tag-red' ? '#C27A68' : pat.tagClass === 'tag-purple' ? '#7B6B9A' : '#4A7F78'}">${pat.loopNodes[0]?.title || ''}</text>
-                              <text x="38" y="32" text-anchor="middle" font-size="9" fill="${pat.tagClass === 'tag-red' ? '#C27A68' : pat.tagClass === 'tag-purple' ? '#7B6B9A' : '#4A7F78'}" opacity="0.8">${pat.loopNodes[0]?.sub || ''}</text>
+                              <text x="38" y="19" text-anchor="middle" font-size="${getFontSize(pat.loopNodes[0]?.title)}" font-weight="700" fill="${pat.tagClass === 'tag-red' ? '#C27A68' : pat.tagClass === 'tag-purple' ? '#7B6B9A' : '#4A7F78'}">${pat.loopNodes[0]?.title || ''}</text>
+                              <text x="38" y="32" text-anchor="middle" font-size="${getSubFontSize(pat.loopNodes[0]?.sub)}" fill="${pat.tagClass === 'tag-red' ? '#C27A68' : pat.tagClass === 'tag-purple' ? '#7B6B9A' : '#4A7F78'}" opacity="0.8">${pat.loopNodes[0]?.sub || ''}</text>
 
                               <rect x="88" y="4" width="68" height="34" rx="8" fill="var(--bg-secondary)" stroke="var(--border-tertiary)" stroke-width="1" />
-                              <text x="122" y="19" text-anchor="middle" font-size="11" font-weight="600" fill="var(--teal-black)">${pat.loopNodes[1]?.title || ''}</text>
-                              <text x="122" y="32" text-anchor="middle" font-size="9" fill="var(--text-secondary)">${pat.loopNodes[1]?.sub || ''}</text>
+                              <text x="122" y="19" text-anchor="middle" font-size="${getFontSize(pat.loopNodes[1]?.title)}" font-weight="600" fill="var(--teal-black)">${pat.loopNodes[1]?.title || ''}</text>
+                              <text x="122" y="32" text-anchor="middle" font-size="${getSubFontSize(pat.loopNodes[1]?.sub)}" fill="var(--text-secondary)">${pat.loopNodes[1]?.sub || ''}</text>
 
                               <rect x="88" y="142" width="68" height="34" rx="8" fill="var(--bg-secondary)" stroke="var(--border-tertiary)" stroke-width="1" />
-                              <text x="122" y="157" text-anchor="middle" font-size="11" font-weight="600" fill="var(--teal-black)">${pat.loopNodes[2]?.title || ''}</text>
-                              <text x="122" y="170" text-anchor="middle" font-size="9" fill="var(--text-secondary)">${pat.loopNodes[2]?.sub || ''}</text>
+                              <text x="122" y="157" text-anchor="middle" font-size="${getFontSize(pat.loopNodes[2]?.title)}" font-weight="600" fill="var(--teal-black)">${pat.loopNodes[2]?.title || ''}</text>
+                              <text x="122" y="170" text-anchor="middle" font-size="${getSubFontSize(pat.loopNodes[2]?.sub)}" fill="var(--text-secondary)">${pat.loopNodes[2]?.sub || ''}</text>
 
                               <rect x="4" y="142" width="68" height="34" rx="8" fill="var(--bg-secondary)" stroke="var(--border-tertiary)" stroke-width="1" />
-                              <text x="38" y="157" text-anchor="middle" font-size="11" font-weight="600" fill="var(--teal-black)">${pat.loopNodes[3]?.title || ''}</text>
-                              <text x="38" y="170" text-anchor="middle" font-size="9" fill="var(--text-secondary)">${pat.loopNodes[3]?.sub || ''}</text>
+                              <text x="38" y="157" text-anchor="middle" font-size="${getFontSize(pat.loopNodes[3]?.title)}" font-weight="600" fill="var(--teal-black)">${pat.loopNodes[3]?.title || ''}</text>
+                              <text x="38" y="170" text-anchor="middle" font-size="${getSubFontSize(pat.loopNodes[3]?.sub)}" fill="var(--text-secondary)">${pat.loopNodes[3]?.sub || ''}</text>
 
                               <path d="M72,21 L88,21" fill="none" stroke="${pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'}" stroke-width="1.5" stroke-opacity="0.7" marker-end="url(#a-marker-${pIdx})" />
                               <path d="M122,38 L122,142" fill="none" stroke="${pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'}" stroke-width="1.5" stroke-opacity="0.5" marker-end="url(#a-marker-${pIdx})" />
@@ -1650,6 +1664,8 @@ export default function ReportsPage({ user, profile, onSignOut }) {
           justify-content: space-between;
           align-items: center;
           border-bottom: 1px solid var(--border-tertiary);
+          gap: 16px;
+          flex-wrap: wrap;
         }
         .report .theme-name {
           font-size: 13px;
@@ -2015,6 +2031,46 @@ export default function ReportsPage({ user, profile, onSignOut }) {
           color: rgba(236,239,240,0.2);
           letter-spacing: .06em;
           text-transform: uppercase;
+        }
+
+        @media(max-width: 640px) {
+          .report .stats {
+            grid-template-columns: 1fr !important;
+          }
+          .report .stat {
+            border-right: none !important;
+            border-bottom: 1px solid var(--border-tertiary) !important;
+          }
+          .report .stat:last-child {
+            border-bottom: none !important;
+          }
+          .report .ph-body {
+            grid-template-columns: 1fr !important;
+            gap: 16px !important;
+          }
+          .report .loop-wrap {
+            margin: 0 auto !important;
+          }
+          .report .dim-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .report .rel-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .report .gap-visual {
+            grid-template-columns: 1fr !important;
+          }
+          .report .gap-middle {
+            padding: 8px 0 !important;
+            transform: rotate(90deg) !important;
+          }
+          .report .ex-cols {
+            grid-template-columns: 1fr !important;
+          }
+          .report .ex-col-sep {
+            height: 1px !important;
+            width: 100% !important;
+          }
         }
 
         @media(max-width: 768px) {
@@ -2724,23 +2780,23 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                                         </defs>
                                         {/* Step 1 Rect */}
                                         <rect x="4" y="4" width="68" height="34" rx="8" fill={pat.tagClass === 'tag-red' ? 'rgba(224,168,152,0.15)' : pat.tagClass === 'tag-purple' ? 'rgba(184,168,212,0.15)' : 'rgba(141,191,180,0.15)'} stroke={pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'} strokeWidth="1.5" />
-                                        <text x="38" y="19" textAnchor="middle" fontSize="11" fontWeight="700" fill={pat.tagClass === 'tag-red' ? '#C27A68' : pat.tagClass === 'tag-purple' ? '#7B6B9A' : '#4A7F78'} fontFamily="DM Sans,sans-serif">{pat.loopNodes[0]?.title || 'Happens'}</text>
-                                        <text x="38" y="32" textAnchor="middle" fontSize="9" fill={pat.tagClass === 'tag-red' ? '#C27A68' : pat.tagClass === 'tag-purple' ? '#7B6B9A' : '#4A7F78'} fontFamily="DM Sans,sans-serif" opacity="0.8">{pat.loopNodes[0]?.sub || ''}</text>
+                                        <text x="38" y="19" textAnchor="middle" fontSize={getFontSize(pat.loopNodes[0]?.title)} fontWeight="700" fill={pat.tagClass === 'tag-red' ? '#C27A68' : pat.tagClass === 'tag-purple' ? '#7B6B9A' : '#4A7F78'} fontFamily="DM Sans,sans-serif">{pat.loopNodes[0]?.title || 'Happens'}</text>
+                                        <text x="38" y="32" textAnchor="middle" fontSize={getSubFontSize(pat.loopNodes[0]?.sub)} fill={pat.tagClass === 'tag-red' ? '#C27A68' : pat.tagClass === 'tag-purple' ? '#7B6B9A' : '#4A7F78'} fontFamily="DM Sans,sans-serif" opacity="0.8">{pat.loopNodes[0]?.sub || ''}</text>
 
                                         {/* Step 2 Rect */}
                                         <rect x="88" y="4" width="68" height="34" rx="8" fill="var(--bg-secondary)" stroke="var(--border-tertiary)" strokeWidth="1" />
-                                        <text x="122" y="19" textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--teal-black)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[1]?.title || 'Notice'}</text>
-                                        <text x="122" y="32" textAnchor="middle" fontSize="9" fill="var(--text-secondary)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[1]?.sub || ''}</text>
+                                        <text x="122" y="19" textAnchor="middle" fontSize={getFontSize(pat.loopNodes[1]?.title)} fontWeight="600" fill="var(--teal-black)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[1]?.title || 'Notice'}</text>
+                                        <text x="122" y="32" textAnchor="middle" fontSize={getSubFontSize(pat.loopNodes[1]?.sub)} fill="var(--text-secondary)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[1]?.sub || ''}</text>
 
                                         {/* Step 3 Rect */}
                                         <rect x="88" y="142" width="68" height="34" rx="8" fill="var(--bg-secondary)" stroke="var(--border-tertiary)" strokeWidth="1" />
-                                        <text x="122" y="157" textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--teal-black)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[2]?.title || 'Dismiss'}</text>
-                                        <text x="122" y="170" textAnchor="middle" fontSize="9" fill="var(--text-secondary)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[2]?.sub || ''}</text>
+                                        <text x="122" y="157" textAnchor="middle" fontSize={getFontSize(pat.loopNodes[2]?.title)} fontWeight="600" fill="var(--teal-black)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[2]?.title || 'Dismiss'}</text>
+                                        <text x="122" y="170" textAnchor="middle" fontSize={getSubFontSize(pat.loopNodes[2]?.sub)} fill="var(--text-secondary)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[2]?.sub || ''}</text>
 
                                         {/* Step 4 Rect */}
                                         <rect x="4" y="142" width="68" height="34" rx="8" fill="var(--bg-secondary)" stroke="var(--border-tertiary)" strokeWidth="1" />
-                                        <text x="38" y="157" textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--teal-black)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[3]?.title || 'Say okay'}</text>
-                                        <text x="38" y="170" textAnchor="middle" fontSize="9" fill="var(--text-secondary)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[3]?.sub || ''}</text>
+                                        <text x="38" y="157" textAnchor="middle" fontSize={getFontSize(pat.loopNodes[3]?.title)} fontWeight="600" fill="var(--teal-black)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[3]?.title || 'Say okay'}</text>
+                                        <text x="38" y="170" textAnchor="middle" fontSize={getSubFontSize(pat.loopNodes[3]?.sub)} fill="var(--text-secondary)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[3]?.sub || ''}</text>
 
                                         {/* Edges */}
                                         <path d="M72,21 L88,21" fill="none" stroke={pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'} strokeWidth="1.5" strokeOpacity="0.7" markerEnd={`url(#a-marker-${pIdx})`} />
