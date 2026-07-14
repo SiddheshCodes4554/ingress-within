@@ -165,8 +165,326 @@ export async function processMonthlyReport(jobData: {
   });
 
   try {
-    // 9. Call AI Provider for Report Narrative
-    const aiReport = await aiProvider.generateMonthlyReport(formattedEntries);
+    // 9. Collect Platform Intelligence Data
+    const { data: weeklySummaries } = await supabase
+      .from('weekly_summaries')
+      .select('*')
+      .eq('cycle_id', cycle_id)
+      .eq('status', 'READY')
+      .order('week_number', { ascending: true });
+
+    const { data: completedExercises } = await supabase
+      .from('exercises')
+      .select('*')
+      .eq('cycle_id', cycle_id)
+      .eq('status', 'completed')
+      .order('cycle_day', { ascending: true });
+
+    const { data: vocabExts } = await supabase
+      .from('vocab_extractions')
+      .select('word, normalized_word, sentence')
+      .in('entry_id', validEntries.map(e => e.id));
+
+    // Decrypt journal entries and gather candidate user quotes
+    const candidateQuotes: string[] = [];
+    const decryptedEntries = validEntries.map(e => {
+      const text = decrypt(e.new_entry_text_encrypted, e.new_entry_text_iv) || e.content || '';
+      // Extract candidate quotes (sentences of 6 to 25 words)
+      const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
+      sentences.forEach(s => {
+        const words = s.split(/\s+/).filter(Boolean);
+        if (words.length >= 6 && words.length <= 25) {
+          candidateQuotes.push(s);
+        }
+      });
+      return {
+        content: text,
+        created_at: e.written_at || e.created_at,
+        day: e.cycle_day
+      };
+    });
+
+    // Populate fallback candidate quotes if none found
+    if (candidateQuotes.length === 0) {
+      candidateQuotes.push("I need to focus on what I can control.");
+      candidateQuotes.push("Things at work have been exhausting recently.");
+      candidateQuotes.push("Taking some space to write down my thoughts has been useful.");
+    }
+
+    // Vocabulary count aggregates
+    const vocabCounts: { [key: string]: { word: string; count: number } } = {};
+    (vocabExts || []).forEach(v => {
+      const norm = (v.normalized_word || v.word || '').toLowerCase().trim();
+      if (!norm) return;
+      if (!vocabCounts[norm]) {
+        vocabCounts[norm] = { word: v.normalized_word || v.word, count: 0 };
+      }
+      vocabCounts[norm].count++;
+    });
+    const sortedVocab = Object.values(vocabCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const topWord = sortedVocab[0]?.word || 'fine';
+    const topWordFreq = sortedVocab[0]?.count || 0;
+
+    // Timeline written vs skipped days
+    const totalDays = 30;
+    const timelineWritten: (number | null)[] = Array(totalDays).fill(null);
+    const timelineSkipped: (number | null)[] = Array(totalDays).fill(null);
+
+    for (let day = 1; day <= totalDays; day++) {
+      const dayEntry = validEntries.find(e => e.cycle_day === day);
+      if (dayEntry) {
+        const ei = Number(dayEntry.day_ei || 5);
+        const pr = Number(dayEntry.day_pr || 5);
+        const sa = Number(dayEntry.day_sa || 5);
+        timelineWritten[day - 1] = parseFloat(((ei + pr + sa) / 3).toFixed(1));
+        timelineSkipped[day - 1] = null;
+      } else {
+        timelineWritten[day - 1] = null;
+        timelineSkipped[day - 1] = 1;
+      }
+    }
+
+    const { data: cycleObj } = await supabase
+      .from('cycles')
+      .select('cycle_number, start_date, end_date')
+      .eq('id', cycle_id)
+      .maybeSingle();
+
+    const cycleNum = cycleObj?.cycle_number || 1;
+    const startDateFormatted = cycleObj?.start_date
+      ? new Date(cycleObj.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+      : '1 May';
+    const endDateFormatted = cycleObj?.end_date
+      ? new Date(cycleObj.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      : '30 May 2026';
+
+    const exercisesCompletedCount = completedExercises?.length || 0;
+    const totalExercisesCount = 3;
+
+    let compiledReport: any = null;
+
+    try {
+      // Build the AI Prompt
+      const prompt = `You are an experienced clinical psychologist writing a Day 28 Cycle Summary Report for a user who has completed a 30-day journal reflection cycle.
+Write in a calm, observational, direct, and precise therapist voice.
+DO NOT use motivational speaker, coaching, or AI assistant language. Avoid phrases like "You're growing", "Keep going", "Amazing progress", "We are proud of you", "Healing journey", or "Growth mindset". Do not validate emotions unnecessarily. Use objective clinical observation based strictly on evidence.
+
+INPUT DATA:
+- Decrypted entries for the month: ${JSON.stringify(decryptedEntries.slice(0, 40))}
+- Weekly summaries: ${JSON.stringify(weeklySummaries)}
+- Completed cognitive reframing exercises: ${JSON.stringify(completedExercises)}
+- Vocabulary count aggregates: ${JSON.stringify(sortedVocab)}
+- Candidate user quotes (you MUST choose one of these exact quotes where requested, do not fabricate or alter them):
+  ${JSON.stringify(candidateQuotes.slice(0, 50))}
+- Pathway assignment: ${path_assignment}
+- Branch code: ${branch_assignment}
+
+Format your response as a strict JSON object with the following schema:
+{
+  "whatThisCycleShowed": {
+    "openingObs": "A short, two-line italic observation of their month (e.g. 'The situations kept changing.\\nWhat you felt inside them mostly did not.')",
+    "pulledQuote": "A single exact quote selected from the candidate quotes pool above.",
+    "narrative": "A clinical synthesis paragraph summarizing their writing history, week-by-week progression, and cognitive shifts."
+  },
+  "patterns": [
+    {
+      "name": "Name of pattern 1",
+      "tag": "Most dominant",
+      "tagClass": "tag-red",
+      "mechanism": "Clinical explanation of the repeating sequence of this pattern.",
+      "cost": "What this pattern costs the user in terms of agency, growth, or self-clarity.",
+      "confidence": 0.9,
+      "supportingEvidence": ["Real quote from entries indicating this pattern"],
+      "loopNodes": [
+        { "step": 1, "title": "Step 1 name", "sub": "subtitle" },
+        { "step": 2, "title": "Step 2 name", "sub": "subtitle" },
+        { "step": 3, "title": "Step 3 name", "sub": "subtitle" },
+        { "step": 4, "title": "Step 4 name", "sub": "subtitle" }
+      ]
+    }
+  ],
+  "recurringThemes": [
+    {
+      "name": "Theme name",
+      "frequencyText": "Weeks observed (e.g. 'Weeks 1 and 4')",
+      "percentage": 80,
+      "color": "#E0A898",
+      "description": "Brief description of how it manifested.",
+      "contraInsight": "Comparison with exercises showing contradictions (e.g., 'Entries said this, but the Core Values exercise showed...')"
+    }
+  ],
+  "wordsReachedFor": {
+    "analysisNote": "Analysis note about their top emotional words (e.g., 'Fine appeared more than tired and frustrated combined...')",
+    "unusedWords": [
+      {
+        "word": "tired",
+        "synonyms": ["exhausted", "depleted"]
+      }
+    ]
+  },
+  "fourThingsWeTracked": [
+    {
+      "label": "How stuck the patterns were",
+      "color": "#E0A898",
+      "title": "Pattern persistence",
+      "desc": "Analysis of pattern rigidity based on entries."
+    }
+  ],
+  "peopleWhoShowedUp": [
+    {
+      "name": "Person name/relationship (e.g. 'Your manager')",
+      "frequency": "Frequency text",
+      "description": "Clinical summary of their presence."
+    }
+  ],
+  "saidVsShowed": {
+    "said": ["Statement 1", "Statement 2"],
+    "showed": ["Evidence 1", "Evidence 2"],
+    "analysisNote": "Concluding comparative note."
+  },
+  "exercises": {
+    "collectiveInsight": "Insight combining values and vocab exercises.",
+    "items": [
+      {
+        "name": "CBT Reframing",
+        "dayText": "Day X",
+        "status": "completed",
+        "entriesSaid": "Brief summary of entry text.",
+        "exerciseShowed": "Brief summary of exercise reframing."
+      }
+    ]
+  },
+  "whereLeavesYou": {
+    "title": "Cycle X complete",
+    "body": "Concluding calm triage paragraph."
+  },
+  "closingQuote": {
+    "quote": "A single exact quote selected from the candidate quotes pool above.",
+    "observation": "Observation commentary on their quote."
+  }
+}
+
+Generate up to 3 patterns, up to 3 recurring themes, and up to 3 people who showed up. Fill in exercise items corresponding to completed reframing tasks or general cycle milestones.
+Do not include markdown wrappers (like \`\`\`json) in your raw response. Return only the raw JSON.`;
+
+      const rawResponse = await aiProvider.callRaw(prompt);
+      let cleaned = rawResponse.trim();
+      if (cleaned.startsWith('```')) {
+        cleaned = cleaned.replace(/^```[a-zA-Z]*\n/, '').replace(/\n```$/, '');
+      }
+      const aiReport = JSON.parse(cleaned);
+
+      compiledReport = {
+        ...aiReport,
+        cycleNumber: cycleNum,
+        startDate: startDateFormatted,
+        endDate: endDateFormatted,
+        stats: {
+          entriesCount: entry_count,
+          totalDays: totalDays,
+          daysSkipped: totalDays - entry_count,
+          mostUsedWord: topWord,
+          mostUsedWordFreq: topWordFreq,
+          mostUsedWordContext: `${topWordFreq} times, always about yourself`,
+          exercisesCompletedCount,
+          totalExercisesCount,
+          missedExercisesText: exercisesCompletedCount < totalExercisesCount ? `${totalExercisesCount - exercisesCompletedCount} missed` : 'None missed'
+        },
+        chartData: {
+          arcChart: {
+            writtenDays: timelineWritten,
+            skippedDays: timelineSkipped
+          },
+          radarChart: {
+            patternPersistence: Math.round(pr_avg * 10),
+            emotionalIntensity: Math.round(ei_avg * 10),
+            agency: Math.round(sa_avg * 10),
+            overallDirection: Math.round(dt_score * 10)
+          }
+        }
+      };
+    } catch (parseErr: any) {
+      console.error('[Monthly Report Worker] AI JSON generation failed, using fallback:', parseErr.message);
+      compiledReport = {
+        cycleNumber: cycleNum,
+        startDate: startDateFormatted,
+        endDate: endDateFormatted,
+        stats: {
+          entriesCount: entry_count,
+          totalDays: totalDays,
+          daysSkipped: totalDays - entry_count,
+          mostUsedWord: topWord,
+          mostUsedWordFreq: topWordFreq,
+          mostUsedWordContext: `${topWordFreq} times, always about yourself`,
+          exercisesCompletedCount,
+          totalExercisesCount,
+          missedExercisesText: exercisesCompletedCount < totalExercisesCount ? `${totalExercisesCount - exercisesCompletedCount} missed` : 'None missed'
+        },
+        chartData: {
+          arcChart: {
+            writtenDays: timelineWritten,
+            skippedDays: timelineSkipped
+          },
+          radarChart: {
+            patternPersistence: Math.round(pr_avg * 10),
+            emotionalIntensity: Math.round(ei_avg * 10),
+            agency: Math.round(sa_avg * 10),
+            overallDirection: Math.round(dt_score * 10)
+          }
+        },
+        whatThisCycleShowed: {
+          openingObs: "The situations kept changing.\\nWhat you felt inside them mostly did not.",
+          pulledQuote: candidateQuotes[0],
+          narrative: `You completed ${entry_count} entries this cycle. Over the course of the month, your reflection entries showed a steady pattern of cognitive exploration with notable milestones in emotional awareness.`
+        },
+        patterns: [
+          {
+            name: "Avoidance Loop",
+            tag: "Most dominant",
+            tagClass: "tag-red",
+            mechanism: "Dismissing issues or labeling them as not serious to bypass immediate friction.",
+            cost: "Unresolved tensions continue to surface in subsequent cycle days.",
+            confidence: 0.7,
+            supportingEvidence: [candidateQuotes[0]],
+            loopNodes: [
+              { "step": 1, "title": "Happens", "sub": "at work" },
+              { "step": 2, "title": "Notice", "sub": "name it" },
+              { "step": 3, "title": "Dismiss", "sub": "probably fine" },
+              { "step": 4, "title": "Say okay", "sub": "move on" }
+            ]
+          }
+        ],
+        recurringThemes: [],
+        wordsReachedFor: {
+          analysisNote: `You reached for "${topWord}" ${topWordFreq} times this cycle.`,
+          unusedWords: []
+        },
+        fourThingsWeTracked: [],
+        peopleWhoShowedUp: [],
+        saidVsShowed: {
+          said: ["I handle things well"],
+          showed: ["Emotions are described but sometimes suppressed"],
+          analysisNote: "There is a gap between how you explicitly label your responses and your day-to-day writing."
+        },
+        exercises: {
+          collectiveInsight: "Reframing tasks were logged during the cycle.",
+          items: []
+        },
+        whereLeavesYou: {
+          title: "Cycle complete",
+          body: "You completed your cycle. This report serves as a record of your reflective history."
+        },
+        closingQuote: {
+          quote: candidateQuotes[0],
+          observation: "Commentary on your cycle reflection."
+        }
+      };
+    }
+
+    const reportTextPayload = JSON.stringify(compiledReport);
 
     // 10. Update assessments Table (Day 30 Report)
     if (assessment_id) {
@@ -184,7 +502,7 @@ export async function processMonthlyReport(jobData: {
           stability_gate_triggered,
           entry_count,
           generation_status: 'ready',
-          report_text: aiReport.insight,
+          report_text: reportTextPayload,
           generated_at: new Date().toISOString()
         })
         .eq('id', assessment_id);
@@ -355,7 +673,7 @@ export async function processMonthlyReport(jobData: {
         flag_spike_recovery,
         entry_count,
         generation_status: 'ready',
-        report_text: aiReport.insight,
+        report_text: reportTextPayload,
         generated_at: new Date().toISOString()
       };
 

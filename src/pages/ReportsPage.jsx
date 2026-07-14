@@ -18,6 +18,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
   const [selectedAssessment, setSelectedAssessment] = useState(null);
+  const [chartLoaded, setChartLoaded] = useState(false);
 
   // Accordion states: maps cycleId to boolean
   const [openCycles, setOpenCycles] = useState({});
@@ -28,6 +29,141 @@ export default function ReportsPage({ user, profile, onSignOut }) {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Dynamic Chart.js Loader
+  useEffect(() => {
+    if (viewState === 'report') {
+      const isJsonReport = selectedAssessment && selectedAssessment.report_text && selectedAssessment.report_text.startsWith('{');
+      if (isJsonReport) {
+        if (!window.Chart) {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
+          script.async = true;
+          script.onload = () => {
+            setChartLoaded(true);
+          };
+          document.body.appendChild(script);
+        } else {
+          setChartLoaded(true);
+        }
+      }
+    }
+  }, [viewState, selectedAssessment]);
+
+  // Chart Initializer
+  useEffect(() => {
+    if (viewState === 'report' && chartLoaded && selectedAssessment) {
+      let reportData = null;
+      try {
+        if (selectedAssessment?.report_text && selectedAssessment.report_text.startsWith('{')) {
+          reportData = JSON.parse(selectedAssessment.report_text);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
+      if (reportData && window.Chart) {
+        const arcCtx = document.getElementById('arcChart');
+        if (arcCtx) {
+          const existingChart = window.Chart.getChart(arcCtx);
+          if (existingChart) existingChart.destroy();
+
+          new window.Chart(arcCtx, {
+            type: 'line',
+            data: {
+              labels: Array.from({ length: reportData.stats.totalDays || 30 }, (_, i) => i + 1),
+              datasets: [
+                {
+                  data: reportData.chartData.arcChart.writtenDays,
+                  borderColor: '#E0A898',
+                  backgroundColor: 'rgba(224,168,152,0.06)',
+                  borderWidth: 2,
+                  pointRadius: 0,
+                  tension: 0.4,
+                  fill: true,
+                  spanGaps: false
+                },
+                {
+                  data: reportData.chartData.arcChart.skippedDays,
+                  borderColor: 'transparent',
+                  backgroundColor: 'transparent',
+                  pointBackgroundColor: '#F5F6F6',
+                  pointBorderColor: 'rgba(30,42,46,0.12)',
+                  pointBorderWidth: 1,
+                  pointRadius: 5,
+                  showLine: false
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: {
+                  grid: { display: false },
+                  ticks: { font: { size: 10 }, color: 'rgba(30,42,46,0.35)', maxTicksLimit: 8, autoSkip: true }
+                },
+                y: { display: false, min: 0, max: 12 }
+              }
+            }
+          });
+        }
+
+        const radarCtx = document.getElementById('radarChart');
+        if (radarCtx) {
+          const existingChart = window.Chart.getChart(radarCtx);
+          if (existingChart) existingChart.destroy();
+
+          new window.Chart(radarCtx, {
+            type: 'radar',
+            data: {
+              labels: ['', '', '', ''],
+              datasets: [
+                {
+                  data: [
+                    reportData.chartData.radarChart.patternPersistence,
+                    reportData.chartData.radarChart.emotionalIntensity,
+                    reportData.chartData.radarChart.agency,
+                    reportData.chartData.radarChart.overallDirection
+                  ],
+                  backgroundColor: 'rgba(224,168,152,0.04)',
+                  borderColor: 'rgba(30,42,46,0.3)',
+                  borderWidth: 1.5,
+                  pointBackgroundColor: ['#E0A898', '#B8A8D4', '#8DBFB4', 'rgba(141,191,180,0.45)'],
+                  pointBorderColor: ['#E0A898', '#B8A8D4', '#8DBFB4', 'rgba(141,191,180,0.45)'],
+                  pointRadius: 6
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false }, tooltip: { enabled: false } },
+              scales: {
+                r: {
+                  min: 0,
+                  max: 100,
+                  ticks: { display: false },
+                  grid: { color: 'rgba(30,42,46,0.06)' },
+                  angleLines: {
+                    color: [
+                      'rgba(224,168,152,0.5)',
+                      'rgba(184,168,212,0.5)',
+                      'rgba(141,191,180,0.5)',
+                      'rgba(141,191,180,0.25)'
+                    ],
+                    lineWidth: 1.5
+                  },
+                  pointLabels: { display: false }
+                }
+              }
+            }
+          });
+        }
+      }
+    }
+  }, [viewState, chartLoaded, selectedAssessment]);
 
   const loadData = async () => {
     setLoading(true);
@@ -273,45 +409,608 @@ export default function ReportsPage({ user, profile, onSignOut }) {
       `;
     } else {
       const cycleObj = cycles.find(c => c.id === selectedCycleId) || {};
-      contentHtml = `
-        <div class="rpt" style="border: none; box-shadow: none; margin: 0;">
-          <div class="hdr">
-            <div class="hl">
-              <div class="logo font-semibold">ingress <span>within</span></div>
-              <div class="wl" style="margin-left: 14px; text-transform: uppercase;">Cycle ${cycleObj.cycle_number || 1} Assessment Report</div>
-            </div>
-            <div class="dr">${new Date(reportData.generated_at).toLocaleDateString('en-GB')}</div>
-          </div>
-          <div class="body">
-            <h2 style="font-family: Georgia, serif; font-size: 20px; font-weight: normal; color: var(--navy); margin-bottom: 12px;">
-              28 days of honest writing — here is what it showed.
-            </h2>
-            <div style="font-size: 12px; color: var(--muted); margin-bottom: 24px;">
-              ${reportData.entry_count} entries completed · ${reportData.path_assignment || 'Guided pathway'}
-            </div>
+      const isJsonReport = reportData.report_text && reportData.report_text.startsWith('{');
+      let parsedReport = null;
+      if (isJsonReport) {
+        try {
+          parsedReport = JSON.parse(reportData.report_text);
+        } catch (e) {
+          console.error(e);
+        }
+      }
 
-            <div style="margin-bottom: 24px;">
-              <div class="lbl">What this cycle showed</div>
-              <p style="font-family: Georgia, serif; font-size: 15px; line-height: 1.75; color: var(--ink); padding: 16px; background: #FAFBFB; border: 1px solid var(--border); border-radius: 10px; margin-top: 6px;">
-                ${reportData.report_text || ''}
-              </p>
-            </div>
+      if (isJsonReport && parsedReport) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Ingress Within — Cycle ${parsedReport.cycleNumber} Monthly Report</title>
+              <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+              <style>
+                :root {
+                  --teal-black:#1E2A2E;
+                  --mint-grey:#ECEFF0;
+                  --terracotta-rose:#E0A898;
+                  --ocean-sage:#8DBFB4;
+                  --soft-iris:#B8A8D4;
+                  --border-tertiary: rgba(30,42,46,0.12);
+                  --bg-secondary: #F5F6F6;
+                  --text-secondary: rgba(30,42,46,0.6);
+                }
+                body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; background: #fff; padding: 40px; color: var(--teal-black); }
+                .report { max-width: 900px; margin: 0 auto; background: #fff; border: 1px solid var(--border-tertiary); border-radius: 16px; overflow: hidden; }
+                .hdr { background: var(--teal-black); padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
+                .hdr-l { display: flex; align-items: center; gap: 10px; }
+                .logo { font-size: 14px; font-weight: 500; color: #ECEFF0; }
+                .logo span { color: var(--ocean-sage); }
+                .hdiv { width: 1px; height: 14px; background: rgba(236,239,240,0.2); }
+                .htag { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ocean-sage); font-weight: 500; }
+                .hdate { font-size: 12px; color: rgba(236,239,240,0.4); }
+                .body { padding: 24px; text-align: left; }
+                .sec { margin-bottom: 28px; }
+                .sec-label { font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--ocean-sage); margin-bottom: 12px; }
+                .divider { height: 1px; background: var(--border-tertiary); margin: 24px 0; }
+                .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; border: 1px solid var(--border-tertiary); border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+                .stat { padding: 12px 16px; border-right: 1px solid var(--border-tertiary); }
+                .stat:last-child { border-right: none; }
+                .stat-lbl { font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 4px; }
+                .stat-val { font-size: 26px; font-weight: 400; color: var(--teal-black); line-height: 1.1; }
+                .stat-val sup { font-size: 13px; color: var(--text-secondary); }
+                .stat-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+                .stat-word { font-size: 20px; font-weight: 400; color: var(--terracotta-rose); font-style: italic; }
+                .opening { font-size: 21px; font-weight: 400; line-height: 1.55; color: var(--teal-black); margin-bottom: 12px; }
+                .pulled-quote { display: flex; align-items: baseline; gap: 10px; padding: 10px 14px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 14px; }
+                .pq-lbl { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ocean-sage); font-weight: 500; white-space: nowrap; flex-shrink: 0; }
+                .pq-text { font-size: 13px; font-style: italic; color: var(--text-secondary); line-height: 1.5; }
+                .narr { font-size: 13px; line-height: 1.75; color: var(--text-secondary); }
+                .pattern-hero { border: 1px solid var(--border-tertiary); border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
+                .ph-top { padding: 13px 16px; border-bottom: 1px solid var(--border-tertiary); display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+                .ph-label { font-size: 17px; font-weight: 500; color: var(--teal-black); }
+                .ph-tag { font-size: 10px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: 20px; }
+                .tag-red { background: #FDF0ED; color: #C27A68; }
+                .tag-purple { background: #F5F3F8; color: #7B6B9A; }
+                .tag-teal { background: #EDF5F4; color: #4A7F78; }
+                .ph-body { padding: 13px 16px; display: grid; grid-template-columns: 1fr 200px; gap: 20px; align-items: start; }
+                .ph-mechanic { font-size: 13px; line-height: 1.75; color: var(--text-secondary); margin-bottom: 10px; }
+                .ph-cost { padding: 10px 12px; background: var(--bg-secondary); border-radius: 8px; font-size: 12px; line-height: 1.65; color: var(--text-secondary); }
+                .ph-cost-lbl { font-size: 9px; font-weight: 500; letter-spacing: .09em; text-transform: uppercase; color: var(--ocean-sage); margin-bottom: 4px; }
+                .loop-wrap { display: flex; align-items: center; justify-content: center; }
+                .theme-card { border: 1px solid var(--border-tertiary); border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
+                .theme-top { padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-tertiary); }
+                .theme-name { font-size: 13px; font-weight: 500; color: var(--teal-black); }
+                .theme-freq { font-size: 11px; color: var(--text-secondary); }
+                .theme-bar-wrap { height: 3px; background: var(--bg-secondary); }
+                .theme-bar { height: 100%; }
+                .theme-text { padding: 10px 12px; font-size: 12px; line-height: 1.7; color: var(--text-secondary); }
+                .theme-contra { margin: 0 12px 10px; padding: 8px 10px; background: #FDF0ED; border-left: 2px solid var(--terracotta-rose); font-size: 11px; line-height: 1.5; color: var(--teal-black); }
+                .contra-lbl { font-size: 9px; letter-spacing: .08em; text-transform: uppercase; font-weight: 500; color: #C27A68; margin-bottom: 2px; }
+                .cluster-exp { font-size: 12px; color: var(--text-secondary); line-height: 1.5; padding: 8px 10px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 10px; }
+                .cluster-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+                .word-used { background: var(--terracotta-rose); color: #7A3A28; font-size: 12px; padding: 3px 8px; border-radius: 20px; font-weight: 500; }
+                .word-unused { border: 1px solid var(--border-tertiary); font-size: 12px; padding: 3px 8px; border-radius: 20px; color: var(--text-secondary); }
+                .cluster-note { margin-top: 8px; padding: 8px 10px; background: #F5F3F8; border-left: 2px solid var(--soft-iris); font-size: 12px; font-style: italic; line-height: 1.6; color: var(--text-secondary); }
+                .dim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+                .dim-desc { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+                .dim-item { padding: 8px 10px; border-left: 2px solid; }
+                .dim-item-name { font-size: 11px; font-weight: 500; color: var(--teal-black); margin-bottom: 2px; }
+                .dim-item-text { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+                .rel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border-tertiary); border-radius: 8px; overflow: hidden; }
+                .rel-cell { background: #fff; padding: 10px 12px; }
+                .rel-name { font-size: 12px; font-weight: 500; color: var(--teal-black); margin-bottom: 2px; }
+                .rel-freq { font-size: 10px; color: var(--ocean-sage); margin-bottom: 4px; }
+                .rel-text { font-size: 11px; line-height: 1.6; color: var(--text-secondary); }
+                .gap-visual { display: grid; grid-template-columns: 1fr 24px 1fr; margin-bottom: 8px; }
+                .gap-col { display: flex; flex-direction: column; gap: 1px; }
+                .gap-header { padding: 8px 10px; text-align: center; font-size: 10px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; }
+                .gap-said-h { background: #F5F3F8; color: var(--soft-iris); border-radius: 8px 8px 0 0; }
+                .gap-show-h { background: #FDF0ED; color: #C27A68; border-radius: 8px 8px 0 0; }
+                .gap-item { padding: 8px 10px; font-size: 12px; line-height: 1.6; color: var(--text-secondary); border: 1px solid var(--border-tertiary); border-top: none; }
+                .gap-middle { display: flex; flex-direction: column; justify-content: space-around; align-items: center; padding: 32px 0 0; }
+                .gap-note { padding: 8px 12px; background: #FDF0ED; border-left: 2px solid var(--terracotta-rose); font-size: 12px; line-height: 1.6; color: var(--text-secondary); margin-top: 8px; }
+                .ex-top { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+                .dots { display: flex; gap: 6px; }
+                .dot { width: 10px; height: 10px; border-radius: 50%; }
+                .dot-done { background: var(--ocean-sage); }
+                .dot-skip { background: var(--bg-secondary); border: 1px solid var(--border-tertiary); }
+                .completion-text { font-size: 13px; color: var(--text-secondary); }
+                .completion-text strong { color: var(--teal-black); }
+                .ex-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+                .ex-row-card { border: 1px solid var(--border-tertiary); border-radius: 8px; overflow: hidden; }
+                .ex-row-top { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid var(--border-tertiary); background: var(--bg-secondary); }
+                .ex-name { font-size: 12px; font-weight: 500; color: var(--teal-black); }
+                .ex-day { font-size: 11px; color: var(--text-secondary); }
+                .ex-cols { display: grid; grid-template-columns: 1fr 1px 1fr; }
+                .ex-col { padding: 10px 14px; }
+                .ex-col-lbl { font-size: 9px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
+                .lbl-e { color: var(--soft-iris); }
+                .lbl-x { color: var(--terracotta-rose); }
+                .ex-col-text { font-size: 12px; line-height: 1.6; color: var(--text-secondary); }
+                .ex-col-sep { background: var(--border-tertiary); }
+                .ex-skip-row { border: 1px solid var(--border-tertiary); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 8px; opacity: 0.35; }
+                .ex-skip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border-tertiary); }
+                .ex-skip-text { font-size: 12px; color: var(--text-secondary); }
+                .collective { background: var(--teal-black); border-radius: 8px; padding: 14px 16px; }
+                .collective-lbl { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--ocean-sage); font-weight: 500; margin-bottom: 6px; }
+                .collective-text { font-size: 13px; line-height: 1.7; color: rgba(236,239,240,0.7); }
+                .triage { border: 1px solid rgba(184,168,212,0.4); border-radius: 8px; padding: 16px 18px; }
+                .triage-lbl { font-size: 10px; letter-spacing: .09em; text-transform: uppercase; font-weight: 500; color: var(--soft-iris); margin-bottom: 6px; }
+                .triage-body { font-size: 13px; line-height: 1.75; color: var(--text-secondary); }
+                .closing { background: var(--teal-black); padding: 24px; }
+                .closing-quote { font-size: 22px; font-style: italic; color: var(--terracotta-rose); line-height: 1.5; margin-bottom: 10px; }
+                .closing-obs { font-size: 13px; color: rgba(236,239,240,0.5); line-height: 1.7; }
+                .foot { display: none !important; }
+                @media print {
+                  body { padding: 0; background: #fff; }
+                  .report { border: none; border-radius: 0; box-shadow: none; max-width: 100%; }
+                  .hdr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                  .ph-tag { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                  .closing { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                  .divider { background: var(--border-tertiary) !important; }
+                  rect { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                }
+              </style>
+            </head>
+            <body>
+              <div class="report">
+                <!-- 1. Header -->
+                <div class="hdr">
+                  <div class="hdr-l">
+                    <div class="logo">ingress <span>within</span></div>
+                    <div class="hdiv"></div>
+                    <div class="htag">Cycle ${parsedReport.cycleNumber} — Monthly Report</div>
+                  </div>
+                  <div class="hdate">${parsedReport.startDate} – ${parsedReport.endDate}</div>
+                </div>
+                <div class="body">
+                  <!-- 2. Overview Statistics -->
+                  <div class="stats">
+                    <div class="stat">
+                      <div class="stat-lbl">Entries written</div>
+                      <div class="stat-val">${parsedReport.stats.entriesCount}<sup>/${parsedReport.stats.totalDays}</sup></div>
+                      <div class="stat-sub">${parsedReport.stats.daysSkipped} day${parsedReport.stats.daysSkipped > 1 ? 's' : ''} skipped</div>
+                    </div>
+                    <div class="stat">
+                      <div class="stat-lbl">Most used word</div>
+                      <div class="stat-word">"${parsedReport.stats.mostUsedWord}"</div>
+                      <div class="stat-sub">${parsedReport.stats.mostUsedWordContext}</div>
+                    </div>
+                    <div class="stat">
+                      <div class="stat-lbl">Exercises completed</div>
+                      <div class="stat-val">${parsedReport.stats.exercisesCompletedCount}<sup>/${parsedReport.stats.totalExercisesCount}</sup></div>
+                      <div class="stat-sub">${parsedReport.stats.missedExercisesText}</div>
+                    </div>
+                  </div>
 
-            <div class="cb" style="background: var(--navy); padding: 24px; border-radius: 12px; color: white;">
-              <div class="carry-label" style="color: var(--sage); font-size: 11px; text-transform: uppercase; margin-bottom: 8px;">Carry into Cycle ${Number(cycleObj.cycle_number || 1) + 1}</div>
-              <p style="font-size: 13.5px; line-height: 1.6; color: #ECEFF0; margin-bottom: 16px;">
-                Pathway assignment for your integration is: <strong>${reportData.path_assignment || 'second_cycle'}</strong>.<br/>
-                Branch assignment code: <strong>${reportData.branch_assignment || 'A'}</strong>.
-              </p>
-              <div style="border-left: 2.5px solid rgba(224,168,152,0.4); padding-left: 16px;">
-                <p style="font-family: Georgia, serif; font-size: 14.5px; font-style: italic; color: var(--cream);">
-                  "visibility is the first condition for change. Fix focus on agency."
-                </p>
+                  <!-- 3. How the Month Moved -->
+                  <div class="sec">
+                    <div class="sec-label">How the month moved</div>
+                    <div style="position: relative; width: 100%; height: 120px; margin-bottom: 6px;">
+                      <canvas id="arcChart"></canvas>
+                    </div>
+                    <div style="display: flex; gap: 16px;">
+                      <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-secondary);">
+                        <div style="width: 20px; height: 2px; background: var(--terracotta-rose); border-radius: 1px;"></div>
+                        entry written
+                      </div>
+                      <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-secondary);">
+                        <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--bg-secondary); border: 1px solid var(--border-tertiary);"></div>
+                        day skipped
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="divider"></div>
+
+                  <!-- 4. What This Cycle Showed -->
+                  <div class="sec">
+                    <div class="sec-label">What this cycle showed</div>
+                    <div class="opening">${parsedReport.whatThisCycleShowed.openingObs.replace(/\n/g, '<br>')}</div>
+                    <div class="pulled-quote">
+                      <div class="pq-lbl">From your writing</div>
+                      <div class="pq-text">"${parsedReport.whatThisCycleShowed.pulledQuote}"</div>
+                    </div>
+                    <div class="narr">${parsedReport.whatThisCycleShowed.narrative}</div>
+                  </div>
+
+                  <div class="divider"></div>
+
+                  <!-- 5. Patterns This Cycle Found In You -->
+                  <div class="sec">
+                    <div class="sec-label">Patterns this cycle found in you</div>
+                    ${parsedReport.patterns.map((pat, pIdx) => `
+                      <div class="pattern-hero">
+                        <div class="ph-top">
+                          <div class="ph-label">${pat.name}</div>
+                          <div class="ph-tag ${pat.tagClass || 'tag-red'}">${pat.tag}</div>
+                        </div>
+                        <div class="ph-body">
+                          <div>
+                            <div class="ph-mechanic">${pat.mechanism}</div>
+                            <div class="ph-cost">
+                              <div class="ph-cost-lbl">What this costs you</div>
+                              ${pat.cost}
+                            </div>
+                          </div>
+                          <div class="loop-wrap">
+                            <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                              <defs>
+                                <marker id="a-marker-${pIdx}" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                                  <path d="M0,0.5 L5,3 L0,5.5 Z" fill="${pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'}" />
+                                </marker>
+                              </defs>
+                              <rect x="4" y="4" width="68" height="34" rx="8" fill="${pat.tagClass === 'tag-red' ? 'rgba(224,168,152,0.15)' : pat.tagClass === 'tag-purple' ? 'rgba(184,168,212,0.15)' : 'rgba(141,191,180,0.15)'}" stroke="${pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'}" stroke-width="1.5" />
+                              <text x="38" y="19" text-anchor="middle" font-size="11" font-weight="700" fill="${pat.tagClass === 'tag-red' ? '#C27A68' : pat.tagClass === 'tag-purple' ? '#7B6B9A' : '#4A7F78'}">${pat.loopNodes[0]?.title || ''}</text>
+                              <text x="38" y="32" text-anchor="middle" font-size="9" fill="${pat.tagClass === 'tag-red' ? '#C27A68' : pat.tagClass === 'tag-purple' ? '#7B6B9A' : '#4A7F78'}" opacity="0.8">${pat.loopNodes[0]?.sub || ''}</text>
+
+                              <rect x="88" y="4" width="68" height="34" rx="8" fill="var(--bg-secondary)" stroke="var(--border-tertiary)" stroke-width="1" />
+                              <text x="122" y="19" text-anchor="middle" font-size="11" font-weight="600" fill="var(--teal-black)">${pat.loopNodes[1]?.title || ''}</text>
+                              <text x="122" y="32" text-anchor="middle" font-size="9" fill="var(--text-secondary)">${pat.loopNodes[1]?.sub || ''}</text>
+
+                              <rect x="88" y="142" width="68" height="34" rx="8" fill="var(--bg-secondary)" stroke="var(--border-tertiary)" stroke-width="1" />
+                              <text x="122" y="157" text-anchor="middle" font-size="11" font-weight="600" fill="var(--teal-black)">${pat.loopNodes[2]?.title || ''}</text>
+                              <text x="122" y="170" text-anchor="middle" font-size="9" fill="var(--text-secondary)">${pat.loopNodes[2]?.sub || ''}</text>
+
+                              <rect x="4" y="142" width="68" height="34" rx="8" fill="var(--bg-secondary)" stroke="var(--border-tertiary)" stroke-width="1" />
+                              <text x="38" y="157" text-anchor="middle" font-size="11" font-weight="600" fill="var(--teal-black)">${pat.loopNodes[3]?.title || ''}</text>
+                              <text x="38" y="170" text-anchor="middle" font-size="9" fill="var(--text-secondary)">${pat.loopNodes[3]?.sub || ''}</text>
+
+                              <path d="M72,21 L88,21" fill="none" stroke="${pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'}" stroke-width="1.5" stroke-opacity="0.7" marker-end="url(#a-marker-${pIdx})" />
+                              <path d="M122,38 L122,142" fill="none" stroke="${pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'}" stroke-width="1.5" stroke-opacity="0.5" marker-end="url(#a-marker-${pIdx})" />
+                              <path d="M88,159 L72,159" fill="none" stroke="${pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'}" stroke-width="1.5" stroke-opacity="0.4" marker-end="url(#a-marker-${pIdx})" />
+                              <path d="M38,142 L38,38" fill="none" stroke="${pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'}" stroke-width="1.5" stroke-opacity="0.3" marker-end="url(#a-marker-${pIdx})" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- 6. What Kept Coming Up -->
+                <div class="sec">
+                  <div class="sec-label">What kept coming up</div>
+                  ${parsedReport.recurringThemes.map(theme => `
+                    <div class="theme-card">
+                      <div class="theme-top">
+                        <div class="theme-name">${theme.name}</div>
+                        <div class="theme-freq">${theme.frequencyText}</div>
+                      </div>
+                      <div class="theme-bar-wrap">
+                        <div class="theme-bar" style="width: ${theme.percentage}%; background: ${theme.color || '#E0A898'};"></div>
+                      </div>
+                      <div class="theme-text">${theme.description}</div>
+                      ${theme.contraInsight ? `
+                        <div class="theme-contra">
+                          <div class="contra-lbl">What entries and exercises showed together</div>
+                          ${theme.contraInsight}
+                        </div>
+                      ` : ''}
+                    </div>
+                  `).join('')}
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- 7. Words You Reached For -->
+                <div class="sec">
+                  <div class="sec-label">Words you reached for</div>
+                  <div class="cluster-exp">Words from your writing this month, with related words you didn't use.</div>
+                  ${parsedReport.wordsReachedFor.unusedWords.map(item => `
+                    <div class="cluster-row">
+                      <span class="word-used">${item.word}</span>
+                      <span style="font-size: 12px; color: var(--text-secondary);">→</span>
+                      ${item.synonyms.map(syn => `<span class="word-unused">${syn}</span>`).join('')}
+                    </div>
+                  `).join('')}
+                  <div class="cluster-note">${parsedReport.wordsReachedFor.analysisNote}</div>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- 8. Four Things We Tracked -->
+                <div class="sec">
+                  <div class="sec-label">Four things we tracked</div>
+                  <div class="dim-grid">
+                    <div style="position: relative; height: 220px;">
+                      <canvas id="radarChart"></canvas>
+                    </div>
+                    <div class="dim-desc">
+                      ${parsedReport.fourThingsWeTracked.map(dim => `
+                        <div class="dim-item" style="border-color: ${dim.color || '#E0A898'};">
+                          <div class="dim-item-name">${dim.label}</div>
+                          <div class="dim-item-text">${dim.desc}</div>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- 9. People Who Showed Up -->
+                <div class="sec">
+                  <div class="sec-label">People who showed up in your writing</div>
+                  <div class="rel-grid">
+                    ${parsedReport.peopleWhoShowedUp.map(person => `
+                      <div class="rel-cell">
+                        <div class="rel-name">${person.name}</div>
+                        <div class="rel-freq">${person.frequency}</div>
+                        <div class="rel-text">${person.description}</div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- 10. What You Said vs What Your Writing Showed -->
+                <div class="sec">
+                  <div class="sec-label">What you said vs what your writing showed</div>
+                  <div class="gap-visual">
+                    <div class="gap-col">
+                      <div class="gap-header gap-said-h">What you said about yourself</div>
+                      ${parsedReport.saidVsShowed.said.map(item => `
+                        <div class="gap-item">"${item}"</div>
+                      `).join('')}
+                    </div>
+                    <div class="gap-middle">
+                      ${parsedReport.saidVsShowed.said.map(() => `
+                        <div style="font-size: 14px; color: var(--text-secondary); opacity: 0.3;">→</div>
+                      `).join('')}
+                    </div>
+                    <div class="gap-col">
+                      <div class="gap-header gap-show-h">What your writing showed</div>
+                      ${parsedReport.saidVsShowed.showed.map(item => `
+                        <div class="gap-item">${item}</div>
+                      `).join('')}
+                    </div>
+                  </div>
+                  <div class="gap-note">${parsedReport.saidVsShowed.analysisNote}</div>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- 11. Exercises -->
+                <div class="sec">
+                  <div class="sec-label">What the exercises showed</div>
+                  <div class="ex-top">
+                    <div class="dots">
+                      <div class="dot ${parsedReport.stats.exercisesCompletedCount >= 1 ? 'dot-done' : 'dot-skip'}"></div>
+                      <div class="dot ${parsedReport.stats.exercisesCompletedCount >= 2 ? 'dot-done' : 'dot-skip'}"></div>
+                      <div class="dot ${parsedReport.stats.exercisesCompletedCount >= 3 ? 'dot-done' : 'dot-skip'}"></div>
+                    </div>
+                    <div class="completion-text">
+                      <strong>${parsedReport.stats.exercisesCompletedCount} of ${parsedReport.stats.totalExercisesCount}</strong> completed this cycle
+                    </div>
+                  </div>
+
+                  <div class="ex-list">
+                    <!-- Core Values Card Sort (Day 4) -->
+                    ${(() => {
+                      const cbtEx = parsedReport.exercises.items.find(item => item.name.includes('Core Values') || item.dayText?.includes('4'));
+                      if (cbtEx) {
+                        return `
+                          <div class="ex-row-card">
+                            <div class="ex-row-top">
+                              <div class="ex-name">Core Values Card Sort</div>
+                              <div class="ex-day">${cbtEx.dayText || 'Day 4'}</div>
+                            </div>
+                            <div class="ex-cols">
+                              <div class="ex-col">
+                                <div class="ex-col-lbl lbl-e">Entries said</div>
+                                <div class="ex-col-text">${cbtEx.entriesSaid}</div>
+                              </div>
+                              <div class="ex-col-sep"></div>
+                              <div class="ex-col">
+                                <div class="ex-col-lbl lbl-x">Exercise showed</div>
+                                <div class="ex-col-text">${cbtEx.exerciseShowed}</div>
+                              </div>
+                            </div>
+                          </div>
+                        `;
+                      } else {
+                        return `
+                          <div class="ex-skip-row">
+                            <div class="ex-skip-dot"></div>
+                            <div class="ex-skip-text">Core Values Card Sort — not completed this cycle.</div>
+                          </div>
+                        `;
+                      }
+                    })()}
+
+                    <!-- Emotional Vocabulary Wheel (Day 9) -->
+                    ${(() => {
+                      const cbtEx = parsedReport.exercises.items.find(item => item.name.includes('Vocabulary') || item.dayText?.includes('9'));
+                      if (cbtEx) {
+                        return `
+                          <div class="ex-row-card">
+                            <div class="ex-row-top">
+                              <div class="ex-name">Emotional Vocabulary Wheel</div>
+                              <div class="ex-day">${cbtEx.dayText || 'Day 9'}</div>
+                            </div>
+                            <div class="ex-cols">
+                              <div class="ex-col">
+                                <div class="ex-col-lbl lbl-e">Entries said</div>
+                                <div class="ex-col-text">${cbtEx.entriesSaid}</div>
+                              </div>
+                              <div class="ex-col-sep"></div>
+                              <div class="ex-col">
+                                <div class="ex-col-lbl lbl-x">Exercise showed</div>
+                                <div class="ex-col-text">${cbtEx.exerciseShowed}</div>
+                              </div>
+                            </div>
+                          </div>
+                        `;
+                      } else {
+                        return `
+                          <div class="ex-skip-row">
+                            <div class="ex-skip-dot"></div>
+                            <div class="ex-skip-text">Emotional Vocabulary Wheel — not completed this cycle.</div>
+                          </div>
+                        `;
+                      }
+                    })()}
+
+                    <!-- Self-Perception Check (Day 14) -->
+                    ${(() => {
+                      const cbtEx = parsedReport.exercises.items.find(item => item.name.includes('Self-Perception') || item.dayText?.includes('14') || item.dayText?.includes('20') || item.dayText?.includes('28'));
+                      if (cbtEx) {
+                        return `
+                          <div class="ex-row-card">
+                            <div class="ex-row-top">
+                              <div class="ex-name">Self-Perception Check</div>
+                              <div class="ex-day">${cbtEx.dayText || 'Day 14'}</div>
+                            </div>
+                            <div class="ex-cols">
+                              <div class="ex-col">
+                                <div class="ex-col-lbl lbl-e">Entries said</div>
+                                <div class="ex-col-text">${cbtEx.entriesSaid}</div>
+                              </div>
+                              <div class="ex-col-sep"></div>
+                              <div class="ex-col">
+                                <div class="ex-col-lbl lbl-x">Exercise showed</div>
+                                <div class="ex-col-text">${cbtEx.exerciseShowed}</div>
+                              </div>
+                            </div>
+                          </div>
+                        `;
+                      } else {
+                        return `
+                          <div class="ex-skip-row">
+                            <div class="ex-skip-dot"></div>
+                            <div class="ex-skip-text">Self-Perception Check — not completed this cycle.</div>
+                          </div>
+                        `;
+                      }
+                    })()}
+                  </div>
+
+                  <div class="collective">
+                    <div class="collective-lbl">What the exercises showed together</div>
+                    <div class="collective-text">${parsedReport.exercises.collectiveInsight}</div>
+                  </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- 12. Where This Cycle Leaves You -->
+                <div class="sec">
+                  <div class="sec-label">Where this cycle leaves you</div>
+                  <div class="triage">
+                    <div class="triage-lbl">${parsedReport.whereLeavesYou.title || 'Cycle complete'}</div>
+                    <div class="triage-body">${parsedReport.whereLeavesYou.body.replace(/\n\n/g, '<br><br>')}</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 13. Closing Quote -->
+              <div class="closing">
+                <div class="closing-quote">"${parsedReport.closingQuote.quote}"</div>
+                <div class="closing-obs">${parsedReport.closingQuote.observation}</div>
               </div>
             </div>
-          </div>
-        </div>
-      `;
+
+            <script>
+              window.onload = function() {
+                // Initialize line chart
+                new Chart(document.getElementById('arcChart'), {
+                  type: 'line',
+                  data: {
+                    labels: Array.from({ length: 30 }, (_, i) => i + 1),
+                    datasets: [
+                      {
+                        data: ${JSON.stringify(parsedReport.chartData.arcChart.writtenDays)},
+                        borderColor: '#E0A898',
+                        backgroundColor: 'rgba(224,168,152,0.06)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.4,
+                        fill: true,
+                        spanGaps: false
+                      },
+                      {
+                        data: ${JSON.stringify(parsedReport.chartData.arcChart.skippedDays)},
+                        borderColor: 'transparent',
+                        backgroundColor: 'transparent',
+                        pointBackgroundColor: '#F5F6F6',
+                        pointBorderColor: 'rgba(30,42,46,0.12)',
+                        pointBorderWidth: 1,
+                        pointRadius: 5,
+                        showLine: false
+                      }
+                    ]
+                  },
+                  options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                      x: { grid: { display: false }, ticks: { font: { size: 10 }, color: 'rgba(30,42,46,0.35)', maxTicksLimit: 8 } },
+                      y: { display: false, min: 0, max: 12 }
+                    }
+                  }
+                });
+
+                // Initialize radar chart
+                new Chart(document.getElementById('radarChart'), {
+                  type: 'radar',
+                  data: {
+                    labels: ['', '', '', ''],
+                    datasets: [
+                      {
+                        data: [
+                          ${parsedReport.chartData.radarChart.patternPersistence},
+                          ${parsedReport.chartData.radarChart.emotionalIntensity},
+                          ${parsedReport.chartData.radarChart.agency},
+                          ${parsedReport.chartData.radarChart.overallDirection}
+                        ],
+                        backgroundColor: 'rgba(224,168,152,0.04)',
+                        borderColor: 'rgba(30,42,46,0.3)',
+                        borderWidth: 1.5,
+                        pointBackgroundColor: ['#E0A898', '#B8A8D4', '#8DBFB4', 'rgba(141,191,180,0.45)'],
+                        pointBorderColor: ['#E0A898', '#B8A8D4', '#8DBFB4', 'rgba(141,191,180,0.45)'],
+                        pointRadius: 6
+                      }
+                    ]
+                  },
+                  options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    scales: {
+                      r: {
+                        min: 0,
+                        max: 100,
+                        ticks: { display: false },
+                        grid: { color: 'rgba(30,42,46,0.06)' },
+                        angleLines: {
+                          color: [
+                            'rgba(224,168,152,0.5)',
+                            'rgba(184,168,212,0.5)',
+                            'rgba(141,191,180,0.5)',
+                            'rgba(141,191,180,0.25)'
+                          ],
+                          lineWidth: 1.5
+                        },
+                        pointLabels: { display: false }
+                      }
+                    }
+                  }
+                });
+
+                // Trigger print
+                setTimeout(function() {
+                  window.print();
+                }, 500);
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      return;
+    }
     }
 
     printWindow.document.write(`
@@ -699,12 +1398,625 @@ export default function ReportsPage({ user, profile, onSignOut }) {
           color: var(--sage);
           text-decoration: none;
         }
-        .foot-center {
+        /* Cycle Report V1 Styles */
+        :root {
+          --teal-black:#1E2A2E;
+          --mint-grey:#ECEFF0;
+          --terracotta-rose:#E0A898;
+          --ocean-sage:#8DBFB4;
+          --soft-iris:#B8A8D4;
+          --border-tertiary: rgba(30,42,46,0.12);
+          --bg-secondary: #F5F6F6;
+          --text-secondary: rgba(30,42,46,0.6);
+        }
+        .report {
+          max-width: 900px;
+          margin: 0 auto;
+          background: #fff;
+          border: 1px solid var(--border-tertiary);
+          border-radius: 16px;
+          overflow: hidden;
+        }
+        .report .hdr {
+          background: var(--teal-black);
+          padding: 14px 24px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .report .hdr-l {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .report .logo {
+          font-size: 14px;
+          font-weight: 500;
+          color: #ECEFF0;
+        }
+        .report .logo span {
+          color: var(--ocean-sage);
+        }
+        .report .hdiv {
+          width: 1px;
+          height: 14px;
+          background: rgba(236,239,240,0.2);
+        }
+        .report .htag {
+          font-size: 11px;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+          color: var(--ocean-sage);
+          font-weight: 500;
+        }
+        .report .hdate {
+          font-size: 12px;
+          color: rgba(236,239,240,0.4);
+        }
+        .report .body {
+          padding: 24px;
+        }
+        .report .sec {
+          margin-bottom: 28px;
+        }
+        .report .sec-label {
+          font-size: 11px;
+          font-weight: 500;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+          color: var(--ocean-sage);
+          margin-bottom: 12px;
+        }
+        .report .divider {
+          height: 1px;
+          background: var(--border-tertiary);
+          margin: 24px 0;
+        }
+        .report .stats {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          border: 1px solid var(--border-tertiary);
+          border-radius: 12px;
+          overflow: hidden;
+          margin-bottom: 24px;
+        }
+        .report .stat {
+          padding: 12px 16px;
+          border-right: 1px solid var(--border-tertiary);
+        }
+        .report .stat:last-child {
+          border-right: none;
+        }
+        .report .stat-lbl {
+          font-size: 11px;
+          font-weight: 500;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+          color: var(--text-secondary);
+          margin-bottom: 4px;
+        }
+        .report .stat-val {
+          font-size: 26px;
+          font-weight: 400;
+          color: var(--teal-black);
+          line-height: 1.1;
+        }
+        .report .stat-val sup {
+          font-size: 13px;
+          color: var(--text-secondary);
+        }
+        .report .stat-sub {
+          font-size: 12px;
+          color: var(--text-secondary);
+          margin-top: 2px;
+        }
+        .report .stat-word {
+          font-size: 20px;
+          font-weight: 400;
+          color: var(--terracotta-rose);
+          font-style: italic;
+        }
+        .report .opening {
+          font-size: 21px;
+          font-weight: 400;
+          line-height: 1.55;
+          color: var(--teal-black);
+          margin-bottom: 12px;
+        }
+        .report .opening em {
+          font-style: italic;
+          color: var(--soft-iris);
+        }
+        .report .pulled-quote {
+          display: flex;
+          align-items: baseline;
+          gap: 10px;
+          padding: 10px 14px;
+          background: var(--bg-secondary);
+          border-radius: 8px;
+          margin-bottom: 14px;
+        }
+        .report .pq-lbl {
+          font-size: 10px;
+          letter-spacing: .1em;
+          text-transform: uppercase;
+          color: var(--ocean-sage);
+          font-weight: 500;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .report .pq-text {
+          font-size: 13px;
+          font-style: italic;
+          color: var(--text-secondary);
+          line-height: 1.5;
+        }
+        .report .narr {
+          font-size: 13px;
+          line-height: 1.75;
+          color: var(--text-secondary);
+        }
+        .report .pattern-hero {
+          border: 1px solid var(--border-tertiary);
+          border-radius: 8px;
+          overflow: hidden;
+          margin-bottom: 10px;
+        }
+        .report .pattern-hero:last-child {
+          margin-bottom: 0;
+        }
+        .report .ph-top {
+          padding: 13px 16px;
+          border-bottom: 1px solid var(--border-tertiary);
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 12px;
+        }
+        .report .ph-label {
+          font-size: 17px;
+          font-weight: 500;
+          color: var(--teal-black);
+          letter-spacing: -0.3px;
+        }
+        .report .ph-tag {
+          font-size: 10px;
+          font-weight: 500;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+          padding: 3px 8px;
+          border-radius: 20px;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .report .tag-red {
+          background: #FDF0ED;
+          color: #C27A68;
+        }
+        .report .tag-purple {
+          background: #F5F3F8;
+          color: #7B6B9A;
+        }
+        .report .tag-teal {
+          background: #EDF5F4;
+          color: #4A7F78;
+        }
+        .report .ph-body {
+          padding: 13px 16px;
+          display: grid;
+          grid-template-columns: 1fr 200px;
+          gap: 20px;
+          align-items: start;
+        }
+        .report .ph-mechanic {
+          font-size: 13px;
+          line-height: 1.75;
+          color: var(--text-secondary);
+          margin-bottom: 10px;
+        }
+        .report .ph-cost {
+          padding: 10px 12px;
+          background: var(--bg-secondary);
+          border-radius: 8px;
+          font-size: 12px;
+          line-height: 1.65;
+          color: var(--text-secondary);
+        }
+        .report .ph-cost-lbl {
+          font-size: 9px;
+          font-weight: 500;
+          letter-spacing: .09em;
+          text-transform: uppercase;
+          color: var(--ocean-sage);
+          margin-bottom: 4px;
+        }
+        .report .loop-wrap {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .report .theme-card {
+          border: 1px solid var(--border-tertiary);
+          border-radius: 8px;
+          overflow: hidden;
+          margin-bottom: 8px;
+        }
+        .report .theme-card:last-child {
+          margin-bottom: 0;
+        }
+        .report .theme-top {
+          padding: 10px 12px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 1px solid var(--border-tertiary);
+        }
+        .report .theme-name {
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--teal-black);
+        }
+        .report .theme-freq {
+          font-size: 11px;
+          color: var(--text-secondary);
+        }
+        .report .theme-bar-wrap {
+          height: 3px;
+          background: var(--bg-secondary);
+        }
+        .report .theme-bar {
+          height: 100%;
+        }
+        .report .theme-text {
+          padding: 10px 12px;
+          font-size: 12px;
+          line-height: 1.7;
+          color: var(--text-secondary);
+        }
+        .report .theme-contra {
+          margin: 0 12px 10px;
+          padding: 8px 10px;
+          background: #FDF0ED;
+          border-left: 2px solid var(--terracotta-rose);
+          font-size: 11px;
+          line-height: 1.5;
+          color: var(--teal-black);
+        }
+        .report .contra-lbl {
+          font-size: 9px;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+          font-weight: 500;
+          color: #C27A68;
+          margin-bottom: 2px;
+        }
+        .report .cluster-exp {
+          font-size: 12px;
+          color: var(--text-secondary);
+          line-height: 1.5;
+          padding: 8px 10px;
+          background: var(--bg-secondary);
+          border-radius: 8px;
+          margin-bottom: 10px;
+        }
+        .report .cluster-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 6px;
+          flex-wrap: wrap;
+        }
+        .report .word-used {
+          background: var(--terracotta-rose);
+          color: #7A3A28;
+          font-size: 12px;
+          padding: 3px 8px;
+          border-radius: 20px;
+          font-weight: 500;
+        }
+        .report .word-unused {
+          border: 1px solid var(--border-tertiary);
+          font-size: 12px;
+          padding: 3px 8px;
+          border-radius: 20px;
+          color: var(--text-secondary);
+        }
+        .report .cluster-note {
+          margin-top: 8px;
+          padding: 8px 10px;
+          background: #F5F3F8;
+          border-left: 2px solid var(--soft-iris);
+          font-size: 12px;
+          font-style: italic;
+          line-height: 1.6;
+          color: var(--text-secondary);
+        }
+        .report .dim-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+          align-items: start;
+        }
+        .report .dim-desc {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding-top: 4px;
+        }
+        .report .dim-item {
+          padding: 8px 10px;
+          border-left: 2px solid;
+        }
+        .report .dim-item-name {
+          font-size: 11px;
+          font-weight: 500;
+          color: var(--teal-black);
+          margin-bottom: 2px;
+        }
+        .report .dim-item-text {
+          font-size: 11px;
+          color: var(--text-secondary);
+          line-height: 1.5;
+        }
+        .report .rel-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1px;
+          background: var(--border-tertiary);
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        .report .rel-cell {
+          background: #fff;
+          padding: 10px 12px;
+        }
+        .report .rel-name {
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--teal-black);
+          margin-bottom: 2px;
+        }
+        .report .rel-freq {
+          font-size: 10px;
+          color: var(--ocean-sage);
+          margin-bottom: 4px;
+        }
+        .report .rel-text {
+          font-size: 11px;
+          line-height: 1.6;
+          color: var(--text-secondary);
+        }
+        .report .gap-visual {
+          display: grid;
+          grid-template-columns: 1fr 24px 1fr;
+          margin-bottom: 8px;
+        }
+        .report .gap-col {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+        }
+        .report .gap-header {
+          padding: 8px 10px;
+          text-align: center;
+          font-size: 10px;
+          font-weight: 500;
+          letter-spacing: .07em;
+          text-transform: uppercase;
+        }
+        .report .gap-said-h {
+          background: #F5F3F8;
+          color: var(--soft-iris);
+          border-radius: 8px 8px 0 0;
+        }
+        .report .gap-show-h {
+          background: #FDF0ED;
+          color: #C27A68;
+          border-radius: 8px 8px 0 0;
+        }
+        .report .gap-item {
+          padding: 8px 10px;
+          font-size: 12px;
+          line-height: 1.6;
+          color: var(--text-secondary);
+          border: 1px solid var(--border-tertiary);
+          border-top: none;
+        }
+        .report .gap-middle {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-around;
+          align-items: center;
+          padding: 32px 0 0;
+        }
+        .report .gap-note {
+          padding: 8px 12px;
+          background: #FDF0ED;
+          border-left: 2px solid var(--terracotta-rose);
+          font-size: 12px;
+          line-height: 1.6;
+          color: var(--text-secondary);
+          margin-top: 8px;
+        }
+        .report .ex-top {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+        .report .dots {
+          display: flex;
+          gap: 6px;
+        }
+        .report .dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+        }
+        .report .dot-done {
+          background: var(--ocean-sage);
+        }
+        .report .dot-skip {
+          background: var(--bg-secondary);
+          border: 1px solid var(--border-tertiary);
+        }
+        .report .completion-text {
+          font-size: 13px;
+          color: var(--text-secondary);
+        }
+        .report .completion-text strong {
+          color: var(--teal-black);
+        }
+        .report .ex-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-bottom: 16px;
+        }
+        .report .ex-row-card {
+          border: 1px solid var(--border-tertiary);
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        .report .ex-row-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 14px;
+          border-bottom: 1px solid var(--border-tertiary);
+          background: var(--bg-secondary);
+        }
+        .report .ex-name {
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--teal-black);
+        }
+        .report .ex-day {
+          font-size: 11px;
+          color: var(--text-secondary);
+        }
+        .report .ex-cols {
+          display: grid;
+          grid-template-columns: 1fr 1px 1fr;
+        }
+        .report .ex-col {
+          padding: 10px 14px;
+        }
+        .report .ex-col-lbl {
+          font-size: 9px;
+          font-weight: 500;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+          margin-bottom: 4px;
+        }
+        .report .lbl-e {
+          color: var(--soft-iris);
+        }
+        .report .lbl-x {
+          color: var(--terracotta-rose);
+        }
+        .report .ex-col-text {
+          font-size: 12px;
+          line-height: 1.6;
+          color: var(--text-secondary);
+        }
+        .report .ex-col-sep {
+          background: var(--border-tertiary);
+        }
+        .report .ex-skip-row {
+          border: 1px solid var(--border-tertiary);
+          border-radius: 8px;
+          padding: 10px 14px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          opacity: 0.35;
+        }
+        .report .ex-skip-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--border-tertiary);
+          flex-shrink: 0;
+        }
+        .report .ex-skip-text {
+          font-size: 12px;
+          color: var(--text-secondary);
+        }
+        .report .collective {
+          background: var(--teal-black);
+          border-radius: 8px;
+          padding: 14px 16px;
+        }
+        .report .collective-lbl {
+          font-size: 9px;
+          letter-spacing: .1em;
+          text-transform: uppercase;
+          color: var(--ocean-sage);
+          font-weight: 500;
+          margin-bottom: 6px;
+        }
+        .report .collective-text {
+          font-size: 13px;
+          line-height: 1.7;
+          color: rgba(236,239,240,0.7);
+        }
+        .report .triage {
+          border: 1px solid rgba(184,168,212,0.4);
+          border-radius: 8px;
+          padding: 16px 18px;
+        }
+        .report .triage-lbl {
+          font-size: 10px;
+          letter-spacing: .09em;
+          text-transform: uppercase;
+          font-weight: 500;
+          color: var(--soft-iris);
+          margin-bottom: 6px;
+        }
+        .report .triage-body {
+          font-size: 13px;
+          line-height: 1.75;
+          color: var(--text-secondary);
+        }
+        .report .closing {
+          background: var(--teal-black);
+          padding: 24px;
+        }
+        .report .closing-quote {
+          font-size: 22px;
+          font-style: italic;
+          color: var(--terracotta-rose);
+          line-height: 1.5;
+          margin-bottom: 10px;
+        }
+        .report .closing-obs {
+          font-size: 13px;
+          color: rgba(236,239,240,0.5);
+          line-height: 1.7;
+        }
+        .report .foot {
+          background: var(--teal-black);
+          border-top: 1px solid rgba(255,255,255,0.06);
+          padding: 12px 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin: 0;
+        }
+        .report .foot-link {
+          font-size: 12px;
+          color: var(--ocean-sage);
+          cursor: pointer;
+          text-decoration: none;
+        }
+        .report .foot-center {
           font-size: 10px;
           color: rgba(236,239,240,0.2);
           letter-spacing: .06em;
           text-transform: uppercase;
         }
+
         @media(max-width: 768px) {
           .tc {
             grid-template-columns: 1fr;
@@ -1247,71 +2559,491 @@ export default function ReportsPage({ user, profile, onSignOut }) {
 
         {/* View State: REPORT (Day 28 Synthesis Report) */}
         {!loading && !error && viewState === 'report' && (
-          <div className="space-y-4 max-w-[620px] mx-auto page-fade-enter-active">
-            <button
-              onClick={() => setViewState('list')}
-              className="flex items-center gap-2 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors cursor-pointer border-none bg-transparent"
-            >
-              <ArrowLeft size={14} /> Back to reports
-            </button>
+          (() => {
+            const isJsonReport = selectedAssessment && selectedAssessment.report_text && selectedAssessment.report_text.startsWith('{');
+            return (
+              <div className={`space-y-4 ${isJsonReport ? 'max-w-[900px]' : 'max-w-[620px]'} mx-auto page-fade-enter-active`}>
+                <button
+                  onClick={() => setViewState('list')}
+                  className="flex items-center gap-2 text-xs font-semibold text-[#4A6A64] hover:text-primary transition-colors cursor-pointer border-none bg-transparent mb-2"
+                >
+                  <ArrowLeft size={14} /> Back to reports
+                </button>
 
-            {loadingDetail || !selectedAssessment ? (
-              <div className="flex flex-col items-center justify-center py-20 space-y-3">
-                <Loader2 className="animate-spin text-secondary" size={24} />
-                <p className="text-xs font-serif italic text-mid">Decoding monthly cycle data...</p>
-              </div>
-            ) : (
-              (() => {
-                const cycleObj = cycles.find(c => c.id === selectedCycleId) || {};
-
-
-
-                return (
-                  <div className="space-y-4">
-                    <div className="bg-[#1E2A2E] border-none text-white rounded-xl p-4.5 flex flex-col justify-between shadow-md">
-                      <div className="space-y-1.5">
-                        <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">
-                          Cycle {cycleObj.cycle_number} · Day 28 report · Generated {selectedAssessment.generated_at ? new Date(selectedAssessment.generated_at).toLocaleDateString('en-GB') : ''}
-                        </div>
-                        <h2 className="font-serif text-lg text-white leading-snug">28 days of honest writing — here is what it showed.</h2>
-                        <p className="text-[11.5px] text-[#5A8A84]">
-                          {selectedAssessment.entry_count} entries · {selectedAssessment.path_assignment || 'Guided pathway'}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => downloadPdf(selectedAssessment, true)}
-                        className="mt-3 px-3.5 py-1.5 border border-white/15 rounded text-xs font-semibold bg-white/8 hover:bg-white/15 transition-all text-white w-fit cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Download size={13} /> Save PDF
-                      </button>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">What this cycle showed</div>
-                      <p className="text-[14.5px] text-[#1E2A2E] leading-relaxed font-serif bg-white border border-[#1E2A2E]/5 p-4.5 rounded-xl">
-                        {selectedAssessment.report_text || 'No cycle summary narrative compiled.'}
-                      </p>
-                    </div>
-
-
-
-                    <div className="bg-primary text-[#E0EEEC] rounded-xl p-4.5 space-y-3">
-                      <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">Carry into Cycle {Number(cycleObj.cycle_number || 1) + 1}</div>
-                      <p className="text-[13px] leading-relaxed">
-                        Pathway assignment for your integration is: <strong>{selectedAssessment.path_assignment || 'second_cycle'}</strong>.
-                        Branch code: <strong>{selectedAssessment.branch_assignment || 'A'}</strong>.
-                      </p>
-                      <div className="border-l-[2.5px] border-[#E0A898]/40 pl-4 space-y-1">
-                        <p className="text-[14px] text-[#E0A898] italic font-serif leading-relaxed">
-                          " visibility is the first condition for change. Fix focus on agency."
-                        </p>
-                      </div>
-                    </div>
+                {loadingDetail || !selectedAssessment ? (
+                  <div className="flex flex-col items-center justify-center py-20 space-y-3">
+                    <Loader2 className="animate-spin text-secondary" size={24} />
+                    <p className="text-xs font-serif italic text-mid">Decoding monthly cycle data...</p>
                   </div>
-                );
-              })()
-            )}
-          </div>
+                ) : (
+                  (() => {
+                    const cycleObj = cycles.find(c => c.id === selectedCycleId) || {};
+                    let reportData = null;
+                    if (isJsonReport) {
+                      try {
+                        reportData = JSON.parse(selectedAssessment.report_text);
+                      } catch (e) {
+                        console.error(e);
+                      }
+                    }
+
+                    if (!reportData) {
+                      // Fallback plain-text layout for legacy reports
+                      return (
+                        <div className="space-y-4">
+                          <div className="bg-[#1E2A2E] border-none text-white rounded-xl p-4.5 flex flex-col justify-between shadow-md">
+                            <div className="space-y-1.5">
+                              <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">
+                                Cycle {cycleObj.cycle_number} · Day 28 report · Generated {selectedAssessment.generated_at ? new Date(selectedAssessment.generated_at).toLocaleDateString('en-GB') : ''}
+                              </div>
+                              <h2 className="font-serif text-lg text-white leading-snug">28 days of honest writing — here is what it showed.</h2>
+                              <p className="text-[11.5px] text-[#5A8A84]">
+                                {selectedAssessment.entry_count} entries · {selectedAssessment.path_assignment || 'Guided pathway'}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => downloadPdf(selectedAssessment, true)}
+                              className="mt-3 px-3.5 py-1.5 border border-white/15 rounded text-xs font-semibold bg-white/8 hover:bg-white/15 transition-all text-white w-fit cursor-pointer flex items-center gap-1.5"
+                            >
+                              <Download size={13} /> Save PDF
+                            </button>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">What this cycle showed</div>
+                            <p className="text-[14.5px] text-[#1E2A2E] leading-relaxed font-serif bg-white border border-[#1E2A2E]/5 p-4.5 rounded-xl">
+                              {selectedAssessment.report_text || 'No cycle summary narrative compiled.'}
+                            </p>
+                          </div>
+
+                          <div className="bg-primary text-[#E0EEEC] rounded-xl p-4.5 space-y-3">
+                            <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">Carry into Cycle {Number(cycleObj.cycle_number || 1) + 1}</div>
+                            <p className="text-[13px] leading-relaxed">
+                              Pathway assignment for your integration is: <strong>{selectedAssessment.path_assignment || 'second_cycle'}</strong>.
+                              Branch code: <strong>{selectedAssessment.branch_assignment || 'A'}</strong>.
+                            </p>
+                            <div className="border-l-[2.5px] border-[#E0A898]/40 pl-4 space-y-1">
+                              <p className="text-[14px] text-[#E0A898] italic font-serif leading-relaxed">
+                                " visibility is the first condition for change. Fix focus on agency."
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Structured Report view matching HTML design spec
+                    return (
+                      <div className="report font-sans">
+                        {/* 1. Header */}
+                        <div className="hdr">
+                          <div className="hdr-l">
+                            <div className="logo font-medium text-[#ECEFF0] text-[14px]">ingress <span className="text-ocean-sage">within</span></div>
+                            <div className="hdiv"></div>
+                            <div className="htag">Cycle {reportData.cycleNumber} — Monthly Report</div>
+                          </div>
+                          <div className="hdate">{reportData.startDate} – {reportData.endDate}</div>
+                        </div>
+                        <div className="body text-left">
+                          {/* 2. Overview Statistics */}
+                          <div className="stats">
+                            <div className="stat">
+                              <div className="stat-lbl">Entries written</div>
+                              <div className="stat-val">{reportData.stats.entriesCount}<sup>/{reportData.stats.totalDays}</sup></div>
+                              <div className="stat-sub">{reportData.stats.daysSkipped} day{reportData.stats.daysSkipped > 1 ? 's' : ''} skipped</div>
+                            </div>
+                            <div className="stat">
+                              <div className="stat-lbl">Most used word</div>
+                              <div className="stat-word">"{reportData.stats.mostUsedWord}"</div>
+                              <div className="stat-sub">{reportData.stats.mostUsedWordContext}</div>
+                            </div>
+                            <div className="stat">
+                              <div className="stat-lbl">Exercises completed</div>
+                              <div className="stat-val">{reportData.stats.exercisesCompletedCount}<sup>/{reportData.stats.totalExercisesCount}</sup></div>
+                              <div className="stat-sub">{reportData.stats.missedExercisesText}</div>
+                            </div>
+                          </div>
+
+                          {/* 3. How the Month Moved */}
+                          <div className="sec">
+                            <div className="sec-label">How the month moved</div>
+                            <div style={{ position: 'relative', width: '100%', height: '120px', marginBottom: '6px' }}>
+                              <canvas id="arcChart"></canvas>
+                            </div>
+                            <div style={{ display: 'flex', gap: '16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                <div style={{ width: '20px', height: '2px', background: 'var(--terracotta-rose)', borderRadius: '1px' }}></div>
+                                entry written
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--bg-secondary)', border: '1px solid var(--border-tertiary)' }}></div>
+                                day skipped
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="divider"></div>
+
+                          {/* 4. What This Cycle Showed */}
+                          <div className="sec">
+                            <div className="sec-label">What this cycle showed</div>
+                            <div className="opening" dangerouslySetInnerHTML={{ __html: reportData.whatThisCycleShowed.openingObs.replace(/\n/g, '<br>') }} />
+                            <div className="pulled-quote">
+                              <div className="pq-lbl">From your writing</div>
+                              <div className="pq-text">"{reportData.whatThisCycleShowed.pulledQuote}"</div>
+                            </div>
+                            <div className="narr">{reportData.whatThisCycleShowed.narrative}</div>
+                          </div>
+
+                          <div className="divider"></div>
+
+                          {/* 5. Patterns This Cycle Found In You */}
+                          <div className="sec">
+                            <div className="sec-label">Patterns this cycle found in you</div>
+                            {reportData.patterns && reportData.patterns.length > 0 ? (
+                              reportData.patterns.map((pat, pIdx) => (
+                                <div key={pIdx} className="pattern-hero">
+                                  <div className="ph-top">
+                                    <div className="ph-label">{pat.name}</div>
+                                    <div className={`ph-tag ${pat.tagClass || 'tag-red'}`}>{pat.tag}</div>
+                                  </div>
+                                  <div className="ph-body">
+                                    <div>
+                                      <div className="ph-mechanic">{pat.mechanism}</div>
+                                      <div className="ph-cost">
+                                        <div className="ph-cost-lbl">What this costs you</div>
+                                        {pat.cost}
+                                      </div>
+                                    </div>
+                                    <div className="loop-wrap text-center">
+                                      <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                                        <defs>
+                                          <marker id={`a-marker-${pIdx}`} markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                                            <path d="M0,0.5 L5,3 L0,5.5 Z" fill={pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'} />
+                                          </marker>
+                                        </defs>
+                                        {/* Step 1 Rect */}
+                                        <rect x="4" y="4" width="68" height="34" rx="8" fill={pat.tagClass === 'tag-red' ? 'rgba(224,168,152,0.15)' : pat.tagClass === 'tag-purple' ? 'rgba(184,168,212,0.15)' : 'rgba(141,191,180,0.15)'} stroke={pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'} strokeWidth="1.5" />
+                                        <text x="38" y="19" textAnchor="middle" fontSize="11" fontWeight="700" fill={pat.tagClass === 'tag-red' ? '#C27A68' : pat.tagClass === 'tag-purple' ? '#7B6B9A' : '#4A7F78'} fontFamily="DM Sans,sans-serif">{pat.loopNodes[0]?.title || 'Happens'}</text>
+                                        <text x="38" y="32" textAnchor="middle" fontSize="9" fill={pat.tagClass === 'tag-red' ? '#C27A68' : pat.tagClass === 'tag-purple' ? '#7B6B9A' : '#4A7F78'} fontFamily="DM Sans,sans-serif" opacity="0.8">{pat.loopNodes[0]?.sub || ''}</text>
+
+                                        {/* Step 2 Rect */}
+                                        <rect x="88" y="4" width="68" height="34" rx="8" fill="var(--bg-secondary)" stroke="var(--border-tertiary)" strokeWidth="1" />
+                                        <text x="122" y="19" textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--teal-black)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[1]?.title || 'Notice'}</text>
+                                        <text x="122" y="32" textAnchor="middle" fontSize="9" fill="var(--text-secondary)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[1]?.sub || ''}</text>
+
+                                        {/* Step 3 Rect */}
+                                        <rect x="88" y="142" width="68" height="34" rx="8" fill="var(--bg-secondary)" stroke="var(--border-tertiary)" strokeWidth="1" />
+                                        <text x="122" y="157" textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--teal-black)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[2]?.title || 'Dismiss'}</text>
+                                        <text x="122" y="170" textAnchor="middle" fontSize="9" fill="var(--text-secondary)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[2]?.sub || ''}</text>
+
+                                        {/* Step 4 Rect */}
+                                        <rect x="4" y="142" width="68" height="34" rx="8" fill="var(--bg-secondary)" stroke="var(--border-tertiary)" strokeWidth="1" />
+                                        <text x="38" y="157" textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--teal-black)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[3]?.title || 'Say okay'}</text>
+                                        <text x="38" y="170" textAnchor="middle" fontSize="9" fill="var(--text-secondary)" fontFamily="DM Sans,sans-serif">{pat.loopNodes[3]?.sub || ''}</text>
+
+                                        {/* Edges */}
+                                        <path d="M72,21 L88,21" fill="none" stroke={pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'} strokeWidth="1.5" strokeOpacity="0.7" markerEnd={`url(#a-marker-${pIdx})`} />
+                                        <path d="M122,38 L122,142" fill="none" stroke={pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'} strokeWidth="1.5" strokeOpacity="0.5" markerEnd={`url(#a-marker-${pIdx})`} />
+                                        <path d="M88,159 L72,159" fill="none" stroke={pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'} strokeWidth="1.5" strokeOpacity="0.4" markerEnd={`url(#a-marker-${pIdx})`} />
+                                        <path d="M38,142 L38,38" fill="none" stroke={pat.tagClass === 'tag-red' ? '#E0A898' : pat.tagClass === 'tag-purple' ? '#B8A8D4' : '#8DBFB4'} strokeWidth="1.5" strokeOpacity="0.3" markerEnd={`url(#a-marker-${pIdx})`} />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-xs text-mid p-3 border border-dashed rounded text-center">
+                                No repetitive patterns were identified in your writing this cycle.
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="divider"></div>
+
+                          {/* 6. What Kept Coming Up */}
+                          <div className="sec">
+                            <div className="sec-label">What kept coming up</div>
+                            {reportData.recurringThemes && reportData.recurringThemes.length > 0 ? (
+                              reportData.recurringThemes.map((theme, tIdx) => (
+                                <div key={tIdx} className="theme-card">
+                                  <div className="theme-top">
+                                    <div className="theme-name">{theme.name}</div>
+                                    <div className="theme-freq">{theme.frequencyText}</div>
+                                  </div>
+                                  <div className="theme-bar-wrap">
+                                    <div className="theme-bar" style={{ width: `${theme.percentage}%`, background: theme.color || '#E0A898' }}></div>
+                                  </div>
+                                  <div className="theme-text">{theme.description}</div>
+                                  {theme.contraInsight && (
+                                    <div className="theme-contra">
+                                      <div className="contra-lbl">What entries and exercises showed together</div>
+                                      {theme.contraInsight}
+                                    </div>
+                                  )}
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-xs text-mid p-3 border border-dashed rounded text-center">
+                                No recurring themes reached the clinical significance threshold this cycle.
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="divider"></div>
+
+                          {/* 7. Words You Reached For */}
+                          <div className="sec">
+                            <div className="sec-label">Words you reached for</div>
+                            <div className="cluster-exp">Words from your writing this month, with related words you didn't use. The ones you didn't reach for sometimes say as much as the ones you did.</div>
+                            {reportData.wordsReachedFor?.unusedWords?.map((item, wIdx) => (
+                              <div key={wIdx} className="cluster-row">
+                                <span className="word-used">{item.word}</span>
+                                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>→</span>
+                                {item.synonyms.map((syn, sIdx) => (
+                                  <span key={sIdx} className="word-unused">{syn}</span>
+                                ))}
+                              </div>
+                            ))}
+                            <div className="cluster-note">{reportData.wordsReachedFor.analysisNote}</div>
+                          </div>
+
+                          <div className="divider"></div>
+
+                          {/* 8. Four Things We Tracked */}
+                          <div className="sec">
+                            <div className="sec-label">Four things we tracked</div>
+                            <div className="dim-grid">
+                              <div style={{ position: 'relative', height: '220px' }}>
+                                <canvas id="radarChart"></canvas>
+                              </div>
+                              <div className="dim-desc">
+                                {reportData.fourThingsWeTracked?.map((dim, dIdx) => (
+                                  <div key={dIdx} className="dim-item" style={{ borderColor: dim.color || '#E0A898' }}>
+                                    <div className="dim-item-name">{dim.label}</div>
+                                    <div className="dim-item-text">{dim.desc}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="divider"></div>
+
+                          {/* 9. People Who Showed Up */}
+                          <div className="sec">
+                            <div className="sec-label">People who showed up in your writing</div>
+                            <div className="rel-grid">
+                              {reportData.peopleWhoShowedUp && reportData.peopleWhoShowedUp.length > 0 ? (
+                                reportData.peopleWhoShowedUp.map((person, pIdx) => (
+                                  <div key={pIdx} className="rel-cell">
+                                    <div className="rel-name">{person.name}</div>
+                                    <div className="rel-freq">{person.frequency}</div>
+                                    <div className="rel-text">{person.description}</div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="rel-cell col-span-2 text-center text-xs text-mid p-3">
+                                  No specific relationships or individuals were mentioned with sufficient frequency to summarize.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="divider"></div>
+
+                          {/* 10. What You Said vs What Your Writing Showed */}
+                          <div className="sec">
+                            <div className="sec-label">What you said vs what your writing showed</div>
+                            <div className="gap-visual">
+                              <div className="gap-col">
+                                <div className="gap-header gap-said-h">What you said about yourself</div>
+                                {reportData.saidVsShowed?.said?.map((item, idx) => (
+                                  <div key={idx} className="gap-item" style={{ marginTop: idx > 0 ? '1px' : '0', borderTop: idx > 0 ? '1px solid var(--border-tertiary)' : 'none' }}>
+                                    "{item}"
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="gap-middle">
+                                {reportData.saidVsShowed?.said?.map((_, idx) => (
+                                  <div key={idx} style={{ fontSize: '14px', color: 'var(--text-secondary)', opacity: '0.3' }}>→</div>
+                                ))}
+                              </div>
+                              <div className="gap-col">
+                                <div className="gap-header gap-show-h">What your writing showed</div>
+                                {reportData.saidVsShowed?.showed?.map((item, idx) => (
+                                  <div key={idx} className="gap-item" style={{ marginTop: idx > 0 ? '1px' : '0', borderTop: idx > 0 ? '1px solid var(--border-tertiary)' : 'none' }}>
+                                    {item}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="gap-note">{reportData.saidVsShowed.analysisNote}</div>
+                          </div>
+
+                          <div className="divider"></div>
+
+                          {/* 11. Exercises */}
+                          <div className="sec">
+                            <div className="sec-label">What the exercises showed</div>
+                            <div className="ex-top">
+                              <div className="dots">
+                                <div className={`dot ${reportData.stats.exercisesCompletedCount >= 1 ? 'dot-done' : 'dot-skip'}`}></div>
+                                <div className={`dot ${reportData.stats.exercisesCompletedCount >= 2 ? 'dot-done' : 'dot-skip'}`}></div>
+                                <div className={`dot ${reportData.stats.exercisesCompletedCount >= 3 ? 'dot-done' : 'dot-skip'}`}></div>
+                              </div>
+                              <div className="completion-text">
+                                <strong>{reportData.stats.exercisesCompletedCount} of {reportData.stats.totalExercisesCount}</strong> completed this cycle
+                              </div>
+                            </div>
+
+                            <div className="ex-list">
+                              {/* Core Values Card Sort (Day 4) */}
+                              {(() => {
+                                const cbtEx = reportData.exercises.items.find(item => item.name.includes('Core Values') || item.dayText?.includes('4'));
+                                if (cbtEx) {
+                                  return (
+                                    <div className="ex-row-card">
+                                      <div className="ex-row-top">
+                                        <div className="ex-name">Core Values Card Sort</div>
+                                        <div className="ex-day">{cbtEx.dayText || 'Day 4'}</div>
+                                      </div>
+                                      <div className="ex-cols">
+                                        <div className="ex-col">
+                                          <div className="ex-col-lbl lbl-e">Entries said</div>
+                                          <div className="ex-col-text">{cbtEx.entriesSaid}</div>
+                                        </div>
+                                        <div className="ex-col-sep"></div>
+                                        <div className="ex-col">
+                                          <div className="ex-col-lbl lbl-x">Exercise showed</div>
+                                          <div className="ex-col-text">{cbtEx.exerciseShowed}</div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                } else {
+                                  return (
+                                    <div className="ex-skip-row">
+                                      <div className="ex-skip-dot"></div>
+                                      <div className="ex-skip-text">Core Values Card Sort — not completed this cycle.</div>
+                                    </div>
+                                  );
+                                }
+                              })()}
+
+                              {/* Emotional Vocabulary Wheel (Day 9) */}
+                              {(() => {
+                                const cbtEx = reportData.exercises.items.find(item => item.name.includes('Vocabulary') || item.dayText?.includes('9'));
+                                if (cbtEx) {
+                                  return (
+                                    <div className="ex-row-card">
+                                      <div className="ex-row-top">
+                                        <div className="ex-name">Emotional Vocabulary Wheel</div>
+                                        <div className="ex-day">{cbtEx.dayText || 'Day 9'}</div>
+                                      </div>
+                                      <div className="ex-cols">
+                                        <div className="ex-col">
+                                          <div className="ex-col-lbl lbl-e">Entries said</div>
+                                          <div className="ex-col-text">{cbtEx.entriesSaid}</div>
+                                        </div>
+                                        <div className="ex-col-sep"></div>
+                                        <div className="ex-col">
+                                          <div className="ex-col-lbl lbl-x">Exercise showed</div>
+                                          <div className="ex-col-text">{cbtEx.exerciseShowed}</div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                } else {
+                                  return (
+                                    <div className="ex-skip-row">
+                                      <div className="ex-skip-dot"></div>
+                                      <div className="ex-skip-text">Emotional Vocabulary Wheel — not completed this cycle.</div>
+                                    </div>
+                                  );
+                                }
+                              })()}
+
+                              {/* Self-Perception Check (Day 14) */}
+                              {(() => {
+                                const cbtEx = reportData.exercises.items.find(item => item.name.includes('Self-Perception') || item.dayText?.includes('14') || item.dayText?.includes('20') || item.dayText?.includes('28'));
+                                if (cbtEx) {
+                                  return (
+                                    <div className="ex-row-card">
+                                      <div className="ex-row-top">
+                                        <div className="ex-name">Self-Perception Check</div>
+                                        <div className="ex-day">{cbtEx.dayText || 'Day 14'}</div>
+                                      </div>
+                                      <div className="ex-cols">
+                                        <div className="ex-col">
+                                          <div className="ex-col-lbl lbl-e">Entries said</div>
+                                          <div className="ex-col-text">{cbtEx.entriesSaid}</div>
+                                        </div>
+                                        <div className="ex-col-sep"></div>
+                                        <div className="ex-col">
+                                          <div className="ex-col-lbl lbl-x">Exercise showed</div>
+                                          <div className="ex-col-text">{cbtEx.exerciseShowed}</div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                } else {
+                                  return (
+                                    <div className="ex-skip-row">
+                                      <div className="ex-skip-dot"></div>
+                                      <div className="ex-skip-text">Self-Perception Check — not completed this cycle.</div>
+                                    </div>
+                                  );
+                                }
+                              })()}
+                            </div>
+
+                            <div className="collective">
+                              <div className="collective-lbl">What the exercises showed together</div>
+                              <div className="collective-text">{reportData.exercises.collectiveInsight}</div>
+                            </div>
+                          </div>
+
+                          <div className="divider"></div>
+
+                          {/* 12. Where This Cycle Leaves You */}
+                          <div className="sec">
+                            <div className="sec-label">Where this cycle leaves you</div>
+                            <div className="triage">
+                              <div className="triage-lbl">{reportData.whereLeavesYou.title || 'Cycle complete'}</div>
+                              <div className="triage-body" dangerouslySetInnerHTML={{ __html: reportData.whereLeavesYou.body.replace(/\n\n/g, '<br><br>') }} />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 13. Closing Quote */}
+                        <div className="closing">
+                          <div className="closing-quote">"{reportData.closingQuote.quote}"</div>
+                          <div className="closing-obs">{reportData.closingQuote.observation}</div>
+                        </div>
+
+                        {/* 14. Footer */}
+                        <div className="foot">
+                          <button onClick={() => setViewState('list')} className="foot-link border-none bg-transparent hover:text-primary transition-colors cursor-pointer text-ocean-sage">
+                            ← Back to progress
+                          </button>
+                          <div className="foot-center">Ingress Within · Cycle {reportData.cycleNumber} · Complete</div>
+                          <div style={{ display: 'flex', gap: '14px' }}>
+                            <button onClick={() => window.navigateTo('/write')} className="foot-link border-none bg-transparent hover:text-primary transition-colors cursor-pointer text-ocean-sage">
+                              Write today's entry
+                            </button>
+                            <button onClick={() => downloadPdf(selectedAssessment, true)} className="foot-link border-none bg-transparent hover:text-primary transition-colors cursor-pointer text-ocean-sage">
+                              Save as PDF
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
+              </div>
+            );
+          })()
         )}
       </main>
     </div>
