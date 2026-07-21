@@ -730,8 +730,8 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                       <canvas id="radarChart"></canvas>
                     </div>
                     <div class="dim-desc">
-                      ${parsedReport.fourThingsWeTracked.map(dim => `
-                        <div class="dim-item" style="border-color: ${dim.color || '#E0A898'};">
+                      ${parsedReport.fourThingsWeTracked.map((dim, idx) => `
+                        <div class="dim-item" style="border-color: ${dim.color || '#E0A898'};${idx === 3 ? ' opacity: 0.6;' : ''}">
                           <div class="dim-item-name">${dim.label}</div>
                           <div class="dim-item-text">${dim.desc}</div>
                         </div>
@@ -2875,7 +2875,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                               </div>
                               <div className="dim-desc">
                                 {reportData.fourThingsWeTracked?.map((dim, dIdx) => (
-                                  <div key={dIdx} className="dim-item" style={{ borderColor: dim.color || '#E0A898' }}>
+                                  <div key={dIdx} className="dim-item" style={{ borderColor: dim.color || '#E0A898', opacity: dIdx === 3 ? 0.6 : 1 }}>
                                     <div className="dim-item-name">{dim.label}</div>
                                     <div className="dim-item-text">{dim.desc}</div>
                                   </div>

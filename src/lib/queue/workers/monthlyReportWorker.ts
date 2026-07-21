@@ -330,7 +330,25 @@ Format your response as a strict JSON object with the following schema:
       "label": "How stuck the patterns were",
       "color": "#E0A898",
       "title": "Pattern persistence",
-      "desc": "Analysis of pattern rigidity based on entries."
+      "desc": "Clinical evaluation of pattern rigidity based on entries this cycle."
+    },
+    {
+      "label": "How intense things felt",
+      "color": "#B8A8D4",
+      "title": "Emotional intensity",
+      "desc": "Clinical evaluation of emotional intensity and volatility."
+    },
+    {
+      "label": "How much you felt in control",
+      "color": "#8DBFB4",
+      "title": "Self-agency",
+      "desc": "Clinical evaluation of self-agency vs reactive/passive stance."
+    },
+    {
+      "label": "Which direction things moved",
+      "color": "#8DBFB4",
+      "title": "Overall stability",
+      "desc": "Clinical evaluation of overall stability and movement trend."
     }
   ],
   "peopleWhoShowedUp": [
@@ -376,6 +394,28 @@ Do not include markdown wrappers (like \`\`\`json) in your raw response. Return 
         cleaned = cleaned.replace(/^```[a-zA-Z]*\n/, '').replace(/\n```$/, '');
       }
       const aiReport = JSON.parse(cleaned);
+
+      // Ensure exactly 4 items in fourThingsWeTracked
+      const defaults = [
+        { label: "How stuck the patterns were", color: "#E0A898", title: "Pattern persistence", desc: "Analysis of pattern rigidity based on entries." },
+        { label: "How intense things felt", color: "#B8A8D4", title: "Emotional intensity", desc: "Analysis of emotional variance and intensity based on entries." },
+        { label: "How much you felt in control", color: "#8DBFB4", title: "Self-agency", desc: "Analysis of agency vs reactivity/situational framing in entries." },
+        { label: "Which direction things moved", color: "#8DBFB4", title: "Overall stability", desc: "Analysis of overall emotional stability/direction and shift across the cycle." }
+      ];
+      if (!Array.isArray(aiReport.fourThingsWeTracked)) {
+        aiReport.fourThingsWeTracked = defaults;
+      } else {
+        aiReport.fourThingsWeTracked = defaults.map((def, idx) => {
+          const item = aiReport.fourThingsWeTracked[idx];
+          if (!item) return def;
+          return {
+            label: item.label || def.label,
+            color: def.color, // Always enforce CSS styling color token
+            title: item.title || def.title,
+            desc: item.desc || def.desc
+          };
+        });
+      }
 
       compiledReport = {
         ...aiReport,
@@ -462,7 +502,12 @@ Do not include markdown wrappers (like \`\`\`json) in your raw response. Return 
           analysisNote: `You reached for "${topWord}" ${topWordFreq} times this cycle.`,
           unusedWords: []
         },
-        fourThingsWeTracked: [],
+        fourThingsWeTracked: [
+          { label: "How stuck the patterns were", color: "#E0A898", title: "Pattern persistence", desc: "Analysis of pattern rigidity based on entries." },
+          { label: "How intense things felt", color: "#B8A8D4", title: "Emotional intensity", desc: "Analysis of emotional variance and intensity based on entries." },
+          { label: "How much you felt in control", color: "#8DBFB4", title: "Self-agency", desc: "Analysis of agency vs reactivity/situational framing in entries." },
+          { label: "Which direction things moved", color: "#8DBFB4", title: "Overall stability", desc: "Analysis of overall emotional stability/direction and shift across the cycle." }
+        ],
         peopleWhoShowedUp: [],
         saidVsShowed: {
           said: ["I handle things well"],
