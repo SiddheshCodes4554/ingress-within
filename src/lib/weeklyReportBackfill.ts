@@ -40,11 +40,17 @@ export async function backfillWeeklyReports(userId: string): Promise<BackfillRes
       return result;
     }
 
-    // 2. Loop through each cycle and check completed weeks (Days 7, 14, 21)
+    // 2. Fetch user timezone
+    const { data: userRecord } = await supabase.from('users').select('timezone').eq('id', userId).maybeSingle();
+    const userTimezone = userRecord?.timezone || 'UTC';
+    const { ExerciseUnlockService } = await import('./exercises/exerciseUnlockService');
+
+    // Check all 4 weeks of the cycle
     const targetWeeks = [
-      { week: 1, startDay: 1, endDay: 7 },
-      { week: 2, startDay: 8, endDay: 14 },
-      { week: 3, startDay: 15, endDay: 21 }
+      { week: 1, startDay: 1, endDay: 7, triggerDay: 8 },
+      { week: 2, startDay: 8, endDay: 14, triggerDay: 15 },
+      { week: 3, startDay: 15, endDay: 21, triggerDay: 22 },
+      { week: 4, startDay: 22, endDay: 28, triggerDay: 29 }
     ];
 
     for (const cycle of cycles) {
@@ -53,11 +59,22 @@ export async function backfillWeeklyReports(userId: string): Promise<BackfillRes
         cycle.status?.toLowerCase() === 'complete' || 
         cycle.status?.toLowerCase() === 'completed' ||
         cycle.status?.toLowerCase() === 'archived';
-      const currentDay = cycle.current_day || 1;
+      
+      const { data: maxEntry } = await supabase
+        .from('entries')
+        .select('cycle_day')
+        .eq('user_id', userId)
+        .eq('cycle_id', cycleId)
+        .order('cycle_day', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const calculatedDay = ExerciseUnlockService.calculateCycleDay(cycle.start_date, userTimezone);
+      const currentDay = Math.max(maxEntry?.cycle_day || 0, calculatedDay);
 
       for (const target of targetWeeks) {
-        // A week is completed if the cycle is completed, or if the current day has passed the week's end day
-        const isWeekCompleted = isCycleCompleted || currentDay > target.endDay;
+        // A week is completed if the cycle is completed, or if the current day has reached or passed the trigger day
+        const isWeekCompleted = isCycleCompleted || currentDay >= target.triggerDay;
         
         if (!isWeekCompleted) {
           continue; // Week is not yet complete, skip

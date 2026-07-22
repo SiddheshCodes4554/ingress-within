@@ -212,21 +212,28 @@ export async function processWeeklySummary(jobData: {
   }
 
   if (collectedData.entries.filter(e => e.content.trim().length > 0).length === 0) {
-    console.warn(`[Weekly Summary Worker] No written entries found for week ${week_number}. Marking summary as failed.`);
+    console.log(`[Weekly Summary Worker] No written entries found for week ${week_number}. Creating graceful READY summary.`);
     await supabase
       .from('weekly_summaries')
       .update({
-        status: 'FAILED',
-        body: 'No entries written this week.',
-        open_question: 'Please write a journal entry to start.'
+        status: 'READY',
+        body: 'No journal entries were recorded for this week. Your baseline psychological context remains active.',
+        open_question: 'What thoughts or reflections would you like to record for the coming week?',
+        report_data: {
+          entriesCount: 0,
+          averages: { ei: null, pr: null, sa: null },
+          key_developments: ['No entries recorded during this week.'],
+          open_questions: ['What thoughts or reflections would you like to record for the coming week?'],
+          vocabThisWeek: []
+        }
       })
       .eq('id', actualSummaryId);
     return;
   }
 
   try {
-    // 3.5. Perform strict data integrity source audit validation before calling AI
-    console.log(`[Weekly Summary Worker] Performing strict source evidence validation for summary ID ${actualSummaryId}...`);
+    // 3.5. Perform source evidence validation before calling AI
+    console.log(`[Weekly Summary Worker] Performing source evidence validation for summary ID ${actualSummaryId}...`);
     
     const journalIdsSet = new Set(entries.map(e => e.id));
     
@@ -236,17 +243,16 @@ export async function processWeeklySummary(jobData: {
       throw new Error(`Integrity Violation: Entry ${invalidEntries[0].id} does not belong to user ${user_id}`);
     }
 
-    // B. Every journal falls inside the week date range boundaries.
+    // B. Log soft warning if timestamp falls outside UTC week range (since cycle_day is authoritative)
     const auditInfo = collectedData.audit;
-    if (!auditInfo) {
-      throw new Error("Audit log metadata is missing from collected data.");
-    }
-    const weekStart = new Date(auditInfo.week_start + 'T00:00:00.000Z');
-    const weekEnd = new Date(auditInfo.week_end + 'T23:59:59.999Z');
-    for (const e of entries) {
-      const eDate = new Date(e.created_at);
-      if (eDate < weekStart || eDate > weekEnd) {
-        throw new Error(`Integrity Violation: Entry ${e.id} date (${e.created_at}) falls outside week range [${auditInfo.week_start}, ${auditInfo.week_end}]`);
+    if (auditInfo && auditInfo.week_start && auditInfo.week_end) {
+      const weekStart = new Date(auditInfo.week_start + 'T00:00:00.000Z');
+      const weekEnd = new Date(auditInfo.week_end + 'T23:59:59.999Z');
+      for (const e of entries) {
+        const eDate = new Date(e.created_at);
+        if (eDate < weekStart || eDate > weekEnd) {
+          console.warn(`[Weekly Summary Worker] Note: Entry ${e.id} date (${e.created_at}) extends beyond calendar boundary [${auditInfo.week_start}, ${auditInfo.week_end}] (cycle_day: ${e.cycle_day}).`);
+        }
       }
     }
 

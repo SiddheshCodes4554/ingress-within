@@ -20,13 +20,13 @@ export async function GET(request: NextRequest) {
     const cycleId = request.nextUrl.searchParams.get('cycleId');
     const weekNumber = request.nextUrl.searchParams.get('weekNumber');
 
-    // Auto-trigger background backfill/audit to ensure any missing or failed reports are queued/healed
+    // 1. Run backfill and daily maintenance audit to ensure all due reports are queued
     const { backfillWeeklyReports } = await import('../../../../lib/weeklyReportBackfill');
-    void backfillWeeklyReports(userId).catch(err => {
-      console.error('[API Weekly Reports GET] Background backfill failed:', err);
-    });
+    const { OrchestratorScheduler } = await import('../../../../lib/orchestrator/orchestratorScheduler');
+    await OrchestratorScheduler.runDailyMaintenance(userId);
+    await backfillWeeklyReports(userId);
 
-    // Fetch all weekly summaries for this user only (strict user isolation)
+    // 2. Fetch all weekly summaries for this user
     let query = supabase
       .from('weekly_summaries')
       .select('*')
@@ -42,7 +42,43 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const { data: reports, error: reportsErr } = await query.order('week_number', { ascending: true });
+    const { data: initialReports } = await query.order('week_number', { ascending: true });
+
+    // 3. Inline execute worker for any report that is not READY so user gets immediate READY response
+    const unready = (initialReports || []).filter(r => r.status !== 'READY');
+    if (unready.length > 0) {
+      const { processWeeklySummary } = await import('../../../../lib/queue/workers/weeklySummaryWorker');
+      for (const summaryToProcess of unready) {
+        try {
+          await processWeeklySummary({
+            summary_id: summaryToProcess.id,
+            cycle_id: summaryToProcess.cycle_id,
+            user_id: userId,
+            week_number: summaryToProcess.week_number
+          });
+        } catch (procErr: any) {
+          console.error(`[API Weekly Reports GET] Inline processing failed for summary ${summaryToProcess.id}:`, procErr.message);
+        }
+      }
+    }
+
+    // 4. Re-query database to fetch fresh READY reports
+    let finalQuery = supabase
+      .from('weekly_summaries')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (cycleId) {
+      finalQuery = finalQuery.eq('cycle_id', cycleId);
+    }
+    if (weekNumber) {
+      const parsedWeek = parseInt(weekNumber);
+      if (!isNaN(parsedWeek)) {
+        finalQuery = finalQuery.eq('week_number', parsedWeek);
+      }
+    }
+
+    const { data: finalReports, error: reportsErr } = await finalQuery.order('week_number', { ascending: true });
 
     if (reportsErr) {
       throw new Error(`Failed to fetch weekly summaries: ${reportsErr.message}`);
@@ -50,7 +86,7 @@ export async function GET(request: NextRequest) {
 
     // Dynamic self-healing of historical reports
     const healedReports = await Promise.all(
-      (reports || []).map(r => healReportData(r, supabase))
+      (finalReports || []).map(r => healReportData(r, supabase))
     );
 
     return NextResponse.json({

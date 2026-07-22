@@ -35,13 +35,18 @@ export class OrchestratorScheduler {
     try {
       const { data: activeCycle } = await supabase
         .from('cycles')
-        .select('id, cycle_number')
+        .select('id, cycle_number, start_date')
         .eq('user_id', userId)
         .eq('status', 'ACTIVE')
         .maybeSingle();
 
       if (activeCycle) {
-        // Find latest cycle day
+        // Fetch user timezone
+        const { data: userRec } = await supabase.from('users').select('timezone').eq('id', userId).maybeSingle();
+        const userTz = userRec?.timezone || 'UTC';
+        const { ExerciseUnlockService } = await import('../exercises/exerciseUnlockService');
+
+        // Find latest cycle day by comparing max written entry day with timezone-aware calendar day
         const { data: maxEntry } = await supabase
           .from('entries')
           .select('cycle_day')
@@ -51,7 +56,9 @@ export class OrchestratorScheduler {
           .limit(1)
           .maybeSingle();
 
-        const cycleDay = maxEntry?.cycle_day || 0;
+        const calculatedDay = ExerciseUnlockService.calculateCycleDay(activeCycle.start_date, userTz);
+        const cycleDay = Math.max(maxEntry?.cycle_day || 0, calculatedDay);
+
         const weeksToCheck = [
           { weekNum: 1, triggerDay: 8, startDay: 1, endDay: 7 },
           { weekNum: 2, triggerDay: 15, startDay: 8, endDay: 14 },
@@ -247,13 +254,17 @@ export class OrchestratorScheduler {
     try {
       const { data: activeCycle } = await supabase
         .from('cycles')
-        .select('id')
+        .select('id, start_date')
         .eq('user_id', userId)
         .eq('status', 'ACTIVE')
         .maybeSingle();
 
       if (activeCycle) {
         activeCycleId = activeCycle.id;
+
+        const { data: userRec } = await supabase.from('users').select('timezone').eq('id', userId).maybeSingle();
+        const userTz = userRec?.timezone || 'UTC';
+        const { ExerciseUnlockService } = await import('../exercises/exerciseUnlockService');
 
         const { data: maxEntry } = await supabase
           .from('entries')
@@ -264,7 +275,9 @@ export class OrchestratorScheduler {
           .limit(1)
           .maybeSingle();
 
-        const cycleDay = maxEntry?.cycle_day || 0;
+        const calculatedDay = ExerciseUnlockService.calculateCycleDay(activeCycle.start_date, userTz);
+        const cycleDay = Math.max(maxEntry?.cycle_day || 0, calculatedDay);
+
         if (cycleDay >= 30) {
           // Check if assessment already exists
           const { data: existingAssessment } = await supabase
@@ -361,5 +374,22 @@ export class OrchestratorScheduler {
     await this.runDailyMaintenance(userId);
     await this.runWeeklyMaintenance(userId);
     await this.runMonthlyMaintenance(userId);
+  }
+
+  /**
+   * Run System Maintenance for ALL users across the platform automatically.
+   */
+  public static async runSystemMaintenanceForAllUsers(): Promise<void> {
+    console.log('[Scheduler] Running System Maintenance for ALL platform users...');
+    const { data: users } = await supabase.from('users').select('id');
+    if (users) {
+      for (const user of users) {
+        try {
+          await this.runAllMaintenance(user.id);
+        } catch (err: any) {
+          console.error(`[Scheduler] Error running maintenance for user ${user.id}:`, err.message);
+        }
+      }
+    }
   }
 }
