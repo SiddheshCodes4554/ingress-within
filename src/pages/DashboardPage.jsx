@@ -770,13 +770,16 @@ export default function DashboardPage({ user, profile, onSignOut }) {
 
                           <div className="flex items-center gap-4">
                             {/* Assessment Status Badge */}
-                            <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-bold uppercase tracking-wider ${
-                              cycle.assessment_completed
-                                ? 'bg-[#8DBFB4]/15 text-[#1A5040]'
-                                : cycle.status === 'COMPLETED' || cycle.assessment_available
-                                ? 'bg-[#f59e0b]/10 text-[#b45309]'
-                                : 'bg-primary/5 text-primary'
-                            }`}>
+                            <span
+                              onClick={(e) => { e.stopPropagation(); window.navigateTo('/assessment'); }}
+                              className={`px-2 py-0.5 rounded-full text-[8.5px] font-bold uppercase tracking-wider cursor-pointer hover:opacity-80 transition-opacity ${
+                                cycle.assessment_completed
+                                  ? 'bg-[#8DBFB4]/15 text-[#1A5040]'
+                                  : cycle.status === 'COMPLETED' || cycle.assessment_available
+                                  ? 'bg-[#f59e0b]/10 text-[#b45309]'
+                                  : 'bg-primary/5 text-primary'
+                              }`}
+                            >
                               Assessment: {cycle.assessment_completed ? 'Completed' : (cycle.status === 'COMPLETED' || cycle.assessment_available ? 'Pending' : 'Locked')}
                             </span>
 

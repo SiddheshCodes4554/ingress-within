@@ -15,6 +15,8 @@ import ExerciseLoading from '../components/exercise/ExerciseLoading';
 import ExerciseLayout from '../components/exercise/ExerciseLayout';
 import { QuestionsCatalog } from '../lib/exercises/questionsCatalog';
 
+import { Sparkles, Clock, CheckCircle, Lock, ArrowRight, FileText, ChevronRight } from 'lucide-react';
+
 const queryClient = new QueryClient({
   defaultQueries: {
     retry: 1,
@@ -62,19 +64,11 @@ function ExerciseContent({ user, profile, onSignOut }) {
     queryFn: () => fetch('/api/exercises/status').then(r => r.json())
   });
 
-  // Redirect /exercise to the active URL
-  useEffect(() => {
-    if (!currentLoading && currentRes) {
-      if (!exerciseIdFromUrl) {
-        if (currentRes.exercise) {
-          window.navigateTo(`/exercise/${currentRes.exercise.exercise_id}`);
-        } else {
-          // No active exercise: show locked page
-          console.warn('[ExercisePage] No active exercise found.');
-        }
-      }
-    }
-  }, [currentRes, currentLoading, exerciseIdFromUrl]);
+  // 3. Query exercise history
+  const { data: historyRes, isLoading: historyLoading } = useQuery({
+    queryKey: ['exerciseHistory'],
+    queryFn: () => fetch('/api/exercises/history').then(r => r.json())
+  });
 
   const activeInstance = currentRes?.exercise;
 
@@ -169,6 +163,20 @@ function ExerciseContent({ user, profile, onSignOut }) {
           <ExerciseError message="Failed to load cycle exercises." />
         </div>
       </div>
+    );
+  }
+
+  // If URL has no specific exercise ID (e.g. /exercise or /assessment), show Exercises Overview Hub
+  if (!exerciseIdFromUrl) {
+    return (
+      <ExercisesHub
+        user={user}
+        profile={profile}
+        onSignOut={onSignOut}
+        statuses={statusRes?.statuses}
+        history={historyRes?.history}
+        isLoading={statusLoading || historyLoading}
+      />
     );
   }
 
@@ -404,5 +412,244 @@ export default function ExercisePage(props) {
     <QueryClientProvider client={queryClient}>
       <ExerciseContent {...props} />
     </QueryClientProvider>
+  );
+}
+
+function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }) {
+  const [filter, setFilter] = useState('all');
+
+  const pendingList = (statuses || []).filter(
+    s => s.instance && ['started', 'draft', 'queued', 'analysing'].includes(s.instance.status)
+  );
+
+  const availableList = (statuses || []).filter(
+    s => s.status === 'available' || (s.instance && s.instance.status === 'available')
+  );
+
+  const completedList = (history || []).map(h => ({
+    id: h.id,
+    exercise_id: h.exercise_id,
+    title: h.definition?.title || h.exercise_id,
+    completed_at: h.completion_time || h.updated_at,
+    instance: h
+  }));
+
+  const lockedList = (statuses || []).filter(
+    s => s.status === 'locked' && !s.instance
+  );
+
+  return (
+    <div className="min-h-screen bg-mint-grey flex flex-col font-sans">
+      <DashboardNavbar user={user} profile={profile} onSignOut={onSignOut} activeLink="exercises" />
+      
+      <main className="flex-1 max-w-[1000px] w-full mx-auto px-4 md:px-6 py-8 space-y-8 text-left">
+        {/* Header */}
+        <div className="space-y-3 border-b border-[#1E2A2E]/10 pb-6">
+          <div className="flex items-center gap-2 font-label-md text-xs font-semibold uppercase tracking-wider text-accent">
+            <Sparkles size={14} />
+            <span>Assessments & Projective Framework</span>
+          </div>
+          <h1 className="font-serif text-2xl md:text-3xl font-normal text-primary">
+            Cycle Assessments & Exercises
+          </h1>
+          <p className="text-sm text-primary/70 max-w-2xl leading-relaxed">
+            Reflective exercises designed to map your baseline personality, emotional language, and projective patterns across your cycle.
+          </p>
+
+          {/* Filter Pills */}
+          <div className="flex flex-wrap gap-2 pt-2">
+            {[
+              { id: 'all', label: 'All Assessments' },
+              { id: 'pending', label: `Pending / Incomplete (${pendingList.length})` },
+              { id: 'available', label: `Available (${availableList.length})` },
+              { id: 'completed', label: `Completed (${completedList.length})` },
+              { id: 'locked', label: `Locked (${lockedList.length})` }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setFilter(tab.id)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wider transition-all cursor-pointer border ${
+                  filter === tab.id
+                    ? 'bg-primary text-mint-grey border-primary shadow-xs'
+                    : 'bg-white/60 text-primary/70 border-primary/10 hover:bg-white hover:border-primary/20'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="py-12 flex justify-center">
+            <ExerciseLoading />
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {/* 1. Pending / Incomplete Section */}
+            {(filter === 'all' || filter === 'pending') && pendingList.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#b45309]">
+                  <Clock size={14} />
+                  <span>Pending & In-Progress ({pendingList.length})</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {pendingList.map(item => (
+                    <div
+                      key={item.definition.id}
+                      className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-4 text-left shadow-xs transition-all hover:border-amber-500/40"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-900">
+                            {item.instance.status === 'started' ? 'In Progress' : item.instance.status}
+                          </span>
+                          <h3 className="font-serif text-lg text-primary font-semibold">
+                            {item.definition.title || item.definition.id}
+                          </h3>
+                        </div>
+                        <span className="text-xs text-primary/50 font-mono">
+                          {item.definition.estimated_duration ? `${item.definition.estimated_duration} mins` : ''}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-primary/70 leading-relaxed">
+                        {item.definition.description || 'Resume your saved progress or check analysis status.'}
+                      </p>
+
+                      <button
+                        onClick={() => window.navigateTo(`/exercise/${item.definition.id}`)}
+                        className="w-full py-2.5 px-4 rounded-xl bg-primary text-mint-grey font-sans text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-[#2A3A3E] transition-all cursor-pointer"
+                      >
+                        <span>Resume Assessment</span>
+                        <ArrowRight size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 2. Available Section */}
+            {(filter === 'all' || filter === 'available') && availableList.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#1A5040]">
+                  <Sparkles size={14} />
+                  <span>Available Assessments ({availableList.length})</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {availableList.map(item => (
+                    <div
+                      key={item.definition.id}
+                      className="p-5 rounded-2xl bg-white border border-[#1E2A2E]/10 space-y-4 text-left shadow-xs hover:border-secondary transition-all"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-[#8DBFB4]/20 text-[#1A5040]">
+                            Ready
+                          </span>
+                          <h3 className="font-serif text-lg text-primary font-semibold">
+                            {item.definition.title || item.definition.id}
+                          </h3>
+                        </div>
+                        <span className="text-xs text-primary/50 font-mono">
+                          {item.definition.estimated_duration ? `${item.definition.estimated_duration} mins` : ''}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-primary/70 leading-relaxed">
+                        {item.definition.description || 'Unlocked and available for your current cycle.'}
+                      </p>
+
+                      <button
+                        onClick={() => window.navigateTo(`/exercise/${item.definition.id}`)}
+                        className="w-full py-2.5 px-4 rounded-xl bg-primary text-mint-grey font-sans text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-[#2A3A3E] transition-all cursor-pointer"
+                      >
+                        <span>Begin Assessment</span>
+                        <ArrowRight size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 3. Completed Section */}
+            {(filter === 'all' || filter === 'completed') && completedList.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary/60">
+                  <CheckCircle size={14} className="text-[#8DBFB4]" />
+                  <span>Completed Assessments ({completedList.length})</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {completedList.map(item => (
+                    <div
+                      key={item.id}
+                      className="p-5 rounded-2xl bg-surface-container-low/60 border border-primary/5 space-y-4 text-left shadow-xs"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary/80">
+                            Completed
+                          </span>
+                          <h3 className="font-serif text-lg text-primary font-semibold">
+                            {item.title}
+                          </h3>
+                        </div>
+                        <span className="text-[10px] text-primary/40 font-mono">
+                          {item.completed_at ? new Date(item.completed_at).toLocaleDateString('en-GB') : ''}
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => window.navigateTo(`/exercise/${item.exercise_id}`)}
+                        className="w-full py-2.5 px-4 rounded-xl border border-primary/20 bg-white text-primary font-sans text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-surface-container-low transition-all cursor-pointer"
+                      >
+                        <span>View Results & Reflection</span>
+                        <ArrowRight size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 4. Locked Section */}
+            {(filter === 'all' || filter === 'locked') && lockedList.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary/40">
+                  <Lock size={14} />
+                  <span>Locked Assessments ({lockedList.length})</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {lockedList.map(item => (
+                    <div
+                      key={item.definition.id}
+                      className="p-5 rounded-2xl bg-primary/5 border border-primary/5 space-y-3 text-left opacity-75"
+                    >
+                      <div className="flex justify-between items-start">
+                        <h3 className="font-serif text-base text-primary/70 font-semibold">
+                          {item.definition.title || item.definition.id}
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary/60">
+                          Locked
+                        </span>
+                      </div>
+                      <p className="text-xs text-primary/50 leading-relaxed">
+                        Unlocks automatically when cycle prerequisites or day milestones are reached.
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+    </div>
   );
 }

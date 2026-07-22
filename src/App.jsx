@@ -339,7 +339,7 @@ export default function App() {
       } else if (path.startsWith('/session')) {
         setCurrentRoute('session');
         window.scrollTo(0, 0);
-      } else if (path.startsWith('/exercise')) {
+      } else if (path.startsWith('/exercise') || path.startsWith('/assessment') || path.startsWith('/exercises')) {
         setCurrentRoute('exercise');
         window.scrollTo(0, 0);
       } else if (path === '/threads' || path === '/threads/') {
