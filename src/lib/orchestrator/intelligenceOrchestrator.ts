@@ -479,6 +479,26 @@ export class IntelligenceOrchestrator {
     const { ORCHESTRATION_RULES } = await import('./rulesEngine');
     const { queueRegistry } = await import('../queue/registry');
 
+    // Event Alias Map to support both dotted and PascalCase events
+    const EVENT_ALIASES: Record<string, string[]> = {
+      'JournalSubmitted': ['JournalSubmitted', 'journal.created'],
+      'journal.created': ['JournalSubmitted', 'journal.created'],
+      'ReflectionCompleted': ['ReflectionCompleted', 'reflection.generated'],
+      'reflection.generated': ['ReflectionCompleted', 'reflection.generated'],
+      'VocabularyCompleted': ['VocabularyCompleted', 'vocabulary.updated'],
+      'vocabulary.updated': ['VocabularyCompleted', 'vocabulary.updated'],
+      'PatternCompleted': ['PatternCompleted', 'patterns.updated'],
+      'patterns.updated': ['PatternCompleted', 'patterns.updated'],
+      'KnowledgeCompleted': ['KnowledgeCompleted', 'knowledge.updated'],
+      'knowledge.updated': ['KnowledgeCompleted', 'knowledge.updated'],
+      'WeeklyReportCompleted': ['WeeklyReportCompleted', 'weekly.report.generated'],
+      'weekly.report.generated': ['WeeklyReportCompleted', 'weekly.report.generated'],
+      'AssessmentCompleted': ['AssessmentCompleted', 'cycle.report.generated'],
+      'cycle.report.generated': ['AssessmentCompleted', 'cycle.report.generated']
+    };
+
+    const matchingEvents = EVENT_ALIASES[eventType] || [eventType];
+
     // Create execution context for rules
     const ctx = {
       enqueueJob: this.enqueueJob.bind(this),
@@ -488,11 +508,11 @@ export class IntelligenceOrchestrator {
 
     // Evaluate rules
     for (const rule of ORCHESTRATION_RULES) {
-      if (rule.triggerEvent === eventType) {
+      if (matchingEvents.includes(rule.triggerEvent)) {
         try {
           const conditionsMet = await rule.conditions(userId, payload);
           if (conditionsMet) {
-            console.log(`[Orchestrator] Rule "${rule.name}" triggered.`);
+            console.log(`[Orchestrator] Rule "${rule.name}" triggered (via event: "${eventType}").`);
             await rule.action(userId, payload, ctx);
           }
         } catch (err: any) {

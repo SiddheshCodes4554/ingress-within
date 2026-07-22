@@ -10,6 +10,10 @@ export class SelfHealingService {
     const auditLogs: string[] = [];
 
     // Run audits sequentially
+    const { IntelligenceRepairService } = await import('./intelligenceRepairService');
+    const repairRes = await IntelligenceRepairService.auditUser(userId);
+    auditLogs.push(...repairRes.logs);
+
     await this.healMissingWeeklyReports(userId, auditLogs);
     await this.healMissingVocabularySnapshots(userId, auditLogs);
     await this.healMissingPatternSnapshots(userId, auditLogs);
