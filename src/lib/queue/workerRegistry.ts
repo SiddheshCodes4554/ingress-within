@@ -9,6 +9,7 @@ import { processOceanSummary } from './workers/oceanSummaryWorker';
 import { processExerciseInsight } from './workers/exerciseInsightWorker';
 import { processCrisisDetection } from './workers/crisisDetectionWorker';
 import { processVocabularyExtraction } from './workers/vocabWorker';
+import { processExercise } from './workers/exerciseWorker';
 
 class WorkerRegistry {
   private workers: Map<string, Worker> = new Map();
@@ -74,6 +75,14 @@ class WorkerRegistry {
       QUEUE_NAMES.EXERCISE_INSIGHT_GENERATION,
       new Worker(QUEUE_NAMES.EXERCISE_INSIGHT_GENERATION, async (job) => {
         await processExerciseInsight(job.data);
+      }, defaultWorkerOptions)
+    );
+
+    // Exercise Processing Worker
+    this.workers.set(
+      QUEUE_NAMES.EXERCISE_PROCESSING,
+      new Worker(QUEUE_NAMES.EXERCISE_PROCESSING, async (job) => {
+        await processExercise(job.data);
       }, defaultWorkerOptions)
     );
 

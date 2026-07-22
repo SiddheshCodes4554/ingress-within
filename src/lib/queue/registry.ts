@@ -13,6 +13,7 @@ export const QUEUE_NAMES = {
   INTELLIGENCE_REBUILD: 'intelligence_rebuild',
   PATTERN_PROCESSING: 'pattern_processing',
   KNOWLEDGE_PROCESSING: 'knowledge_processing',
+  EXERCISE_PROCESSING: 'exercise_processing',
 } as const;
 
 export type QueueName = typeof QUEUE_NAMES[keyof typeof QUEUE_NAMES];
@@ -80,6 +81,9 @@ class QueueRegistry {
           } else if (queueName === 'exercise_insight_generation') {
             const { processExerciseInsight } = await import('./workers/exerciseInsightWorker');
             await processExerciseInsight(data);
+          } else if (queueName === 'exercise_processing') {
+            const { processExercise } = await import('./workers/exerciseWorker');
+            await processExercise(data);
           } else if (queueName === 'vocab_processing') {
             const { processVocabularyExtraction } = await import('./workers/vocabWorker');
             await processVocabularyExtraction(data);

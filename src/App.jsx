@@ -24,6 +24,7 @@ const SessionFlowPage = lazy(() => import('./pages/SessionFlowPage'));
 const ThreadDetailPage = lazy(() => import('./pages/ThreadDetailPage'));
 const ThreadsPage = lazy(() => import('./pages/ThreadsPage'));
 const EntryDetailPage = lazy(() => import('./pages/EntryDetailPage'));
+const ExercisePage = lazy(() => import('./pages/ExercisePage'));
 const TestPage = (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_TEST_PAGE === 'true')
   ? lazy(() => import('./pages/TestPage'))
   : () => null;
@@ -229,9 +230,9 @@ export default function App() {
           } else if (profile.consent_completed && profile.profile_completed && !profile.orientation_completed && path !== '/onboarding/welcome') {
             console.log('[App.jsx] Redirect Engine: orientation_completed is false. Redirecting to /onboarding/welcome. Reason: ONBOARDING_INCOMPLETE');
             window.navigateTo('/onboarding/welcome');
-          } else if (profile.consent_completed && profile.profile_completed && profile.orientation_completed && !profile.assessment_completed && path !== '/onboarding/assessment') {
-            console.log('[App.jsx] Redirect Engine: assessment_completed is false. Redirecting to /onboarding/assessment. Reason: ONBOARDING_INCOMPLETE');
-            window.navigateTo('/onboarding/assessment');
+          } else if (profile.consent_completed && profile.profile_completed && profile.orientation_completed && !profile.assessment_completed && !path.startsWith('/exercise/exercise_0')) {
+            console.log('[App.jsx] Redirect Engine: assessment_completed is false. Redirecting to /exercise/exercise_0. Reason: ONBOARDING_INCOMPLETE');
+            window.navigateTo('/exercise/exercise_0');
           } else {
             console.log('[App.jsx] Redirect Engine: User is on their correct current onboarding step page:', path);
           }
@@ -338,6 +339,9 @@ export default function App() {
       } else if (path.startsWith('/session')) {
         setCurrentRoute('session');
         window.scrollTo(0, 0);
+      } else if (path.startsWith('/exercise')) {
+        setCurrentRoute('exercise');
+        window.scrollTo(0, 0);
       } else if (path === '/threads' || path === '/threads/') {
         setCurrentRoute('threads');
         window.scrollTo(0, 0);
@@ -421,7 +425,7 @@ export default function App() {
 
   const renderPage = () => {
     const path = window.location.pathname;
-    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread') || path.startsWith('/entry') || path.startsWith('/knowledge');
+    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread') || path.startsWith('/entry') || path.startsWith('/knowledge') || path.startsWith('/exercise');
 
     if (isProtectedRoute && (!authChecked || isLoading)) {
       return <LoadingScreen />;
@@ -467,6 +471,8 @@ export default function App() {
         return <SupportPage />;
       case 'session':
         return <SessionFlowPage user={user} profile={profile} onSignOut={handleSignOut} />;
+      case 'exercise':
+        return <ExercisePage user={user} profile={profile} onSignOut={handleSignOut} />;
       case 'threads':
         return <ThreadsPage user={user} profile={profile} onSignOut={handleSignOut} />;
       case 'thread': {

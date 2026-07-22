@@ -1,0 +1,376 @@
+import React, { useEffect, useState, useRef } from 'react';
+import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useExerciseStore } from '../hooks/useExerciseStore';
+import DashboardNavbar from '../components/DashboardNavbar';
+import ExerciseHeader from '../components/exercise/ExerciseHeader';
+import ExerciseProgress from '../components/exercise/ExerciseProgress';
+import ExerciseIntro from '../components/exercise/ExerciseIntro';
+import ExerciseQuestion from '../components/exercise/ExerciseQuestion';
+import ExerciseNavigation from '../components/exercise/ExerciseNavigation';
+import ExerciseCompletion from '../components/exercise/ExerciseCompletion';
+import ExerciseAnalysis from '../components/exercise/ExerciseAnalysis';
+import ExerciseLocked from '../components/exercise/ExerciseLocked';
+import ExerciseError from '../components/exercise/ExerciseError';
+import ExerciseLoading from '../components/exercise/ExerciseLoading';
+import ExerciseLayout from '../components/exercise/ExerciseLayout';
+import { QuestionsCatalog } from '../lib/exercises/questionsCatalog';
+
+const queryClient = new QueryClient({
+  defaultQueries: {
+    retry: 1,
+    refetchOnWindowFocus: false
+  }
+});
+
+export const dynamic = 'force-dynamic';
+
+function ExerciseContent({ user, profile, onSignOut }) {
+  const queryClient = useQueryClient();
+  const [exerciseIdFromUrl, setExerciseIdFromUrl] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const pathParts = window.location.pathname.split('/');
+      setExerciseIdFromUrl(pathParts[2]?.replace(/\/$/, '') || '');
+    }
+  }, []);
+
+  const {
+    currentInstance,
+    currentStepIndex,
+    responses,
+    init,
+    setStepIndex,
+    setResponse,
+    setAutosaveStatus,
+    clearStore,
+    stimulusList
+  } = useExerciseStore();
+
+  const [direction, setDirection] = useState(1);
+  const debounceTimers = useRef({});
+
+  // 1. Query current active exercise
+  const { data: currentRes, isLoading: currentLoading, error: currentErr } = useQuery({
+    queryKey: ['currentExercise'],
+    queryFn: () => fetch('/api/exercises/current').then(r => r.json())
+  });
+
+  // 2. Query exercise status mapping
+  const { data: statusRes, isLoading: statusLoading } = useQuery({
+    queryKey: ['exerciseStatus'],
+    queryFn: () => fetch('/api/exercises/status').then(r => r.json())
+  });
+
+  // Redirect /exercise to the active URL
+  useEffect(() => {
+    if (!currentLoading && currentRes) {
+      if (!exerciseIdFromUrl) {
+        if (currentRes.exercise) {
+          window.navigateTo(`/exercise/${currentRes.exercise.exercise_id}`);
+        } else {
+          // No active exercise: show locked page
+          console.warn('[ExercisePage] No active exercise found.');
+        }
+      }
+    }
+  }, [currentRes, currentLoading, exerciseIdFromUrl]);
+
+  const activeInstance = currentRes?.exercise;
+
+  // 3. Mutation to Start Exercise
+  const startMutation = useMutation({
+    mutationFn: (instanceId) =>
+      fetch('/api/exercises/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instanceId })
+      }).then(r => r.json()),
+    onSuccess: (data) => {
+      if (data.success) {
+        queryClient.invalidateQueries(['currentExercise']);
+        setStepIndex(1);
+      }
+    }
+  });
+
+  // 4. Mutation to Submit Exercise
+  const submitMutation = useMutation({
+    mutationFn: (instanceId) =>
+      fetch('/api/exercises/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instanceId })
+      }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['currentExercise']);
+      queryClient.invalidateQueries(['exerciseStatus']);
+      setStepIndex(questions.length + 1); // completion screen
+    }
+  });
+
+  // 5. Query for completed AI Analysis Results
+  const { data: resultRes, isLoading: resultLoading } = useQuery({
+    queryKey: ['exerciseResult', activeInstance?.id],
+    queryFn: () => fetch(`/api/exercises/result/${activeInstance.id}`).then(r => r.json()),
+    enabled: !!activeInstance && (activeInstance.status === 'finished')
+  });
+
+  // Initialize Zustand store on load/resume
+  useEffect(() => {
+    const resumeSession = async () => {
+      if (activeInstance) {
+        try {
+          const res = await fetch('/api/exercises/resume', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ instanceId: activeInstance.id })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const formatted = {};
+            (data.responses || []).forEach(r => {
+              formatted[r.question_id] = r.response;
+            });
+            const savedStep = data.screenState?.currentStepIndex || 1;
+            init(activeInstance, formatted, savedStep, data.stimulusList);
+            return;
+          }
+        } catch (err) {
+          console.error('[ExercisePage] Failed to resume draft answers:', err);
+        }
+        init(activeInstance, {}, 0);
+      }
+    };
+
+    resumeSession();
+
+    return () => {
+      clearStore();
+    };
+  }, [activeInstance, init, clearStore]);
+
+  if (currentLoading || statusLoading || (activeInstance?.status === 'finished' && resultLoading)) {
+    return (
+      <div className="min-h-screen bg-mint-grey flex flex-col font-sans">
+        <DashboardNavbar user={user} profile={profile} onSignOut={onSignOut} activeLink="exercises" />
+        <div className="flex-1 flex items-center justify-center p-6">
+          <ExerciseLoading />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentErr) {
+    return (
+      <div className="min-h-screen bg-mint-grey flex flex-col font-sans">
+        <DashboardNavbar user={user} profile={profile} onSignOut={onSignOut} activeLink="exercises" />
+        <div className="flex-1 flex items-center justify-center p-6">
+          <ExerciseError message="Failed to load cycle exercises." />
+        </div>
+      </div>
+    );
+  }
+
+  // Check locks
+  const matchedStatus = statusRes?.statuses?.find(s => s.definition.id === exerciseIdFromUrl);
+  if (!matchedStatus || matchedStatus.status === 'locked') {
+    const rules = matchedStatus?.definition?.unlock_rules || {};
+    return (
+      <div className="min-h-screen bg-mint-grey flex flex-col font-sans">
+        <DashboardNavbar user={user} profile={profile} onSignOut={onSignOut} activeLink="exercises" />
+        <div className="flex-1 flex items-center justify-center p-6">
+          <ExerciseLocked
+            strategy={rules.strategy}
+            day={rules.day}
+            currentDay={statusRes?.current_day || 1}
+            onClose={() => window.navigateTo('/dashboard')}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  const def = matchedStatus.definition;
+  const instance = matchedStatus.instance;
+  const questions = exerciseIdFromUrl === 'exercise_1' && stimulusList
+    ? stimulusList.map((word, idx) => ({
+        id: `q_${idx + 1}`,
+        type: 'free_text',
+        label: word,
+        placeholder: 'Type the first thing that comes to mind',
+        singleLine: true
+      }))
+    : QuestionsCatalog.getQuestions(exerciseIdFromUrl);
+
+  // Autosave responses with debounce
+  const handleAnswerChange = (questionId, value) => {
+    // 1. Update Zustand store immediately for snappy UI
+    setResponse(questionId, value);
+    setAutosaveStatus('saving');
+
+    // 2. Clear previous debounce timer
+    if (debounceTimers.current[questionId]) {
+      clearTimeout(debounceTimers.current[questionId]);
+    }
+
+    // 3. Debounce save progress to server
+    debounceTimers.current[questionId] = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/exercises/save-progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            instanceId: instance.id,
+            questionId,
+            stepId: `step_${currentStepIndex}`,
+            response: value
+          })
+        });
+
+        if (res.ok) {
+          setAutosaveStatus('saved');
+        } else {
+          setAutosaveStatus('error');
+        }
+      } catch (err) {
+        setAutosaveStatus('error');
+      }
+    }, 1000);
+  };
+
+  // Saves current screen index to __screen_state
+  const saveScreenIndex = async (newIndex) => {
+    try {
+      await fetch('/api/exercises/save-progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instanceId: instance.id,
+          questionId: '__screen_state',
+          stepId: '__screen_state',
+          response: { currentStepIndex: newIndex }
+        })
+      });
+    } catch (e) {
+      console.warn('Failed to save screen state index:', e.message);
+    }
+  };
+
+  const handleNextStep = async () => {
+    if (currentStepIndex === questions.length) {
+      // Final Submit
+      submitMutation.mutate(instance.id);
+    } else {
+      setDirection(1);
+      const nextIdx = currentStepIndex + 1;
+      setStepIndex(nextIdx);
+      await saveScreenIndex(nextIdx);
+    }
+  };
+
+  const handleBackStep = async () => {
+    if (currentStepIndex > 0) {
+      setDirection(-1);
+      const prevIdx = currentStepIndex - 1;
+      setStepIndex(prevIdx);
+      await saveScreenIndex(prevIdx);
+    }
+  };
+
+  const handleStart = () => {
+    startMutation.mutate(instance.id);
+  };
+
+  const renderActiveScreen = () => {
+    // Finished/Analysis mode
+    if (instance?.status === 'finished') {
+      return (
+        <ExerciseAnalysis
+          exerciseId={exerciseIdFromUrl}
+          result={resultRes?.result}
+          onClose={() => window.navigateTo('/dashboard')}
+        />
+      );
+    }
+
+    // Polling mode during AI evaluation
+    if (instance?.status === 'completed' || instance?.status === 'queued' || instance?.status === 'analysing' || currentStepIndex > questions.length) {
+      return (
+        <ExerciseCompletion
+          instanceId={instance.id}
+          onComplete={() => queryClient.invalidateQueries(['currentExercise'])}
+        />
+      );
+    }
+
+    // Intro Screen
+    if (currentStepIndex === 0) {
+      return (
+        <ExerciseIntro
+          title={def.title}
+          description={def.description}
+          duration={def.estimated_duration}
+          stepsCount={questions.length}
+          onStart={handleStart}
+          isSubmitting={startMutation.isPending}
+        />
+      );
+    }
+
+    // Question steps
+    const currentQuestion = questions[currentStepIndex - 1];
+    const currentValue = responses[currentQuestion.id];
+    const canProceed = currentValue !== undefined && currentValue !== '';
+
+    return (
+      <div className="space-y-6">
+        <ExerciseProgress current={currentStepIndex} total={questions.length} />
+        <ExerciseQuestion
+          question={currentQuestion}
+          value={currentValue}
+          onChange={(val) => handleAnswerChange(currentQuestion.id, val)}
+          disabled={submitMutation.isPending}
+        />
+        <ExerciseNavigation
+          onBack={handleBackStep}
+          onNext={handleNextStep}
+          isFirst={currentStepIndex === 1}
+          isLast={currentStepIndex === questions.length}
+          canProceed={canProceed}
+          isSubmitting={submitMutation.isPending}
+        />
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-mint-grey flex flex-col font-sans">
+      <DashboardNavbar user={user} profile={profile} onSignOut={onSignOut} activeLink="exercises" />
+      <div className="flex-1 flex items-center justify-center p-6 md:p-12">
+        {instance?.status === 'finished' || instance?.status === 'completed' || instance?.status === 'queued' || instance?.status === 'analysing' || currentStepIndex > questions.length ? (
+          <div className="w-full bg-white rounded-premium p-6 md:p-8 shadow-[0_12px_48px_rgba(30,42,46,0.04)] border border-primary/5 min-h-[480px]">
+            {renderActiveScreen()}
+          </div>
+        ) : (
+          <ExerciseLayout stepKey={currentStepIndex} direction={direction}>
+            <div>
+              <ExerciseHeader title={def.title} onClose={() => window.navigateTo('/dashboard')} />
+              <div className="py-2">
+                {renderActiveScreen()}
+              </div>
+            </div>
+          </ExerciseLayout>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function ExercisePage(props) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ExerciseContent {...props} />
+    </QueryClientProvider>
+  );
+}

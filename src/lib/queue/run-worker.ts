@@ -14,6 +14,26 @@ const statusInterval = setInterval(async () => {
   await printQueueStatus();
 }, 30000);
 
+// Run Exercise maintenance scheduler every 2 minutes
+const maintenanceInterval = setInterval(async () => {
+  try {
+    const { ExerciseScheduler } = await import('../exercises/exerciseScheduler');
+    await ExerciseScheduler.runMaintenance();
+  } catch (err: any) {
+    console.error('[Worker Daemon] Error running ExerciseScheduler maintenance:', err.message);
+  }
+}, 120000);
+
+// Run immediately on start (non-blocking)
+(async () => {
+  try {
+    const { ExerciseScheduler } = await import('../exercises/exerciseScheduler');
+    await ExerciseScheduler.runMaintenance();
+  } catch (err: any) {
+    console.error('[Worker Daemon] Initial ExerciseScheduler maintenance failed:', err.message);
+  }
+})();
+
 // Initial status report
 printQueueStatus().catch(err => {
   console.error('[Worker Daemon] Error reporting initial status:', err);
@@ -23,6 +43,7 @@ printQueueStatus().catch(err => {
 async function shutdown(signal: string) {
   console.log(`[Worker Daemon] Received ${signal}. Initiating graceful shutdown...`);
   clearInterval(statusInterval);
+  clearInterval(maintenanceInterval);
 
   try {
     // 1. Close all workers
