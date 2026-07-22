@@ -110,6 +110,7 @@ export class ExerciseUnlockService {
             .eq('user_id', userId)
             .eq('exercise_id', 'exercise_0')
             .eq('status', 'finished')
+            .limit(1)
             .maybeSingle();
 
           if (ex0Err || !ex0) {
@@ -151,6 +152,48 @@ export class ExerciseUnlockService {
 
           if (knowledgeErr || !knowledgeSnap) {
             console.log(`[UnlockService] Skipping exercise_1 unlock for user ${userId}: No knowledge snapshot found.`);
+            continue;
+          }
+        } else if (def.id === 'exercise_2') {
+          // Check prerequisites for Exercise 2 (Inkblot):
+          // 1. Completed Exercise 0
+          const { data: ex0 } = await supabase
+            .from('exercise_instances')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('exercise_id', 'exercise_0')
+            .eq('status', 'finished')
+            .limit(1)
+            .maybeSingle();
+
+          if (!ex0) {
+            console.log(`[UnlockService] Skipping exercise_2 unlock for user ${userId}: Exercise 0 is not completed.`);
+            continue;
+          }
+
+          // 2. Completed Exercise 1
+          const { data: ex1 } = await supabase
+            .from('exercise_instances')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('exercise_id', 'exercise_1')
+            .eq('status', 'finished')
+            .limit(1)
+            .maybeSingle();
+
+          if (!ex1) {
+            console.log(`[UnlockService] Skipping exercise_2 unlock for user ${userId}: Exercise 1 is not completed.`);
+            continue;
+          }
+
+          // 3. User has completed at least 14 journal entries or reached Day 15
+          const { count: entriesCount } = await supabase
+            .from('entries')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId);
+
+          if (currentDay < 15 && (entriesCount === null || entriesCount < 14)) {
+            console.log(`[UnlockService] Skipping exercise_2 unlock for user ${userId}: Under Day 15 and under 14 entries (${entriesCount}).`);
             continue;
           }
         }

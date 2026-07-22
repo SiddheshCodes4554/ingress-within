@@ -140,6 +140,24 @@ export class ExerciseProgressService {
         
         stimulusList = generated.sequence;
       }
+    } else if (instance.exercise_id === 'exercise_2') {
+      const seedRecord = responsesList.find(r => r.question_id === '__inkblot_seed');
+      let seedVal: number;
+      if (seedRecord) {
+        seedVal = Number(seedRecord.response);
+      } else {
+        seedVal = Math.floor(Math.random() * 99999) + 1;
+        await supabase.from('exercise_responses').upsert({
+          instance_id: instanceId,
+          user_id: userId,
+          question_id: '__inkblot_seed',
+          step_id: '__inkblot_seed',
+          response: seedVal,
+          created_at: new Date().toISOString()
+        }, { onConflict: 'instance_id,question_id' });
+      }
+      const { getInkblotImageUrls } = await import('./inkblotGenerator');
+      stimulusList = getInkblotImageUrls(seedVal);
     }
 
     const screenStateRecord = responsesList.find(r => r.question_id === '__screen_state');

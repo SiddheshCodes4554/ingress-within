@@ -54,11 +54,11 @@ const REGISTRY: Record<string, Record<string, PromptConfig>> = {
       prompt_version: 'v1',
       provider: 'gemini',
       model: 'gemini-3.1-flash-lite',
-      temperature: 0.3,
-      max_tokens: 1000,
+      temperature: 0.15,
+      max_tokens: 1500,
       json_schema_version: '1.0',
-      system_prompt: 'You are a psychoanalyst analyzing visual projection metadata and image selections.',
-      user_prompt_template: 'RESPONSES:\n{{context.responses}}\n\nProvide evaluation in strict JSON format.'
+      system_prompt: 'You are a clinical psychologist analyzing a 5-card projective inkblot exercise. Read all responses before writing.',
+      user_prompt_template: 'Someone completed a 5-card projective exercise. Their responses across the five cards:\n\n{{context.responses}}\n\nRead all five cards before writing. Find the outlier — the one card where they responded differently from all the others. Then make one plain observation about what that shift tells you about this person.\n\nWrite 3 sentences:\n\nSentence 1: What most cards had in common. Quote 2-3 of their actual responses briefly to show it.\nSentence 2: Name the outlier card. Quote exactly what they said on that card. Say in one clause how it differs from the others.\nSentence 3: This is the only sentence that matters. Say something specific about this person based on that difference. Not what it "suggests". Not what it "might indicate". Say it directly — a plain statement about who they are or how they operate, based on what just happened across these five cards.\n\nRules:\n- "You" throughout. Never "this person".\n- Quote their actual words.\n- Sentence 3 must be a direct statement, not hedged. If you find yourself writing "suggests", "might", "could", "points to" — rewrite it as a plain claim.\n- No jargon: lens, register, projection, avoidant, suppress, dynamic, processing, contain, reframe.\n- No markdown, no bold, no asterisks.\n- Do not be warm. Do not soften sentence 3.\n- Three sentences only.\n\nAfter your 3 sentences, on a new line return only this JSON:\n{\n  "default_lens_label": "threat|withdrawal|direct|avoidant|mixed",\n  "lens_by_image": [],\n  "entry_confirmation": "yes|partial|absent",\n  "de_animation_flag": false,\n  "most_revealing_image": 3,\n  "performance_flag": false\n}'
     }
   },
   exercise_3: {

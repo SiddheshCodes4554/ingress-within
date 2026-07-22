@@ -171,6 +171,27 @@ export class ExerciseAnalysisWorker {
 
         userPrompt = userPrompt.replace('{{context.personality_context}}', personalityContext);
         userPrompt = userPrompt.replace('{{context.responses}}', responsesFormatted);
+      } else if (exercise_id === 'exercise_2') {
+        // Fetch raw responses for Exercise 2 (Inkblot)
+        const { data: respList } = await supabase
+          .from('exercise_responses')
+          .select('question_id, step_id, response')
+          .eq('instance_id', instance_id);
+
+        const byCardLines: string[] = [];
+        [1, 2, 3, 4, 5].forEach(cardId => {
+          const findResp = (stepNum: number) => {
+            const match = (respList || []).find((r: any) =>
+              r.question_id === `card_${cardId}_step_${stepNum}` ||
+              (r.step_id === `step_${stepNum}` && r.question_id?.includes(`card_${cardId}`)) ||
+              r.question_id === `q_${(cardId - 1) * 3 + stepNum}`
+            );
+            return match ? String(match.response) : '(none)';
+          };
+          byCardLines.push(`Card ${cardId}: "${findResp(1)}" / "${findResp(2)}" / "${findResp(3)}"`);
+        });
+
+        userPrompt = userPrompt.replace('{{context.responses}}', byCardLines.join('\n'));
       } else {
         userPrompt = userPrompt.replace('{{context.responses}}', context.responses);
         userPrompt = userPrompt.replace('{{context.entries}}', context.entries || '');
@@ -429,6 +450,44 @@ export class ExerciseAnalysisWorker {
             rawJson.summary = rawJson.summary || 'Word association completed.';
           }
           // Mock standard clarity/intensity/reactivity scores to satisfy schema validator
+          rawJson.scores = rawJson.scores || { clarity: 5, intensity: 5, reactivity: 5 };
+        } else if (config.exercise_id === 'exercise_2') {
+          let plainText = cleaned;
+          const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (fenceMatch) {
+            plainText = cleaned.substring(0, cleaned.indexOf('```')).trim();
+            try { rawJson = JSON.parse(fenceMatch[1].trim()); } catch (_) {}
+          } else {
+            const jIdx = cleaned.search(/\n\s*\{/);
+            if (jIdx !== -1) {
+              plainText = cleaned.substring(0, jIdx).trim();
+              try { rawJson = JSON.parse(cleaned.substring(jIdx).trim()); } catch (_) {}
+            }
+          }
+
+          plainText = plainText.split('**').join('').split('*').join('').replace(/^#+\s*/gm, '').trim();
+
+          if (!rawJson) {
+            rawJson = {
+              analysis: plainText || 'You tended to notice structure and movement across several images.',
+              default_lens_label: 'mixed',
+              lens_by_image: [],
+              entry_confirmation: 'partial',
+              de_animation_flag: false,
+              most_revealing_image: 3,
+              performance_flag: false,
+              summary: 'Inkblot projective assessment completed.'
+            };
+          } else {
+            rawJson.analysis = plainText || 'You tended to notice structure and movement across several images.';
+            rawJson.summary = rawJson.summary || 'Inkblot projective assessment completed.';
+            const validLens = ['threat', 'withdrawal', 'direct', 'avoidant', 'mixed'];
+            rawJson.default_lens_label = validLens.includes(rawJson.default_lens_label) ? rawJson.default_lens_label : 'mixed';
+            rawJson.entry_confirmation = rawJson.entry_confirmation || 'partial';
+            rawJson.de_animation_flag = rawJson.de_animation_flag === true;
+            rawJson.most_revealing_image = rawJson.most_revealing_image || 3;
+            rawJson.performance_flag = rawJson.performance_flag === true;
+          }
           rawJson.scores = rawJson.scores || { clarity: 5, intensity: 5, reactivity: 5 };
         } else {
           // Standard full-JSON behavior

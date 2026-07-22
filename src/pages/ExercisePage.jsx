@@ -201,6 +201,35 @@ function ExerciseContent({ user, profile, onSignOut }) {
         placeholder: 'Type the first thing that comes to mind',
         singleLine: true
       }))
+    : exerciseIdFromUrl === 'exercise_2' && stimulusList
+    ? Array.from({ length: 15 }, (_, idx) => {
+        const cardIndex = Math.floor(idx / 3);
+        const stepNum = (idx % 3) + 1;
+        const cardId = cardIndex + 1;
+        const imageUrl = stimulusList[cardIndex];
+        const stepQuestions = [
+          'Write what you see.',
+          'Which part of the image stood out most?',
+          'What feeling, if any, did this bring up?'
+        ];
+        const placeholders = [
+          'Describe what you see.',
+          'The part that caught your eye first.',
+          'A feeling, or nothing at all.'
+        ];
+        return {
+          id: `card_${cardId}_step_${stepNum}`,
+          type: 'inkblot_step',
+          cardId,
+          stepNum,
+          cardIndex,
+          imageUrl,
+          label: `Image ${cardId} of 5 · Step ${stepNum} of 3`,
+          questionText: stepQuestions[stepNum - 1],
+          placeholder: placeholders[stepNum - 1],
+          allResponses: responses
+        };
+      })
     : QuestionsCatalog.getQuestions(exerciseIdFromUrl);
 
   // Autosave responses with debounce
@@ -320,7 +349,10 @@ function ExerciseContent({ user, profile, onSignOut }) {
 
     // Question steps
     const currentQuestion = questions[currentStepIndex - 1];
-    const currentValue = responses[currentQuestion.id];
+    if (currentQuestion && currentQuestion.type === 'inkblot_step') {
+      currentQuestion.allResponses = responses;
+    }
+    const currentValue = responses[currentQuestion?.id];
     const canProceed = currentValue !== undefined && currentValue !== '';
 
     return (

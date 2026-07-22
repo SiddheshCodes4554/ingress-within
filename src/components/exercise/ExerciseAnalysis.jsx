@@ -29,8 +29,55 @@ export default function ExerciseAnalysis({ result, onClose, exerciseId }) {
 
   const { analysis, scores, branch, lens, summary, generated_at } = result;
 
-  // Check if this is Word Association (Exercise 1)
-  const isWordAssociation = exerciseId === 'exercise_1' || (result.instance_id && result.instance_id.includes('exercise_1'));
+  // Check if this is Inkblot (Exercise 2)
+  const isInkblot = exerciseId === 'exercise_2' || (result.instance_id && result.instance_id.includes('exercise_2'));
+
+  if (isInkblot) {
+    const formattedDate = generated_at
+      ? new Date(generated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+      : new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const cleanAnalysisText = (analysis || '')
+      .split('**').join('')
+      .split('*').join('')
+      .replace(/^#+\s*/gm, '')
+      .replace(/```[\s\S]*?```/gm, '')
+      .replace(/\{[\s\S]*$/m, '')
+      .trim();
+
+    return (
+      <div className="space-y-8 max-w-2xl mx-auto py-6 animate-fade-in text-left">
+        <div className="space-y-2">
+          <div className="font-label-md text-xs font-semibold uppercase tracking-wider text-accent">
+            Inkblot Exercise
+          </div>
+          <div className="text-xs text-primary/40">
+            Completed {formattedDate}
+          </div>
+        </div>
+
+        <p className="font-serif text-lg leading-relaxed text-primary/80">
+          {cleanAnalysisText || 'Your responses have been recorded. They will feed into your Day 30 report.'}
+        </p>
+
+        <hr className="border-t border-[#B8A8D4] w-8 my-4" />
+
+        <p className="text-xs text-primary/50 leading-relaxed italic">
+          This feeds into your Day 30 report.
+        </p>
+
+        <div className="flex justify-center border-t border-primary/5 pt-6 mt-8">
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1.5 px-8 py-3.5 bg-primary hover:bg-[#2A3A3E] text-mint-grey rounded text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer shadow-xs"
+          >
+            <span>Done</span>
+            <ArrowRight size={14} />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (isWordAssociation) {
     const formattedDate = generated_at
