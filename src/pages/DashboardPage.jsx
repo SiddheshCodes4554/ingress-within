@@ -87,7 +87,10 @@ export default function DashboardPage({ user, profile, onSignOut }) {
     setError(null);
     try {
       const [result, vStats, cycles, reports, patterns] = await Promise.all([
-        DashboardService.fetchDashboardData(),
+        DashboardService.fetchDashboardData().catch((err) => {
+          console.error('fetchDashboardData failed:', err);
+          return null;
+        }),
         DashboardService.fetchVocabOverview().catch(() => null),
         DashboardService.fetchCyclesList().catch(() => []),
         DashboardService.fetchWeeklyReports().catch(() => []),

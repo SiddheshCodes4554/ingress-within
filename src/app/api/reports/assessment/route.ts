@@ -25,11 +25,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Run monthly maintenance check
+    // Non-blocking monthly maintenance trigger
     const { OrchestratorScheduler } = await import('../../../../lib/orchestrator/orchestratorScheduler');
-    await OrchestratorScheduler.runMonthlyMaintenance(userId);
+    void OrchestratorScheduler.runMonthlyMaintenance(userId).catch(err => {
+      console.error('[API Assessment GET] Background monthly maintenance failed:', err.message);
+    });
 
-    let { data: assessment, error } = await supabase
+    const { data: assessment, error } = await supabase
       .from('assessments')
       .select('*')
       .eq('user_id', userId)
@@ -38,31 +40,6 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       throw new Error(`Failed to fetch cycle assessment: ${error.message}`);
-    }
-
-    // If assessment exists but generation_status is pending or failed, inline process it immediately
-    if (assessment && (assessment.generation_status === 'pending' || assessment.generation_status === 'failed')) {
-      const { processMonthlyReport } = await import('../../../../lib/queue/workers/monthlyReportWorker');
-      try {
-        await processMonthlyReport({
-          cycle_id: cycleId,
-          user_id: userId,
-          assessment_id: assessment.id,
-          month_number: 1
-        });
-
-        // Fetch refreshed assessment row
-        const { data: refreshed } = await supabase
-          .from('assessments')
-          .select('*')
-          .eq('id', assessment.id)
-          .single();
-        if (refreshed) {
-          assessment = refreshed;
-        }
-      } catch (procErr: any) {
-        console.error(`[API Assessment GET] Inline processing failed for assessment ${assessment.id}:`, procErr.message);
-      }
     }
 
     return NextResponse.json({
