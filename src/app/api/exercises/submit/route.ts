@@ -19,11 +19,36 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { instanceId } = body;
+    const { instanceId, exerciseId } = body;
 
-    if (!instanceId) {
+    let targetInstanceId = instanceId;
+
+    if (!targetInstanceId && exerciseId) {
+      const { data: activeCycle } = await supabase
+        .from('cycles')
+        .select('id')
+        .eq('user_id', authUser.userId)
+        .eq('status', 'ACTIVE')
+        .maybeSingle();
+
+      if (activeCycle) {
+        const { data: inst } = await supabase
+          .from('exercise_instances')
+          .select('id')
+          .eq('user_id', authUser.userId)
+          .eq('cycle_id', activeCycle.id)
+          .eq('exercise_id', exerciseId)
+          .maybeSingle();
+
+        if (inst) {
+          targetInstanceId = inst.id;
+        }
+      }
+    }
+
+    if (!targetInstanceId) {
       return NextResponse.json(
-        { error: { code: 'BAD_REQUEST', message: 'Missing instanceId in request body.' } },
+        { error: { code: 'BAD_REQUEST', message: 'Missing instanceId or valid exerciseId in request body.' } },
         { status: 400 }
       );
     }
@@ -32,7 +57,7 @@ export async function POST(request: NextRequest) {
     const { data: instance, error: fetchErr } = await supabase
       .from('exercise_instances')
       .select('*')
-      .eq('id', instanceId)
+      .eq('id', targetInstanceId)
       .eq('user_id', authUser.userId)
       .single();
 

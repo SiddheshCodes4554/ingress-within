@@ -211,20 +211,21 @@ function ExerciseContent({ user, profile, onSignOut }) {
 
   const def = matchedStatus.definition;
   const instance = matchedStatus.instance;
-  const questions = exerciseIdFromUrl === 'exercise_1' && stimulusList
-    ? stimulusList.map((word, idx) => ({
+  const questions = exerciseIdFromUrl === 'exercise_1'
+    ? (stimulusList || ['Trust', 'Control', 'Boundary', 'Anger', 'Fear', 'Peace', 'Clarity', 'Attachment', 'Validation', 'Truth']).map((word, idx) => ({
         id: `q_${idx + 1}`,
         type: 'free_text',
         label: word,
         placeholder: 'Type the first thing that comes to mind',
         singleLine: true
       }))
-    : exerciseIdFromUrl === 'exercise_2' && stimulusList
+    : exerciseIdFromUrl === 'exercise_2'
     ? Array.from({ length: 15 }, (_, idx) => {
         const cardIndex = Math.floor(idx / 3);
         const stepNum = (idx % 3) + 1;
         const cardId = cardIndex + 1;
-        const imageUrl = stimulusList[cardIndex];
+        const images = stimulusList || ['/assets/blot_1.png', '/assets/blot_2.png', '/assets/blot_3.png', '/assets/blot_4.png', '/assets/blot_5.png'];
+        const imageUrl = images[cardIndex];
         const stepQuestions = [
           'Write what you see.',
           'Which part of the image stood out most?',
@@ -268,7 +269,8 @@ function ExerciseContent({ user, profile, onSignOut }) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            instanceId: instance.id,
+            instanceId: instance?.id,
+            exerciseId: exerciseIdFromUrl,
             questionId,
             stepId: `step_${currentStepIndex}`,
             response: value
@@ -293,7 +295,8 @@ function ExerciseContent({ user, profile, onSignOut }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          instanceId: instance.id,
+          instanceId: instance?.id,
+          exerciseId: exerciseIdFromUrl,
           questionId: '__screen_state',
           stepId: '__screen_state',
           response: { currentStepIndex: newIndex }
@@ -307,7 +310,7 @@ function ExerciseContent({ user, profile, onSignOut }) {
   const handleNextStep = async () => {
     if (currentStepIndex === questions.length) {
       // Final Submit
-      submitMutation.mutate(instance.id);
+      submitMutation.mutate({ instanceId: instance?.id, exerciseId: exerciseIdFromUrl });
     } else {
       setDirection(1);
       const nextIdx = currentStepIndex + 1;

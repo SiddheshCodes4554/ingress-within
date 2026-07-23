@@ -16,18 +16,66 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { instanceId, questionId, stepId, response, metadata } = body;
+    const { instanceId, exerciseId, questionId, stepId, response, metadata } = body;
 
-    if (!instanceId || !questionId || !stepId || response === undefined) {
+    let targetInstanceId = instanceId;
+
+    if (!targetInstanceId && exerciseId) {
+      const { supabase } = await import('../../../../lib/db');
+      const { data: activeCycle } = await supabase
+        .from('cycles')
+        .select('id')
+        .eq('user_id', authUser.userId)
+        .eq('status', 'ACTIVE')
+        .maybeSingle();
+
+      if (activeCycle) {
+        const { data: inst } = await supabase
+          .from('exercise_instances')
+          .select('id')
+          .eq('user_id', authUser.userId)
+          .eq('cycle_id', activeCycle.id)
+          .eq('exercise_id', exerciseId)
+          .maybeSingle();
+
+        if (inst) {
+          targetInstanceId = inst.id;
+        } else {
+          const { data: newInst } = await supabase
+            .from('exercise_instances')
+            .insert({
+              user_id: authUser.userId,
+              cycle_id: activeCycle.id,
+              exercise_id: exerciseId,
+              status: 'started',
+              locked: false,
+              available: true,
+              started: true,
+              completed: false,
+              expired: false,
+              unlock_time: new Date().toISOString(),
+              version: '1.0'
+            })
+            .select('id')
+            .single();
+
+          if (newInst) {
+            targetInstanceId = newInst.id;
+          }
+        }
+      }
+    }
+
+    if (!targetInstanceId || !questionId || !stepId || response === undefined) {
       return NextResponse.json(
-        { error: { code: 'BAD_REQUEST', message: 'Missing required parameters: instanceId, questionId, stepId, and response.' } },
+        { error: { code: 'BAD_REQUEST', message: 'Missing required parameters: instanceId (or valid exerciseId), questionId, stepId, and response.' } },
         { status: 400 }
       );
     }
 
     await ExerciseProgressService.saveProgress(
       authUser.userId,
-      instanceId,
+      targetInstanceId,
       questionId,
       stepId,
       response,

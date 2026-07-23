@@ -16,11 +16,11 @@ export interface ExerciseInstanceUpdate {
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   locked: ['available', 'archived'],
-  available: ['started', 'archived'],
-  started: ['in_progress', 'completed', 'archived'],
-  in_progress: ['completed', 'archived'],
-  completed: ['queued', 'analysing', 'failed', 'archived'],
-  queued: ['analysing', 'failed', 'archived'],
+  available: ['started', 'in_progress', 'completed', 'archived'],
+  started: ['in_progress', 'completed', 'queued', 'analysing', 'archived'],
+  in_progress: ['completed', 'queued', 'analysing', 'archived'],
+  completed: ['queued', 'analysing', 'finished', 'failed', 'archived'],
+  queued: ['analysing', 'finished', 'failed', 'archived'],
   analysing: ['finished', 'failed', 'archived'],
   finished: ['queued', 'archived'],
   failed: ['queued', 'analysing', 'archived'],
