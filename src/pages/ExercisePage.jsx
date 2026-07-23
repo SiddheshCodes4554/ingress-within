@@ -415,6 +415,27 @@ export default function ExercisePage(props) {
   );
 }
 
+const EXERCISE_META = {
+  exercise_0: {
+    title: 'Exercise 0 — OCEAN Baseline Personality Assessment',
+    description: 'Establishes your baseline Big Five personality profile across 16 reflective psychometric dimensions.',
+    duration: '10 mins',
+    tag: 'Baseline Personality'
+  },
+  exercise_1: {
+    title: 'Exercise 1 — Word Association Assessment',
+    description: 'Measures emotional language defaults and spontaneous subconscious theme associations.',
+    duration: '5 mins',
+    tag: 'Linguistic Default'
+  },
+  exercise_2: {
+    title: 'Exercise 2 — Inkblot Projective Assessment',
+    description: 'Procedural projective assessment exploring symbolic interpretations and perceptual pattern defaults.',
+    duration: '8 mins',
+    tag: 'Projective Pattern'
+  }
+};
+
 function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }) {
   const [filter, setFilter] = useState('all');
 
@@ -429,7 +450,7 @@ function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }
   const completedList = (history || []).map(h => ({
     id: h.id,
     exercise_id: h.exercise_id,
-    title: h.definition?.title || h.exercise_id,
+    title: EXERCISE_META[h.exercise_id]?.title || h.definition?.title || h.exercise_id,
     completed_at: h.completion_time || h.updated_at,
     instance: h
   }));
@@ -495,38 +516,41 @@ function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {pendingList.map(item => (
-                    <div
-                      key={item.definition.id}
-                      className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-4 text-left shadow-xs transition-all hover:border-amber-500/40"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-900">
-                            {item.instance.status === 'started' ? 'In Progress' : item.instance.status}
-                          </span>
-                          <h3 className="font-serif text-lg text-primary font-semibold">
-                            {item.definition.title || item.definition.id}
-                          </h3>
-                        </div>
-                        <span className="text-xs text-primary/50 font-mono">
-                          {item.definition.estimated_duration ? `${item.definition.estimated_duration} mins` : ''}
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-primary/70 leading-relaxed">
-                        {item.definition.description || 'Resume your saved progress or check analysis status.'}
-                      </p>
-
-                      <button
-                        onClick={() => window.navigateTo(`/exercise/${item.definition.id}`)}
-                        className="w-full py-2.5 px-4 rounded-xl bg-primary text-mint-grey font-sans text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-[#2A3A3E] transition-all cursor-pointer"
+                  {pendingList.map(item => {
+                    const meta = EXERCISE_META[item.definition.id] || {};
+                    return (
+                      <div
+                        key={item.definition.id}
+                        className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-4 text-left shadow-xs transition-all hover:border-amber-500/40"
                       >
-                        <span>Resume Assessment</span>
-                        <ArrowRight size={14} />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-1">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-900">
+                              {item.instance.status === 'started' ? 'In Progress' : item.instance.status}
+                            </span>
+                            <h3 className="font-serif text-lg text-primary font-semibold">
+                              {meta.title || item.definition.title || item.definition.id}
+                            </h3>
+                          </div>
+                          <span className="text-xs text-primary/50 font-mono">
+                            {meta.duration || (item.definition.estimated_duration ? `${item.definition.estimated_duration} mins` : '')}
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-primary/70 leading-relaxed">
+                          {meta.description || item.definition.description || 'Resume your saved progress or check analysis status.'}
+                        </p>
+
+                        <button
+                          onClick={() => window.navigateTo(`/exercise/${item.definition.id}`)}
+                          className="w-full py-2.5 px-4 rounded-xl bg-primary text-mint-grey font-sans text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-[#2A3A3E] transition-all cursor-pointer"
+                        >
+                          <span>Resume Assessment</span>
+                          <ArrowRight size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -540,38 +564,41 @@ function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {availableList.map(item => (
-                    <div
-                      key={item.definition.id}
-                      className="p-5 rounded-2xl bg-white border border-[#1E2A2E]/10 space-y-4 text-left shadow-xs hover:border-secondary transition-all"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-[#8DBFB4]/20 text-[#1A5040]">
-                            Ready
-                          </span>
-                          <h3 className="font-serif text-lg text-primary font-semibold">
-                            {item.definition.title || item.definition.id}
-                          </h3>
-                        </div>
-                        <span className="text-xs text-primary/50 font-mono">
-                          {item.definition.estimated_duration ? `${item.definition.estimated_duration} mins` : ''}
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-primary/70 leading-relaxed">
-                        {item.definition.description || 'Unlocked and available for your current cycle.'}
-                      </p>
-
-                      <button
-                        onClick={() => window.navigateTo(`/exercise/${item.definition.id}`)}
-                        className="w-full py-2.5 px-4 rounded-xl bg-primary text-mint-grey font-sans text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-[#2A3A3E] transition-all cursor-pointer"
+                  {availableList.map(item => {
+                    const meta = EXERCISE_META[item.definition.id] || {};
+                    return (
+                      <div
+                        key={item.definition.id}
+                        className="p-5 rounded-2xl bg-white border border-[#1E2A2E]/10 space-y-4 text-left shadow-xs hover:border-secondary transition-all"
                       >
-                        <span>Begin Assessment</span>
-                        <ArrowRight size={14} />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-1">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-[#8DBFB4]/20 text-[#1A5040]">
+                              Available
+                            </span>
+                            <h3 className="font-serif text-lg text-primary font-semibold">
+                              {meta.title || item.definition.title || item.definition.id}
+                            </h3>
+                          </div>
+                          <span className="text-xs text-primary/50 font-mono">
+                            {meta.duration || (item.definition.estimated_duration ? `${item.definition.estimated_duration} mins` : '')}
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-primary/70 leading-relaxed">
+                          {meta.description || item.definition.description || 'Unlocked and available for your current cycle.'}
+                        </p>
+
+                        <button
+                          onClick={() => window.navigateTo(`/exercise/${item.definition.id}`)}
+                          className="w-full py-2.5 px-4 rounded-xl bg-primary text-mint-grey font-sans text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-[#2A3A3E] transition-all cursor-pointer"
+                        >
+                          <span>Begin Assessment</span>
+                          <ArrowRight size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -626,24 +653,31 @@ function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {lockedList.map(item => (
-                    <div
-                      key={item.definition.id}
-                      className="p-5 rounded-2xl bg-primary/5 border border-primary/5 space-y-3 text-left opacity-75"
-                    >
-                      <div className="flex justify-between items-start">
-                        <h3 className="font-serif text-base text-primary/70 font-semibold">
-                          {item.definition.title || item.definition.id}
-                        </h3>
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary/60">
-                          Locked
-                        </span>
+                  {lockedList.map(item => {
+                    const meta = EXERCISE_META[item.definition.id] || {};
+                    const unlockDay = item.unlock_day || item.definition.unlock_rules?.day || 1;
+                    return (
+                      <div
+                        key={item.definition.id}
+                        className="p-5 rounded-2xl bg-primary/5 border border-primary/5 space-y-3 text-left opacity-75"
+                      >
+                        <div className="flex justify-between items-start">
+                          <h3 className="font-serif text-base text-primary/70 font-semibold">
+                            {meta.title || item.definition.title || item.definition.id}
+                          </h3>
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary/60">
+                            Unlocks Day {unlockDay}
+                          </span>
+                        </div>
+                        <p className="text-xs text-primary/50 leading-relaxed">
+                          {meta.description || 'Reflective assessment unlocked automatically at cycle milestones.'}
+                        </p>
+                        <div className="text-[10px] font-semibold text-[#5A4A8A] uppercase tracking-wider">
+                          Available on Cycle Day {unlockDay}
+                        </div>
                       </div>
-                      <p className="text-xs text-primary/50 leading-relaxed">
-                        Unlocks automatically when cycle prerequisites or day milestones are reached.
-                      </p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -572,35 +572,8 @@ export default function DashboardPage({ user, profile, onSignOut }) {
             <section className="space-y-2.5">
               <div className="text-[9px] font-bold uppercase tracking-widest text-secondary">Today's Session</div>
               
-              {isAssessmentGate && cycleInfo ? (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-white border border-[#5A4A8A]/25 bg-gradient-to-br from-[#5A4A8A]/3 to-transparent rounded-xl p-5 shadow-[0_4px_20px_rgba(90,74,138,0.05)] text-left space-y-4 relative overflow-hidden pl-5"
-                >
-                  <div className="absolute left-0 top-0 bottom-0 w-[4px] bg-[#5A4A8A]" />
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-[#5A4A8A]/10 flex items-center justify-center text-[#5A4A8A] shrink-0">
-                      <Sparkles size={16} />
-                    </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[8px] font-bold text-[#5A4A8A] uppercase tracking-widest">CYCLE BOUNDARY REACHED</span>
-                      <h3 className="font-serif text-[15px] text-primary">Unlock Cycle {cycleInfo.cycleNumber + 1}</h3>
-                    </div>
-                  </div>
-                  <p className="text-[11.5px] text-mid leading-relaxed">
-                    You have successfully reached the end of Cycle {cycleInfo.cycleNumber}. To integrate your learnings and begin your next cycle of self-reflection, please complete your transition assessment.
-                  </p>
-                  <div>
-                    <button
-                      onClick={handleOpenAssessmentModal}
-                      className="px-5 py-2.5 bg-[#5A4A8A] text-white hover:bg-[#4A3B75] text-[11px] font-semibold uppercase tracking-wider rounded transition-all cursor-pointer border-none shadow-sm flex items-center gap-1.5"
-                    >
-                      <span>Complete Transition Assessment</span>
-                      <ChevronRight size={12} />
-                    </button>
-                  </div>
-                </motion.div>
+              {false ? (
+                null
               ) : (
                 <>
                   {data.cycleInfo.hasWrittenToday ? (
@@ -841,19 +814,15 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                               <div 
                                 onClick={(e) => { 
                                   e.stopPropagation(); 
-                                  if (cycle.assessment_available && !cycle.assessment_completed) {
-                                    handleOpenAssessmentModal();
-                                  } else {
-                                    window.navigateTo('/assessment');
-                                  }
+                                  window.navigateTo('/assessment');
                                 }}
                                 className="bg-mint-grey/30 border border-[#1E2A2E]/5 rounded-xl p-3 hover:border-[#1E2A2E]/15 hover:shadow-xs transition-all cursor-pointer text-center space-y-1 group"
                               >
                                 <Sparkles size={14} className="text-[#5A4A8A] mx-auto group-hover:scale-105 transition-transform" />
                                 <div className="text-[11px] font-semibold text-primary truncate pt-0.5">
-                                  {cycle.assessment_completed ? 'Completed' : (cycle.status === 'COMPLETED' || cycle.assessment_available ? 'Take Quiz' : 'Locked')}
+                                  Available
                                 </div>
-                                <div className="text-[8px] font-bold uppercase tracking-wider text-secondary">Assessment</div>
+                                <div className="text-[8px] font-bold uppercase tracking-wider text-secondary">Assessments</div>
                               </div>
                             </div>
 

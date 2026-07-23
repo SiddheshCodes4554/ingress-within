@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     // Fetch active cycle
     const { data: activeCycle, error: cycleErr } = await supabase
       .from('cycles')
-      .select('id')
+      .select('id, current_day, status')
       .eq('user_id', authUser.userId)
       .eq('status', 'ACTIVE')
       .maybeSingle();
@@ -63,12 +63,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const currentDay = activeCycle.current_day || 1;
+    const isCompletedCycle = activeCycle.status === 'COMPLETED';
+
     const statuses = (definitions || []).map(def => {
       const inst = instances?.find(i => i.exercise_id === def.id);
+      const unlockDay = def.unlock_rules?.day || 1;
+      const isUnlocked = isCompletedCycle || currentDay >= unlockDay;
+
+      let computedStatus = 'locked';
+      if (inst) {
+        computedStatus = inst.status;
+      } else if (isUnlocked) {
+        computedStatus = 'available';
+      } else {
+        computedStatus = 'locked';
+      }
+
       return {
         definition: def,
         instance: inst || null,
-        status: inst ? inst.status : 'locked'
+        status: computedStatus,
+        unlock_day: unlockDay,
+        is_unlocked: isUnlocked
       };
     });
 

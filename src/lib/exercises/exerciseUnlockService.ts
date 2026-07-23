@@ -75,174 +75,33 @@ export class ExerciseUnlockService {
         continue; // Already unlocked or processed
       }
 
-      const rules = def.unlock_rules || {};
-      let shouldUnlock = false;
+      try {
+        const { data: newInstance, error: createErr } = await supabase
+          .from('exercise_instances')
+          .insert({
+            user_id: userId,
+            exercise_id: def.id,
+            cycle_id: cycleId,
+            status: 'available',
+            locked: false,
+            available: true,
+            started: false,
+            completed: false,
+            expired: false,
+            unlock_time: new Date().toISOString(),
+            version: def.provider_version || '1.0'
+          })
+          .select()
+          .single();
 
-      switch (rules.strategy) {
-        case 'immediate':
-          if (currentDay >= 1) {
-            shouldUnlock = true;
-          }
-          break;
-        case 'day_milestone':
-          if (rules.day && currentDay >= rules.day) {
-            shouldUnlock = true;
-          }
-          break;
-        case 'manual':
-          // Require manual admin override
-          shouldUnlock = false;
-          break;
-        default:
-          // Placeholders for future triggers:
-          // 'weekly', 'monthly', 'branch', 'knowledge_trigger', 'pattern_trigger', 'assessment_trigger'
-          shouldUnlock = false;
-          break;
-      }
-
-      if (shouldUnlock) {
-        if (def.id === 'exercise_1') {
-          // Check prerequisites:
-          // 1. Completed Exercise 0
-          const { data: ex0, error: ex0Err } = await supabase
-            .from('exercise_instances')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('exercise_id', 'exercise_0')
-            .eq('status', 'finished')
-            .limit(1)
-            .maybeSingle();
-
-          if (ex0Err || !ex0) {
-            console.log(`[UnlockService] Skipping exercise_1 unlock for user ${userId}: Exercise 0 is not completed.`);
-            continue;
-          }
-
-          // 2. User has at least 9 journal entries
-          const { count: entriesCount, error: entriesErr } = await supabase
-            .from('entries')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', userId);
-
-          if (entriesErr || entriesCount === null || entriesCount < 9) {
-            console.log(`[UnlockService] Skipping exercise_1 unlock for user ${userId}: Under 9 entries (${entriesCount}).`);
-            continue;
-          }
-
-          // 3. Vocabulary Engine snapshot exists
-          const { data: vocabSnap, error: vocabErr } = await supabase
-            .from('vocab_snapshots')
-            .select('id')
-            .eq('user_id', userId)
-            .limit(1)
-            .maybeSingle();
-
-          if (vocabErr || !vocabSnap) {
-            console.log(`[UnlockService] Skipping exercise_1 unlock for user ${userId}: No vocabulary snapshot found.`);
-            continue;
-          }
-
-          // 4. Knowledge snapshot exists
-          const { data: knowledgeSnap, error: knowledgeErr } = await supabase
-            .from('knowledge_snapshots')
-            .select('id')
-            .eq('user_id', userId)
-            .limit(1)
-            .maybeSingle();
-
-          if (knowledgeErr || !knowledgeSnap) {
-            console.log(`[UnlockService] Skipping exercise_1 unlock for user ${userId}: No knowledge snapshot found.`);
-            continue;
-          }
-        } else if (def.id === 'exercise_2') {
-          // Check prerequisites for Exercise 2 (Inkblot):
-          // 1. Completed Exercise 0
-          const { data: ex0 } = await supabase
-            .from('exercise_instances')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('exercise_id', 'exercise_0')
-            .eq('status', 'finished')
-            .limit(1)
-            .maybeSingle();
-
-          if (!ex0) {
-            console.log(`[UnlockService] Skipping exercise_2 unlock for user ${userId}: Exercise 0 is not completed.`);
-            continue;
-          }
-
-          // 2. Completed Exercise 1
-          const { data: ex1 } = await supabase
-            .from('exercise_instances')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('exercise_id', 'exercise_1')
-            .eq('status', 'finished')
-            .limit(1)
-            .maybeSingle();
-
-          if (!ex1) {
-            console.log(`[UnlockService] Skipping exercise_2 unlock for user ${userId}: Exercise 1 is not completed.`);
-            continue;
-          }
-
-          // 3. User has completed at least 14 journal entries or reached Day 15
-          const { count: entriesCount } = await supabase
-            .from('entries')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', userId);
-
-          if (currentDay < 15 && (entriesCount === null || entriesCount < 14)) {
-            console.log(`[UnlockService] Skipping exercise_2 unlock for user ${userId}: Under Day 15 and under 14 entries (${entriesCount}).`);
-            continue;
-          }
+        if (createErr || !newInstance) {
+          console.error(`[UnlockService] Failed to insert instance for ${def.id}:`, createErr?.message);
+        } else {
+          console.log(`[UnlockService] ✅ Unlocked exercise ${def.id} for user ${userId}`);
+          newlyUnlocked.push(newInstance);
         }
-
-        try {
-          // Double check constraint check by attempting insertion
-          const { data: newInstance, error: createErr } = await supabase
-            .from('exercise_instances')
-            .insert({
-              user_id: userId,
-              exercise_id: def.id,
-              cycle_id: cycleId,
-              status: 'available',
-              locked: false,
-              available: true,
-              started: false,
-              completed: false,
-              expired: false,
-              unlock_time: new Date().toISOString(),
-              version: def.provider_version || '1.0'
-            })
-            .select()
-            .single();
-
-          if (createErr || !newInstance) {
-            console.error(`[UnlockService] Failed to insert instance for ${def.id}:`, createErr?.message);
-          } else {
-            console.log(`[UnlockService] ✅ Unlocked exercise ${def.id} for user ${userId}`);
-            newlyUnlocked.push(newInstance);
-
-            // Log event trace
-            await supabase.from('exercise_events').insert({
-              instance_id: newInstance.id,
-              user_id: userId,
-              event_type: 'unlocked',
-              payload: { strategy: rules.strategy, auto: true }
-            });
-
-            // Broadcast unlocked event via manager event flow (to notify orchestrator)
-            const { ExerciseEventPublisher } = await import('./exerciseEventPublisher');
-            await ExerciseEventPublisher.publishUnlocked(userId, {
-              instance_id: newInstance.id,
-              exercise_id: def.id,
-              cycle_id: cycleId
-            });
-          }
-        } catch (err: any) {
-          console.error(`[UnlockService] Error during unlock insertion for ${def.id}:`, err.message);
-        }
+      } catch (err: any) {
+        console.error(`[UnlockService] Error during unlock insertion for ${def.id}:`, err.message);
       }
     }
 
