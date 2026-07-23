@@ -34,7 +34,7 @@ function ExerciseContent({ user, profile, onSignOut }) {
     const handlePath = () => {
       if (typeof window !== 'undefined') {
         const pathParts = window.location.pathname.split('/');
-        const isExerciseRoute = pathParts[1] === 'exercise' || pathParts[1] === 'exercises';
+        const isExerciseRoute = pathParts[1] === 'exercise' || pathParts[1] === 'exercises' || pathParts[1] === 'assessment';
         const idFromPath = isExerciseRoute && pathParts[2] ? pathParts[2].replace(/\/$/, '') : '';
         setExerciseIdFromUrl(idFromPath);
       }
@@ -455,10 +455,13 @@ function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }
   const [activeAnalysisResult, setActiveAnalysisResult] = useState(null);
 
   // Fetch cycles for cycle-wise filtering
-  const { data: cyclesRes } = useQuery(['userCyclesList'], async () => {
-    const res = await fetch('/api/cycles');
-    if (!res.ok) return { cycles: [] };
-    return res.json();
+  const { data: cyclesRes } = useQuery({
+    queryKey: ['userCyclesList'],
+    queryFn: async () => {
+      const res = await fetch('/api/cycles');
+      if (!res.ok) return { cycles: [] };
+      return res.json();
+    }
   });
 
   const cycles = cyclesRes?.cycles || [];
