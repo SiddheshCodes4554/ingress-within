@@ -19,14 +19,43 @@ export async function GET(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const { id: instanceId } = await context.params;
+    const { id: rawId } = await context.params;
 
-    const { data: result, error } = await supabase
+    let targetInstanceId = rawId;
+
+    // If rawId is an exercise_id (e.g. exercise_1), resolve instance_id from active cycle
+    if (rawId.startsWith('exercise_') || rawId.startsWith('cbt_')) {
+      const { data: inst } = await supabase
+        .from('exercise_instances')
+        .select('id')
+        .eq('user_id', authUser.userId)
+        .eq('exercise_id', rawId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (inst) {
+        targetInstanceId = inst.id;
+      }
+    }
+
+    let { data: result, error } = await supabase
       .from('exercise_results')
       .select('*')
-      .eq('instance_id', instanceId)
+      .eq('instance_id', targetInstanceId)
       .eq('user_id', authUser.userId)
       .maybeSingle();
+
+    if (!result && targetInstanceId !== rawId) {
+      // Fallback query directly by rawId as instance_id
+      const { data: altResult } = await supabase
+        .from('exercise_results')
+        .select('*')
+        .eq('instance_id', rawId)
+        .eq('user_id', authUser.userId)
+        .maybeSingle();
+      if (altResult) result = altResult;
+    }
 
     if (error) {
       return NextResponse.json(

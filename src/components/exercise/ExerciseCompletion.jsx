@@ -31,7 +31,7 @@ export default function ExerciseCompletion({ instanceId, onComplete }) {
         const res = await fetch('/api/exercises/status');
         if (res.ok) {
           const data = await res.json();
-          const target = (data.statuses || []).find(s => s.instance?.id === instanceId || s.instance?.id);
+          const target = (data.statuses || []).find(s => (instanceId && s.instance?.id === instanceId) || (s.instance && ['finished', 'failed'].includes(s.instance.status)));
           if (target) {
             if (target.status === 'finished' || target.instance?.status === 'finished') {
               if (active) onComplete();

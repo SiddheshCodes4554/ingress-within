@@ -333,23 +333,30 @@ function ExerciseContent({ user, profile, onSignOut }) {
   };
 
   const renderActiveScreen = () => {
+    const currentStatus = matchedStatus?.status || instance?.status;
+
     // Finished/Analysis mode
-    if (instance?.status === 'finished') {
+    if (currentStatus === 'finished' || instance?.status === 'finished') {
       return (
         <ExerciseAnalysis
           exerciseId={exerciseIdFromUrl}
           result={resultRes?.result}
-          onClose={() => window.navigateTo('/dashboard')}
+          onClose={() => window.navigateTo('/exercise')}
         />
       );
     }
 
     // Polling mode during AI evaluation
-    if (instance?.status === 'completed' || instance?.status === 'queued' || instance?.status === 'analysing' || currentStepIndex > questions.length) {
+    if (currentStatus === 'completed' || currentStatus === 'queued' || currentStatus === 'analysing' || currentStepIndex > questions.length) {
       return (
         <ExerciseCompletion
-          instanceId={instance.id}
-          onComplete={() => queryClient.invalidateQueries(['currentExercise'])}
+          instanceId={instance?.id}
+          onComplete={() => {
+            queryClient.invalidateQueries({ queryKey: ['currentExercise'] });
+            queryClient.invalidateQueries({ queryKey: ['exerciseStatus'] });
+            queryClient.invalidateQueries({ queryKey: ['exerciseHistory'] });
+            queryClient.invalidateQueries({ queryKey: ['exerciseResult'] });
+          }}
         />
       );
     }
