@@ -2157,66 +2157,68 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                 const isOpen = !!openCycles[cycle.id];
                 const isCurrent = cycle.status === 'active' || cycle.status === 'ACTIVE';
 
-                return (
-                  <div key={cycle.id} className="bg-white border border-[#1E2A2E]/10 rounded-xl overflow-hidden shadow-xs">
-                    <div
-                      onClick={() => handleToggleCycle(cycle.id)}
-                      className="flex items-center justify-between p-3.5 cursor-pointer hover:bg-[#F5F8F8] transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        {isCurrent ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#e0a898]/15 text-[#8a3020]">
-                            Current
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#8DBFB4]/12 text-[#1A5040]">
-                            Completed
-                          </span>
-                        )}
-                        <div>
-                          <div className="text-[13.5px] font-semibold">Cycle {cycle.cycle_number}</div>
-                          <div className="text-[11px] text-[#8DBFB4] mt-0.5">
-                            {cycle.start_date ? new Date(cycle.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Started'} – {cycle.end_date ? new Date(cycle.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Active'}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-[#8DBFB4] hidden sm:inline">
-                          {cycleReports.length} summaries · {cycle.assessment_completed ? 'report unlocked' : 'report locked'}
-                        </span>
-                        <ChevronDown size={16} className={`text-mid transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                      </div>
-                    </div>
+                      const isDay28Unlocked = cycle.assessment_completed || cycle.assessment_available || cycle.status === 'COMPLETED' || cycle.status === 'completed' || (cycle.current_day && cycle.current_day >= 28);
 
-                    {isOpen && (
-                      <div className="border-t border-[#1E2A2E]/5 bg-[#FAFBFB] divide-y divide-[#1E2A2E]/5">
-                        {/* Day 28 Report Section */}
-                        <div className="px-3.5 py-1.5 bg-[#F5F8F8] text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">
-                          Day 28 report
-                        </div>
-                        {cycle.assessment_completed ? (
+                      return (
+                        <div key={cycle.id} className="bg-white border border-[#1E2A2E]/10 rounded-xl overflow-hidden shadow-xs">
                           <div
-                            onClick={() => handleOpenAssessment(cycle.id)}
-                            className="p-3.5 flex items-center justify-between hover:bg-[#F5F8F8]/60 cursor-pointer bg-white transition-colors group"
+                            onClick={() => handleToggleCycle(cycle.id)}
+                            className="flex items-center justify-between p-3.5 cursor-pointer hover:bg-[#F5F8F8] transition-colors"
                           >
                             <div className="flex items-center gap-3">
-                              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#e0a898]/15 text-[#8a3020]">
-                                New
-                              </span>
+                              {isCurrent ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#e0a898]/15 text-[#8a3020]">
+                                  Current
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#8DBFB4]/12 text-[#1A5040]">
+                                  Completed
+                                </span>
+                              )}
                               <div>
-                                <div className="text-[13px] font-semibold text-primary group-hover:text-secondary-dark transition-colors">Day 28 report</div>
-                                <div className="text-[11px] text-[#4A6A64]">Completed cycle analysis</div>
+                                <div className="text-[13.5px] font-semibold">Cycle {cycle.cycle_number}</div>
+                                <div className="text-[11px] text-[#8DBFB4] mt-0.5">
+                                  {cycle.start_date ? new Date(cycle.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Started'} – {cycle.end_date ? new Date(cycle.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Active'}
+                                </div>
                               </div>
                             </div>
                             <div className="flex items-center gap-4">
-                              <button onClick={(e) => handleDownloadAssessment(e, cycle.id)} className="text-[#8DBFB4] hover:text-primary transition-colors border-none bg-transparent">
-                                <Download size={15} />
-                              </button>
-                              <span className="text-xs font-semibold text-primary flex items-center gap-0.5">
-                                Read <ArrowLeft size={11} className="rotate-180" />
+                              <span className="text-[11px] text-[#8DBFB4] hidden sm:inline">
+                                {cycleReports.length} summaries · {isDay28Unlocked ? 'report unlocked' : 'report locked'}
                               </span>
+                              <ChevronDown size={16} className={`text-mid transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                             </div>
                           </div>
+
+                          {isOpen && (
+                            <div className="border-t border-[#1E2A2E]/5 bg-[#FAFBFB] divide-y divide-[#1E2A2E]/5">
+                              {/* Day 28 Report Section */}
+                              <div className="px-3.5 py-1.5 bg-[#F5F8F8] text-[9.5px] font-bold tracking-widest text-[#8DBFB4] uppercase">
+                                Day 28 report
+                              </div>
+                              {isDay28Unlocked ? (
+                                <div
+                                  onClick={() => handleOpenAssessment(cycle.id)}
+                                  className="p-3.5 flex items-center justify-between hover:bg-[#F5F8F8]/60 cursor-pointer bg-white transition-colors group"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#e0a898]/15 text-[#8a3020]">
+                                      New
+                                    </span>
+                                    <div>
+                                      <div className="text-[13px] font-semibold text-primary group-hover:text-secondary-dark transition-colors">Day 28 report</div>
+                                      <div className="text-[11px] text-[#4A6A64]">Completed cycle analysis</div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-4">
+                                    <button onClick={(e) => handleDownloadAssessment(e, cycle.id)} className="text-[#8DBFB4] hover:text-primary transition-colors border-none bg-transparent">
+                                      <Download size={15} />
+                                    </button>
+                                    <span className="text-xs font-semibold text-primary flex items-center gap-0.5">
+                                      Read <ArrowLeft size={11} className="rotate-180" />
+                                    </span>
+                                  </div>
+                                </div>
                         ) : (
                           <div className="p-3.5 flex items-center justify-between bg-white text-mid">
                             <div className="flex items-center gap-3">

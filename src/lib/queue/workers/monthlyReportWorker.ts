@@ -28,74 +28,45 @@ export async function processMonthlyReport(jobData: {
   const validEntries = (entries || []).filter(e => e.entry_type !== 'empty');
   const entry_count = validEntries.length;
 
-  // 2. Minimum entry validation
-  if (entry_count < 20) {
-    console.warn(`[Monthly Report Worker] User ${user_id} has only ${entry_count}/20 valid entries. Holding report.`);
-    if (assessment_id) {
-      await supabase
-        .from('assessments')
-        .update({
-          generation_status: 'held',
-          entry_count,
-          ei_avg: 0,
-          pr_avg: 0,
-          sa_avg: 0,
-          dt_score: 0,
-          normalised_sa: 0,
-          risk_total: 0,
-          path_assignment: 'second_cycle',
-          branch_assignment: 'A'
-        })
-        .eq('id', assessment_id);
-    }
-    if (monthly_score_id) {
-      await supabase
-        .from('monthly_scores')
-        .update({
-          generation_status: 'held',
-          entry_count,
-          ei_score: 0,
-          pr_score: 0,
-          sa_score: 0,
-          dt_score: 0,
-          primary_dimension: 'PR',
-          routing_action: 'no_change'
-        })
-        .eq('id', monthly_score_id);
-    }
-    return;
-  }
-
-  // 3. Compute Averages
-  const ei_avg = parseFloat((validEntries.reduce((sum, e) => sum + Number(e.day_ei || 0), 0) / entry_count).toFixed(2));
-  const pr_avg = parseFloat((validEntries.reduce((sum, e) => sum + Number(e.day_pr || 0), 0) / entry_count).toFixed(2));
-  const sa_avg = parseFloat((validEntries.reduce((sum, e) => sum + Number(e.day_sa || 0), 0) / entry_count).toFixed(2));
+  // 3. Compute Averages (handling sparse/zero entry cycles gracefully)
+  const ei_avg = entry_count > 0 
+    ? parseFloat((validEntries.reduce((sum, e) => sum + Number(e.day_ei || 5), 0) / entry_count).toFixed(2))
+    : 5.0;
+  const pr_avg = entry_count > 0 
+    ? parseFloat((validEntries.reduce((sum, e) => sum + Number(e.day_pr || 5), 0) / entry_count).toFixed(2))
+    : 5.0;
+  const sa_avg = entry_count > 0 
+    ? parseFloat((validEntries.reduce((sum, e) => sum + Number(e.day_sa || 5), 0) / entry_count).toFixed(2))
+    : 5.0;
 
   // 4. Derive Distress Trajectory (DT)
-  const sorted = [...validEntries].sort((a, b) => {
-    const timeA = new Date(a.written_at || a.created_at).getTime();
-    const timeB = new Date(b.written_at || b.created_at).getTime();
-    return timeA - timeB;
-  });
+  let dt_score = 5.0;
+  if (entry_count > 1) {
+    const sorted = [...validEntries].sort((a, b) => {
+      const timeA = new Date(a.written_at || a.created_at).getTime();
+      const timeB = new Date(b.written_at || b.created_at).getTime();
+      return timeA - timeB;
+    });
 
-  const midpoint = Math.floor(sorted.length / 2);
-  const early = sorted.slice(0, midpoint);
-  const late = sorted.slice(midpoint);
+    const midpoint = Math.floor(sorted.length / 2);
+    const early = sorted.slice(0, midpoint);
+    const late = sorted.slice(midpoint);
 
-  const early_ei = early.reduce((sum, e) => sum + Number(e.day_ei || 0), 0) / early.length;
-  const early_pr = early.reduce((sum, e) => sum + Number(e.day_pr || 0), 0) / early.length;
-  const early_sa = early.reduce((sum, e) => sum + Number(e.day_sa || 0), 0) / early.length;
+    const early_ei = early.reduce((sum, e) => sum + Number(e.day_ei || 5), 0) / (early.length || 1);
+    const early_pr = early.reduce((sum, e) => sum + Number(e.day_pr || 5), 0) / (early.length || 1);
+    const early_sa = early.reduce((sum, e) => sum + Number(e.day_sa || 5), 0) / (early.length || 1);
 
-  const late_ei = late.reduce((sum, e) => sum + Number(e.day_ei || 0), 0) / late.length;
-  const late_pr = late.reduce((sum, e) => sum + Number(e.day_pr || 0), 0) / late.length;
-  const late_sa = late.reduce((sum, e) => sum + Number(e.day_sa || 0), 0) / late.length;
+    const late_ei = late.reduce((sum, e) => sum + Number(e.day_ei || 5), 0) / (late.length || 1);
+    const late_pr = late.reduce((sum, e) => sum + Number(e.day_pr || 5), 0) / (late.length || 1);
+    const late_sa = late.reduce((sum, e) => sum + Number(e.day_sa || 5), 0) / (late.length || 1);
 
-  const ei_traj = early_ei - late_ei;
-  const pr_traj = early_pr - late_pr;
-  const sa_traj = late_sa - early_sa; // Flipped: positive is improvement
+    const ei_traj = early_ei - late_ei;
+    const pr_traj = early_pr - late_pr;
+    const sa_traj = late_sa - early_sa; // Flipped: positive is improvement
 
-  const raw_dt = (ei_traj + pr_traj + sa_traj) / 3;
-  const dt_score = parseFloat((10 - ((raw_dt + 9) / 18 * 9)).toFixed(2));
+    const raw_dt = (ei_traj + pr_traj + sa_traj) / 3;
+    dt_score = parseFloat((10 - ((raw_dt + 9) / 18 * 9)).toFixed(2));
+  }
 
   // 5. Normalised SA and Risk Total
   const normalised_sa = parseFloat((11 - sa_avg).toFixed(2));

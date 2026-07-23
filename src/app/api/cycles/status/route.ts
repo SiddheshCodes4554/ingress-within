@@ -162,9 +162,10 @@ export async function GET(request: NextRequest) {
         await supabase
           .from('assessments')
           .delete()
-          .eq('user_id', userId);
+          .eq('user_id', userId)
+          .eq('cycle_id', transitionBaseCycle.id);
 
-        await supabase
+        const { data: newAssessment } = await supabase
           .from('assessments')
           .insert({
             user_id: userId,
@@ -179,11 +180,21 @@ export async function GET(request: NextRequest) {
             branch_assignment: 'A',
             stability_gate_triggered: false,
             entry_count: entriesCount || 0,
-            generation_status: 'ready',
-            report_text: `Auto-Transition Assessment for Cycle ${transitionBaseCycle.cycle_number || transitionBaseCycle.number}.`,
-            unlocked_at: new Date().toISOString(),
-            generated_at: new Date().toISOString()
+            generation_status: 'pending',
+            unlocked_at: new Date().toISOString()
+          })
+          .select()
+          .maybeSingle();
+
+        if (newAssessment) {
+          const { queueRegistry } = await import('../../../../lib/queue/registry');
+          await queueRegistry.addJob('monthly_report_generation', `assessment_${newAssessment.id}`, {
+            cycle_id: transitionBaseCycle.id,
+            user_id: userId,
+            assessment_id: newAssessment.id,
+            month_number: transitionBaseCycle.cycle_number || transitionBaseCycle.number || 1
           });
+        }
       } catch (err) {
         console.error('[API Cycles Status] Non-fatal error inserting auto-assessment:', err);
       }

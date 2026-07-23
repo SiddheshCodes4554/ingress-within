@@ -1,5 +1,6 @@
 import { supabase } from '../db';
 import { IntelligenceOrchestrator } from './intelligenceOrchestrator';
+import { ExerciseUnlockService } from '../exercises/exerciseUnlockService';
 
 export interface RepairAuditResult {
   userId: string;
@@ -183,51 +184,76 @@ export class IntelligenceRepairService {
           }
         }
 
-        // Audit Cycle Assessment Report (Day 30+)
-        if (cycleDay >= 30) {
-          const { data: assessment } = await supabase
-            .from('assessments')
-            .select('id, generation_status')
-            .eq('cycle_id', activeCycle.id)
+        // Audit Cycle Assessment Reports for all completed or Day 28+ cycles
+        const { data: allUserCycles } = await supabase
+          .from('cycles')
+          .select('*')
+          .eq('user_id', userId);
+
+        for (const userCycle of allUserCycles || []) {
+          const { data: maxEntry } = await supabase
+            .from('entries')
+            .select('cycle_day')
+            .eq('user_id', userId)
+            .eq('cycle_id', userCycle.id)
+            .order('cycle_day', { ascending: false })
+            .limit(1)
             .maybeSingle();
 
-          if (!assessment || assessment.generation_status === 'pending' || assessment.generation_status === 'failed') {
-            console.log(`[RepairService] Missing or failed Cycle Report for cycle ${activeCycle.id}. Queueing repair...`);
-            let assId = assessment?.id;
-            if (!assId) {
-              const { data: newAss } = await supabase
-                .from('assessments')
-                .insert({
-                  user_id: userId,
-                  cycle_id: activeCycle.id,
-                  generation_status: 'pending',
-                  unlocked_at: new Date().toISOString(),
-                  ei_avg: 0,
-                  pr_avg: 0,
-                  sa_avg: 0,
-                  dt_score: 0,
-                  normalised_sa: 0,
-                  risk_total: 0,
-                  path_assignment: 'second_cycle',
-                  branch_assignment: 'A',
-                  entry_count: 0
-                })
-                .select('id')
-                .single();
-              assId = newAss?.id;
-            }
+          const { data: userRec } = await supabase.from('users').select('timezone').eq('id', userId).maybeSingle();
+          const userTz = userRec?.timezone || 'UTC';
+          const calculatedDay = ExerciseUnlockService.calculateCycleDay(userCycle.start_date, userTz);
+          const cDay = Math.max(maxEntry?.cycle_day || 0, calculatedDay);
+          const isDue = cDay >= 28 || userCycle.status === 'COMPLETED' || userCycle.status === 'completed' || userCycle.assessment_available || userCycle.assessment_completed;
 
-            if (assId) {
-              const jobId = await IntelligenceOrchestrator.enqueueJob(userId, 'assessment', `Repair:Assessment:${activeCycle.id}`);
-              await queueRegistry.addJob('monthly_report_generation', `assessment_repair_${assId}`, {
-                cycle_id: activeCycle.id,
-                user_id: userId,
-                assessment_id: assId,
-                month_number: 1,
-                orchestrator_job_id: jobId
-              });
-              repairedCounts.cycleReports++;
-              logs.push(`Queued missing cycle report assessment for cycle ${activeCycle.id}`);
+          if (isDue) {
+            const { data: assessment } = await supabase
+              .from('assessments')
+              .select('id, generation_status, report_text')
+              .eq('cycle_id', userCycle.id)
+              .maybeSingle();
+
+            const isPlaceholder = !assessment?.report_text || assessment.report_text.length < 50 || assessment.report_text.startsWith('Auto-Transition') || assessment.report_text.startsWith('Completed Transition');
+            const needsRepair = !assessment || assessment.generation_status !== 'ready' || isPlaceholder;
+
+            if (needsRepair) {
+              console.log(`[RepairService] Missing, held or placeholder Cycle Report for cycle ${userCycle.id}. Queueing repair...`);
+              let assId = assessment?.id;
+              if (!assId) {
+                const { data: newAss } = await supabase
+                  .from('assessments')
+                  .insert({
+                    user_id: userId,
+                    cycle_id: userCycle.id,
+                    generation_status: 'pending',
+                    unlocked_at: new Date().toISOString(),
+                    ei_avg: 0,
+                    pr_avg: 0,
+                    sa_avg: 0,
+                    dt_score: 0,
+                    normalised_sa: 0,
+                    risk_total: 0,
+                    path_assignment: 'second_cycle',
+                    branch_assignment: 'A',
+                    entry_count: 0
+                  })
+                  .select('id')
+                  .single();
+                assId = newAss?.id;
+              }
+
+              if (assId) {
+                const jobId = await IntelligenceOrchestrator.enqueueJob(userId, 'assessment', `Repair:Assessment:${userCycle.id}`);
+                await queueRegistry.addJob('monthly_report_generation', `assessment_repair_${assId}`, {
+                  cycle_id: userCycle.id,
+                  user_id: userId,
+                  assessment_id: assId,
+                  month_number: userCycle.cycle_number || userCycle.number || 1,
+                  orchestrator_job_id: jobId
+                });
+                repairedCounts.cycleReports++;
+                logs.push(`Queued missing cycle report assessment for cycle ${userCycle.id}`);
+              }
             }
           }
         }

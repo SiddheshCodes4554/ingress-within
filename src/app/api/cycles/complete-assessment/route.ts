@@ -67,12 +67,12 @@ export async function POST(request: NextRequest) {
       .eq('cycle_id', cycle.id)
       .eq('user_id', userId);
 
-    // 3. Create transition assessment report
-    // Delete existing assessments for this user to satisfy assessments_user_id_key unique constraint
+    // 3. Create transition assessment report for this specific cycle
     await supabase
       .from('assessments')
       .delete()
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('cycle_id', cycle.id);
 
     const { error: assessmentErr } = await supabase
       .from('assessments')

@@ -204,6 +204,59 @@ export async function backfillWeeklyReports(userId: string): Promise<BackfillRes
           }
         }
       }
+
+      // Also audit monthly assessment report for completed / Day 28+ cycle
+      const isCycleAssessmentDue = isCycleCompleted || currentDay >= 28 || cycle.assessment_available || cycle.assessment_completed;
+      if (isCycleAssessmentDue) {
+        const { data: assessment } = await supabase
+          .from('assessments')
+          .select('id, generation_status, report_text')
+          .eq('cycle_id', cycleId)
+          .maybeSingle();
+
+        const isPlaceholder = !assessment?.report_text || assessment.report_text.length < 50 || assessment.report_text.startsWith('Auto-Transition') || assessment.report_text.startsWith('Completed Transition');
+        const needsGeneration = !assessment || assessment.generation_status !== 'ready' || isPlaceholder;
+
+        if (needsGeneration) {
+          console.log(`[Backfill Orchestrator] Generating/repairing monthly report for cycle ${cycleId}`);
+          let assId = assessment?.id;
+          if (!assId) {
+            const { data: newAss } = await supabase
+              .from('assessments')
+              .insert({
+                user_id: userId,
+                cycle_id: cycleId,
+                generation_status: 'pending',
+                unlocked_at: new Date().toISOString(),
+                ei_avg: 0,
+                pr_avg: 0,
+                sa_avg: 0,
+                dt_score: 0,
+                normalised_sa: 0,
+                risk_total: 0,
+                path_assignment: 'second_cycle',
+                branch_assignment: 'A',
+                entry_count: 0
+              })
+              .select('id')
+              .single();
+            assId = newAss?.id;
+          }
+
+          if (assId) {
+            try {
+              const { processMonthlyReport } = await import('./queue/workers/monthlyReportWorker');
+              await processMonthlyReport({
+                cycle_id: cycleId,
+                user_id: userId,
+                assessment_id: assId
+              });
+            } catch (monthlyErr: any) {
+              console.error(`[Backfill Orchestrator] Error processing monthly report for cycle ${cycleId}:`, monthlyErr.message);
+            }
+          }
+        }
+      }
     }
   } catch (err: any) {
     console.error('[Backfill Orchestrator] Fatal error during backfill run:', err.message || err);

@@ -254,7 +254,7 @@ export class OrchestratorScheduler {
     try {
       const { data: activeCycle } = await supabase
         .from('cycles')
-        .select('id, start_date')
+        .select('id, start_date, status, assessment_completed, assessment_available')
         .eq('user_id', userId)
         .eq('status', 'ACTIVE')
         .maybeSingle();
@@ -278,7 +278,9 @@ export class OrchestratorScheduler {
         const calculatedDay = ExerciseUnlockService.calculateCycleDay(activeCycle.start_date, userTz);
         const cycleDay = Math.max(maxEntry?.cycle_day || 0, calculatedDay);
 
-        if (cycleDay >= 30) {
+        const isAssessmentDue = cycleDay >= 28 || activeCycle.status === 'COMPLETED' || activeCycle.status === 'completed' || activeCycle.assessment_available || activeCycle.assessment_completed;
+
+        if (isAssessmentDue) {
           // Check if assessment already exists
           const { data: existingAssessment } = await supabase
             .from('assessments')
