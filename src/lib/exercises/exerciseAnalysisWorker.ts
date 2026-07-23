@@ -148,15 +148,25 @@ export class ExerciseAnalysisWorker {
 
         // Fetch stimulus list sequence
         const stimulusRecord = (respList || []).find((r: any) => r.question_id === '__stimulus_list');
-        const stimulusList: string[] = stimulusRecord ? (stimulusRecord.response as string[]) : [];
+        const stimulusList: string[] = (stimulusRecord && Array.isArray(stimulusRecord.response) && stimulusRecord.response.length > 0)
+          ? (stimulusRecord.response as string[])
+          : ['Trust', 'Control', 'Boundary', 'Anger', 'Fear', 'Peace', 'Clarity', 'Attachment', 'Validation', 'Truth'];
 
         // Build stimulus response formatting lines
         const lines: string[] = [];
         stimulusList.forEach((word, idx) => {
-          const matchingAns = (respList || []).find((r: any) => r.question_id === `q_${idx + 1}`);
+          const matchingAns = (respList || []).find((r: any) => r.question_id === `q_${idx + 1}` || r.question_id === `q${idx + 1}`);
           const ansText = matchingAns ? String(matchingAns.response) : '(no response)';
           lines.push(`${idx + 1}. ${word} → ${ansText}`);
         });
+
+        if (lines.every(l => l.includes('(no response)'))) {
+          (respList || []).forEach((r: any, i: number) => {
+            if (r.question_id !== '__screen_state' && r.question_id !== '__stimulus_list') {
+              lines.push(`Item ${i + 1} (${r.question_id}) → ${String(r.response)}`);
+            }
+          });
+        }
 
         const responsesFormatted = lines.join('\n');
 

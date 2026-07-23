@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     const { data: history, error } = await supabase
       .from('exercise_instances')
-      .select('*, definition:exercise_definitions(*)')
+      .select('*, definition:exercise_definitions(*), results:exercise_results(*)')
       .eq('user_id', authUser.userId)
       .in('status', ['finished', 'completed', 'archived'])
       .order('completion_time', { ascending: false });

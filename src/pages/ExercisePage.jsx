@@ -408,7 +408,7 @@ function ExerciseContent({ user, profile, onSignOut }) {
         ) : (
           <ExerciseLayout stepKey={currentStepIndex} direction={direction}>
             <div>
-              <ExerciseHeader title={def.title} onClose={() => window.navigateTo('/dashboard')} />
+              <ExerciseHeader title={def.title} onClose={() => window.navigateTo('/exercise')} />
               <div className="py-2">
                 {renderActiveScreen()}
               </div>
@@ -451,22 +451,42 @@ const EXERCISE_META = {
 
 function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }) {
   const [filter, setFilter] = useState('all');
+  const [selectedCycleId, setSelectedCycleId] = useState('all');
+  const [activeAnalysisResult, setActiveAnalysisResult] = useState(null);
+
+  // Fetch cycles for cycle-wise filtering
+  const { data: cyclesRes } = useQuery(['userCyclesList'], async () => {
+    const res = await fetch('/api/cycles');
+    if (!res.ok) return { cycles: [] };
+    return res.json();
+  });
+
+  const cycles = cyclesRes?.cycles || [];
+
+  // Filter lists by status and selected cycle
+  const filterByCycle = (itemCycleId) => {
+    if (selectedCycleId === 'all') return true;
+    return itemCycleId === selectedCycleId;
+  };
 
   const pendingList = (statuses || []).filter(
-    s => s.instance && ['started', 'draft', 'queued', 'analysing'].includes(s.instance.status)
+    s => s.instance && ['started', 'draft', 'queued', 'analysing'].includes(s.instance.status) && filterByCycle(s.instance.cycle_id)
   );
 
   const availableList = (statuses || []).filter(
-    s => s.status === 'available' || (s.instance && s.instance.status === 'available')
+    s => (s.status === 'available' || (s.instance && s.instance.status === 'available')) && filterByCycle(s.instance?.cycle_id)
   );
 
-  const completedList = (history || []).map(h => ({
-    id: h.id,
-    exercise_id: h.exercise_id,
-    title: EXERCISE_META[h.exercise_id]?.title || h.definition?.title || h.exercise_id,
-    completed_at: h.completion_time || h.updated_at,
-    instance: h
-  }));
+  const completedList = (history || [])
+    .filter(h => filterByCycle(h.cycle_id))
+    .map(h => ({
+      id: h.id,
+      exercise_id: h.exercise_id,
+      title: EXERCISE_META[h.exercise_id]?.title || h.definition?.title || h.exercise_id,
+      completed_at: h.completion_time || h.updated_at,
+      instance: h,
+      results: h.results?.[0] || null
+    }));
 
   const lockedList = (statuses || []).filter(
     s => s.status === 'locked' && !s.instance
@@ -477,18 +497,61 @@ function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }
       <DashboardNavbar user={user} profile={profile} onSignOut={onSignOut} activeLink="exercises" />
       
       <main className="flex-1 max-w-[1000px] w-full mx-auto px-4 md:px-6 py-8 space-y-8 text-left">
-        {/* Header */}
-        <div className="space-y-3 border-b border-[#1E2A2E]/10 pb-6">
+        {/* Modal for Viewing Past Completed Exercise AI Analysis */}
+        {activeAnalysisResult && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-premium p-6 md:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative">
+              <button
+                onClick={() => setActiveAnalysisResult(null)}
+                className="absolute top-4 right-4 p-2 rounded-full hover:bg-primary/5 text-primary/40 hover:text-primary transition-all cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+              <ExerciseAnalysis
+                exerciseId={activeAnalysisResult.exerciseId}
+                result={activeAnalysisResult.result}
+                onClose={() => setActiveAnalysisResult(null)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Header & Cycle Filter Controls */}
+        <div className="space-y-4 border-b border-[#1E2A2E]/10 pb-6">
           <div className="flex items-center gap-2 font-label-md text-xs font-semibold uppercase tracking-wider text-accent">
             <Sparkles size={14} />
             <span>Assessments & Projective Framework</span>
           </div>
-          <h1 className="font-serif text-2xl md:text-3xl font-normal text-primary">
-            Cycle Assessments & Exercises
-          </h1>
-          <p className="text-sm text-primary/70 max-w-2xl leading-relaxed">
-            Reflective exercises designed to map your baseline personality, emotional language, and projective patterns across your cycle.
-          </p>
+          
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="font-serif text-2xl md:text-3xl font-normal text-primary">
+                Cycle Assessments & Exercises
+              </h1>
+              <p className="text-sm text-primary/70 max-w-2xl leading-relaxed mt-1">
+                Reflective exercises designed to map your baseline personality, emotional language, and projective patterns across your cycle.
+              </p>
+            </div>
+
+            {/* Cycle Selector Dropdown/Tabs */}
+            {cycles.length > 0 && (
+              <div className="flex items-center gap-2 bg-white/80 border border-primary/10 rounded-xl p-1.5 self-start md:self-auto shadow-xs">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-primary/50 px-2">Cycle:</span>
+                <select
+                  value={selectedCycleId}
+                  onChange={(e) => setSelectedCycleId(e.target.value)}
+                  className="bg-transparent text-xs font-semibold text-primary focus:outline-none cursor-pointer pr-2"
+                >
+                  <option value="all">All Cycles</option>
+                  {cycles.map((c, idx) => (
+                    <option key={c.id} value={c.id}>
+                      Cycle {cycles.length - idx} {c.status === 'ACTIVE' ? '(Current Active)' : '(Completed)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
 
           {/* Filter Pills */}
           <div className="flex flex-wrap gap-2 pt-2">
@@ -551,16 +614,21 @@ function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }
                         </div>
 
                         <p className="text-xs text-primary/70 leading-relaxed">
-                          {meta.description || item.definition.description || 'Resume your saved progress or check analysis status.'}
+                          {meta.description || item.definition.description || 'Resume your saved progress anytime from where you left off.'}
                         </p>
 
-                        <button
-                          onClick={() => window.navigateTo(`/exercise/${item.definition.id}`)}
-                          className="w-full py-2.5 px-4 rounded-xl bg-primary text-mint-grey font-sans text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-[#2A3A3E] transition-all cursor-pointer"
-                        >
-                          <span>Resume Assessment</span>
-                          <ArrowRight size={14} />
-                        </button>
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[11px] text-amber-900/80 font-medium">
+                            Draft saved · Ready to resume
+                          </span>
+                          <button
+                            onClick={() => window.navigateTo(`/exercise/${item.definition.id}`)}
+                            className="py-2 px-4 rounded-xl bg-primary text-mint-grey font-sans text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#2A3A3E] transition-all cursor-pointer shadow-xs"
+                          >
+                            <span>Resume</span>
+                            <ArrowRight size={14} />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -604,7 +672,7 @@ function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }
 
                         <button
                           onClick={() => window.navigateTo(`/exercise/${item.definition.id}`)}
-                          className="w-full py-2.5 px-4 rounded-xl bg-primary text-mint-grey font-sans text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-[#2A3A3E] transition-all cursor-pointer"
+                          className="w-full py-2.5 px-4 rounded-xl bg-primary text-mint-grey font-sans text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-[#2A3A3E] transition-all cursor-pointer shadow-xs"
                         >
                           <span>Begin Assessment</span>
                           <ArrowRight size={14} />
@@ -616,7 +684,7 @@ function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }
               </div>
             )}
 
-            {/* 3. Completed Section */}
+            {/* 3. Completed Section with AI Results Inspection */}
             {(filter === 'all' || filter === 'completed') && completedList.length > 0 && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary/60">
@@ -625,34 +693,49 @@ function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {completedList.map(item => (
-                    <div
-                      key={item.id}
-                      className="p-5 rounded-2xl bg-surface-container-low/60 border border-primary/5 space-y-4 text-left shadow-xs"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary/80">
-                            Completed
-                          </span>
-                          <h3 className="font-serif text-lg text-primary font-semibold">
-                            {item.title}
-                          </h3>
-                        </div>
-                        <span className="text-[10px] text-primary/40 font-mono">
-                          {item.completed_at ? new Date(item.completed_at).toLocaleDateString('en-GB') : ''}
-                        </span>
-                      </div>
-
-                      <button
-                        onClick={() => window.navigateTo(`/exercise/${item.exercise_id}`)}
-                        className="w-full py-2.5 px-4 rounded-xl border border-primary/20 bg-white text-primary font-sans text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-surface-container-low transition-all cursor-pointer"
+                  {completedList.map(item => {
+                    const resData = item.results;
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-5 rounded-2xl bg-surface-container-low/60 border border-primary/10 space-y-4 text-left shadow-xs hover:border-primary/20 transition-all"
                       >
-                        <span>View Results & Reflection</span>
-                        <ArrowRight size={14} />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-1">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary/80">
+                              Completed
+                            </span>
+                            <h3 className="font-serif text-lg text-primary font-semibold">
+                              {item.title}
+                            </h3>
+                          </div>
+                          <span className="text-[10px] text-primary/50 font-mono bg-white px-2 py-1 rounded border border-primary/5">
+                            {item.completed_at ? new Date(item.completed_at).toLocaleDateString('en-GB') : ''}
+                          </span>
+                        </div>
+
+                        {resData?.summary && (
+                          <p className="text-xs text-primary/80 leading-relaxed bg-white/70 p-3 rounded-xl border border-primary/5 italic">
+                            "{resData.summary}"
+                          </p>
+                        )}
+
+                        <button
+                          onClick={() => {
+                            if (resData) {
+                              setActiveAnalysisResult({ result: resData, exerciseId: item.exercise_id });
+                            } else {
+                              window.navigateTo(`/exercise/${item.exercise_id}`);
+                            }
+                          }}
+                          className="w-full py-2.5 px-4 rounded-xl border border-primary/20 bg-white text-primary font-sans text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-primary hover:text-mint-grey transition-all cursor-pointer shadow-xs"
+                        >
+                          <span>View Full AI Analysis & Results</span>
+                          <ArrowRight size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

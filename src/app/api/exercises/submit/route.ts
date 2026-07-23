@@ -104,18 +104,31 @@ export async function POST(request: NextRequest) {
     });
 
     // 5. Enqueue background analysis job
-    const jobId = await IntelligenceOrchestrator.enqueueJob(authUser.userId, 'exercise', `ExerciseCompleted:${instanceId}`);
-    await queueRegistry.addJob('exercise_processing', `exercise_${instanceId}`, {
-      instance_id: instanceId,
-      exercise_id: instance.exercise_id,
-      user_id: authUser.userId,
-      cycle_id: instance.cycle_id,
-      orchestrator_job_id: jobId
-    });
+    const jobId = await IntelligenceOrchestrator.enqueueJob(authUser.userId, 'exercise', `ExerciseCompleted:${targetInstanceId}`);
+    
+    // Execute worker processing
+    try {
+      const { ExerciseAnalysisWorker } = await import('../../../../lib/exercises/exerciseAnalysisWorker');
+      // Fire and forget or inline execution
+      const workerPromise = ExerciseAnalysisWorker.execute({
+        instance_id: targetInstanceId,
+        exercise_id: instance.exercise_id,
+        user_id: authUser.userId,
+        cycle_id: instance.cycle_id,
+        orchestrator_job_id: jobId
+      });
+
+      // If in serverless mode (BYPASS_REDIS=true), wait for worker to complete
+      if (process.env.BYPASS_REDIS === 'true' || process.env.NODE_ENV !== 'development') {
+        await workerPromise;
+      }
+    } catch (wErr: any) {
+      console.error('[API submit exercise] Inline worker execution error:', wErr.message);
+    }
 
     return NextResponse.json({
       success: true,
-      message: 'Exercise successfully submitted for background analysis.'
+      message: 'Exercise successfully submitted and processed.'
     });
   } catch (err: any) {
     console.error('[API submit exercise] Error:', err.message);

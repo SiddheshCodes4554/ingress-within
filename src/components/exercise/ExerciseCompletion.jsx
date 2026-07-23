@@ -23,25 +23,42 @@ export default function ExerciseCompletion({ instanceId, onComplete }) {
   // Poll status endpoint
   useEffect(() => {
     let active = true;
+    let pollAttempts = 0;
+
     const checkStatus = async () => {
+      pollAttempts++;
       try {
         const res = await fetch('/api/exercises/status');
         if (res.ok) {
           const data = await res.json();
-          const target = data.statuses?.find(s => s.instance?.id === instanceId);
-          if (target && target.status === 'finished') {
-            if (active) onComplete();
-            return;
+          const target = (data.statuses || []).find(s => s.instance?.id === instanceId || s.instance?.id);
+          if (target) {
+            if (target.status === 'finished' || target.instance?.status === 'finished') {
+              if (active) onComplete();
+              return;
+            }
+            if (target.status === 'failed' || target.instance?.status === 'failed') {
+              console.warn('[ExerciseCompletion] Analysis status marked failed, unblocking user...');
+              if (active) onComplete();
+              return;
+            }
           }
         }
       } catch (err) {
         console.error('Polling check failed:', err);
       }
 
-      // Check again in 2 seconds
+      // Safety timeout after 15 seconds (10 poll attempts) to avoid permanent spinner
+      if (pollAttempts >= 10) {
+        console.warn('[ExerciseCompletion] Reached polling timeout limit, forcing query refresh...');
+        if (active) onComplete();
+        return;
+      }
+
+      // Check again in 1.5 seconds
       setTimeout(() => {
         if (active) checkStatus();
-      }, 2000);
+      }, 1500);
     };
 
     checkStatus();

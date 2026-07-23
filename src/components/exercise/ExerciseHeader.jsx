@@ -39,13 +39,22 @@ export default function ExerciseHeader({ title, onClose }) {
         <h1 className="font-serif text-lg text-primary font-normal">{title}</h1>
         {getAutosaveBadge()}
       </div>
-      <button
-        onClick={onClose}
-        className="p-1.5 hover:bg-primary/5 rounded-full text-primary/40 hover:text-primary transition-all cursor-pointer"
-        aria-label="Exit Exercise"
-      >
-        <X size={18} />
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onClose}
+          className="px-3 py-1.5 rounded-xl border border-primary/15 bg-white text-primary text-xs font-semibold hover:bg-primary/5 transition-all cursor-pointer flex items-center gap-1.5"
+          title="Progress is automatically saved so you can resume anytime"
+        >
+          <span>Save & Resume Later</span>
+        </button>
+        <button
+          onClick={onClose}
+          className="p-1.5 hover:bg-primary/5 rounded-full text-primary/40 hover:text-primary transition-all cursor-pointer"
+          aria-label="Exit Exercise"
+        >
+          <X size={18} />
+        </button>
+      </div>
     </header>
   );
 }

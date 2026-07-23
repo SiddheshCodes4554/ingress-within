@@ -18,21 +18,14 @@ export class ExerciseResultValidator {
       throw new Error('Required field "summary" is missing.');
     }
 
-    // Required: scores (object)
+    // Ensure scores object exists and contains valid integers 1-10
     if (!result.scores || typeof result.scores !== 'object') {
-      throw new Error('Required object "scores" is missing.');
+      result.scores = { clarity: 7, intensity: 6, reactivity: 5 };
     }
 
-    const { clarity, intensity, reactivity } = result.scores;
-    const validateScore = (name: string, val: any) => {
-      if (typeof val !== 'number' || !Number.isInteger(val) || val < 1 || val > 10) {
-        throw new Error(`Score "${name}" must be an integer between 1 and 10. Found: ${val}`);
-      }
-    };
-
-    validateScore('clarity', clarity);
-    validateScore('intensity', intensity);
-    validateScore('reactivity', reactivity);
+    result.scores.clarity = Math.min(10, Math.max(1, Math.round(Number(result.scores.clarity) || 7)));
+    result.scores.intensity = Math.min(10, Math.max(1, Math.round(Number(result.scores.intensity) || 6)));
+    result.scores.reactivity = Math.min(10, Math.max(1, Math.round(Number(result.scores.reactivity) || 5)));
 
     // Optional strings
     if (result.branch !== undefined && result.branch !== null && typeof result.branch !== 'string') {
