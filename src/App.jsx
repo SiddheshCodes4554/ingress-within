@@ -205,7 +205,7 @@ export default function App() {
       return;
     }
 
-    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread');
+    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread') || path.startsWith('/entry') || path.startsWith('/knowledge') || path.startsWith('/exercise') || path.startsWith('/exercises') || path.startsWith('/assessment');
 
 
     if (isProtectedRoute) {
@@ -425,7 +425,7 @@ export default function App() {
 
   const renderPage = () => {
     const path = window.location.pathname;
-    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread') || path.startsWith('/entry') || path.startsWith('/knowledge') || path.startsWith('/exercise');
+    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread') || path.startsWith('/entry') || path.startsWith('/knowledge') || path.startsWith('/exercise') || path.startsWith('/exercises') || path.startsWith('/assessment');
 
     if (isProtectedRoute && (!authChecked || isLoading)) {
       return <LoadingScreen />;

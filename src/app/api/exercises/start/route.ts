@@ -16,16 +16,64 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { instanceId } = body;
+    const { instanceId, exerciseId } = body;
 
-    if (!instanceId) {
+    let targetInstanceId = instanceId;
+
+    if (!targetInstanceId && exerciseId) {
+      const { supabase } = await import('../../../../lib/db');
+      const { data: activeCycle } = await supabase
+        .from('cycles')
+        .select('id')
+        .eq('user_id', authUser.userId)
+        .eq('status', 'ACTIVE')
+        .maybeSingle();
+
+      if (activeCycle) {
+        const { data: inst } = await supabase
+          .from('exercise_instances')
+          .select('id, status')
+          .eq('user_id', authUser.userId)
+          .eq('cycle_id', activeCycle.id)
+          .eq('exercise_id', exerciseId)
+          .maybeSingle();
+
+        if (inst) {
+          targetInstanceId = inst.id;
+        } else {
+          const { data: newInst } = await supabase
+            .from('exercise_instances')
+            .insert({
+              user_id: authUser.userId,
+              cycle_id: activeCycle.id,
+              exercise_id: exerciseId,
+              status: 'available',
+              locked: false,
+              available: true,
+              started: false,
+              completed: false,
+              expired: false,
+              unlock_time: new Date().toISOString(),
+              version: '1.0'
+            })
+            .select('id')
+            .single();
+
+          if (newInst) {
+            targetInstanceId = newInst.id;
+          }
+        }
+      }
+    }
+
+    if (!targetInstanceId) {
       return NextResponse.json(
-        { error: { code: 'BAD_REQUEST', message: 'Missing instanceId in request body.' } },
+        { error: { code: 'BAD_REQUEST', message: 'Missing instanceId or valid exerciseId in request body.' } },
         { status: 400 }
       );
     }
 
-    const instance = await ExerciseLifecycleManager.transitionTo(authUser.userId, instanceId, 'started', {
+    const instance = await ExerciseLifecycleManager.transitionTo(authUser.userId, targetInstanceId, 'started', {
       transitionReason: 'User clicked Start Exercise.'
     });
 

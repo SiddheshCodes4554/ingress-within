@@ -31,10 +31,17 @@ function ExerciseContent({ user, profile, onSignOut }) {
   const [exerciseIdFromUrl, setExerciseIdFromUrl] = useState('');
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const pathParts = window.location.pathname.split('/');
-      setExerciseIdFromUrl(pathParts[2]?.replace(/\/$/, '') || '');
-    }
+    const handlePath = () => {
+      if (typeof window !== 'undefined') {
+        const pathParts = window.location.pathname.split('/');
+        const isExerciseRoute = pathParts[1] === 'exercise' || pathParts[1] === 'exercises';
+        const idFromPath = isExerciseRoute && pathParts[2] ? pathParts[2].replace(/\/$/, '') : '';
+        setExerciseIdFromUrl(idFromPath);
+      }
+    };
+    handlePath();
+    window.addEventListener('popstate', handlePath);
+    return () => window.removeEventListener('popstate', handlePath);
   }, []);
 
   const {
@@ -74,15 +81,18 @@ function ExerciseContent({ user, profile, onSignOut }) {
 
   // 3. Mutation to Start Exercise
   const startMutation = useMutation({
-    mutationFn: (instanceId) =>
-      fetch('/api/exercises/start', {
+    mutationFn: (payload) => {
+      const bodyPayload = typeof payload === 'object' ? payload : { instanceId: payload };
+      return fetch('/api/exercises/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instanceId })
-      }).then(r => r.json()),
+        body: JSON.stringify(bodyPayload)
+      }).then(r => r.json());
+    },
     onSuccess: (data) => {
       if (data.success) {
         queryClient.invalidateQueries(['currentExercise']);
+        queryClient.invalidateQueries(['exerciseStatus']);
         setStepIndex(1);
       }
     }
@@ -316,7 +326,7 @@ function ExerciseContent({ user, profile, onSignOut }) {
   };
 
   const handleStart = () => {
-    startMutation.mutate(instance.id);
+    startMutation.mutate({ instanceId: instance?.id, exerciseId: exerciseIdFromUrl });
   };
 
   const renderActiveScreen = () => {
