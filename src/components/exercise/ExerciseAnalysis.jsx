@@ -25,7 +25,14 @@ const DIMENSION_DEFS = {
 };
 
 export default function ExerciseAnalysis({ result, onClose, exerciseId }) {
-  if (!result) return null;
+  if (!result) {
+    return (
+      <div className="space-y-6 max-w-2xl mx-auto py-12 text-center">
+        <div className="w-12 h-12 mx-auto rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+        <p className="font-serif text-lg text-primary">Finalizing your clinical analysis report...</p>
+      </div>
+    );
+  }
 
   const { analysis, scores, branch, lens, summary, generated_at } = result;
 

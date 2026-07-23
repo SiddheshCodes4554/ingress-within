@@ -66,6 +66,32 @@ export async function GET(request: NextRequest) {
     const currentDay = activeCycle.current_day || 1;
     const isCompletedCycle = activeCycle.status === 'COMPLETED';
 
+    // Auto-heal any completed/queued/analysing instances that haven't finalized results
+    const { ExerciseAnalysisWorker } = await import('../../../../lib/exercises/exerciseAnalysisWorker');
+    for (const inst of instances || []) {
+      if (['completed', 'queued', 'analysing'].includes(inst.status)) {
+        const { data: resRow } = await supabase
+          .from('exercise_results')
+          .select('id')
+          .eq('instance_id', inst.id)
+          .maybeSingle();
+
+        if (!resRow) {
+          try {
+            await ExerciseAnalysisWorker.execute({
+              instance_id: inst.id,
+              exercise_id: inst.exercise_id,
+              user_id: authUser.userId,
+              cycle_id: activeCycle.id
+            });
+            inst.status = 'finished';
+          } catch (e: any) {
+            console.error('[API exercise status] Auto-heal worker error:', e.message);
+          }
+        }
+      }
+    }
+
     const statuses = (definitions || []).map(def => {
       const inst = instances?.find(i => i.exercise_id === def.id);
       const unlockDay = def.unlock_rules?.day || 1;

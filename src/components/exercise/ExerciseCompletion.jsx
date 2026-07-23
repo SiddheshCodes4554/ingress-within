@@ -48,9 +48,9 @@ export default function ExerciseCompletion({ instanceId, onComplete }) {
         console.error('Polling check failed:', err);
       }
 
-      // Safety timeout after 15 seconds (10 poll attempts) to avoid permanent spinner
-      if (pollAttempts >= 10) {
-        console.warn('[ExerciseCompletion] Reached polling timeout limit, forcing query refresh...');
+      // Safety timeout after 4.5 seconds (3 poll attempts) to proceed and display results
+      if (pollAttempts >= 3) {
+        console.warn('[ExerciseCompletion] Reached polling timeout limit, forcing query refresh to display results...');
         if (active) onComplete();
         return;
       }
