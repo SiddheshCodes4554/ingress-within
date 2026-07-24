@@ -36,8 +36,9 @@ export default function ExerciseAnalysis({ result, onClose, exerciseId }) {
 
   const { analysis, scores, branch, lens, summary, generated_at } = result;
 
-  // Check if this is Inkblot (Exercise 2)
-  const isInkblot = exerciseId === 'exercise_2' || (result.instance_id && result.instance_id.includes('exercise_2'));
+  // Check exercise type
+  const isInkblot = exerciseId === 'exercise_2' || (result.instance_id && result.instance_id.includes('exercise_2')) || (result.raw_json && result.raw_json.exercise_id === 'exercise_2');
+  const isWordAssociation = exerciseId === 'exercise_1' || (result.instance_id && result.instance_id.includes('exercise_1')) || (result.raw_json && result.raw_json.exercise_id === 'exercise_1');
 
   if (isInkblot) {
     const formattedDate = generated_at
