@@ -116,7 +116,7 @@ function ExerciseContent({ user, profile, onSignOut }) {
       queryClient.invalidateQueries({ queryKey: ['exerciseStatus'] });
       queryClient.invalidateQueries({ queryKey: ['exerciseHistory'] });
       queryClient.invalidateQueries({ queryKey: ['exerciseResult'] });
-      setStepIndex(questions.length + 1); // completion screen
+      setStepIndex(0); // Reset step index so finished analysis screen renders cleanly
     }
   });
 
@@ -346,10 +346,10 @@ function ExerciseContent({ user, profile, onSignOut }) {
   };
 
   const renderActiveScreen = () => {
-    const currentStatus = matchedStatus?.status || instance?.status;
+    const currentStatus = matchedStatus?.status || targetInstance?.status || instance?.status;
 
     // Finished/Analysis mode
-    if (currentStatus === 'finished' || instance?.status === 'finished') {
+    if (currentStatus === 'finished' || instance?.status === 'finished' || targetInstance?.status === 'finished' || resultRes?.result) {
       return (
         <ExerciseAnalysis
           exerciseId={exerciseIdFromUrl}
@@ -360,11 +360,12 @@ function ExerciseContent({ user, profile, onSignOut }) {
     }
 
     // Polling mode during AI evaluation
-    if (currentStatus === 'completed' || currentStatus === 'queued' || currentStatus === 'analysing' || currentStepIndex > questions.length) {
+    if (currentStatus === 'completed' || currentStatus === 'queued' || currentStatus === 'analysing') {
       return (
         <ExerciseCompletion
-          instanceId={instance?.id}
+          instanceId={targetInstance?.id || instance?.id}
           onComplete={() => {
+            setStepIndex(0);
             queryClient.invalidateQueries({ queryKey: ['currentExercise'] });
             queryClient.invalidateQueries({ queryKey: ['exerciseStatus'] });
             queryClient.invalidateQueries({ queryKey: ['exerciseHistory'] });
