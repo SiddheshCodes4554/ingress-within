@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     const { data: responses, error: respErr } = await supabase
       .from('exercise_responses')
       .select('id')
-      .eq('instance_id', instanceId)
+      .eq('instance_id', targetInstanceId)
       .neq('question_id', '__screen_state')
       .limit(1);
 
@@ -93,12 +93,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Transition: Current -> Completed
-    await ExerciseLifecycleManager.transitionTo(authUser.userId, instanceId, 'completed', {
+    await ExerciseLifecycleManager.transitionTo(authUser.userId, targetInstanceId, 'completed', {
       transitionReason: 'User clicked submit.'
     });
 
     // 4. Transition: Completed -> Queued
-    await ExerciseLifecycleManager.transitionTo(authUser.userId, instanceId, 'queued', {
+    await ExerciseLifecycleManager.transitionTo(authUser.userId, targetInstanceId, 'queued', {
       force: true,
       transitionReason: 'Background job enqueued.'
     });

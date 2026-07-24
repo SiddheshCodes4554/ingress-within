@@ -79,10 +79,13 @@ function ExerciseContent({ user, profile, onSignOut }) {
 
   const activeInstance = currentRes?.exercise;
 
+  const matchedStatus = statusRes?.statuses?.find(s => s.definition.id === exerciseIdFromUrl);
+  const targetInstance = matchedStatus?.instance || (activeInstance?.exercise_id === exerciseIdFromUrl ? activeInstance : null);
+
   // 3. Mutation to Start Exercise
   const startMutation = useMutation({
     mutationFn: (payload) => {
-      const bodyPayload = typeof payload === 'object' ? payload : { instanceId: payload };
+      const bodyPayload = typeof payload === 'object' ? payload : { instanceId: payload, exerciseId: exerciseIdFromUrl };
       return fetch('/api/exercises/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -91,8 +94,8 @@ function ExerciseContent({ user, profile, onSignOut }) {
     },
     onSuccess: (data) => {
       if (data.success) {
-        queryClient.invalidateQueries(['currentExercise']);
-        queryClient.invalidateQueries(['exerciseStatus']);
+        queryClient.invalidateQueries({ queryKey: ['currentExercise'] });
+        queryClient.invalidateQueries({ queryKey: ['exerciseStatus'] });
         setStepIndex(1);
       }
     }
@@ -100,35 +103,42 @@ function ExerciseContent({ user, profile, onSignOut }) {
 
   // 4. Mutation to Submit Exercise
   const submitMutation = useMutation({
-    mutationFn: (instanceId) =>
-      fetch('/api/exercises/submit', {
+    mutationFn: (payload) => {
+      const bodyPayload = typeof payload === 'object' ? payload : { instanceId: payload, exerciseId: exerciseIdFromUrl };
+      return fetch('/api/exercises/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instanceId })
-      }).then(r => r.json()),
+        body: JSON.stringify(bodyPayload)
+      }).then(r => r.json());
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries(['currentExercise']);
-      queryClient.invalidateQueries(['exerciseStatus']);
+      queryClient.invalidateQueries({ queryKey: ['currentExercise'] });
+      queryClient.invalidateQueries({ queryKey: ['exerciseStatus'] });
+      queryClient.invalidateQueries({ queryKey: ['exerciseHistory'] });
+      queryClient.invalidateQueries({ queryKey: ['exerciseResult'] });
       setStepIndex(questions.length + 1); // completion screen
     }
   });
 
   // 5. Query for completed AI Analysis Results
   const { data: resultRes, isLoading: resultLoading } = useQuery({
-    queryKey: ['exerciseResult', activeInstance?.id],
-    queryFn: () => fetch(`/api/exercises/result/${activeInstance.id}`).then(r => r.json()),
-    enabled: !!activeInstance && (activeInstance.status === 'finished')
+    queryKey: ['exerciseResult', targetInstance?.id || exerciseIdFromUrl],
+    queryFn: () => fetch(`/api/exercises/result/${targetInstance?.id || exerciseIdFromUrl}`).then(r => r.json()),
+    enabled: !!(exerciseIdFromUrl && (matchedStatus?.status === 'finished' || targetInstance?.status === 'finished'))
   });
 
   // Initialize Zustand store on load/resume
   useEffect(() => {
     const resumeSession = async () => {
-      if (activeInstance) {
+      if (exerciseIdFromUrl) {
         try {
           const res = await fetch('/api/exercises/resume', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ instanceId: activeInstance.id })
+            body: JSON.stringify({
+              instanceId: targetInstance?.id,
+              exerciseId: exerciseIdFromUrl
+            })
           });
           if (res.ok) {
             const data = await res.json();
@@ -137,22 +147,26 @@ function ExerciseContent({ user, profile, onSignOut }) {
               formatted[r.question_id] = r.response;
             });
             const savedStep = data.screenState?.currentStepIndex || 1;
-            init(activeInstance, formatted, savedStep, data.stimulusList);
+            init(data.instance || targetInstance, formatted, savedStep, data.stimulusList);
             return;
           }
         } catch (err) {
           console.error('[ExercisePage] Failed to resume draft answers:', err);
         }
-        init(activeInstance, {}, 0);
+        if (targetInstance) {
+          init(targetInstance, {}, 0);
+        }
       }
     };
 
-    resumeSession();
+    if (exerciseIdFromUrl) {
+      resumeSession();
+    }
 
     return () => {
       clearStore();
     };
-  }, [activeInstance, init, clearStore]);
+  }, [exerciseIdFromUrl, targetInstance?.id, init, clearStore]);
 
   if (currentLoading || statusLoading || (activeInstance?.status === 'finished' && resultLoading)) {
     return (
@@ -191,7 +205,6 @@ function ExerciseContent({ user, profile, onSignOut }) {
   }
 
   // Check locks
-  const matchedStatus = statusRes?.statuses?.find(s => s.definition.id === exerciseIdFromUrl);
   if (!matchedStatus || matchedStatus.status === 'locked') {
     const rules = matchedStatus?.definition?.unlock_rules || {};
     return (
