@@ -38,15 +38,27 @@ export async function runInitializationTests() {
   defs?.forEach((d: any) => console.log(`     - [${d.id}] Type: ${d.exercise_type} (Unlock: Day ${d.unlock_rules?.day || 1})`));
 
   // Test 2: Fetch Test User & Active Cycle
-  const { data: users, error: userErr } = await supabase.from('users').select('id').limit(1);
-  if (userErr) console.error('User Query Error:', userErr);
-  const user = users?.[0];
-  if (!user) throw new Error('No user found in DB');
+  const { data: cycles } = await supabase
+    .from('cycles')
+    .select('id, user_id, current_day')
+    .eq('status', 'ACTIVE')
+    .limit(5);
+
+  let user: any = null;
+  let activeCycle: any = null;
+
+  for (const c of cycles || []) {
+    const { data: u } = await supabase.from('users').select('id').eq('id', c.user_id).maybeSingle();
+    if (u) {
+      user = u;
+      activeCycle = c;
+      break;
+    }
+  }
+
+  if (!user || !activeCycle) throw new Error('No valid user with active cycle found in DB');
 
   console.log(`  ✅ Found User ID: ${user.id}`);
-
-  const { data: activeCycle } = await supabase.from('cycles').select('id, current_day').eq('user_id', user.id).eq('status', 'ACTIVE').single();
-  if (!activeCycle) throw new Error('No active cycle found for test user');
 
   console.log(`\n--- TEST 2: SELF-HEALING INSTANCE SYNC (Day 1 User) ---`);
   const syncedDay1 = await ExerciseInitializationService.syncUserInstances(user.id, activeCycle.id, 1);
