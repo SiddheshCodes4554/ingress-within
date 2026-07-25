@@ -744,7 +744,7 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                           <div className="flex items-center gap-4">
                             {/* Assessment Status Badge */}
                             <span
-                              onClick={(e) => { e.stopPropagation(); window.navigateTo('/assessment'); }}
+                              onClick={(e) => { e.stopPropagation(); window.navigateTo('/exercise'); }}
                               className={`px-2 py-0.5 rounded-full text-[8.5px] font-bold uppercase tracking-wider cursor-pointer hover:opacity-80 transition-opacity ${
                                 cycle.assessment_completed
                                   ? 'bg-[#8DBFB4]/15 text-[#1A5040]'
@@ -814,7 +814,7 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                               <div 
                                 onClick={(e) => { 
                                   e.stopPropagation(); 
-                                  window.navigateTo('/assessment');
+                                  window.navigateTo('/exercise');
                                 }}
                                 className="bg-mint-grey/30 border border-[#1E2A2E]/5 rounded-xl p-3 hover:border-[#1E2A2E]/15 hover:shadow-xs transition-all cursor-pointer text-center space-y-1 group"
                               >

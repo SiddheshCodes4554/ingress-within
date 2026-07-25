@@ -329,7 +329,7 @@ export default function App() {
       } else if (path === '/knowledge' || path === '/knowledge/') {
         setCurrentRoute('knowledge');
         window.scrollTo(0, 0);
-      } else if (path === '/exercise' || path === '/exercise/' || path === '/exercises' || path === '/exercises/') {
+      } else if (path === '/exercise' || path === '/exercise/' || path === '/exercises' || path === '/exercises/' || path === '/assessment' || path === '/assessment/') {
         setCurrentRoute('exercise');
         window.scrollTo(0, 0);
       } else if (path === '/support' || path === '/support/') {
