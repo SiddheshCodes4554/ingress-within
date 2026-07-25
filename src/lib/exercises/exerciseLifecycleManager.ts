@@ -114,12 +114,25 @@ export class ExerciseLifecycleManager {
     }
 
     // 4. Perform updates
-    const { data: updatedInstance, error: updateErr } = await supabase
+    let { data: updatedInstance, error: updateErr } = await supabase
       .from('exercise_instances')
       .update(updatePayload)
       .eq('id', instanceId)
       .select()
       .single();
+
+    if (updateErr && updateErr.message.includes('exercise_instances_status_check')) {
+      console.warn(`[Lifecycle] Status "${nextStatus}" not in DB constraint. Falling back to status: "completed"`);
+      updatePayload.status = 'completed';
+      const fallbackRes = await supabase
+        .from('exercise_instances')
+        .update(updatePayload)
+        .eq('id', instanceId)
+        .select()
+        .single();
+      updatedInstance = fallbackRes.data;
+      updateErr = fallbackRes.error;
+    }
 
     if (updateErr || !updatedInstance) {
       throw new Error(`Lifecycle transition update failed: ${updateErr?.message}`);

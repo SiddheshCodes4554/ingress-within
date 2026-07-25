@@ -180,6 +180,94 @@ export default function ExerciseAnalysis({ result, onClose, exerciseId, instance
     );
   }
 
+  const isSelfPerception = exerciseId === 'exercise_3' || (result.instance_id && result.instance_id.includes('exercise_3')) || (result.raw_json && result.raw_json.exercise_id === 'exercise_3');
+
+  if (isSelfPerception) {
+    const formattedDate = generated_at
+      ? new Date(generated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+      : new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const raw = result.raw_json || {};
+    const gapScore = raw.gap_score !== undefined && raw.gap_score !== null ? raw.gap_score : (result.gap_score || 0);
+    const gapPills = Array.isArray(raw.gap_pills) ? raw.gap_pills : ['moderate'];
+    const qAlignments = Array.isArray(raw.q_alignments) ? raw.q_alignments : [];
+
+    return (
+      <div className="space-y-8 max-w-2xl mx-auto py-6 animate-fade-in text-left">
+        <div className="space-y-2">
+          <div className="font-label-md text-xs font-semibold uppercase tracking-wider text-accent">
+            Self-Perception vs Reality Check
+          </div>
+          <div className="text-xs text-primary/40">
+            Completed {formattedDate}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-primary/50">Divergence Gap Score:</div>
+          <div className="text-2xl font-serif text-primary font-normal">{gapScore.toFixed(1)} / 5.0</div>
+          <div className="flex gap-1.5">
+            {gapPills.map((pill, idx) => (
+              <span
+                key={idx}
+                className={`text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                  pill === 'low'
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : pill === 'significant'
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                }`}
+              >
+                {pill} divergence
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <p className="font-serif text-lg leading-relaxed text-primary/80">
+          {analysis}
+        </p>
+
+        {qAlignments.length > 0 && (
+          <div className="space-y-4 border-t border-primary/5 pt-4">
+            <div className="text-xs font-semibold uppercase tracking-wider text-primary/50">
+              Question-by-Question Reality Check
+            </div>
+            <div className="space-y-3">
+              {qAlignments.map((item, idx) => (
+                <div key={idx} className="p-3.5 bg-surface-container-low rounded-xl border border-primary/5 space-y-1 text-xs">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span className="text-primary/70">Question {item.q_id?.toUpperCase()}</span>
+                    <span className={`capitalize ${item.alignment === 'aligned' ? 'text-emerald-600' : item.alignment === 'significant_gap' ? 'text-rose-600' : 'text-amber-600'}`}>
+                      {item.alignment?.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                  <p className="text-primary/70 font-serif italic text-xs">{item.note}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <hr className="border-t border-[#B8A8D4] w-8 my-4" />
+
+        <p className="text-xs text-primary/50 leading-relaxed italic">
+          This gap score direct feeds into your Self-Agency scoring and Day 30 report.
+        </p>
+
+        <div className="flex justify-center border-t border-primary/5 pt-6 mt-8">
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1.5 px-8 py-3.5 bg-primary hover:bg-[#2A3A3E] text-mint-grey rounded text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer shadow-xs"
+          >
+            <span>Done</span>
+            <ArrowRight size={14} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Check if this is an OCEAN Personality Report
   const isOcean = scores && scores.openness !== undefined;
 

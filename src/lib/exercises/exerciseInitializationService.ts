@@ -69,7 +69,7 @@ export class ExerciseInitializationService {
   public static async ensureDefinitionsExist(): Promise<void> {
     const { data: existing, error } = await supabase
       .from('exercise_definitions')
-      .select('id, unlock_rules');
+      .select('id, unlock_rules, active_status');
 
     if (error) {
       console.error('[ExerciseInit] Failed to check exercise definitions:', error.message);
@@ -90,11 +90,11 @@ export class ExerciseInitializationService {
           console.error(`[ExerciseInit] Error seeding definition ${def.id}:`, insertErr.message);
         }
       } else {
-        // Update unlock rules if out of sync with platform standard
+        // Update unlock rules and ensure active_status is true
         const targetDay = def.unlock_rules.day;
         const currentDayRule = current.unlock_rules?.day;
-        if (currentDayRule !== targetDay) {
-          console.log(`[ExerciseInit] Harmonizing unlock rules for ${def.id}: Day ${currentDayRule} -> Day ${targetDay}`);
+        if (currentDayRule !== targetDay || !current.active_status) {
+          console.log(`[ExerciseInit] Harmonizing unlock rules and active_status for ${def.id}`);
           await supabase
             .from('exercise_definitions')
             .update({

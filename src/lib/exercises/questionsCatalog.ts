@@ -1,14 +1,69 @@
 export interface QuestionConfig {
   id: string;
-  type: 'free_text' | 'scale' | 'image';
+  type: 'free_text' | 'scale' | 'image' | 'word_association';
   label: string;
   placeholder?: string;
   min?: number;
   max?: number;
   rev?: boolean;
   dim?: 'O' | 'C' | 'E' | 'A' | 'N';
+  card_index?: number;
+  image_url?: string;
+  short?: string;
   options?: { id: string; label: string; image_url?: string }[];
 }
+
+export const FIXED_WORD_ASSOCIATIONS = [
+  { position: 1, word: 'HOME' },
+  { position: 2, word: 'ANGER' },
+  { position: 4, word: 'ENOUGH' },
+  { position: 6, word: 'SAFE' },
+  { position: 7, word: 'WAITING' },
+  { position: 8, word: 'WRONG' },
+  { position: 10, word: 'CLOSE' },
+  { position: 11, word: 'STILL' },
+  { position: 12, word: 'BREAK' }
+];
+
+export const FALLBACK_PERSONALISED_WORDS = ['CHANGE', 'LOSS', 'BOUNDARIES'];
+
+export const INKBLOT_CARDS = [
+  {
+    index: 1,
+    id: 'blot_1',
+    image_url: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=600&q=80',
+    title: 'Card 1',
+    instruction: 'What is the first thing you see in this image?'
+  },
+  {
+    index: 2,
+    id: 'blot_2',
+    image_url: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&w=600&q=80',
+    title: 'Card 2',
+    instruction: 'What shapes or figures stand out to you first?'
+  },
+  {
+    index: 3,
+    id: 'blot_3',
+    image_url: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=600&q=80',
+    title: 'Card 3',
+    instruction: 'What feelings or movements does this pattern evoke?'
+  },
+  {
+    index: 4,
+    id: 'blot_4',
+    image_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80',
+    title: 'Card 4',
+    instruction: 'Take a quiet moment. What do you observe here?'
+  },
+  {
+    index: 5,
+    id: 'blot_5',
+    image_url: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=600&q=80',
+    title: 'Card 5',
+    instruction: 'What story or impression comes to mind when you look at this final image?'
+  }
+];
 
 const CATALOG: Record<string, QuestionConfig[]> = {
   exercise_0: [
@@ -29,25 +84,57 @@ const CATALOG: Record<string, QuestionConfig[]> = {
     { id: 'q12', type: 'scale', min: 1, max: 5, label: "When I'm anxious I find it hard to identify exactly what I'm anxious about.", dim: 'N' },
     { id: 'q16', type: 'scale', min: 1, max: 5, label: "I rarely feel anxious or worried without a clear reason.", dim: 'N', rev: true }
   ],
-  exercise_1: [
-    { id: 'q1', type: 'free_text', label: "Identify a situation recently where your actions did not align with your core values.", placeholder: "Describe the event and your emotional reaction..." },
-    { id: 'q2', type: 'scale', min: 1, max: 10, label: "How much tension or regret do you feel when reflecting on this situation?" }
-  ],
-  exercise_2: [
+
+  exercise_1: Array.from({ length: 12 }, (_, i) => ({
+    id: `word_${i + 1}`,
+    type: 'word_association',
+    label: `Word ${i + 1} of 12`
+  })),
+
+  exercise_2: INKBLOT_CARDS.map(card => ({
+    id: `blot_${card.index}`,
+    type: 'image',
+    card_index: card.index,
+    image_url: card.image_url,
+    label: card.instruction
+  })),
+
+  exercise_3: [
     {
       id: 'q1',
-      type: 'image',
-      label: "Select the inkblot pattern that resonates most with your current emotional state:",
-      options: [
-        { id: 'blot_1', label: 'Structured / Radial Symmetry', image_url: '/assets/blot_1.png' },
-        { id: 'blot_2', label: 'Organic / Scattered Expansion', image_url: '/assets/blot_2.png' }
-      ]
+      type: 'free_text',
+      label: "In the last three weeks, when something felt hard, what did you do first — reach out, withdraw, distract yourself, or something else?",
+      short: "When something felt hard...",
+      placeholder: "Write your reflection here..."
     },
-    { id: 'q2', type: 'free_text', label: "Describe what shapes, movements, or emotions you perceive in the inkblot you selected." }
-  ],
-  exercise_3: [
-    { id: 'q1', type: 'free_text', label: "Reflecting on your weekly insights, what core emotional triggers occurred most frequently?" },
-    { id: 'q2', type: 'free_text', label: "What cognitive reframing pathways felt most natural or effective for you during this cycle?" }
+    {
+      id: 'q2',
+      type: 'free_text',
+      label: "Think about a conflict or tension you had recently. How did you handle it — and how do you feel about how you handled it?",
+      short: "A conflict or tension...",
+      placeholder: "Write your reflection here..."
+    },
+    {
+      id: 'q3',
+      type: 'free_text',
+      label: "What is something you keep meaning to do or say that you haven't yet?",
+      short: "Something you keep meaning to...",
+      placeholder: "Write your reflection here..."
+    },
+    {
+      id: 'q4',
+      type: 'free_text',
+      label: "In the last three weeks, whose needs did you prioritise more — yours or someone else's?",
+      short: "Whose needs you prioritised...",
+      placeholder: "Write your reflection here..."
+    },
+    {
+      id: 'q5',
+      type: 'free_text',
+      label: "What's one thing about yourself you'd change if you could, and what's stopping you?",
+      short: "One thing you'd change...",
+      placeholder: "Write your reflection here..."
+    }
   ]
 };
 

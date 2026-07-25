@@ -47,12 +47,14 @@ export class ExerciseResultService {
       }
     }
 
-    // 2. Query exercise_results table directly
+    // 2. Query exercise_results table directly (latest immutable version)
     const { data: result, error: resErr } = await supabase
       .from('exercise_results')
       .select('*')
       .eq('instance_id', targetInstanceId)
       .eq('user_id', userId)
+      .order('generated_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (resErr) {

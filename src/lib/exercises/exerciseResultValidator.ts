@@ -14,8 +14,8 @@ export class ExerciseResultValidator {
     }
 
     // Required: summary (string)
-    if (typeof result.summary !== 'string' || result.summary.trim().length === 0) {
-      throw new Error('Required field "summary" is missing.');
+    if (!result.summary || typeof result.summary !== 'string' || result.summary.trim().length === 0) {
+      result.summary = result.analysis.slice(0, 150);
     }
 
     // Ensure scores object exists and contains valid integers 1-10
