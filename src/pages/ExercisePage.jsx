@@ -516,16 +516,16 @@ function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }
 
   // Filter lists by status and selected cycle
   const filterByCycle = (itemCycleId) => {
-    if (selectedCycleId === 'all') return true;
+    if (selectedCycleId === 'all' || !itemCycleId) return true;
     return itemCycleId === selectedCycleId;
   };
 
   const pendingList = (statuses || []).filter(
-    s => s.instance && ['started', 'draft', 'queued', 'analysing'].includes(s.instance.status) && filterByCycle(s.instance.cycle_id)
+    s => s.instance && ['started', 'draft', 'queued', 'analysing'].includes(s.instance.status) && filterByCycle(s.instance?.cycle_id)
   );
 
   const availableList = (statuses || []).filter(
-    s => (s.status === 'available' || (s.instance && s.instance.status === 'available')) && filterByCycle(s.instance?.cycle_id)
+    s => ((s.instance && s.instance.status === 'available') || (!s.instance && s.status === 'available') || (!s.instance && s.is_unlocked)) && filterByCycle(s.instance?.cycle_id)
   );
 
   const completedList = (history || [])
@@ -540,7 +540,7 @@ function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }
     }));
 
   const lockedList = (statuses || []).filter(
-    s => s.status === 'locked' && !s.instance
+    s => (s.status === 'locked' || (!s.instance && s.is_unlocked === false)) && filterByCycle(s.instance?.cycle_id)
   );
 
   return (

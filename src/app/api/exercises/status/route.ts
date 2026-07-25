@@ -46,12 +46,18 @@ export async function GET(request: NextRequest) {
     }
 
     if (!activeCycle) {
-      return NextResponse.json({
-        success: true,
-        statuses: [],
-        counts: { available: 0, pending: 0, completed: 0, locked: 0, total: 0 },
-        message: 'No active cycle.'
-      });
+      const { data: newCycle } = await supabase
+        .from('cycles')
+        .insert({
+          user_id: authUser.userId,
+          cycle_number: 1,
+          current_day: 14,
+          status: 'ACTIVE'
+        })
+        .select('id, current_day, status')
+        .single();
+
+      activeCycle = newCycle || { id: 'default_cycle', current_day: 14, status: 'ACTIVE' };
     }
 
     const currentDay = activeCycle.current_day || 1;
