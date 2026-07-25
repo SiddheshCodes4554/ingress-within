@@ -35,7 +35,14 @@ function ExerciseContent({ user, profile, onSignOut }) {
       if (typeof window !== 'undefined') {
         const pathParts = window.location.pathname.split('/');
         const isExerciseRoute = pathParts[1] === 'exercise' || pathParts[1] === 'exercises' || pathParts[1] === 'assessment';
-        const idFromPath = isExerciseRoute && pathParts[2] ? pathParts[2].replace(/\/$/, '') : '';
+        let idFromPath = '';
+        if (isExerciseRoute) {
+          if (pathParts[2] === 'results' && pathParts[3]) {
+            idFromPath = pathParts[3].replace(/\/$/, '');
+          } else if (pathParts[2]) {
+            idFromPath = pathParts[2].replace(/\/$/, '');
+          }
+        }
         setExerciseIdFromUrl(idFromPath);
       }
     };
@@ -79,8 +86,8 @@ function ExerciseContent({ user, profile, onSignOut }) {
 
   const activeInstance = currentRes?.exercise;
 
-  const matchedStatus = statusRes?.statuses?.find(s => s.definition.id === exerciseIdFromUrl);
-  const targetInstance = matchedStatus?.instance || (activeInstance?.exercise_id === exerciseIdFromUrl ? activeInstance : null);
+  const matchedStatus = statusRes?.statuses?.find(s => s.definition.id === exerciseIdFromUrl || s.instance?.id === exerciseIdFromUrl);
+  const targetInstance = matchedStatus?.instance || (activeInstance?.exercise_id === exerciseIdFromUrl || activeInstance?.id === exerciseIdFromUrl ? activeInstance : null);
 
   // 3. Mutation to Start Exercise
   const startMutation = useMutation({
@@ -452,22 +459,28 @@ export default function ExercisePage(props) {
 
 const EXERCISE_META = {
   exercise_0: {
-    title: 'Exercise 0 — OCEAN Baseline Personality Assessment',
+    title: 'Baseline Personality Assessment (OCEAN)',
     description: 'Establishes your baseline Big Five personality profile across 16 reflective psychometric dimensions.',
     duration: '10 mins',
     tag: 'Baseline Personality'
   },
   exercise_1: {
-    title: 'Exercise 1 — Word Association Assessment',
+    title: 'Guided Reflection Assessment (Word Association)',
     description: 'Measures emotional language defaults and spontaneous subconscious theme associations.',
     duration: '5 mins',
     tag: 'Linguistic Default'
   },
   exercise_2: {
-    title: 'Exercise 2 — Inkblot Projective Assessment',
+    title: 'Inkblot / Projective Assessment',
     description: 'Procedural projective assessment exploring symbolic interpretations and perceptual pattern defaults.',
     duration: '8 mins',
     tag: 'Projective Pattern'
+  },
+  exercise_3: {
+    title: 'Self-Perception vs Reality Check',
+    description: 'Compares your self-described tendencies against objective writing history, patterns, and knowledge profile evidence.',
+    duration: '10 mins',
+    tag: 'Self Perception'
   }
 };
 

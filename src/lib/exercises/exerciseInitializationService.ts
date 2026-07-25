@@ -2,6 +2,8 @@ import { supabase } from '../db';
 
 export interface DefaultExerciseDefinition {
   id: string;
+  title?: string;
+  description?: string;
   exercise_type: string;
   unlock_rules: {
     strategy: 'day_milestone' | 'immediate';
@@ -18,6 +20,8 @@ export interface DefaultExerciseDefinition {
 export const CORE_EXERCISE_DEFINITIONS: DefaultExerciseDefinition[] = [
   {
     id: 'exercise_0',
+    title: 'Baseline Personality Assessment (OCEAN)',
+    description: 'Establishes your baseline Big Five personality profile across 16 reflective psychometric dimensions.',
     exercise_type: 'ocean',
     unlock_rules: { strategy: 'day_milestone', day: 1 },
     cycle: 1,
@@ -29,6 +33,8 @@ export const CORE_EXERCISE_DEFINITIONS: DefaultExerciseDefinition[] = [
   },
   {
     id: 'exercise_1',
+    title: 'Guided Reflection Assessment (Word Association)',
+    description: 'Measures emotional language defaults and spontaneous subconscious theme associations.',
     exercise_type: 'word_association',
     unlock_rules: { strategy: 'day_milestone', day: 1 },
     cycle: 1,
@@ -40,6 +46,8 @@ export const CORE_EXERCISE_DEFINITIONS: DefaultExerciseDefinition[] = [
   },
   {
     id: 'exercise_2',
+    title: 'Inkblot / Projective Assessment',
+    description: 'Procedural projective assessment exploring symbolic interpretations and perceptual pattern defaults.',
     exercise_type: 'inkblot',
     unlock_rules: { strategy: 'day_milestone', day: 7 },
     cycle: 1,
@@ -51,6 +59,8 @@ export const CORE_EXERCISE_DEFINITIONS: DefaultExerciseDefinition[] = [
   },
   {
     id: 'exercise_3',
+    title: 'Self-Perception vs Reality Check',
+    description: 'Compares your self-described tendencies against objective writing history, patterns, and knowledge profile evidence.',
     exercise_type: 'cbt',
     unlock_rules: { strategy: 'day_milestone', day: 14 },
     cycle: 1,
@@ -82,9 +92,11 @@ export class ExerciseInitializationService {
       const current = existingMap.get(def.id);
       if (!current) {
         console.log(`[ExerciseInit] Seeding missing exercise definition: ${def.id}`);
+        // Strip non-DB properties before inserting into exercise_definitions
+        const { title, description, ...dbFields } = def;
         const { error: insertErr } = await supabase
           .from('exercise_definitions')
-          .insert(def);
+          .insert(dbFields);
 
         if (insertErr) {
           console.error(`[ExerciseInit] Error seeding definition ${def.id}:`, insertErr.message);

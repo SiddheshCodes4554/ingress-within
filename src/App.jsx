@@ -230,7 +230,7 @@ export default function App() {
           } else if (profile.consent_completed && profile.profile_completed && !profile.orientation_completed && path !== '/onboarding/welcome') {
             console.log('[App.jsx] Redirect Engine: orientation_completed is false. Redirecting to /onboarding/welcome. Reason: ONBOARDING_INCOMPLETE');
             window.navigateTo('/onboarding/welcome');
-          } else if (profile.consent_completed && profile.profile_completed && profile.orientation_completed && !profile.assessment_completed && !path.startsWith('/exercise/exercise_0')) {
+          } else if (profile.consent_completed && profile.profile_completed && profile.orientation_completed && !profile.assessment_completed && !path.startsWith('/exercise/') && !path.startsWith('/assessment/')) {
             console.log('[App.jsx] Redirect Engine: assessment_completed is false. Redirecting to /exercise/exercise_0. Reason: ONBOARDING_INCOMPLETE');
             window.navigateTo('/exercise/exercise_0');
           } else {

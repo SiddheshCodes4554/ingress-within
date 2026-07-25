@@ -104,7 +104,7 @@ export default function ExerciseAnalysis({ result, onClose, exerciseId, instance
       <div className="space-y-8 max-w-2xl mx-auto py-6 animate-fade-in text-left">
         <div className="space-y-2">
           <div className="font-label-md text-xs font-semibold uppercase tracking-wider text-accent">
-            Inkblot Exercise
+            Inkblot / Projective Assessment
           </div>
           <div className="text-xs text-primary/40">
             Completed {formattedDate}
@@ -150,7 +150,7 @@ export default function ExerciseAnalysis({ result, onClose, exerciseId, instance
       <div className="space-y-8 max-w-2xl mx-auto py-6 animate-fade-in text-left">
         <div className="space-y-2">
           <div className="font-label-md text-xs font-semibold uppercase tracking-wider text-accent">
-            Word Association
+            Guided Reflection Assessment (Word Association)
           </div>
           <div className="text-xs text-primary/40">
             Completed {formattedDate}
@@ -277,7 +277,7 @@ export default function ExerciseAnalysis({ result, onClose, exerciseId, instance
         {/* Intro Block */}
         <div className="space-y-4 text-center sm:text-left">
           <div className="font-label-md text-xs font-semibold uppercase tracking-wider text-accent">
-            What we noticed
+            Baseline Personality Assessment (OCEAN)
           </div>
           <p className="font-serif text-xl md:text-2xl text-primary font-normal leading-relaxed text-left">
             {analysis}
