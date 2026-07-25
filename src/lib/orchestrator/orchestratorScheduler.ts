@@ -41,12 +41,6 @@ export class OrchestratorScheduler {
         .maybeSingle();
 
       if (activeCycle) {
-        // Fetch user timezone
-        const { data: userRec } = await supabase.from('users').select('timezone').eq('id', userId).maybeSingle();
-        const userTz = userRec?.timezone || 'UTC';
-        const { ExerciseUnlockService } = await import('../exercises/exerciseUnlockService');
-
-        // Find latest cycle day by comparing max written entry day with timezone-aware calendar day
         const { data: maxEntry } = await supabase
           .from('entries')
           .select('cycle_day')
@@ -56,7 +50,8 @@ export class OrchestratorScheduler {
           .limit(1)
           .maybeSingle();
 
-        const calculatedDay = ExerciseUnlockService.calculateCycleDay(activeCycle.start_date, userTz);
+        const startDateMs = new Date(activeCycle.start_date).getTime();
+        const calculatedDay = Math.max(1, Math.floor((Date.now() - startDateMs) / (1000 * 60 * 60 * 24)) + 1);
         const cycleDay = Math.max(maxEntry?.cycle_day || 0, calculatedDay);
 
         const weeksToCheck = [
@@ -262,10 +257,6 @@ export class OrchestratorScheduler {
       if (activeCycle) {
         activeCycleId = activeCycle.id;
 
-        const { data: userRec } = await supabase.from('users').select('timezone').eq('id', userId).maybeSingle();
-        const userTz = userRec?.timezone || 'UTC';
-        const { ExerciseUnlockService } = await import('../exercises/exerciseUnlockService');
-
         const { data: maxEntry } = await supabase
           .from('entries')
           .select('cycle_day')
@@ -275,7 +266,8 @@ export class OrchestratorScheduler {
           .limit(1)
           .maybeSingle();
 
-        const calculatedDay = ExerciseUnlockService.calculateCycleDay(activeCycle.start_date, userTz);
+        const startDateMs = new Date(activeCycle.start_date).getTime();
+        const calculatedDay = Math.max(1, Math.floor((Date.now() - startDateMs) / (1000 * 60 * 60 * 24)) + 1);
         const cycleDay = Math.max(maxEntry?.cycle_day || 0, calculatedDay);
 
         const isAssessmentDue = cycleDay >= 28 || activeCycle.status === 'COMPLETED' || activeCycle.status === 'completed' || activeCycle.assessment_available || activeCycle.assessment_completed;

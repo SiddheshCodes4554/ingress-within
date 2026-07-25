@@ -43,7 +43,6 @@ export async function backfillWeeklyReports(userId: string): Promise<BackfillRes
     // 2. Fetch user timezone
     const { data: userRecord } = await supabase.from('users').select('timezone').eq('id', userId).maybeSingle();
     const userTimezone = userRecord?.timezone || 'UTC';
-    const { ExerciseUnlockService } = await import('./exercises/exerciseUnlockService');
 
     // Check all 4 weeks of the cycle
     const targetWeeks = [
@@ -60,6 +59,9 @@ export async function backfillWeeklyReports(userId: string): Promise<BackfillRes
         cycle.status?.toLowerCase() === 'completed' ||
         cycle.status?.toLowerCase() === 'archived';
       
+      const startDateMs = new Date(cycle.start_date).getTime();
+      const calculatedDay = Math.max(1, Math.floor((Date.now() - startDateMs) / (1000 * 60 * 60 * 24)) + 1);
+
       const { data: maxEntry } = await supabase
         .from('entries')
         .select('cycle_day')
@@ -68,8 +70,6 @@ export async function backfillWeeklyReports(userId: string): Promise<BackfillRes
         .order('cycle_day', { ascending: false })
         .limit(1)
         .maybeSingle();
-
-      const calculatedDay = ExerciseUnlockService.calculateCycleDay(cycle.start_date, userTimezone);
       const currentDay = Math.max(maxEntry?.cycle_day || 0, calculatedDay);
 
       for (const target of targetWeeks) {

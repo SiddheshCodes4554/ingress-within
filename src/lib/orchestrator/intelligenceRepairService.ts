@@ -1,6 +1,5 @@
 import { supabase } from '../db';
 import { IntelligenceOrchestrator } from './intelligenceOrchestrator';
-import { ExerciseUnlockService } from '../exercises/exerciseUnlockService';
 
 export interface RepairAuditResult {
   userId: string;
@@ -12,7 +11,6 @@ export interface RepairAuditResult {
     knowledge: number;
     weeklyReports: number;
     cycleReports: number;
-    exerciseAnalyses: number;
   };
   logs: string[];
 }
@@ -31,8 +29,7 @@ export class IntelligenceRepairService {
       patterns: 0,
       knowledge: 0,
       weeklyReports: 0,
-      cycleReports: 0,
-      exerciseAnalyses: 0
+      cycleReports: 0
     };
 
     const { queueRegistry } = await import('../queue/registry');
@@ -200,9 +197,8 @@ export class IntelligenceRepairService {
             .limit(1)
             .maybeSingle();
 
-          const { data: userRec } = await supabase.from('users').select('timezone').eq('id', userId).maybeSingle();
-          const userTz = userRec?.timezone || 'UTC';
-          const calculatedDay = ExerciseUnlockService.calculateCycleDay(userCycle.start_date, userTz);
+          const startDateMs = new Date(userCycle.start_date).getTime();
+          const calculatedDay = Math.max(1, Math.floor((Date.now() - startDateMs) / (1000 * 60 * 60 * 24)) + 1);
           const cDay = Math.max(maxEntry?.cycle_day || 0, calculatedDay);
           const isDue = cDay >= 28 || userCycle.status === 'COMPLETED' || userCycle.status === 'completed' || userCycle.assessment_available || userCycle.assessment_completed;
 
@@ -260,40 +256,6 @@ export class IntelligenceRepairService {
       }
     } catch (err: any) {
       console.error('[RepairService] Error auditing reports:', err.message);
-    }
-
-    // 3. Audit Exercise Analyses
-    try {
-      const { data: instances } = await supabase
-        .from('exercise_instances')
-        .select('id, exercise_id, cycle_id, status')
-        .eq('user_id', userId)
-        .in('status', ['completed', 'finished']);
-
-      if (instances) {
-        for (const inst of instances) {
-          const { data: res } = await supabase
-            .from('exercise_results')
-            .select('id')
-            .eq('instance_id', inst.id)
-            .maybeSingle();
-
-          if (!res) {
-            console.log(`[RepairService] Completed exercise instance ${inst.id} is missing an exercise_results record. Re-firing analysis worker...`);
-            const { ExerciseAnalysisWorker } = await import('../exercises/exerciseAnalysisWorker');
-            await ExerciseAnalysisWorker.execute({
-              instance_id: inst.id,
-              exercise_id: inst.exercise_id,
-              user_id: userId,
-              cycle_id: inst.cycle_id
-            });
-            repairedCounts.exerciseAnalyses++;
-            logs.push(`Re-executed missing exercise analysis for instance ${inst.id}`);
-          }
-        }
-      }
-    } catch (err: any) {
-      console.error('[RepairService] Error auditing exercise analyses:', err.message);
     }
 
     // Write audit record to DB

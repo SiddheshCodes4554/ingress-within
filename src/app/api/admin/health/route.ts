@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       .limit(50);
 
     // 2. Engine Health Metrics for specified user or system-wide sample
-    const engines = ['crisis_detection', 'reflection', 'scoring', 'vocabulary', 'patterns', 'knowledge', 'exercise', 'weekly_report', 'assessment'];
+    const engines = ['crisis_detection', 'reflection', 'scoring', 'vocabulary', 'patterns', 'knowledge', 'weekly_report'];
     const engineHealthMap: Record<string, any> = {};
 
     if (userId) {
@@ -54,21 +54,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 3. Pending Reports & Exercises
+    // 3. Pending Reports
     const { count: pendingWeeklyReports } = await supabase
       .from('weekly_summaries')
       .select('id', { count: 'exact', head: true })
       .in('status', ['PENDING', 'pending', 'WAITING_FOR_PROCESSING', 'GRACE_PERIOD']);
-
-    const { count: pendingAssessments } = await supabase
-      .from('assessments')
-      .select('id', { count: 'exact', head: true })
-      .in('generation_status', ['pending', 'failed']);
-
-    const { count: pendingExercises } = await supabase
-      .from('exercise_instances')
-      .select('id', { count: 'exact', head: true })
-      .in('status', ['queued', 'analysing', 'available', 'started', 'in_progress']);
 
     // 4. Missing Snapshots Audit
     const { count: totalEntries } = await supabase.from('entries').select('id', { count: 'exact', head: true });
@@ -101,10 +91,8 @@ export async function GET(request: NextRequest) {
           vocabulary: missingVocabCount
         },
         pendingReports: {
-          weekly: pendingWeeklyReports || 0,
-          cycle: pendingAssessments || 0
-        },
-        pendingExercises: pendingExercises || 0
+          weekly: pendingWeeklyReports || 0
+        }
       },
       engineHealth: engineHealthMap,
       recentEvents: recentEvents || [],

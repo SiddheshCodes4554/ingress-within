@@ -7,13 +7,11 @@ export const QUEUE_NAMES = {
   WEEKLY_SUMMARY_GENERATION: 'weekly_summary_generation',
   MONTHLY_REPORT_GENERATION: 'monthly_report_generation',
   OCEAN_SUMMARY_GENERATION: 'ocean_summary_generation',
-  EXERCISE_INSIGHT_GENERATION: 'exercise_insight_generation',
   CRISIS_DETECTION: 'crisis_detection',
   VOCAB_PROCESSING: 'vocab_processing',
   INTELLIGENCE_REBUILD: 'intelligence_rebuild',
   PATTERN_PROCESSING: 'pattern_processing',
   KNOWLEDGE_PROCESSING: 'knowledge_processing',
-  EXERCISE_PROCESSING: 'exercise_processing',
 } as const;
 
 export type QueueName = typeof QUEUE_NAMES[keyof typeof QUEUE_NAMES];
@@ -78,12 +76,6 @@ class QueueRegistry {
           } else if (queueName === 'ocean_summary_generation') {
             const { processOceanSummary } = await import('./workers/oceanSummaryWorker');
             await processOceanSummary(data);
-          } else if (queueName === 'exercise_insight_generation') {
-            const { processExerciseInsight } = await import('./workers/exerciseInsightWorker');
-            await processExerciseInsight(data);
-          } else if (queueName === 'exercise_processing') {
-            const { processExercise } = await import('./workers/exerciseWorker');
-            await processExercise(data);
           } else if (queueName === 'vocab_processing') {
             const { processVocabularyExtraction } = await import('./workers/vocabWorker');
             await processVocabularyExtraction(data);

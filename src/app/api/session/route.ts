@@ -466,12 +466,6 @@ export async function POST(request: NextRequest) {
       }
 
       // 4. Trigger asynchronous background processing for AI pipeline
-      if (exerciseRecord) {
-        queueRegistry.addJob('exercise_insight_generation', `exercise_${exerciseRecord.id}`, {
-          exercise_id: exerciseRecord.id,
-          user_id: authUser.userId
-        }).catch(err => console.error('[Queue Trigger] Failed to queue exercise insight:', err.message));
-      }
 
       if (journalRecord) {
         triggerAIProcessing(journalRecord.id, authUser.userId);

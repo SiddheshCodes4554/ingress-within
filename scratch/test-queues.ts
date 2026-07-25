@@ -198,11 +198,6 @@ async function runQueueTest() {
         q1: 4, q2: 4, q3: 3, q4: 5, q5: 2, q6: 3,
         q7: 4, q8: 4, q9: 5, q10: 2, q11: 1, q12: 2
       }
-    }),
-    // 7. Exercise Insight
-    queueRegistry.addJob('exercise_insight_generation', `test_exercise_${exercise.id}`, {
-      exercise_id: exercise.id,
-      user_id: user.id
     })
   ]);
 

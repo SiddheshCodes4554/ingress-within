@@ -38,10 +38,9 @@ async function migrateAllUsers() {
 
   console.log(`Found ${users.length} users in the database:`, users.map(u => `${u.name} (${u.id})`));
 
-  const subsystems: Array<'vocabulary' | 'reports' | 'patterns' | 'assessment' | 'exercise'> = [
+  const subsystems: Array<'vocabulary' | 'reports' | 'patterns' | 'assessment'> = [
     'patterns',
     'assessment',
-    'exercise',
     'vocabulary',
     'reports'
   ];

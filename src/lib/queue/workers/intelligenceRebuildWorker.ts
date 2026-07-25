@@ -2,7 +2,7 @@ import { supabase } from '../../db';
 
 export interface RebuildJobData {
   user_id: string;
-  subsystem: 'vocabulary' | 'reports' | 'patterns' | 'assessment' | 'exercise';
+  subsystem: 'vocabulary' | 'reports' | 'patterns' | 'assessment';
 }
 
 /**
@@ -143,20 +143,7 @@ export async function processIntelligenceRebuild(data: RebuildJobData) {
 
       console.log(`[Intelligence Rebuild Worker] Assessments rebuild completed successfully for user ${userId}.`);
 
-    } else if (subsystem === 'exercise') {
-      // Rebuild exercise: simply mark completed for now
-      await supabase
-        .from('user_intelligence_versions')
-        .update({
-          exercise_engine_version: '1.0',
-          exercise_prompt_version: '1.0',
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId);
-
-      console.log(`[Intelligence Rebuild Worker] Exercises rebuild completed successfully for user ${userId}.`);
     }
-
   } catch (error: any) {
     console.error(`[Intelligence Rebuild Worker] Error processing rebuild for user ${userId}, subsystem "${subsystem}":`, error.message || error);
     throw error;

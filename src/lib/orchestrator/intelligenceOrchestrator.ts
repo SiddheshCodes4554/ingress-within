@@ -310,13 +310,6 @@ export class IntelligenceOrchestrator {
         }
         break;
       }
-      case 'exercise':
-        await queueRegistry.addJob('exercise_insight_generation', `exercise_retry_${resourceId}_${Date.now()}`, {
-          exercise_id: resourceId,
-          user_id: userId,
-          orchestrator_job_id: jobId
-        });
-        break;
     }
   }
 
