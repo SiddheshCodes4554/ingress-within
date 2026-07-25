@@ -15,7 +15,7 @@ import ExerciseLoading from '../components/exercise/ExerciseLoading';
 import ExerciseLayout from '../components/exercise/ExerciseLayout';
 import { QuestionsCatalog } from '../lib/exercises/questionsCatalog';
 
-import { Sparkles, Clock, CheckCircle, Lock, ArrowRight, FileText, ChevronRight } from 'lucide-react';
+import { Sparkles, Clock, CheckCircle, Lock, ArrowRight, FileText, ChevronRight, RotateCw, X } from 'lucide-react';
 
 const queryClient = new QueryClient({
   defaultQueries: {
@@ -354,9 +354,11 @@ function ExerciseContent({ user, profile, onSignOut }) {
 
   const renderActiveScreen = () => {
     const currentStatus = matchedStatus?.status || targetInstance?.status || instance?.status;
+    const isExplicitResultsRoute = typeof window !== 'undefined' && window.location.pathname.includes('/results/');
+    const isCompletedStatus = currentStatus === 'finished' || currentStatus === 'completed' || instance?.status === 'finished' || instance?.status === 'completed' || targetInstance?.status === 'finished' || targetInstance?.status === 'completed';
 
-    // Finished/Analysis mode
-    if (currentStatus === 'finished' || instance?.status === 'finished' || targetInstance?.status === 'finished' || resultRes?.result) {
+    // Finished/Analysis mode - ONLY show analysis if explicitly viewing results OR instance is finished/completed
+    if (isExplicitResultsRoute || (isCompletedStatus && resultRes?.result)) {
       return (
         <ExerciseAnalysis
           exerciseId={exerciseIdFromUrl}
@@ -757,19 +759,37 @@ function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }
                           </p>
                         )}
 
-                        <button
-                          onClick={() => {
-                            if (resData) {
-                              setActiveAnalysisResult({ result: resData, exerciseId: item.exercise_id });
-                            } else {
-                              window.navigateTo(`/exercise/${item.exercise_id}`);
-                            }
-                          }}
-                          className="w-full py-2.5 px-4 rounded-xl border border-primary/20 bg-white text-primary font-sans text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-primary hover:text-mint-grey transition-all cursor-pointer shadow-xs"
-                        >
-                          <span>View Full AI Analysis & Results</span>
-                          <ArrowRight size={14} />
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              if (resData) {
+                                setActiveAnalysisResult({ result: resData, exerciseId: item.exercise_id });
+                              } else {
+                                window.navigateTo(`/exercise/${item.exercise_id}`);
+                              }
+                            }}
+                            className="flex-1 py-2.5 px-3 rounded-xl border border-primary/20 bg-white text-primary font-sans text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-primary hover:text-mint-grey transition-all cursor-pointer shadow-xs"
+                          >
+                            <span>View Analysis</span>
+                            <ArrowRight size={14} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              startMutation.mutate(
+                                { exerciseId: item.exercise_id, forceNew: true },
+                                {
+                                  onSuccess: () => {
+                                    window.navigateTo(`/exercise/${item.exercise_id}`);
+                                  }
+                                }
+                              );
+                            }}
+                            className="py-2.5 px-3 rounded-xl border border-primary/10 bg-primary/5 text-primary/70 font-sans text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1 hover:bg-primary hover:text-white transition-all cursor-pointer shadow-xs"
+                          >
+                            <span>Retake</span>
+                            <RotateCw size={13} />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}

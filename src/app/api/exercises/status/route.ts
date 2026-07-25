@@ -124,11 +124,11 @@ export async function GET(request: NextRequest) {
       if (computedStatus === 'locked') {
         lockReason = `Unlocks on Day ${unlockDay} of your cycle (Current Day: ${currentDay})`;
         counts.locked++;
-      } else if (['available', 'started', 'in_progress'].includes(computedStatus)) {
+      } else if (['available', 'started', 'in_progress', 'draft'].includes(computedStatus)) {
         counts.available++;
-      } else if (['completed', 'queued', 'analysing'].includes(computedStatus)) {
+      } else if (['queued', 'analysing'].includes(computedStatus)) {
         counts.pending++;
-      } else if (['finished'].includes(computedStatus)) {
+      } else if (['completed', 'finished'].includes(computedStatus)) {
         counts.completed++;
       }
 

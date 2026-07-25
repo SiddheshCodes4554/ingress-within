@@ -16,9 +16,41 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { instanceId, exerciseId } = body;
+    const { instanceId, exerciseId, forceNew } = body;
 
     let targetInstanceId = instanceId;
+
+    if (forceNew && exerciseId) {
+      const { supabase } = await import('../../../../lib/db');
+      const { data: activeCycle } = await supabase
+        .from('cycles')
+        .select('id')
+        .eq('user_id', authUser.userId)
+        .eq('status', 'ACTIVE')
+        .maybeSingle();
+
+      if (activeCycle) {
+        // Reset status to available so user can re-attempt
+        const { data: resetInst } = await supabase
+          .from('exercise_instances')
+          .update({
+            status: 'available',
+            started: false,
+            completed: false,
+            locked: false,
+            available: true
+          })
+          .eq('user_id', authUser.userId)
+          .eq('cycle_id', activeCycle.id)
+          .eq('exercise_id', exerciseId)
+          .select('id')
+          .maybeSingle();
+
+        if (resetInst) {
+          targetInstanceId = resetInst.id;
+        }
+      }
+    }
 
     if (!targetInstanceId && exerciseId) {
       const { supabase } = await import('../../../../lib/db');
