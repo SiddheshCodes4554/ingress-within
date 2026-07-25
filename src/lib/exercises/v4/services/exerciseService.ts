@@ -86,7 +86,13 @@ export class ExerciseService {
    */
   public static async completeExercise(result: ExerciseResult): Promise<{ result: ExerciseResult; instance: ExerciseInstance }> {
     ExerciseValidator.validateResult(result);
-    const savedResult = await ExerciseRepository.saveResult(result);
+    const savedResult = await ExerciseRepository.saveResult({
+      instance_id: result.instance_id,
+      user_id: result.user_id,
+      summary: result.summary || '',
+      analysis: result.data || result.analysis,
+      score: result.score
+    });
     const instance = await ExerciseLifecycleService.transitionTo(result.instance_id, 'completed');
     return { result: savedResult, instance };
   }

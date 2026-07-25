@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import DashboardNavbar from '../components/DashboardNavbar';
 import Exercise0Flow from '../components/exercise/v4/Exercise0Flow';
+import Exercise0ResultView from '../components/exercise/v4/Exercise0ResultView';
 
 export default function ExercisePage({ user, profile, onSignOut }) {
   const [loading, setLoading] = useState(true);
@@ -22,6 +23,7 @@ export default function ExercisePage({ user, profile, onSignOut }) {
   const [error, setError] = useState(null);
   const [activeCategory, setActiveCategory] = useState('all');
   const [activeExerciseInstanceId, setActiveExerciseInstanceId] = useState(null);
+  const [activeResultInstanceId, setActiveResultInstanceId] = useState(null);
 
   useEffect(() => {
     fetchExerciseInstances();
@@ -124,6 +126,14 @@ export default function ExercisePage({ user, profile, onSignOut }) {
             setActiveExerciseInstanceId(null);
             fetchExerciseInstances();
           }}
+        />
+      )}
+
+      {/* Render Exercise 0 Result View Modal if Active */}
+      {activeResultInstanceId && (
+        <Exercise0ResultView
+          instanceId={activeResultInstanceId}
+          onClose={() => setActiveResultInstanceId(null)}
         />
       )}
 
@@ -303,9 +313,12 @@ export default function ExercisePage({ user, profile, onSignOut }) {
                     )}
 
                     {['submitted', 'processing', 'completed'].includes(instance.status) && (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-600">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Completed
-                      </span>
+                      <button
+                        onClick={() => setActiveResultInstanceId(instance.id)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-secondary text-white text-xs font-semibold hover:bg-secondary/90 transition-all cursor-pointer shadow-sm"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-white" /> View Analysis
+                      </button>
                     )}
 
                     {instance.status === 'locked' && (

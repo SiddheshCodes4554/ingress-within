@@ -54,6 +54,8 @@ export interface ExerciseResult {
   user_id: string;
   exercise_id: string;
   summary?: string;
+  score?: number;
+  analysis?: Record<string, any> | any;
   data: Record<string, any>;
   version?: string;
   created_at?: string;

@@ -205,7 +205,15 @@ export class ExerciseRepository {
   }
 
   // --- RESULTS ---
-  public static async saveResult(result: ExerciseResult): Promise<ExerciseResult> {
+  public static async saveResult(result: {
+    instance_id: string;
+    user_id: string;
+    summary: string;
+    analysis?: any;
+    score?: number | null;
+    model?: string;
+    provider?: string;
+  }): Promise<ExerciseResult> {
     const { data, error } = await supabase
       .from('exercise_results')
       .insert({
@@ -213,9 +221,9 @@ export class ExerciseRepository {
         user_id: result.user_id,
         summary: result.summary || '',
         analysis: result.summary || '',
-        model: 'v4-foundation',
-        provider: 'system',
-        raw_json: result.data || {},
+        model: result.model || 'v4-ai-engine',
+        provider: result.provider || 'groq',
+        raw_json: result.analysis || {},
         generated_at: new Date().toISOString()
       })
       .select()
@@ -226,9 +234,11 @@ export class ExerciseRepository {
       id: data.id,
       instance_id: data.instance_id,
       user_id: data.user_id,
-      exercise_id: result.exercise_id,
+      exercise_id: 'exercise_0',
       summary: data.summary,
-      data: data.raw_json,
+      score: result.score ?? 80,
+      analysis: data.raw_json || {},
+      data: data.raw_json || {},
       created_at: data.generated_at
     };
   }
