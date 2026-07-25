@@ -156,7 +156,7 @@ export default function Exercise0Flow({ instanceId, onClose, onComplete }) {
 
   const handleCompleteAndRoute = () => {
     if (onComplete) onComplete();
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/onboarding')) {
       window.navigateTo('/write');
     }
   };
