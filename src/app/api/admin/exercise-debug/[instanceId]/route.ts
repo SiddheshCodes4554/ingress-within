@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../../../lib/db';
 import { getAuthenticatedUser } from '../../../../../lib/auth-helper';
+import { CORE_EXERCISE_DEFINITIONS, ExerciseInitializationService } from '../../../../../lib/exercises/exerciseInitializationService';
 
 type RouteContext = {
   params: Promise<{ instanceId: string }>
@@ -8,7 +9,7 @@ type RouteContext = {
 
 /**
  * GET /api/admin/exercise-debug/[instanceId]
- * Diagnostic observability endpoint returning full execution lifecycle state.
+ * Diagnostic observability endpoint returning full execution lifecycle state or system-wide initialization audit.
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
@@ -22,8 +23,66 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const { instanceId } = await context.params;
 
+    // Handle system-wide audit mode
+    if (instanceId === 'audit' || instanceId === 'system') {
+      const { data: defs } = await supabase
+        .from('exercise_definitions')
+        .select('*');
+
+      const { data: activeCycle } = await supabase
+        .from('cycles')
+        .select('*')
+        .eq('user_id', authUser.userId)
+        .eq('status', 'ACTIVE')
+        .maybeSingle();
+
+      let userInstances: any[] = [];
+      if (activeCycle) {
+        userInstances = await ExerciseInitializationService.syncUserInstances(
+          authUser.userId,
+          activeCycle.id,
+          activeCycle.current_day || 1
+        );
+      }
+
+      const existingDefIds = new Set((defs || []).map(d => d.id));
+      const missingDefinitions = CORE_EXERCISE_DEFINITIONS.filter(cd => !existingDefIds.has(cd.id));
+
+      const currentDay = activeCycle?.current_day || 1;
+      const ruleEvaluation = (defs || []).map(def => {
+        const inst = userInstances.find(i => i.exercise_id === def.id);
+        const unlockDay = def.unlock_rules?.day || 1;
+        const isUnlocked = currentDay >= unlockDay;
+        return {
+          exerciseId: def.id,
+          title: def.title,
+          unlockDay,
+          currentDay,
+          isUnlocked,
+          instanceStatus: inst?.status || 'missing',
+          lockReason: isUnlocked ? null : `Locked until Day ${unlockDay} of active cycle (Current Day: ${currentDay})`
+        };
+      });
+
+      const counts = await ExerciseInitializationService.getSummaryCounts(authUser.userId, activeCycle?.id || '');
+
+      return NextResponse.json({
+        success: true,
+        audit: {
+          definitionsCount: defs?.length || 0,
+          missingDefinitionsCount: missingDefinitions.length,
+          missingDefinitions: missingDefinitions.map(d => d.id),
+          activeCycleId: activeCycle?.id || null,
+          currentDay,
+          userInstancesCount: userInstances.length,
+          counts,
+          ruleEvaluation
+        }
+      });
+    }
+
     // 1. Query exercise instance
-    const { data: instance, error: instErr } = await supabase
+    const { data: instance } = await supabase
       .from('exercise_instances')
       .select('*, definition:exercise_definitions(*)')
       .eq('id', instanceId)
