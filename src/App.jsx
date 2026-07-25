@@ -24,6 +24,7 @@ const SessionFlowPage = lazy(() => import('./pages/SessionFlowPage'));
 const ThreadDetailPage = lazy(() => import('./pages/ThreadDetailPage'));
 const ThreadsPage = lazy(() => import('./pages/ThreadsPage'));
 const EntryDetailPage = lazy(() => import('./pages/EntryDetailPage'));
+const ExercisePage = lazy(() => import('./pages/ExercisePage'));
 const TestPage = (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_TEST_PAGE === 'true')
   ? lazy(() => import('./pages/TestPage'))
   : () => null;
@@ -328,6 +329,9 @@ export default function App() {
       } else if (path === '/knowledge' || path === '/knowledge/') {
         setCurrentRoute('knowledge');
         window.scrollTo(0, 0);
+      } else if (path === '/exercise' || path === '/exercise/' || path === '/exercises' || path === '/exercises/') {
+        setCurrentRoute('exercise');
+        window.scrollTo(0, 0);
       } else if (path === '/support' || path === '/support/') {
         setCurrentRoute('support');
         window.scrollTo(0, 0);
@@ -459,6 +463,8 @@ export default function App() {
         return <VocabPage user={user} profile={profile} onSignOut={handleSignOut} />;
       case 'knowledge':
         return <KnowledgeBankPage user={user} profile={profile} onSignOut={handleSignOut} />;
+      case 'exercise':
+        return <ExercisePage user={user} profile={profile} onSignOut={handleSignOut} />;
       case 'support':
         return <SupportPage />;
       case 'session':
