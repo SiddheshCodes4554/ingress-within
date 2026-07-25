@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
 
     // 5. Enqueue background analysis job
     const jobId = await IntelligenceOrchestrator.enqueueJob(authUser.userId, 'exercise', `ExerciseCompleted:${targetInstanceId}`);
-    
+
     // Execute worker processing
     try {
       const { ExerciseAnalysisWorker } = await import('../../../../lib/exercises/exerciseAnalysisWorker');

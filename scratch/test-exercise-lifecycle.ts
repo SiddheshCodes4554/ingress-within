@@ -58,13 +58,16 @@ async function runAutomatedExerciseLifecycleTests() {
   console.log('\n--- TEST 2: AUTOSAVE & PROGRESS ISOLATION (Exercise 1) ---');
   const { data: inst1 } = await supabase
     .from('exercise_instances')
-    .select('id')
+    .select('id, status')
     .eq('user_id', user.id)
     .eq('cycle_id', activeCycle.id)
     .eq('exercise_id', 'exercise_1')
     .single();
 
   if (inst1) {
+    if (['finished', 'completed', 'failed'].includes(inst1.status)) {
+      await supabase.from('exercise_instances').update({ status: 'available' }).eq('id', inst1.id);
+    }
     await ExerciseProgressService.saveProgress(user.id, inst1.id, 'q_1', 'step_1', 'Peace');
     await ExerciseProgressService.saveProgress(user.id, inst1.id, 'q_2', 'step_2', 'Truth');
 

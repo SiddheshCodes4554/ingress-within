@@ -124,7 +124,7 @@ function ExerciseContent({ user, profile, onSignOut }) {
   const { data: resultRes, isLoading: resultLoading } = useQuery({
     queryKey: ['exerciseResult', targetInstance?.id || exerciseIdFromUrl],
     queryFn: () => fetch(`/api/exercises/result/${targetInstance?.id || exerciseIdFromUrl}`).then(r => r.json()),
-    enabled: !!(exerciseIdFromUrl && (matchedStatus?.status === 'finished' || targetInstance?.status === 'finished'))
+    enabled: !!exerciseIdFromUrl
   });
 
   // Initialize Zustand store on load/resume
@@ -226,14 +226,14 @@ function ExerciseContent({ user, profile, onSignOut }) {
   const instance = matchedStatus.instance;
   const questions = exerciseIdFromUrl === 'exercise_1'
     ? (stimulusList || ['Trust', 'Control', 'Boundary', 'Anger', 'Fear', 'Peace', 'Clarity', 'Attachment', 'Validation', 'Truth']).map((word, idx) => ({
-        id: `q_${idx + 1}`,
-        type: 'free_text',
-        label: word,
-        placeholder: 'Type the first thing that comes to mind',
-        singleLine: true
-      }))
+      id: `q_${idx + 1}`,
+      type: 'free_text',
+      label: word,
+      placeholder: 'Type the first thing that comes to mind',
+      singleLine: true
+    }))
     : exerciseIdFromUrl === 'exercise_2'
-    ? Array.from({ length: 15 }, (_, idx) => {
+      ? Array.from({ length: 15 }, (_, idx) => {
         const cardIndex = Math.floor(idx / 3);
         const stepNum = (idx % 3) + 1;
         const cardId = cardIndex + 1;
@@ -262,7 +262,7 @@ function ExerciseContent({ user, profile, onSignOut }) {
           allResponses: responses
         };
       })
-    : QuestionsCatalog.getQuestions(exerciseIdFromUrl);
+      : QuestionsCatalog.getQuestions(exerciseIdFromUrl);
 
   // Autosave responses with debounce
   const handleAnswerChange = (questionId, value) => {
@@ -353,6 +353,7 @@ function ExerciseContent({ user, profile, onSignOut }) {
       return (
         <ExerciseAnalysis
           exerciseId={exerciseIdFromUrl}
+          instanceId={targetInstance?.id || instance?.id}
           result={resultRes?.result}
           onClose={() => window.navigateTo('/exercise')}
         />
@@ -519,7 +520,7 @@ function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }
   return (
     <div className="min-h-screen bg-mint-grey flex flex-col font-sans">
       <DashboardNavbar user={user} profile={profile} onSignOut={onSignOut} activeLink="exercises" />
-      
+
       <main className="flex-1 max-w-[1000px] w-full mx-auto px-4 md:px-6 py-8 space-y-8 text-left">
         {/* Modal for Viewing Past Completed Exercise AI Analysis */}
         {activeAnalysisResult && (
@@ -546,7 +547,7 @@ function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }
             <Sparkles size={14} />
             <span>Assessments & Projective Framework</span>
           </div>
-          
+
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h1 className="font-serif text-2xl md:text-3xl font-normal text-primary">
@@ -589,11 +590,10 @@ function ExercisesHub({ user, profile, onSignOut, statuses, history, isLoading }
               <button
                 key={tab.id}
                 onClick={() => setFilter(tab.id)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wider transition-all cursor-pointer border ${
-                  filter === tab.id
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wider transition-all cursor-pointer border ${filter === tab.id
                     ? 'bg-primary text-mint-grey border-primary shadow-xs'
                     : 'bg-white/60 text-primary/70 border-primary/10 hover:bg-white hover:border-primary/20'
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>

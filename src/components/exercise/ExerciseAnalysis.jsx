@@ -24,12 +24,59 @@ const DIMENSION_DEFS = {
   }
 };
 
-export default function ExerciseAnalysis({ result, onClose, exerciseId }) {
+export default function ExerciseAnalysis({ result, onClose, exerciseId, instanceId }) {
+  const [isRebuilding, setIsRebuilding] = React.useState(false);
+
+  const handleRebuild = async () => {
+    setIsRebuilding(true);
+    try {
+      if (instanceId || result?.instance_id) {
+        await fetch('/api/exercises/admin/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'rebuild', instanceId: instanceId || result?.instance_id })
+        });
+      }
+      window.location.reload();
+    } catch (err) {
+      console.error('Rebuild failed:', err);
+      setIsRebuilding(false);
+    }
+  };
+
   if (!result) {
     return (
-      <div className="space-y-6 max-w-2xl mx-auto py-12 text-center">
-        <div className="w-12 h-12 mx-auto rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-        <p className="font-serif text-lg text-primary">Finalizing your clinical analysis report...</p>
+      <div className="space-y-6 max-w-md mx-auto py-12 text-center animate-fade-in">
+        <div className="w-12 h-12 mx-auto rounded-full bg-accent/10 flex items-center justify-center text-accent mb-2">
+          <Brain size={22} className={isRebuilding ? "animate-spin" : ""} />
+        </div>
+        <div className="space-y-2">
+          <h3 className="font-serif text-xl text-primary font-normal">Finalizing your clinical analysis report</h3>
+          <p className="font-body-md text-primary/60 text-xs leading-relaxed">
+            Your answers are safely saved. If your report does not load immediately, click below to re-run the clinical engine.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-xs mx-auto pt-2">
+          <button
+            onClick={handleRebuild}
+            disabled={isRebuilding}
+            className="w-full px-4 py-2.5 bg-primary hover:bg-[#2A3A3E] text-mint-grey rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer shadow-xs disabled:opacity-50"
+          >
+            {isRebuilding ? 'Re-running Analysis...' : 'Re-run Analysis'}
+          </button>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full px-4 py-2.5 border border-primary/20 bg-white hover:bg-primary/5 text-primary rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer shadow-xs"
+          >
+            Refresh Page
+          </button>
+        </div>
+        <button
+          onClick={onClose || (() => window.navigateTo('/dashboard'))}
+          className="text-xs text-primary/50 hover:text-primary transition-colors cursor-pointer underline pt-2"
+        >
+          Return to Dashboard
+        </button>
       </div>
     );
   }
