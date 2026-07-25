@@ -1,87 +1,25 @@
-import { ExerciseResponse } from '../types/exercise.types';
-import { EXERCISE_0_QUESTIONS } from '../definitions/exercise0Catalog';
-
-export interface Exercise0AnalysisResult {
-  summary: string;
-  cognitive_style: string;
-  emotional_resilience_score: number;
-  pattern_awareness_score: number;
-  values_alignment_score: number;
-  key_insights: string[];
-  recommendations: string[];
-}
-
 export class Exercise0Prompt {
-  public static buildPrompt(responses: ExerciseResponse[]): { system: string; user: string } {
-    const responseMap: Record<string, any> = {};
-    responses.forEach(r => {
-      responseMap[r.question_id] = r.response;
-    });
+  public static buildOceanSummaryPrompt(scores: {
+    ocean_O: number;
+    ocean_C: number;
+    ocean_E: number;
+    ocean_A: number;
+    ocean_N: number;
+  }): { system: string; user: string } {
+    const system = `You are an expert psychological scientist describing a person's inner processing style in plain, direct language.`;
 
-    const formattedQA = EXERCISE_0_QUESTIONS.map(q => {
-      const ans = responseMap[q.id] !== undefined ? responseMap[q.id] : 'No answer provided';
-      return `Question (${q.id}): "${q.title}"\nUser Answer: ${typeof ans === 'object' ? JSON.stringify(ans) : ans}`;
-    }).join('\n\n');
+    const user = `You are reading a person's OCEAN personality assessment scores on a scale of 1-5 where 5 is highest.
 
-    const system = `You are an expert psychological and cognitive scientist conducting a baseline psychological analysis for a user's reflective journey.
-Analyze the user's responses to the initial baseline exercise and provide a structured JSON assessment.
+Openness: ${scores.ocean_O} | Conscientiousness: ${scores.ocean_C} | Extraversion: ${scores.ocean_E} | Agreeableness: ${scores.ocean_A} | Neuroticism: ${scores.ocean_N}
 
-CRITICAL INSTRUCTIONS:
-1. Return ONLY valid JSON conforming to the exact schema specified below.
-2. Scores (emotional_resilience_score, pattern_awareness_score, values_alignment_score) MUST be integers between 1 and 100.
-3. The summary must provide an insightful, empathetic, and professional synthesis of their baseline state (120-180 words).
-4. key_insights must contain exactly 3 concise, highly relevant observations.
-5. recommendations must contain exactly 2 actionable guidance points.
+Write 2-3 plain sentences describing how this person tends to process their inner life. Do not use OCEAN terminology or clinical language. Do not mention scores or numbers. Write it the way you would describe someone to a new person who is about to interact with them.
 
-REQUIRED JSON SCHEMA:
-{
-  "summary": "String synthesis of baseline cognitive & emotional state...",
-  "cognitive_style": "String summary of internal processing style...",
-  "emotional_resilience_score": 82,
-  "pattern_awareness_score": 75,
-  "values_alignment_score": 88,
-  "key_insights": ["Insight 1", "Insight 2", "Insight 3"],
-  "recommendations": ["Recommendation 1", "Recommendation 2"]
-}`;
+End with one sentence that begins: "This space is designed for exactly that."
 
-    const user = `Here are the user's baseline exercise responses:\n\n${formattedQA}\n\nProvide the baseline psychological analysis JSON object.`;
+Example: "You tend to process things internally and find direct conflict uncomfortable. That means things often pile up quietly before they surface. This space is designed for exactly that."
+
+Be accurate. Be plain. Do not be warm or encouraging. Just describe what you see.`;
 
     return { system, user };
-  }
-
-  public static validateJSON(raw: any): Exercise0AnalysisResult {
-    if (!raw || typeof raw !== 'object') {
-      throw new Error('Invalid AI response: output is not a JSON object.');
-    }
-
-    if (typeof raw.summary !== 'string' || !raw.summary.trim()) {
-      throw new Error('Invalid AI JSON: missing or empty "summary".');
-    }
-
-    if (typeof raw.cognitive_style !== 'string' || !raw.cognitive_style.trim()) {
-      raw.cognitive_style = 'Balanced analytical and intuitive reflective style';
-    }
-
-    raw.emotional_resilience_score = Number(raw.emotional_resilience_score) || 75;
-    raw.pattern_awareness_score = Number(raw.pattern_awareness_score) || 75;
-    raw.values_alignment_score = Number(raw.values_alignment_score) || 75;
-
-    if (!Array.isArray(raw.key_insights) || raw.key_insights.length === 0) {
-      raw.key_insights = ['Demonstrates foundational emotional self-awareness.'];
-    }
-
-    if (!Array.isArray(raw.recommendations) || raw.recommendations.length === 0) {
-      raw.recommendations = ['Continue daily reflective journal entries.'];
-    }
-
-    return {
-      summary: raw.summary.trim(),
-      cognitive_style: raw.cognitive_style.trim(),
-      emotional_resilience_score: Math.min(100, Math.max(1, raw.emotional_resilience_score)),
-      pattern_awareness_score: Math.min(100, Math.max(1, raw.pattern_awareness_score)),
-      values_alignment_score: Math.min(100, Math.max(1, raw.values_alignment_score)),
-      key_insights: raw.key_insights.map((s: any) => String(s).trim()),
-      recommendations: raw.recommendations.map((s: any) => String(s).trim())
-    };
   }
 }

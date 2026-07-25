@@ -2,68 +2,63 @@ import { ExerciseDefinition } from '../types/exercise.types';
 
 export const EXERCISE_0_DEFINITION: ExerciseDefinition = {
   id: 'exercise_0',
-  exercise_type: 'psychometric_baseline',
+  exercise_type: 'ocean_baseline',
   title: 'Cognitive & Emotional Baseline',
-  description: 'An initial baseline assessment measuring emotional processing, internal tension responses, and values alignment.',
+  description: '12-item OCEAN baseline assessment measuring core processing styles.',
   unlock_rules: { day: 1, cycle: 1, strategy: 'immediate' },
   cycle: 1,
   frequency: 'once_per_cycle',
-  estimated_duration: 5,
-  version: '4.0',
+  estimated_duration: 3,
+  version: '5.0',
   active_status: true
 };
 
-export interface ExerciseQuestion {
+export interface Exercise0Question {
   id: string;
-  type: 'scale' | 'choice' | 'text';
-  title: string;
-  subtitle?: string;
-  options?: { value: any; label: string }[];
-  minLabel?: string;
-  maxLabel?: string;
+  text: string;
+  dim: 'O' | 'C' | 'E' | 'A' | 'N';
+  rev?: boolean;
 }
 
-export const EXERCISE_0_QUESTIONS: ExerciseQuestion[] = [
-  {
-    id: 'q1',
-    type: 'scale',
-    title: 'How easily do you process unexpected shifts in your emotional state?',
-    subtitle: 'Select the rating that best reflects your experience over the past 7 days.',
-    minLabel: '1 - Highly Overwhelmed',
-    maxLabel: '5 - Complete Ease'
-  },
-  {
-    id: 'q2',
-    type: 'choice',
-    title: 'When experiencing strong internal tension, what is your primary initial response?',
-    subtitle: 'Choose the option that feels most automatic for you.',
-    options: [
-      { value: 'internal_withdrawal', label: 'Internal withdrawal and quiet contemplation' },
-      { value: 'external_expression', label: 'Expressing thoughts to someone trusted' },
-      { value: 'logical_analysis', label: 'Analyzing the underlying logic or cause' },
-      { value: 'immediate_action', label: 'Taking immediate physical or practical action' }
-    ]
-  },
-  {
-    id: 'q3',
-    type: 'scale',
-    title: 'How frequently do you observe recurring patterns in your daily thoughts?',
-    subtitle: 'Notice the degree of awareness you hold regarding repeated mental loops.',
-    minLabel: '1 - Rarely Notice',
-    maxLabel: '5 - Constantly Aware'
-  },
-  {
-    id: 'q4',
-    type: 'text',
-    title: 'Describe a recent moment where your internal reaction surprised you.',
-    subtitle: 'Share a brief reflection in your own words.'
-  },
-  {
-    id: 'q5',
-    type: 'scale',
-    title: 'How aligned do you feel with your personal values when making decisions under pressure?',
-    subtitle: 'Rate your sense of inner consistency.',
-    minLabel: '1 - Low Alignment',
-    maxLabel: '5 - Full Alignment'
-  }
+export const EXERCISE_0_QUESTIONS: Exercise0Question[] = [
+  { id: 'q1',  text: "I'm drawn to ideas and questions even when they have no practical use.", dim: 'O' },
+  { id: 'q3',  text: "I tend to follow through on things I set for myself even when motivation drops.", dim: 'C' },
+  { id: 'q5',  text: "When I'm stressed, being around people usually helps me feel better.", dim: 'E' },
+  { id: 'q7',  text: "I find it hard to express frustration or disagreement directly to someone I care about.", dim: 'A' },
+  { id: 'q10', text: "My mood can be affected by things that might seem minor to others.", dim: 'N' },
+  { id: 'q2',  text: "I tend to notice things — patterns, connections, ideas — that aren't directly relevant to what I'm doing.", dim: 'O' },
+  { id: 'q4',  text: "When things feel out of control externally, I usually try to control what I can internally.", dim: 'C' },
+  { id: 'q6',  text: "I process things better by talking them through than sitting with them alone.", dim: 'E' },
+  { id: 'q8',  text: "I tend to keep difficult feelings to myself rather than share them in the moment.", dim: 'A' },
+  { id: 'q11', text: "I often replay conversations or situations in my head long after they've happened.", dim: 'N' },
+  { id: 'q9',  text: "When I disagree with someone, I usually just say so.", dim: 'A', rev: true },
+  { id: 'q12', text: "When I'm anxious I find it hard to identify exactly what I'm anxious about.", dim: 'N' }
 ];
+
+export function calculateOceanScores(answers: Record<string, number>) {
+  const r1 = (n: number) => Math.round(n * 10) / 10;
+  const rv = (v: number) => 6 - v;
+
+  const a = {
+    q1: Number(answers.q1) || 3,
+    q2: Number(answers.q2) || 3,
+    q3: Number(answers.q3) || 3,
+    q4: Number(answers.q4) || 3,
+    q5: Number(answers.q5) || 3,
+    q6: Number(answers.q6) || 3,
+    q7: Number(answers.q7) || 3,
+    q8: Number(answers.q8) || 3,
+    q9: Number(answers.q9) || 3,
+    q10: Number(answers.q10) || 3,
+    q11: Number(answers.q11) || 3,
+    q12: Number(answers.q12) || 3,
+  };
+
+  return {
+    ocean_O: r1((a.q1 + a.q2) / 2),
+    ocean_C: r1((a.q3 + a.q4) / 2),
+    ocean_E: r1((a.q5 + a.q6) / 2),
+    ocean_A: r1((a.q7 + a.q8 + rv(a.q9)) / 3),
+    ocean_N: r1((a.q10 + a.q11 + a.q12) / 3),
+  };
+}

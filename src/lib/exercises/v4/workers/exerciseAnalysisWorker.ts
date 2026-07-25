@@ -2,6 +2,7 @@ import { ExerciseRepository } from '../repository/exerciseRepository';
 import { ExerciseLifecycleService } from '../services/exerciseLifecycleService';
 import { ExerciseResultService } from '../services/exerciseResultService';
 import { Exercise0Prompt } from '../ai/exercise0Prompt';
+import { calculateOceanScores } from '../definitions/exercise0Catalog';
 import { aiProvider } from '../../../ai/factory';
 
 export class ExerciseAnalysisWorker {
@@ -28,66 +29,44 @@ export class ExerciseAnalysisWorker {
 
     // 4. Fetch saved responses
     const responses = await ExerciseRepository.getResponsesForInstance(instanceId);
-    if (!responses || responses.length === 0) {
-      throw new Error(`No saved responses found for instance ${instanceId}`);
+    const answerMap: Record<string, number> = {};
+    responses.forEach(r => {
+      answerMap[r.question_id] = Number(r.response);
+    });
+
+    const oceanScores = calculateOceanScores(answerMap);
+
+    // 5. Build OCEAN Prompt
+    const { system, user } = Exercise0Prompt.buildOceanSummaryPrompt(oceanScores);
+
+    // 6. Execute AI Request with 8s Timeout
+    let summaryText = '';
+    try {
+      const aiPromise = aiProvider.callRaw(`${system}\n\n${user}`);
+      const timeoutPromise = new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error('AI request timeout (8s)')), 8000)
+      );
+
+      const rawText = await Promise.race([aiPromise, timeoutPromise]);
+      summaryText = rawText.trim();
+    } catch (err: any) {
+      console.warn(`[ExerciseAnalysisWorker] AI call failed or timed out: ${err.message}`);
+      summaryText = `You tend to process things internally and observe patterns before taking action. That means your reflections often reveal deeper insights over time. This space is designed for exactly that.`;
     }
 
-    // 5. Build AI Prompt
-    const { system, user } = Exercise0Prompt.buildPrompt(responses);
-
-    // 6. Execute AI Request with Retry Logic (Up to 3 Attempts)
-    let aiOutput: any = null;
-    let attempts = 0;
-    const maxAttempts = 3;
-    let lastError: any = null;
-
-    while (attempts < maxAttempts) {
-      attempts++;
-      try {
-        console.log(`[ExerciseAnalysisWorker] AI Attempt ${attempts}/${maxAttempts}...`);
-        const { extractJson } = await import('../../../ai/utils');
-        const rawText = await aiProvider.callRaw(`${system}\n\n${user}`);
-        const rawJson = extractJson(rawText);
-        aiOutput = Exercise0Prompt.validateJSON(rawJson);
-        break; // Success!
-      } catch (err) {
-        console.warn(`[ExerciseAnalysisWorker] Attempt ${attempts} failed:`, err);
-        lastError = err;
-        if (attempts < maxAttempts) {
-          await new Promise(res => setTimeout(res, 1000 * attempts));
-        }
-      }
-    }
-
-    // Fallback if AI provider is completely unavailable
-    if (!aiOutput) {
-      console.error(`[ExerciseAnalysisWorker] AI failed after ${maxAttempts} attempts. Using structured fallback analysis.`);
-      aiOutput = {
-        summary: 'Baseline psychological assessment completed. Demonstrates initial cognitive reflection and self-awareness.',
-        cognitive_style: 'Structured analytical and reflective processing style',
-        emotional_resilience_score: 78,
-        pattern_awareness_score: 75,
-        values_alignment_score: 82,
-        key_insights: [
-          'High baseline capacity for internal cognitive observation.',
-          'Constructive awareness of emotional responses under pressure.',
-          'Active commitment to core personal values.'
-        ],
-        recommendations: [
-          'Maintain regular daily reflective journaling.',
-          'Observe pattern recurrences over your upcoming 28-day cycle.'
-        ]
-      };
-    }
+    const fullAnalysis = {
+      summary: summaryText,
+      scores: oceanScores,
+      answers: answerMap
+    };
 
     // 7. Store Immutable Exercise Result in Database
     const storedResult = await ExerciseResultService.storeResult({
       instanceId,
       userId: instance.user_id,
-      summary: aiOutput.summary,
-      analysis: aiOutput,
-      score: aiOutput.emotional_resilience_score,
-      model: process.env.AI_MODEL || 'v4-analysis-engine',
+      summary: summaryText,
+      analysis: fullAnalysis,
+      model: process.env.AI_MODEL || 'claude-sonnet-4-6',
       provider: process.env.AI_PROVIDER || 'groq'
     });
 
