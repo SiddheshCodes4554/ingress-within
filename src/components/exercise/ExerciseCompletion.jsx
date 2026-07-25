@@ -35,11 +35,12 @@ export default function ExerciseCompletion({ instanceId, onComplete }) {
           const data = await res.json();
           const target = (data.statuses || []).find(s => (instanceId && s.instance?.id === instanceId) || (s.instance && ['finished', 'failed'].includes(s.instance.status)));
           if (target) {
-            if (target.status === 'finished' || target.instance?.status === 'finished') {
+            const statusStr = target.status || target.instance?.status;
+            if (['finished', 'completed', 'result_available'].includes(statusStr)) {
               if (active) onComplete();
               return;
             }
-            if (target.status === 'failed' || target.instance?.status === 'failed') {
+            if (['failed'].includes(statusStr)) {
               console.warn('[ExerciseCompletion] Analysis status marked failed, unblocking user...');
               if (active) onComplete();
               return;

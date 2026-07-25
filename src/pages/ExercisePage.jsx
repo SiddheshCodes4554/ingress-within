@@ -116,7 +116,13 @@ function ExerciseContent({ user, profile, onSignOut }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bodyPayload)
-      }).then(r => r.json());
+      }).then(async r => {
+        const json = await r.json();
+        if (!r.ok || !json.success) {
+          throw new Error(json.error?.message || 'Submission failed');
+        }
+        return json;
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['currentExercise'] });
@@ -153,7 +159,12 @@ function ExerciseContent({ user, profile, onSignOut }) {
             (data.responses || []).forEach(r => {
               formatted[r.question_id] = r.response;
             });
-            const savedStep = data.screenState?.currentStepIndex || 1;
+            let savedStep = data.screenState?.currentStepIndex || 0;
+            const instStatus = data.instance?.status || targetInstance?.status;
+            // If instance is available or user has no saved responses yet, start at Intro screen (0)
+            if (instStatus === 'available' || Object.keys(formatted).length === 0) {
+              savedStep = 0;
+            }
             init(data.instance || targetInstance, formatted, savedStep, data.stimulusList);
             return;
           }
