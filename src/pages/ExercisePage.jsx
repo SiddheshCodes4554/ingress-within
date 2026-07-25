@@ -16,6 +16,8 @@ import {
 import DashboardNavbar from '../components/DashboardNavbar';
 import Exercise0Flow from '../components/exercise/v4/Exercise0Flow';
 import Exercise0ResultView from '../components/exercise/v4/Exercise0ResultView';
+import Exercise1Flow from '../components/exercise/v4/Exercise1Flow';
+import Exercise1ResultView from '../components/exercise/v4/Exercise1ResultView';
 
 export default function ExercisePage({ user, profile, onSignOut }) {
   const [loading, setLoading] = useState(true);
@@ -117,25 +119,51 @@ export default function ExercisePage({ user, profile, onSignOut }) {
     <div className="min-h-screen bg-[#ECEFF0] text-[#1E2A2E] font-sans pb-16">
       <DashboardNavbar activeTab="exercises" />
 
-      {/* Render Exercise 0 Runner Modal Flow if Active */}
-      {activeExerciseInstanceId && (
-        <Exercise0Flow
-          instanceId={activeExerciseInstanceId}
-          onClose={() => setActiveExerciseInstanceId(null)}
-          onComplete={() => {
-            setActiveExerciseInstanceId(null);
-            fetchExerciseInstances();
-          }}
-        />
-      )}
+      {/* Render Exercise Runner Modal Flow if Active */}
+      {activeExerciseInstanceId && (() => {
+        const inst = instances.find(i => i.id === activeExerciseInstanceId);
+        if (inst?.exercise_id === 'exercise_1') {
+          return (
+            <Exercise1Flow
+              instanceId={activeExerciseInstanceId}
+              onClose={() => setActiveExerciseInstanceId(null)}
+              onComplete={() => {
+                setActiveExerciseInstanceId(null);
+                fetchExerciseInstances();
+              }}
+            />
+          );
+        }
+        return (
+          <Exercise0Flow
+            instanceId={activeExerciseInstanceId}
+            onClose={() => setActiveExerciseInstanceId(null)}
+            onComplete={() => {
+              setActiveExerciseInstanceId(null);
+              fetchExerciseInstances();
+            }}
+          />
+        );
+      })()}
 
-      {/* Render Exercise 0 Result View Modal if Active */}
-      {activeResultInstanceId && (
-        <Exercise0ResultView
-          instanceId={activeResultInstanceId}
-          onClose={() => setActiveResultInstanceId(null)}
-        />
-      )}
+      {/* Render Exercise Result View Modal if Active */}
+      {activeResultInstanceId && (() => {
+        const inst = instances.find(i => i.id === activeResultInstanceId);
+        if (inst?.exercise_id === 'exercise_1') {
+          return (
+            <Exercise1ResultView
+              result={{ analysis: inst.data, summary: inst.summary }}
+              onClose={() => setActiveResultInstanceId(null)}
+            />
+          );
+        }
+        return (
+          <Exercise0ResultView
+            instanceId={activeResultInstanceId}
+            onClose={() => setActiveResultInstanceId(null)}
+          />
+        );
+      })()}
 
       <main className="max-w-[1140px] mx-auto px-6 pt-8 space-y-8">
         {/* Header Section */}
@@ -275,12 +303,18 @@ export default function ExercisePage({ user, profile, onSignOut }) {
                     </div>
 
                     <h3 className="font-serif italic text-xl text-primary leading-tight">
-                      {instance.exercise_id === 'exercise_0' ? 'Exercise 0: Cognitive & Emotional Baseline' : `Exercise: ${instance.exercise_id}`}
+                      {instance.exercise_id === 'exercise_0'
+                        ? 'Exercise 0: Cognitive & Emotional Baseline'
+                        : instance.exercise_id === 'exercise_1'
+                        ? 'Exercise 1: Word Association'
+                        : `Exercise: ${instance.exercise_id}`}
                     </h3>
 
                     <p className="text-xs text-mid leading-relaxed">
                       {instance.exercise_id === 'exercise_0'
                         ? 'Initial baseline assessment measuring emotional processing, internal tension responses, and values alignment.'
+                        : instance.exercise_id === 'exercise_1'
+                        ? '12-word rapid association exercise measuring emotional register and suppression.'
                         : 'Structured cognitive exercise.'}
                     </p>
                   </div>

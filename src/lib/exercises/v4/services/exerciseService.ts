@@ -1,6 +1,7 @@
 import { ExerciseRepository } from '../repository/exerciseRepository';
 import { ExerciseLifecycleService } from './exerciseLifecycleService';
 import { ExerciseValidator } from '../validation/exerciseValidator';
+import { Exercise1AnalysisWorker } from '../workers/exercise1AnalysisWorker';
 import {
   ExerciseDefinition,
   ExerciseInstance,
@@ -8,6 +9,7 @@ import {
   ExerciseResult,
   ExerciseLifecycleStatus
 } from '../types/exercise.types';
+import { supabase } from '../../../db';
 
 export class ExerciseService {
   /**
@@ -39,6 +41,42 @@ export class ExerciseService {
       status: initialStatus,
       unlock_time: initialStatus === 'available' ? new Date().toISOString() : null
     });
+  }
+
+  /**
+   * Prepares Exercise 1 word sequence via Call 1 if not already stored in instance events.
+   */
+  public static async prepareExercise1Sequence(instanceId: string): Promise<{ instance: ExerciseInstance; sequence: any[] }> {
+    const instance = await ExerciseRepository.getInstance(instanceId);
+    if (!instance) {
+      throw new Error(`Instance not found: ${instanceId}`);
+    }
+
+    // Check existing sequence_created event
+    const { data: existingEvents } = await supabase
+      .from('exercise_events')
+      .select('payload')
+      .eq('instance_id', instanceId)
+      .eq('event_type', 'sequence_created')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (existingEvents && existingEvents.length > 0 && existingEvents[0].payload?.word_sequence) {
+      return { instance, sequence: existingEvents[0].payload.word_sequence };
+    }
+
+    // Call 1 word selection
+    const { words, sequence } = await Exercise1AnalysisWorker.runCall1(instance.user_id);
+
+    // Save event to exercise_events table
+    await supabase.from('exercise_events').insert({
+      instance_id: instanceId,
+      user_id: instance.user_id,
+      event_type: 'sequence_created',
+      payload: { word_sequence: sequence, personalised_words: words }
+    });
+
+    return { instance, sequence };
   }
 
   /**
