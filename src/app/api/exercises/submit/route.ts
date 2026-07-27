@@ -41,7 +41,12 @@ export async function POST(request: NextRequest) {
     const submittedInstance = await ExerciseService.submitExercise(instance_id);
 
     // Trigger AI Analysis Worker based on exercise_id
-    if (instance.exercise_id === 'exercise_2' || instance.exercise_id === 'inkblot_projective') {
+    if (instance.exercise_id === 'exercise_3' || instance.exercise_id === 'self_perception') {
+      const { Exercise3AnalysisWorker } = await import('../../../../lib/exercises/v4/workers/exercise3AnalysisWorker');
+      await Exercise3AnalysisWorker.processInstance(instance_id).catch(err => {
+        console.error(`[POST /api/exercises/submit] Exercise 3 AI worker error for ${instance_id}:`, err);
+      });
+    } else if (instance.exercise_id === 'exercise_2' || instance.exercise_id === 'inkblot_projective') {
       const { Exercise2AnalysisWorker } = await import('../../../../lib/exercises/v4/workers/exercise2AnalysisWorker');
       await Exercise2AnalysisWorker.processInstance(instance_id).catch(err => {
         console.error(`[POST /api/exercises/submit] Exercise 2 AI worker error for ${instance_id}:`, err);

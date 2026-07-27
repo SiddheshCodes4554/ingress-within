@@ -23,6 +23,7 @@ import Exercise1ResultView from '../components/exercise/v4/Exercise1ResultView';
 import Exercise2Flow from '../components/exercise/v4/Exercise2Flow';
 import Exercise2ResultView from '../components/exercise/v4/Exercise2ResultView';
 import Exercise3Flow from '../components/exercise/v4/Exercise3Flow';
+import Exercise3ResultView from '../components/exercise/v4/Exercise3ResultView';
 
 // Founder-approved exercise definitions & titles
 const EXERCISE_METADATA = {
@@ -225,6 +226,15 @@ export default function ExercisePage({ user, profile, onSignOut }) {
         if (!inst) return null;
 
         const exId = inst.exercise_id;
+
+        if (exId === 'exercise_3' || exId === 'self_perception') {
+          return (
+            <Exercise3ResultView
+              instanceId={activeResultInstanceId}
+              onClose={() => setActiveResultInstanceId(null)}
+            />
+          );
+        }
 
         if (exId === 'exercise_2' || exId === 'inkblot_projective') {
           return (
