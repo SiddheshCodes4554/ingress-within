@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!['started', 'in_progress'].includes(instance.status)) {
+    if (!['started', 'in_progress', 'analysing', 'available'].includes(instance.status)) {
       return NextResponse.json(
         { error: { code: 'INVALID_STATE', message: `Cannot resume exercise in status "${instance.status}".` } },
         { status: 400 }

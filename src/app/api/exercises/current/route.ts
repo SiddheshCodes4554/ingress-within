@@ -12,7 +12,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const instanceId = request.nextUrl.searchParams.get('instance_id');
     const cycleId = request.nextUrl.searchParams.get('cycle_id') || undefined;
+
+    // If specific instance_id requested, fetch THAT EXACT instance
+    if (instanceId) {
+      const targetInstance = await ExerciseRepository.getInstance(instanceId);
+      if (!targetInstance || targetInstance.user_id !== authUser.userId) {
+        return NextResponse.json(
+          { error: { code: 'NOT_FOUND', message: 'Exercise instance not found.' } },
+          { status: 404 }
+        );
+      }
+      const responses = await ExerciseRepository.getResponsesForInstance(instanceId);
+      return NextResponse.json({ instance: targetInstance, responses });
+    }
+
     const rawInstances = await ExerciseRepository.getUserInstances(authUser.userId, cycleId);
     // Sort instances by updated_at descending to get the most recent active exercise
     const instances = [...rawInstances].sort((a, b) => {
