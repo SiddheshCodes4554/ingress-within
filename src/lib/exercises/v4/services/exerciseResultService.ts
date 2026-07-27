@@ -3,25 +3,20 @@ import { ExerciseResult } from '../types/exercise.types';
 
 export class ExerciseResultService {
   /**
-   * Fetches an existing immutable exercise result. Returns null if not generated yet.
-   */
-  public static async getResult(instanceId: string): Promise<ExerciseResult | null> {
-    return await ExerciseRepository.getResultForInstance(instanceId);
-  }
-
-  /**
-   * Stores an immutable exercise result in the database.
+   * Generates or retrieves an ExerciseResult.
+   * Enforces immutability: if a result already exists for the instance, it returns the existing result
+   * and NEVER re-invokes AI generation.
    */
   public static async storeResult(params: {
     instanceId: string;
     userId: string;
-    analysis: any;
     summary: string;
+    analysis: any;
     score?: number;
     model?: string;
     provider?: string;
   }): Promise<ExerciseResult> {
-    // 1. Check if result already exists for this instance (IMMUTABLE GUARD)
+    // 1. Check if immutable result already exists
     const existing = await ExerciseRepository.getResultForInstance(params.instanceId);
     if (existing) {
       console.log(`[ExerciseResultService] Result already exists for instance ${params.instanceId}. Returning immutable stored result.`);
@@ -34,9 +29,13 @@ export class ExerciseResultService {
       user_id: params.userId,
       summary: params.summary,
       analysis: params.analysis,
-      score: params.score ?? null,
+      score: params.score !== undefined ? params.score : undefined,
       model: params.model || 'v4-ai-engine',
       provider: params.provider || 'groq'
-    });
+    } as any);
+  }
+
+  public static async getResult(instanceId: string): Promise<ExerciseResult | null> {
+    return await ExerciseRepository.getResultForInstance(instanceId);
   }
 }

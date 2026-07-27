@@ -123,16 +123,70 @@ export class ExerciseRepository {
     return data;
   }
 
+  /**
+   * Retrieves user exercise instances, automatically deduplicating by exercise_id.
+   */
   public static async getUserInstances(userId: string, cycleId?: string): Promise<ExerciseInstance[]> {
     let query = supabase.from('exercise_instances').select('*').eq('user_id', userId);
     if (cycleId) query = query.eq('cycle_id', cycleId);
 
-    const { data, error } = await query.order('created_at', { ascending: true });
+    const { data, error } = await query.order('created_at', { ascending: false });
     if (error) throw new Error(`[ExerciseRepository] getUserInstances error: ${error.message}`);
-    return data || [];
+    
+    const rows = data || [];
+    
+    // Deduplicate by exercise_id prioritizing completed > in_progress > available > locked
+    const statusPriority: Record<string, number> = {
+      completed: 5,
+      processing: 4,
+      analysing: 4,
+      in_progress: 3,
+      started: 3,
+      available: 2,
+      locked: 1
+    };
+
+    const deduplicatedMap = new Map<string, ExerciseInstance>();
+
+    for (const inst of rows) {
+      const exId = inst.exercise_id;
+      const existing = deduplicatedMap.get(exId);
+
+      if (!existing) {
+        deduplicatedMap.set(exId, inst);
+      } else {
+        const pCurrent = statusPriority[inst.status] || 0;
+        const pExisting = statusPriority[existing.status] || 0;
+
+        if (pCurrent > pExisting) {
+          deduplicatedMap.set(exId, inst);
+        }
+      }
+    }
+
+    // Sort by standard exercise order (exercise_0, exercise_1, exercise_2, exercise_3)
+    const exerciseOrder = ['exercise_0', 'ocean', 'exercise_1', 'word_association', 'exercise_2', 'inkblot_projective', 'exercise_3', 'self_perception'];
+    
+    return Array.from(deduplicatedMap.values()).sort((a, b) => {
+      const idxA = exerciseOrder.indexOf(a.exercise_id);
+      const idxB = exerciseOrder.indexOf(b.exercise_id);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      return (a.exercise_id || '').localeCompare(b.exercise_id || '');
+    });
   }
 
+  /**
+   * Creates an exercise instance, updating existing instance if one already exists for (user_id, exercise_id).
+   */
   public static async createInstance(inst: Partial<ExerciseInstance>): Promise<ExerciseInstance> {
+    if (inst.user_id && inst.exercise_id) {
+      const existing = await this.getInstanceByUserAndExercise(inst.user_id, inst.cycle_id, inst.exercise_id);
+      if (existing) {
+        console.log(`[ExerciseRepository] Instance already exists for user ${inst.user_id} and exercise ${inst.exercise_id} (ID: ${existing.id}). Returning existing.`);
+        return existing;
+      }
+    }
+
     const { data, error } = await supabase
       .from('exercise_instances')
       .insert({
@@ -171,6 +225,24 @@ export class ExerciseRepository {
     return data;
   }
 
+  // --- EVENTS ---
+  public static async recordEvent(event: any): Promise<any> {
+    const { data, error } = await supabase
+      .from('exercise_events')
+      .insert({
+        instance_id: event.instance_id,
+        user_id: event.user_id,
+        event_type: event.event_type,
+        metadata: event.metadata || {},
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .maybeSingle();
+
+    if (error) console.warn('[ExerciseRepository] recordEvent warning:', error.message);
+    return data || null;
+  }
+
   // --- RESPONSES ---
   public static async saveResponse(response: ExerciseResponse): Promise<ExerciseResponse> {
     const { data, error } = await supabase
@@ -180,9 +252,10 @@ export class ExerciseRepository {
           instance_id: response.instance_id,
           user_id: response.user_id,
           question_id: response.question_id,
-          step_id: response.question_id,
+          prompt: (response as any).prompt || '',
           response: response.response,
-          created_at: new Date().toISOString()
+          metadata: (response as any).metadata || {},
+          updated_at: new Date().toISOString()
         },
         { onConflict: 'instance_id,question_id' }
       )
@@ -193,93 +266,57 @@ export class ExerciseRepository {
     return data;
   }
 
-  public static async getResponsesForInstance(instanceId: string): Promise<ExerciseResponse[]> {
+  public static async getResponses(instanceId: string): Promise<ExerciseResponse[]> {
     const { data, error } = await supabase
       .from('exercise_responses')
       .select('*')
       .eq('instance_id', instanceId)
       .order('created_at', { ascending: true });
 
-    if (error) throw new Error(`[ExerciseRepository] getResponsesForInstance error: ${error.message}`);
+    if (error) throw new Error(`[ExerciseRepository] getResponses error: ${error.message}`);
     return data || [];
   }
 
+  public static async getResponsesForInstance(instanceId: string): Promise<ExerciseResponse[]> {
+    return this.getResponses(instanceId);
+  }
+
   // --- RESULTS ---
-  public static async saveResult(result: {
-    instance_id: string;
-    user_id: string;
-    summary: string;
-    analysis?: any;
-    score?: number | null;
-    model?: string;
-    provider?: string;
-  }): Promise<ExerciseResult> {
+  public static async saveResult(result: Partial<ExerciseResult>): Promise<ExerciseResult> {
     const { data, error } = await supabase
       .from('exercise_results')
-      .insert({
-        instance_id: result.instance_id,
-        user_id: result.user_id,
-        summary: result.summary || '',
-        analysis: result.summary || '',
-        model: result.model || 'v4-ai-engine',
-        provider: result.provider || 'groq',
-        raw_json: result.analysis || {},
-        generated_at: new Date().toISOString()
-      })
+      .upsert(
+        {
+          instance_id: result.instance_id,
+          user_id: result.user_id,
+          summary: result.summary,
+          analysis: result.analysis,
+          model: (result as any).model || null,
+          provider: (result as any).provider || null,
+          raw_json: (result as any).raw_json || null,
+          generated_at: new Date().toISOString()
+        },
+        { onConflict: 'instance_id' }
+      )
       .select()
       .single();
 
     if (error) throw new Error(`[ExerciseRepository] saveResult error: ${error.message}`);
-    return {
-      id: data.id,
-      instance_id: data.instance_id,
-      user_id: data.user_id,
-      exercise_id: 'exercise_0',
-      summary: data.summary,
-      score: result.score ?? 80,
-      analysis: data.raw_json || {},
-      data: data.raw_json || {},
-      created_at: data.generated_at
-    };
+    return data;
   }
 
-  public static async getResultForInstance(instanceId: string): Promise<ExerciseResult | null> {
+  public static async getResult(instanceId: string): Promise<ExerciseResult | null> {
     const { data, error } = await supabase
       .from('exercise_results')
       .select('*')
       .eq('instance_id', instanceId)
-      .order('generated_at', { ascending: false })
       .maybeSingle();
 
-    if (error) throw new Error(`[ExerciseRepository] getResultForInstance error: ${error.message}`);
-    if (!data) return null;
-
-    return {
-      id: data.id,
-      instance_id: data.instance_id,
-      user_id: data.user_id,
-      exercise_id: '',
-      summary: data.summary,
-      data: data.raw_json || {},
-      created_at: data.generated_at
-    };
+    if (error) throw new Error(`[ExerciseRepository] getResult error: ${error.message}`);
+    return data;
   }
 
-  // --- EVENTS ---
-  public static async recordEvent(event: ExerciseEvent): Promise<ExerciseEvent> {
-    const { data, error } = await supabase
-      .from('exercise_events')
-      .insert({
-        instance_id: event.instance_id,
-        user_id: event.user_id,
-        event_type: event.event_type,
-        payload: event.payload || {},
-        created_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    if (error) throw new Error(`[ExerciseRepository] recordEvent error: ${error.message}`);
-    return data;
+  public static async getResultForInstance(instanceId: string): Promise<ExerciseResult | null> {
+    return this.getResult(instanceId);
   }
 }
