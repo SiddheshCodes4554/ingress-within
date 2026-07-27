@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '../../../../lib/auth-helper';
 import { ExerciseRepository } from '../../../../lib/exercises/v4/repository/exerciseRepository';
 import { ExerciseService } from '../../../../lib/exercises/v4/services/exerciseService';
+import { supabase } from '../../../../lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { instance_id, question_id, response } = body;
+    const { instance_id, question_id, response, current_image, current_step } = body;
 
     if (!instance_id || !question_id || response === undefined || response === null) {
       return NextResponse.json(
@@ -44,6 +45,13 @@ export async function POST(request: NextRequest) {
       question_id,
       response
     });
+
+    if (current_image !== undefined || current_step !== undefined) {
+      const updateData: any = {};
+      if (current_image !== undefined) updateData.current_image = current_image;
+      if (current_step !== undefined) updateData.current_step = current_step;
+      await supabase.from('exercise_instances').update(updateData).eq('id', instance_id);
+    }
 
     return NextResponse.json({ success: true, response: result.response, instance: result.instance });
   } catch (error: any) {

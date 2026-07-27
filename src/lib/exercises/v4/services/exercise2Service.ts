@@ -2,6 +2,7 @@ import { supabase } from '../../../../lib/db';
 import { Exercise2Instance, Exercise2Result, Exercise2Status } from '../types/exercise2.types';
 import { Exercise2UnlockService } from './exercise2UnlockService';
 import { EXERCISE_2_CONFIG } from '../definitions/exercise2Catalog';
+import { InkblotImageGenerator } from '../imageGen/inkblotImageGenerator';
 
 export class Exercise2Service {
   private static VALID_TRANSITIONS: Record<Exercise2Status, Exercise2Status[]> = {
@@ -75,6 +76,7 @@ export class Exercise2Service {
 
   /**
    * Atomic creation / start of Exercise 2 instance & draft result.
+   * Generates 5 Inkblot Images ONLY ONCE and permanently attaches them to ExerciseResult.
    */
   public static async startExercise(userId: string, currentDay: number = 16, currentCycle: number = 1): Promise<{ instance: Exercise2Instance; result: Exercise2Result }> {
     const unlockStatus = await Exercise2UnlockService.evaluateUnlockStatus(userId, currentDay, currentCycle);
@@ -82,7 +84,7 @@ export class Exercise2Service {
       throw new Error('[Exercise2Service] Exercise 2 is locked. Unlock requirements (Cycle 1, Day >= 16, Exercise 1 completed) not met.');
     }
 
-    // Atomic concurrency check: find existing active or available instance
+    // Check existing active or completed instance
     const existingInst = await this.getCurrentInstance(userId);
     if (existingInst) {
       if (existingInst.status === 'completed') {
@@ -95,11 +97,49 @@ export class Exercise2Service {
           .eq('instance_id', existingInst.id)
           .maybeSingle();
 
-        return { instance: existingInst, result: existingResult as Exercise2Result };
+        if (existingResult) {
+          const analysis = existingResult.analysis || existingResult.raw_json || {};
+          let urls: string[] = analysis.generated_image_urls || [];
+          let seeds: string[] = analysis.generation_seeds || [];
+
+          // Fallback if existing result somehow lacked images
+          if (!urls || urls.length !== 5) {
+            const gen = InkblotImageGenerator.generateInkblotImageUrls(userId, currentCycle);
+            urls = gen.urls;
+            seeds = gen.seeds;
+            const updatedAnalysis = { ...analysis, generated_image_urls: urls, generation_seeds: seeds };
+            await supabase.from('exercise_results').update({ analysis: updatedAnalysis, raw_json: updatedAnalysis }).eq('id', existingResult.id);
+          }
+
+          const formattedRes: Exercise2Result = {
+            id: existingResult.id,
+            exercise_instance_id: existingResult.instance_id,
+            user_id: existingResult.user_id,
+            raw_responses: analysis.raw_responses || [],
+            generated_image_urls: urls,
+            generation_seeds: seeds,
+            default_lens_label: analysis.default_lens_label || 'mixed',
+            lens_by_image: analysis.lens_by_image || [],
+            entry_confirmation: analysis.entry_confirmation || 'partial',
+            de_animation_flag: analysis.de_animation_flag || false,
+            most_revealing_image: analysis.most_revealing_image || 3,
+            performance_flag: analysis.performance_flag || false,
+            ai_analysis_text: existingResult.summary || analysis.ai_analysis_text || null,
+            entry_count_at_completion: analysis.entry_count_at_completion || null,
+            completed_at: existingResult.generated_at,
+            status: existingInst.status,
+            created_at: existingResult.generated_at
+          };
+
+          return { instance: existingInst, result: formattedRes };
+        }
       }
     }
 
-    // 1. Create Instance atomically in state 'in_progress'
+    // 1. Generate 5 unique Inkblot Images for User ONLY ONCE
+    const { urls, seeds } = InkblotImageGenerator.generateInkblotImageUrls(userId, currentCycle);
+
+    // 2. Create Instance atomically in state 'in_progress'
     const now = new Date().toISOString();
     const { data: newInst, error: instErr } = await supabase
       .from('exercise_instances')
@@ -120,35 +160,36 @@ export class Exercise2Service {
       throw new Error(`[Exercise2Service] Failed to create instance: ${instErr.message}`);
     }
 
-    // 2. Create Draft ExerciseResult record atomically
+    // 3. Create Draft ExerciseResult record with permanent generated images & seeds
+    const analysisPayload = {
+      raw_responses: [],
+      generated_image_urls: urls,
+      generation_seeds: seeds,
+      default_lens_label: 'mixed',
+      lens_by_image: [],
+      entry_confirmation: 'partial',
+      de_animation_flag: false,
+      most_revealing_image: 3,
+      performance_flag: false,
+      ai_analysis_text: null
+    };
+
     const { data: newResult, error: resErr } = await supabase
       .from('exercise_results')
       .insert({
         instance_id: newInst.id,
         user_id: userId,
         summary: '',
-        analysis: {
-          raw_responses: [],
-          generated_image_urls: [],
-          generation_seeds: [],
-          default_lens_label: 'mixed',
-          lens_by_image: [],
-          entry_confirmation: 'partial',
-          de_animation_flag: false,
-          most_revealing_image: 3,
-          performance_flag: false,
-          ai_analysis_text: null
-        },
+        analysis: analysisPayload,
         model: 'inkblot-foundation-v2',
         provider: 'groq',
-        raw_json: {},
+        raw_json: analysisPayload,
         generated_at: now
       })
       .select()
       .single();
 
     if (resErr) {
-      // Rollback instance if result creation fails
       await supabase.from('exercise_instances').delete().eq('id', newInst.id);
       throw new Error(`[Exercise2Service] Failed to create draft ExerciseResult: ${resErr.message}`);
     }
@@ -173,8 +214,8 @@ export class Exercise2Service {
       exercise_instance_id: newResult.instance_id,
       user_id: newResult.user_id,
       raw_responses: [],
-      generated_image_urls: [],
-      generation_seeds: [],
+      generated_image_urls: urls,
+      generation_seeds: seeds,
       default_lens_label: 'mixed',
       lens_by_image: [],
       entry_confirmation: 'partial',
