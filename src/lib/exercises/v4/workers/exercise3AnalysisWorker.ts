@@ -76,35 +76,41 @@ export class Exercise3AnalysisWorker {
 
     // 6. Parse Prose Synthesis & JSON Payload
     let summary = 'Your responses have been recorded and saved. They are the primary input to your Day 30 report.';
-    let analysisJson: any = {
-      gap_score: 0,
-      gap_locations: [],
-      gap_severity: 'low',
-      raw_responses: rawResponses
-    };
+    
+    let score = 1;
+    let locations = [1];
+    let severity = 'low';
 
     if (aiResponseText && !callError) {
       const parsed = this.parseAIOutput(aiResponseText);
-      if (parsed.prose) {
+      if (parsed.prose && parsed.prose.length > 20) {
         summary = parsed.prose;
       }
+      
       if (parsed.json) {
-        const score = typeof parsed.json.gap_score === 'number'
-          ? Math.min(5, Math.max(0, parsed.json.gap_score))
-          : 0;
+        if (typeof parsed.json.gap_score === 'number') {
+          score = Math.min(5, Math.max(0, parsed.json.gap_score));
+        }
+        if (Array.isArray(parsed.json.gap_locations)) {
+          locations = parsed.json.gap_locations;
+        }
         const validSeverities = ['low', 'moderate', 'significant'];
-        const severity = validSeverities.includes(parsed.json.gap_severity) ? parsed.json.gap_severity : (score <= 1 ? 'low' : score <= 3 ? 'moderate' : 'significant');
-
-        analysisJson = {
-          gap_score: score,
-          gap_locations: parsed.json.gap_locations || [],
-          gap_severity: severity,
-          raw_responses: rawResponses
-        };
+        if (validSeverities.includes(parsed.json.gap_severity)) {
+          severity = parsed.json.gap_severity;
+        } else {
+          severity = score <= 1 ? 'low' : score <= 3 ? 'moderate' : 'significant';
+        }
       }
     }
 
-    analysisJson.ai_analysis_text = summary;
+    const analysisJson: any = {
+      gap_score: score,
+      gap_locations: locations,
+      gap_severity: severity,
+      raw_responses: rawResponses,
+      ai_analysis_text: summary
+    };
+
     const processingTimeMs = Date.now() - startTime;
     const now = new Date().toISOString();
 

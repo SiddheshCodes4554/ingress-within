@@ -18,7 +18,7 @@ export class Exercise3Prompt {
 
     // Format journal entries evidence
     const entriesFormatted = snapshotContext.journalEntries.length > 0
-      ? snapshotContext.journalEntries.map((e, idx) => `${idx + 1}. "${e.content}"`).join('\n')
+      ? snapshotContext.journalEntries.slice(0, 15).map((e, idx) => `Log ${idx + 1}: "${e.content}"`).join('\n')
       : '(No previous journal entries stored)';
 
     // Format prior exercise results evidence
@@ -32,7 +32,7 @@ export class Exercise3Prompt {
       ? snapshotContext.weeklyReports.map((w, idx) => `Week ${idx + 1}: ${w.summary || w.title || 'Summary recorded'}`).join('\n')
       : '(No weekly reports stored)';
 
-    return `A person answered 5 questions about the last 3 weeks. Their self-perception answers:
+    return `A person answered 5 questions about their self-perception over the last 3 weeks:
 
 ${qFormatted}
 
@@ -47,26 +47,29 @@ Prior baseline assessment snapshots:
 Weekly report snapshots:
 ${weeklyFormatted}
 
-Compare their self-descriptions to what the entry and assessment snapshots show. Score each question 0 (aligned) or 1 (gap). A gap is when the self-described behaviour contradicts or is absent from entry evidence. For Q3, check if entries show additional avoidances not named.
+COMPARE their self-descriptions to what their entries and assessment snapshots show. Score each question 0 (aligned) or 1 (gap). A gap is when the self-described behaviour contradicts or is absent from entry evidence.
 
 FRAMING RULE: Never write "You said X but actually did Y." Write "You described yourself as someone who X. Your entries show Y more often."
 
-Write 3 plain sentences to them using "you". Name the most significant gap with specific reference to their words and the entries.
+Write EXACLTY 3 crisp, insightful, empathetic sentences to them using "you":
+- Sentence 1: Acknowledge how they described themselves with a brief reference to their response.
+- Sentence 2: Highlight the specific evidence from their journal entries or assessments that contrasts with this self-description.
+- Sentence 3: State the core pattern or psychological insight directly and concisely.
 
 Rules:
 - Address the user as "you" / "your" throughout.
-- Quote their actual words briefly.
+- Keep sentences concise, clear, and readable. Total prose under 90 words.
 - No markdown formatting, no bold text, no asterisks, no jargon.
 - Exactly three sentences in prose.
 
 After your 3 sentences, on a new line return ONLY this JSON structure:
 \`\`\`json
 {
-  "gap_score": 0,
+  "gap_score": 2,
   "gap_locations": [1, 3],
-  "gap_severity": "low"
+  "gap_severity": "moderate"
 }
 \`\`\`
-Note: "gap_severity" MUST be one of: "low", "moderate", "significant".`;
+Note: "gap_severity" MUST be one of: "low", "moderate", "significant". "gap_score" MUST equal the count of items in gap_locations (0 to 5).`;
   }
 }
