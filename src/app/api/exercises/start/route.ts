@@ -3,6 +3,7 @@ import { getAuthenticatedUser } from '../../../../lib/auth-helper';
 import { ExerciseRepository } from '../../../../lib/exercises/v4/repository/exerciseRepository';
 import { ExerciseService } from '../../../../lib/exercises/v4/services/exerciseService';
 import { Exercise2Service } from '../../../../lib/exercises/v4/services/exercise2Service';
+import { Exercise3Service } from '../../../../lib/exercises/v4/services/exercise3Service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,6 +18,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const exerciseId = body.exercise_id;
     let instanceId = body.instance_id;
+
+    // Delegate Exercise 3 to isolated Exercise3Service
+    if (exerciseId === 'exercise_3' || exerciseId === 'self_perception') {
+      const currentDay = body.current_day || 23;
+      const currentCycle = body.current_cycle || 1;
+      const { instance } = await Exercise3Service.startExercise(authUser.userId, currentDay, currentCycle);
+      return NextResponse.json({ success: true, instance });
+    }
 
     // Delegate Exercise 2 to isolated Exercise2Service
     if (exerciseId === 'exercise_2' || exerciseId === 'inkblot_projective') {
@@ -58,7 +67,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('[POST /api/exercises/start] Error:', error);
     return NextResponse.json(
-      { error: { code: 'INVALID_TRANSITION', message: error.message || 'Failed to start exercise.' } },
+      { error: { code: 'START_FAILED', message: error.message || 'Failed to start exercise.' } },
       { status: 400 }
     );
   }
