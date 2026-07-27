@@ -40,11 +40,18 @@ export async function POST(request: NextRequest) {
 
     const submittedInstance = await ExerciseService.submitExercise(instance_id);
 
-    // Trigger AI Analysis Worker in background
-    const { ExerciseAnalysisWorker } = await import('../../../../lib/exercises/v4/workers/exerciseAnalysisWorker');
-    ExerciseAnalysisWorker.processInstance(instance_id).catch(err => {
-      console.error(`[POST /api/exercises/submit] AI worker error for ${instance_id}:`, err);
-    });
+    // Trigger AI Analysis Worker based on exercise_id
+    if (instance.exercise_id === 'exercise_1') {
+      const { Exercise1AnalysisWorker } = await import('../../../../lib/exercises/v4/workers/exercise1AnalysisWorker');
+      await Exercise1AnalysisWorker.processInstance(instance_id).catch(err => {
+        console.error(`[POST /api/exercises/submit] Exercise 1 AI worker error for ${instance_id}:`, err);
+      });
+    } else {
+      const { ExerciseAnalysisWorker } = await import('../../../../lib/exercises/v4/workers/exerciseAnalysisWorker');
+      await ExerciseAnalysisWorker.processInstance(instance_id).catch(err => {
+        console.error(`[POST /api/exercises/submit] Exercise 0 AI worker error for ${instance_id}:`, err);
+      });
+    }
 
     return NextResponse.json({ success: true, instance: submittedInstance });
   } catch (error: any) {

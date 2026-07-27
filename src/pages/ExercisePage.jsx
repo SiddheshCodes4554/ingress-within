@@ -152,7 +152,7 @@ export default function ExercisePage({ user, profile, onSignOut }) {
         if (inst?.exercise_id === 'exercise_1') {
           return (
             <Exercise1ResultView
-              result={{ analysis: inst.data, summary: inst.summary }}
+              instanceId={activeResultInstanceId}
               onClose={() => setActiveResultInstanceId(null)}
             />
           );

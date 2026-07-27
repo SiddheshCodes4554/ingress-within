@@ -1,7 +1,61 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
-export default function Exercise1ResultView({ result, onClose }) {
-  if (!result) return null;
+export default function Exercise1ResultView({ instanceId, result: propResult, onClose }) {
+  const [loading, setLoading] = useState(!propResult);
+  const [result, setResult] = useState(propResult || null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (instanceId && !propResult) {
+      fetchResult();
+    }
+  }, [instanceId, propResult]);
+
+  const fetchResult = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/exercises/result?instance_id=${instanceId}`);
+      if (!res.ok) {
+        throw new Error(`Failed to load analysis result (HTTP ${res.status})`);
+      }
+      const data = await res.json();
+      setResult(data.result);
+    } catch (err) {
+      console.error('[Exercise1ResultView] Fetch error:', err);
+      setError(err.message || 'Unable to load analysis result.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#ECEFF0]/95 backdrop-blur-md flex items-center justify-center p-6 text-center">
+        <div className="font-serif italic text-lg text-[#4A6A64] animate-pulse">
+          Reading your responses...
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !result) {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#ECEFF0]/95 backdrop-blur-md flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center space-y-4 shadow-lg border border-[#1E2A2E]/10">
+          <h3 className="font-serif italic text-xl text-[#1E2A2E]">Unable to load analysis</h3>
+          <p className="text-xs text-[#4A6A64]">{error || 'No stored analysis found.'}</p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-6 py-2.5 rounded-xl bg-[#1E2A2E] text-white text-xs font-semibold hover:bg-[#1E2A2E]/90 transition-all cursor-pointer"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const analysis = result.analysis || result.data || {};
   const summary = result.summary || analysis.summary || 'Your responses have been recorded. They will feed into your Day 30 report.';
