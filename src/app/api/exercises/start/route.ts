@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '../../../../lib/auth-helper';
 import { ExerciseRepository } from '../../../../lib/exercises/v4/repository/exerciseRepository';
 import { ExerciseService } from '../../../../lib/exercises/v4/services/exerciseService';
+import { Exercise2Service } from '../../../../lib/exercises/v4/services/exercise2Service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,10 +15,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
+    const exerciseId = body.exercise_id;
     let instanceId = body.instance_id;
 
-    if (!instanceId && body.exercise_id) {
-      const found = await ExerciseRepository.getInstanceByUserAndExercise(authUser.userId, body.cycle_id, body.exercise_id);
+    // Delegate Exercise 2 to isolated Exercise2Service
+    if (exerciseId === 'exercise_2' || exerciseId === 'inkblot_projective') {
+      const currentDay = body.current_day || 16;
+      const currentCycle = body.current_cycle || 1;
+      const { instance, result } = await Exercise2Service.startExercise(authUser.userId, currentDay, currentCycle);
+      return NextResponse.json({ success: true, instance, result });
+    }
+
+    if (!instanceId && exerciseId) {
+      const found = await ExerciseRepository.getInstanceByUserAndExercise(authUser.userId, body.cycle_id, exerciseId);
       if (found) instanceId = found.id;
     }
 
