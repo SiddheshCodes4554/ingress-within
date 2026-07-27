@@ -31,7 +31,7 @@ export class InkblotImageGenerator {
   }
 
   /**
-   * Generates 5 unique SVG Inkblot Data URLs matching the 5 role specifications.
+   * Generates 5 unique Base64 SVG Inkblot Data URLs matching the 5 role specifications.
    */
   public static generateInkblotImageUrls(userId: string, cycle: number = 1): { urls: string[]; seeds: string[] } {
     const urls: string[] = [];
@@ -54,7 +54,7 @@ export class InkblotImageGenerator {
   }
 
   /**
-   * Public fallback SVG data URL generator.
+   * Public fallback SVG data URL generator in Base64 format.
    */
   public static createFallbackSvgDataUrl(cardId: number): string {
     const bg = '#f0eeea';
@@ -64,11 +64,12 @@ export class InkblotImageGenerator {
       <circle cx="200" cy="160" r="50" fill="${ink}"/>
       <text x="200" y="308" text-anchor="middle" font-family="Georgia,serif" font-size="11" fill="#bbb" font-style="italic">what do you see?</text>
     </svg>`;
-    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
+    const base64 = typeof Buffer !== 'undefined' ? Buffer.from(svgStr).toString('base64') : btoa(svgStr);
+    return `data:image/svg+xml;base64,${base64}`;
   }
 
   /**
-   * Renders procedural high-resolution SVG Inkblot for card 1..5.
+   * Renders procedural high-resolution SVG Inkblot for card 1..5 in Base64 format.
    */
   private static createInkblotSvgDataUrl(cardId: number, seed: number): string {
     const rng = (n: number) => {
@@ -166,6 +167,7 @@ export class InkblotImageGenerator {
     }
 
     const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" style="background:${bg}">${label(cardId)}${body}${prompt()}</svg>`;
-    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
+    const base64 = typeof Buffer !== 'undefined' ? Buffer.from(svgStr).toString('base64') : btoa(svgStr);
+    return `data:image/svg+xml;base64,${base64}`;
   }
 }

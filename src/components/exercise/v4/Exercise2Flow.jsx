@@ -3,7 +3,7 @@ import { InkblotImagePreloader } from '../../../lib/exercises/v4/imageGen/inkblo
 import { INKBLOT_IMAGE_ROLES, InkblotImageGenerator } from '../../../lib/exercises/v4/imageGen/inkblotImageGenerator';
 
 export default function Exercise2Flow({ instance, initialResponses = [], onClose, onComplete }) {
-  const [screen, setScreen] = useState('preparing'); // 'preparing' | 'intro' | 'step' | 'transition' | 'loading' | 'reflection'
+  const [screen, setScreen] = useState('preparing'); // 'preparing' | 'intro' | 'step' | 'transition' | 'loading' | 'reflection' | 'failed'
   const [imageUrls, setImageUrls] = useState([]);
   const [imageIdx, setImageIdx] = useState(0); // 0 to 4
   const [step, setStep] = useState(1); // 1 to 3
@@ -12,8 +12,9 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
   const [showNudge, setShowNudge] = useState(false);
   const [showBreath, setShowBreath] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [imgRetryState, setImgRetryState] = useState({}); // { [imageIdx]: retryCount }
+  const [imgRetryState, setImgRetryState] = useState({});
   const inputRef = useRef(null);
+  const pollIntervalRef = useRef(null);
 
   // 1. Data Loading Gate: Parse stored image URLs from instance or result analysis
   useEffect(() => {
@@ -39,7 +40,7 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
         }
       }
 
-      // If still missing 5 URLs, generate deterministic fallbacks
+      // Fallback if missing 5 URLs
       if (!urls || urls.length !== 5) {
         const fallbackGen = InkblotImageGenerator.generateInkblotImageUrls(instance.user_id || 'user', 1);
         urls = fallbackGen.urls;
@@ -88,6 +89,7 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
             setStep(nextStep);
           } else {
             setScreen('loading');
+            startPollingStatus();
             return;
           }
         }
@@ -102,6 +104,7 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
 
     return () => {
       isMounted = false;
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
   }, [instance, initialResponses]);
 
@@ -122,16 +125,42 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
     }
   }, [screen, imageIdx, step, responses]);
 
-  // 3. Image Load Error Handling & Fallback Retry
+  // 3. Status Polling during 'loading' screen
+  const startPollingStatus = () => {
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    let attempts = 0;
+
+    pollIntervalRef.current = setInterval(async () => {
+      attempts++;
+      try {
+        const res = await fetch(`/api/exercises/status?instance_id=${instance.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          const currentStatus = data.status;
+
+          if (currentStatus === 'completed') {
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            setScreen('reflection');
+            if (onComplete) onComplete();
+          } else if (currentStatus === 'failed' || attempts > 12) {
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            setScreen('failed');
+          }
+        }
+      } catch (err) {
+        console.error('[Exercise2Flow] Status poll error:', err);
+      }
+    }, 2000);
+  };
+
+  // 4. Image Load Error Handling & Fallback Retry
   const handleImageError = () => {
     const retries = imgRetryState[imageIdx] || 0;
     console.warn(`[Exercise2Flow] Image load error on Card ${imageIdx + 1}, attempt ${retries + 1}`);
 
     if (retries === 0) {
-      // Single retry attempt
       setImgRetryState(prev => ({ ...prev, [imageIdx]: 1 }));
     } else {
-      // Fallback SVG generation on second failure (never render broken img)
       const fallbackDataUrl = InkblotImageGenerator.createFallbackSvgDataUrl(imageIdx + 1);
       setImageUrls(prev => {
         const copy = [...prev];
@@ -209,8 +238,10 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
 
   const finishExercise = async (finalResponses) => {
     setScreen('loading');
+    startPollingStatus();
+
     try {
-      const res = await fetch('/api/exercises/submit', {
+      await fetch('/api/exercises/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -218,15 +249,8 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
           responses: finalResponses
         })
       });
-      if (res.ok) {
-        setScreen('reflection');
-        if (onComplete) onComplete();
-      } else {
-        setScreen('reflection');
-      }
     } catch (err) {
       console.error('[Exercise2Flow] Submission error:', err);
-      setScreen('reflection');
     }
   };
 
@@ -288,7 +312,7 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
     return <div className="fixed inset-0 z-50 bg-[#ECEFF0]" />;
   }
 
-  // ── 4. LOADING SCREEN ───────────────────────────────────────────────────
+  // ── 4. LOADING SCREEN (Analyzing your responses...) ──────────────────────
   if (screen === 'loading') {
     return (
       <div className="fixed inset-0 z-50 bg-[#ECEFF0] text-[#1E2A2E] flex flex-col items-center justify-center p-6 text-center">
@@ -299,16 +323,56 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
           <span className="font-sans font-semibold text-sm">ingress <em className="text-[#8DBFB4] not-italic">within</em></span>
         </div>
         <h2 className="font-serif italic text-xl sm:text-2xl text-[#4A6A64] animate-pulse mb-2">
-          Reading your responses.
+          Analyzing your responses...
         </h2>
         <p className="text-xs text-[#4A6A64]/60 animate-pulse">
-          Looking at what you saw.
+          Looking at what you saw across the five cards.
         </p>
       </div>
     );
   }
 
-  // ── 5. REFLECTION / PLACEHOLDER COMPLETION SCREEN ───────────────────────
+  // ── 5. FAILURE RECOVERY SCREEN ───────────────────────────────────────────
+  if (screen === 'failed') {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#ECEFF0] text-[#1E2A2E] flex flex-col justify-between p-6 font-sans">
+        <div className="max-w-[480px] w-full mx-auto flex-1 flex flex-col items-center justify-center text-center space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-[18px] h-[18px] rounded-full border-[1.5px] border-[#E0A898] flex items-center justify-center">
+              <div className="w-[5px] h-[5px] rounded-full bg-[#E0A898]" />
+            </div>
+            <span className="font-sans font-semibold text-sm">ingress <em className="text-[#8DBFB4] not-italic">within</em></span>
+          </div>
+
+          <h2 className="font-serif italic text-xl text-[#1E2A2E]">
+            We're taking a little longer than expected.
+          </h2>
+          <p className="text-xs text-[#4A6A64] max-w-xs">
+            Your responses are completely safe. You can retry the analysis or return to the dashboard.
+          </p>
+        </div>
+
+        <div className="max-w-[480px] w-full mx-auto space-y-3 pb-6">
+          <button
+            type="button"
+            onClick={() => finishExercise(responses)}
+            className="w-full py-3.5 rounded-lg bg-[#1E2A2E] text-white text-sm font-semibold hover:bg-[#1E2A2E]/90 transition-all cursor-pointer"
+          >
+            Retry Analysis
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-3 rounded-lg border border-[#1E2A2E]/20 text-[#1E2A2E] text-sm font-semibold hover:bg-white/50 transition-all cursor-pointer"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── 6. REFLECTION SCREEN ────────────────────────────────────────────────
   if (screen === 'reflection') {
     return (
       <div className="fixed inset-0 z-50 bg-[#ECEFF0] text-[#1E2A2E] flex flex-col justify-between p-6 font-sans overflow-y-auto">
@@ -332,7 +396,7 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
           <div>
             <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#8DBFB4]">EXECUTIVE SYNTHESIS</span>
             <h2 className="font-serif italic text-xl text-[#1E2A2E] mt-2 mb-4">
-              "Your responses have been recorded and saved."
+              "Your responses have been recorded and analyzed."
             </h2>
             <hr className="w-8 border-t-2 border-[#B8A8D4] mb-4" />
             <p className="text-xs text-[#4A6A64]">
@@ -362,7 +426,7 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
     );
   }
 
-  // ── 6. MAIN STEP QUESTION FLOW ──────────────────────────────────────────
+  // ── 7. MAIN STEP QUESTION FLOW ──────────────────────────────────────────
   const r1 = responses.find(r => r.image_id === currentRole.id && r.step === 1);
   const r2 = responses.find(r => r.image_id === currentRole.id && r.step === 2);
   const currentImageUrl = imageUrls[imageIdx] || InkblotImageGenerator.createFallbackSvgDataUrl(imageIdx + 1);
