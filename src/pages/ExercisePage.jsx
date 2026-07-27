@@ -22,6 +22,7 @@ import Exercise1Flow from '../components/exercise/v4/Exercise1Flow';
 import Exercise1ResultView from '../components/exercise/v4/Exercise1ResultView';
 import Exercise2Flow from '../components/exercise/v4/Exercise2Flow';
 import Exercise2ResultView from '../components/exercise/v4/Exercise2ResultView';
+import Exercise3Flow from '../components/exercise/v4/Exercise3Flow';
 
 // Founder-approved exercise definitions & titles
 const EXERCISE_METADATA = {
@@ -72,14 +73,14 @@ const EXERCISE_METADATA = {
     category: 'Identity',
     description: 'Structured self-perception mapping measuring self-ideal congruence and identity alignment.',
     unlockDay: 23,
-    getProgress: (inst) => `Step ${inst.current_step || 1} of 5`
+    getProgress: (inst) => `Question ${inst.current_step || 1} of 5`
   },
   self_perception: {
     title: 'Self Perception Test',
     category: 'Identity',
     description: 'Structured self-perception mapping measuring self-ideal congruence and identity alignment.',
     unlockDay: 23,
-    getProgress: (inst) => `Step ${inst.current_step || 1} of 5`
+    getProgress: (inst) => `Question ${inst.current_step || 1} of 5`
   }
 };
 
@@ -161,6 +162,20 @@ export default function ExercisePage({ user, profile, onSignOut }) {
 
         const exId = inst.exercise_id;
         
+        if (exId === 'exercise_3' || exId === 'self_perception') {
+          return (
+            <Exercise3Flow
+              instance={inst}
+              initialResponses={activeResponses}
+              onClose={() => setActiveExerciseInstanceId(null)}
+              onComplete={() => {
+                setActiveExerciseInstanceId(null);
+                fetchExerciseInstances();
+              }}
+            />
+          );
+        }
+
         if (exId === 'exercise_2' || exId === 'inkblot_projective') {
           return (
             <Exercise2Flow
