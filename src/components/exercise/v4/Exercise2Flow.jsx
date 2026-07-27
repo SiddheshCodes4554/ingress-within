@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { InkblotImagePreloader } from '../../../lib/exercises/v4/imageGen/inkblotImagePreloader';
-import { INKBLOT_IMAGE_ROLES } from '../../../lib/exercises/v4/imageGen/inkblotImageGenerator';
+import { INKBLOT_IMAGE_ROLES, InkblotImageGenerator } from '../../../lib/exercises/v4/imageGen/inkblotImageGenerator';
 
 export default function Exercise2Flow({ instance, initialResponses = [], onClose, onComplete }) {
   const [screen, setScreen] = useState('preparing'); // 'preparing' | 'intro' | 'step' | 'transition' | 'loading' | 'reflection'
@@ -12,29 +12,51 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
   const [showNudge, setShowNudge] = useState(false);
   const [showBreath, setShowBreath] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [imgRetryState, setImgRetryState] = useState({}); // { [imageIdx]: retryCount }
   const inputRef = useRef(null);
 
-  // Parse stored image URLs from instance or result analysis
+  // 1. Data Loading Gate: Parse stored image URLs from instance or result analysis
   useEffect(() => {
-    if (instance) {
-      const resultData = instance.data || instance.analysis || {};
-      const urls = resultData.generated_image_urls || [];
-      if (urls.length === 5) {
-        setImageUrls(urls);
-        // Asynchronously preload images into browser memory
-        InkblotImagePreloader.preloadAll(urls).then(() => {
-          setScreen('intro');
-        });
-      } else {
-        // Fetch result if urls not present in instance prop
-        fetchResultUrls();
+    let isMounted = true;
+
+    async function loadData() {
+      if (!instance) return;
+
+      const resultData = instance.data || instance.analysis || instance.raw_json || {};
+      let urls = resultData.generated_image_urls || [];
+
+      // If URLs missing in prop, fetch from result API
+      if (!urls || urls.length !== 5) {
+        try {
+          const res = await fetch(`/api/exercises/result?instance_id=${instance.id}`);
+          if (res.ok) {
+            const data = await res.json();
+            const analysis = data.result?.analysis || data.result?.raw_json || {};
+            urls = analysis.generated_image_urls || [];
+          }
+        } catch (err) {
+          console.error('[Exercise2Flow] Failed to fetch image URLs from API:', err);
+        }
       }
 
-      // Resume responses if present
+      // If still missing 5 URLs, generate deterministic fallbacks
+      if (!urls || urls.length !== 5) {
+        const fallbackGen = InkblotImageGenerator.generateInkblotImageUrls(instance.user_id || 'user', 1);
+        urls = fallbackGen.urls;
+      }
+
+      if (!isMounted) return;
+      setImageUrls(urls);
+
+      // Preload images into browser memory before revealing UI
+      await InkblotImagePreloader.preloadAll(urls);
+
+      // Process initial responses if present
+      let formattedResponses = [];
       if (initialResponses && initialResponses.length > 0) {
-        const formatted = initialResponses.map(r => {
+        formattedResponses = initialResponses.map(r => {
           const qId = r.question_id || '';
-          const parts = qId.split('_'); // e.g. card_1_step_1
+          const parts = qId.split('_'); // card_1_step_1
           const imgId = parts[1] ? parseInt(parts[1], 10) : 1;
           const stepId = parts[3] ? parseInt(parts[3], 10) : 1;
           return {
@@ -43,12 +65,18 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
             question: r.prompt || 'free_response',
             response: r.response || ''
           };
-        });
-        setResponses(formatted);
+        }).filter(r => r.response && r.response.trim() !== '');
 
-        // Resume at latest step
-        if (formatted.length > 0) {
-          const lastResp = formatted[formatted.length - 1];
+        setResponses(formattedResponses);
+
+        // Resume at current stored instance image & step if available
+        if (instance.current_image && instance.current_step) {
+          const targetImg = Math.max(0, Math.min(4, instance.current_image - 1));
+          const targetStep = Math.max(1, Math.min(3, instance.current_step));
+          setImageIdx(targetImg);
+          setStep(targetStep);
+        } else if (formattedResponses.length > 0) {
+          const lastResp = formattedResponses[formattedResponses.length - 1];
           let nextImg = lastResp.image_id - 1;
           let nextStep = lastResp.step + 1;
           if (nextStep > 3) {
@@ -60,43 +88,58 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
             setStep(nextStep);
           } else {
             setScreen('loading');
+            return;
           }
         }
       }
+
+      if (isMounted) {
+        setScreen('intro');
+      }
     }
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [instance, initialResponses]);
 
-  const fetchResultUrls = async () => {
-    try {
-      const res = await fetch(`/api/exercises/result?instance_id=${instance.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        const analysis = data.result?.analysis || data.result?.raw_json || {};
-        const urls = analysis.generated_image_urls || [];
-        if (urls.length === 5) {
-          setImageUrls(urls);
-          await InkblotImagePreloader.preloadAll(urls);
-        }
-      }
-    } catch (err) {
-      console.error('[Exercise2Flow] Failed to fetch image URLs:', err);
-    } finally {
-      setScreen('intro');
-    }
-  };
+  const currentRole = INKBLOT_IMAGE_ROLES[imageIdx] || INKBLOT_IMAGE_ROLES[0];
+  const progressPct = Math.round(((imageIdx * 3 + step - 1) / 15) * 100);
 
-  // Focus input on step change
+  // 2. Saved Response Binding: Whenever imageIdx or step changes, bind input to stored response
   useEffect(() => {
     if (screen === 'step') {
+      const existing = responses.find(r => r.image_id === currentRole.id && r.step === step);
+      setInputValue(existing?.response || '');
+      setShowNudge(false);
+
       const timer = setTimeout(() => {
         if (inputRef.current) inputRef.current.focus();
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [screen, imageIdx, step]);
+  }, [screen, imageIdx, step, responses]);
 
-  const currentRole = INKBLOT_IMAGE_ROLES[imageIdx] || INKBLOT_IMAGE_ROLES[0];
-  const progressPct = Math.round(((imageIdx * 3 + step - 1) / 15) * 100);
+  // 3. Image Load Error Handling & Fallback Retry
+  const handleImageError = () => {
+    const retries = imgRetryState[imageIdx] || 0;
+    console.warn(`[Exercise2Flow] Image load error on Card ${imageIdx + 1}, attempt ${retries + 1}`);
+
+    if (retries === 0) {
+      // Single retry attempt
+      setImgRetryState(prev => ({ ...prev, [imageIdx]: 1 }));
+    } else {
+      // Fallback SVG generation on second failure (never render broken img)
+      const fallbackDataUrl = InkblotImageGenerator.createFallbackSvgDataUrl(imageIdx + 1);
+      setImageUrls(prev => {
+        const copy = [...prev];
+        copy[imageIdx] = fallbackDataUrl;
+        return copy;
+      });
+    }
+  };
 
   const saveResponseToBackend = async (val, imgId, stepId) => {
     setIsSaving(true);
@@ -132,7 +175,6 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
       { image_id: currentRole.id, step, question: questions[step - 1], response: trimmed }
     ];
     setResponses(newResponses);
-    setInputValue('');
     setShowNudge(false);
 
     // Save response asynchronously
@@ -180,7 +222,6 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
         setScreen('reflection');
         if (onComplete) onComplete();
       } else {
-        // Fallback to reflection on submission failure
         setScreen('reflection');
       }
     } catch (err) {
@@ -189,7 +230,7 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
     }
   };
 
-  // ── 1. PREPARING SCREEN ──────────────────────────────────────────────────
+  // ── 1. PREPARING DATA LOADING SCREEN ─────────────────────────────────────
   if (screen === 'preparing') {
     return (
       <div className="fixed inset-0 z-50 bg-[#ECEFF0] text-[#1E2A2E] flex flex-col justify-between p-6">
@@ -233,7 +274,7 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
           <button
             type="button"
             onClick={() => setScreen('step')}
-            className="w-full py-3.5 rounded-lg bg-[#1E2A2E] text-white text-sm font-semibold hover:bg-[#1E2A2E]/90 transition-all cursor-pointer"
+            className="w-full py-3.5 rounded-lg bg-[#1E2A2E] text-white text-sm font-semibold hover:bg-[#1E2A2E]/90 transition-all cursor-pointer shadow-sm"
           >
             Begin
           </button>
@@ -324,6 +365,7 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
   // ── 6. MAIN STEP QUESTION FLOW ──────────────────────────────────────────
   const r1 = responses.find(r => r.image_id === currentRole.id && r.step === 1);
   const r2 = responses.find(r => r.image_id === currentRole.id && r.step === 2);
+  const currentImageUrl = imageUrls[imageIdx] || InkblotImageGenerator.createFallbackSvgDataUrl(imageIdx + 1);
 
   return (
     <div className="fixed inset-0 z-50 bg-[#ECEFF0] text-[#1E2A2E] flex flex-col justify-between font-sans overflow-y-auto">
@@ -370,11 +412,13 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
           </div>
         </div>
 
-        {/* Inkblot Image */}
+        {/* Inkblot Image with Fallback Retry Handling */}
         <div className="px-6 pt-4">
-          <div className="w-full aspect-[4/3] rounded-xl overflow-hidden bg-[#E8E8E4] shadow-sm border border-[#1E2A2E]/5">
+          <div className="w-full aspect-[4/3] rounded-xl overflow-hidden bg-[#E8E8E4] shadow-sm border border-[#1E2A2E]/5 relative">
             <img
-              src={imageUrls[imageIdx] || ''}
+              key={`${imageIdx}_${imgRetryState[imageIdx] || 0}`}
+              src={currentImageUrl}
+              onError={handleImageError}
               alt={`Inkblot Image ${imageIdx + 1}`}
               className="w-full h-full object-cover"
             />
@@ -400,13 +444,13 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
         {/* Prior Responses Thread (Steps 2 & 3) */}
         {step >= 2 && (
           <div className="px-6 pt-2 space-y-1.5">
-            {r1 && (
+            {r1 && r1.response && (
               <div>
                 <div className="text-[10px] font-semibold tracking-[0.08em] uppercase text-[#4A6A64]/60">What you saw</div>
                 <div className="text-xs text-[#4A6A64] font-serif italic">"{r1.response}"</div>
               </div>
             )}
-            {step === 3 && r2 && (
+            {step === 3 && r2 && r2.response && (
               <div>
                 <div className="text-[10px] font-semibold tracking-[0.08em] uppercase text-[#4A6A64]/60">Where you looked</div>
                 <div className="text-xs text-[#4A6A64] font-serif italic">"{r2.response}"</div>
@@ -487,7 +531,7 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
               if (step === 1) handleStep1Submit();
               else advanceStep(inputValue);
             }}
-            className="w-full py-3.5 rounded-lg bg-[#1E2A2E] text-white text-sm font-semibold disabled:opacity-30 disabled:cursor-default hover:bg-[#1E2A2E]/90 transition-all cursor-pointer"
+            className="w-full py-3.5 rounded-lg bg-[#1E2A2E] text-white text-sm font-semibold disabled:opacity-30 disabled:cursor-default hover:bg-[#1E2A2E]/90 transition-all cursor-pointer shadow-sm"
           >
             {step < 3 ? 'Next' : imageIdx === 4 ? 'Done' : 'Next image'}
           </button>

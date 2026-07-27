@@ -3,14 +3,16 @@ export interface InkblotImageRole {
   label: string;
   role: string;
   desc: string;
+  step2: string;
+  step3: string;
 }
 
 export const INKBLOT_IMAGE_ROLES: InkblotImageRole[] = [
-  { id: 1, label: 'Image 1 of 5', role: 'Bilateral greyscale', desc: 'Relationship vs self orientation' },
-  { id: 2, label: 'Image 2 of 5', role: 'Asymmetric greyscale', desc: 'Motion vs stillness' },
-  { id: 3, label: 'Image 3 of 5', role: 'Greyscale + red', desc: 'Colour integration' },
-  { id: 4, label: 'Image 4 of 5', role: 'Dark and heavy', desc: 'Authority and weight' },
-  { id: 5, label: 'Image 5 of 5', role: 'Soft colour washes', desc: 'Closure' },
+  { id: 1, label: 'Image 1 of 5', role: 'Bilateral greyscale', desc: 'Two figures facing / wings spread', step2: 'Which part of the image stood out most?', step3: 'What feeling, if any, did this bring up?' },
+  { id: 2, label: 'Image 2 of 5', role: 'Asymmetric greyscale', desc: 'Motion vs stillness', step2: 'Which part of the image stood out most?', step3: 'What feeling, if any, did this bring up?' },
+  { id: 3, label: 'Image 3 of 5', role: 'Greyscale + red', desc: 'Colour integration', step2: 'Which part of the image stood out most?', step3: 'What feeling, if any, did this bring up?' },
+  { id: 4, label: 'Image 4 of 5', role: 'Dark and heavy', desc: 'Authority and weight', step2: 'Which part of the image stood out most?', step3: 'What feeling, if any, did this bring up?' },
+  { id: 5, label: 'Image 5 of 5', role: 'Soft colour washes', desc: 'Closure', step2: 'Which part of the image stood out most?', step3: 'What feeling, if any, did this bring up?' },
 ];
 
 export class InkblotImageGenerator {
@@ -52,6 +54,20 @@ export class InkblotImageGenerator {
   }
 
   /**
+   * Public fallback SVG data URL generator.
+   */
+  public static createFallbackSvgDataUrl(cardId: number): string {
+    const bg = '#f0eeea';
+    const ink = '#222222';
+    const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 320" style="background:${bg}">
+      <text x="200" y="26" text-anchor="middle" font-family="Georgia,serif" font-size="11" letter-spacing="3" fill="#aaa">CARD ${cardId}</text>
+      <circle cx="200" cy="160" r="50" fill="${ink}"/>
+      <text x="200" y="308" text-anchor="middle" font-family="Georgia,serif" font-size="11" fill="#bbb" font-style="italic">what do you see?</text>
+    </svg>`;
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
+  }
+
+  /**
    * Renders procedural high-resolution SVG Inkblot for card 1..5.
    */
   private static createInkblotSvgDataUrl(cardId: number, seed: number): string {
@@ -76,7 +92,6 @@ export class InkblotImageGenerator {
     let body = '';
 
     if (cardId === 1) {
-      // Card 1: Bilateral greyscale - Two figures facing / wings spread
       const s = 0.9 + rng(1) * 0.2;
       body = `
         <ellipse cx="${cx - 55 * s}" cy="${cy - 20}" rx="${22 * s}" ry="${26 * s}" fill="${ink}"/>
@@ -92,7 +107,6 @@ export class InkblotImageGenerator {
         <line x1="${cx + 55 * s}" y1="${cy + 32}" x2="${cx + 42 * s}" y2="${cy + 72}" stroke="${ink}" stroke-width="${9 * s}" stroke-linecap="round"/>
       `;
     } else if (cardId === 2) {
-      // Card 2: Asymmetric greyscale - Motion vs stillness
       const h1 = 80 + rng(1) * 25;
       const w1 = 30 + rng(2) * 10;
       body = `
@@ -105,7 +119,6 @@ export class InkblotImageGenerator {
         <line x1="${cx + w1 * 2.4}" y1="${cy + h1 * 0.55}" x2="${cx + w1 * 3}" y2="${cy + h1 * 0.85}" stroke="${ink}" stroke-width="10" stroke-linecap="round"/>
       `;
     } else if (cardId === 3) {
-      // Card 3: Greyscale + red - Colour integration
       const r = 30 + rng(1) * 8;
       body = `
         <ellipse cx="${cx}" cy="${cy}" rx="${r * 1.1}" ry="${r * 1.3}" fill="${ink}"/>
@@ -120,7 +133,6 @@ export class InkblotImageGenerator {
         <ellipse cx="${cx + r * 2.6}" cy="${cy + r * 0.3}" rx="${r * 0.42}" ry="${r * 0.28}" fill="${red}"/>
       `;
     } else if (cardId === 4) {
-      // Card 4: Dark authority - Authority and weight
       const s = 0.9 + rng(1) * 0.2;
       const darkInk = '#080808';
       body = `
@@ -136,7 +148,6 @@ export class InkblotImageGenerator {
         <line x1="${cx + 75 * s}" y1="${cy + 35}" x2="${cx + 80 * s}" y2="${cy + 60}" stroke="${darkInk}" stroke-width="${10 * s}" stroke-linecap="round"/>
       `;
     } else {
-      // Card 5: Soft coloured - Closure
       const s = 0.9 + rng(1) * 0.2;
       const tealColor = '#2d4a43';
       const irisColor = '#b8a8d4';
@@ -155,17 +166,6 @@ export class InkblotImageGenerator {
     }
 
     const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" style="background:${bg}">${label(cardId)}${body}${prompt()}</svg>`;
-    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
-  }
-
-  private static createFallbackSvgDataUrl(cardId: number): string {
-    const bg = '#f0eeea';
-    const ink = '#222222';
-    const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 320" style="background:${bg}">
-      <text x="200" y="26" text-anchor="middle" font-family="Georgia,serif" font-size="11" letter-spacing="3" fill="#aaa">CARD ${cardId}</text>
-      <circle cx="200" cy="160" r="50" fill="${ink}"/>
-      <text x="200" y="308" text-anchor="middle" font-family="Georgia,serif" font-size="11" fill="#bbb" font-style="italic">what do you see?</text>
-    </svg>`;
     return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
   }
 }
