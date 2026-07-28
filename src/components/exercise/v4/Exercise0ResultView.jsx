@@ -76,6 +76,15 @@ export default function Exercise0ResultView({ instanceId, onClose }) {
   }
 
   const analysis = result.analysis || {};
+  const scores = analysis.scores || {};
+
+  const traitList = [
+    { label: 'Openness', score: scores.openness ?? 75, desc: 'Curiosity & conceptual exploration' },
+    { label: 'Conscientiousness', score: scores.conscientiousness ?? 70, desc: 'Structure & goal discipline' },
+    { label: 'Extraversion', score: scores.extraversion ?? 65, desc: 'Social engagement & energy' },
+    { label: 'Agreeableness', score: scores.agreeableness ?? 80, desc: 'Empathy & interpersonal harmony' },
+    { label: 'Emotional Sensitivity (Neuroticism)', score: scores.neuroticism ?? 60, desc: 'Reactivity to environmental stress' }
+  ];
 
   return (
     <div className="fixed inset-0 z-50 bg-[#ECEFF0] overflow-y-auto p-4 md:p-8 font-sans">
@@ -87,7 +96,7 @@ export default function Exercise0ResultView({ instanceId, onClose }) {
               <Brain className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-serif italic text-xl text-primary">Exercise 0: Baseline Analysis</h2>
+              <h2 className="font-serif italic text-xl text-primary">Exercise 0: OCEAN Baseline Analysis</h2>
               <p className="text-xs text-mid flex items-center gap-1.5 mt-0.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Immutable Stored Assessment
               </p>
@@ -118,89 +127,39 @@ export default function Exercise0ResultView({ instanceId, onClose }) {
           </div>
 
           <p className="text-base text-primary font-serif italic leading-relaxed">
-            "{result.summary || analysis.summary}"
+            "{result.summary || analysis.summary || 'Your baseline OCEAN psychometric profile has been synthesized and recorded.'}"
           </p>
-
-          {analysis.cognitive_style && (
-            <div className="pt-3 border-t border-black/5 text-xs text-mid flex items-center gap-2">
-              <span className="font-semibold text-primary">Cognitive Style:</span>
-              <span className="bg-primary/5 px-3 py-1 rounded-lg font-medium text-primary">
-                {analysis.cognitive_style}
-              </span>
-            </div>
-          )}
         </motion.div>
 
-        {/* Baseline Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            { label: 'Emotional Resilience', score: analysis.emotional_resilience_score || result.score || 80, icon: Compass, color: 'text-emerald-700 bg-emerald-500/10' },
-            { label: 'Pattern Awareness', score: analysis.pattern_awareness_score || 75, icon: TrendingUp, color: 'text-amber-700 bg-amber-500/10' },
-            { label: 'Values Alignment', score: analysis.values_alignment_score || 85, icon: Sparkles, color: 'text-secondary bg-secondary/10' }
-          ].map((metric, idx) => (
-            <motion.div
-              key={metric.label}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              className="bg-white/70 backdrop-blur-md border border-white/90 rounded-2xl p-5 space-y-3 shadow-sm"
-            >
-              <div className="flex items-center justify-between">
-                <metric.icon className="w-5 h-5 text-secondary" />
-                <span className={`text-lg font-serif italic font-bold px-2.5 py-0.5 rounded-xl ${metric.color}`}>
-                  {metric.score}/100
-                </span>
-              </div>
-              <p className="text-xs font-semibold text-primary">{metric.label}</p>
-              <div className="w-full bg-black/5 rounded-full h-1.5 overflow-hidden">
-                <div
-                  className="bg-secondary h-full rounded-full transition-all duration-500"
-                  style={{ width: `${metric.score}%` }}
-                />
-              </div>
-            </motion.div>
-          ))}
-        </div>
+        {/* Big Five OCEAN Trait Scores Grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white/70 backdrop-blur-md border border-white/90 rounded-3xl p-8 space-y-6 shadow-sm"
+        >
+          <div className="space-y-1">
+            <h3 className="text-lg font-serif italic text-primary">Big Five Personality Traits</h3>
+            <p className="text-xs text-mid">Calculated baseline dimensions from your initial 10-item psychometric response.</p>
+          </div>
 
-        {/* Key Insights Card */}
-        {analysis.key_insights && analysis.key_insights.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white/70 backdrop-blur-md border border-white/90 rounded-3xl p-8 space-y-4 shadow-sm"
-          >
-            <h3 className="text-lg font-serif italic text-primary">Key Baseline Insights</h3>
-            <div className="space-y-3">
-              {analysis.key_insights.map((insight, idx) => (
-                <div key={idx} className="flex items-start gap-3 text-xs text-primary/90 leading-relaxed bg-white/50 p-3.5 rounded-xl border border-white/80">
-                  <span className="w-5 h-5 rounded-full bg-secondary/10 text-secondary text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                    {idx + 1}
-                  </span>
-                  <span>{insight}</span>
+          <div className="space-y-4">
+            {traitList.map((t, idx) => (
+              <div key={t.label} className="space-y-1.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-primary">{t.label}</span>
+                  <span className="font-serif italic font-bold text-secondary">{t.score}/100</span>
                 </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Actionable Guidance */}
-        {analysis.recommendations && analysis.recommendations.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white/70 backdrop-blur-md border border-white/90 rounded-3xl p-8 space-y-4 shadow-sm"
-          >
-            <h3 className="text-lg font-serif italic text-primary">Recommendations for Your Journey</h3>
-            <div className="space-y-3">
-              {analysis.recommendations.map((rec, idx) => (
-                <div key={idx} className="flex items-start gap-3 text-xs text-primary/90 leading-relaxed bg-secondary/5 p-3.5 rounded-xl border border-secondary/10">
-                  <Sparkles className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
-                  <span>{rec}</span>
+                <div className="w-full bg-black/5 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-[#8DBFB4] h-full rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, Math.max(0, t.score))}%` }}
+                  />
                 </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
+                <p className="text-[11px] text-mid italic">{t.desc}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
 
         {/* Footer Bar */}
         <div className="text-center pt-4 border-t border-black/5">
@@ -208,7 +167,7 @@ export default function Exercise0ResultView({ instanceId, onClose }) {
             onClick={onClose}
             className="px-6 py-2.5 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-all cursor-pointer shadow-sm"
           >
-            Return to Exercise Hub
+            Done
           </button>
         </div>
       </div>

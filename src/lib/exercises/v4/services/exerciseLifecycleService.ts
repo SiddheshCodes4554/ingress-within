@@ -50,8 +50,8 @@ export class ExerciseLifecycleService {
     const dbEventType = EVENT_TYPE_MAP[targetStatus] || 'started';
     await ExerciseRepository.recordEvent({
       instance_id: instanceId,
-      user_id: instance.user_id,
-      event_type: dbEventType,
+      userId: instance.user_id,
+      eventType: dbEventType,
       payload: {
         previous_status: instance.status,
         new_status: targetStatus,

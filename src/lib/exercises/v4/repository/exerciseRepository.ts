@@ -1,12 +1,5 @@
-import { supabase } from '../../../db';
-import {
-  ExerciseDefinition,
-  ExerciseInstance,
-  ExerciseResponse,
-  ExerciseResult,
-  ExerciseEvent,
-  ExerciseLifecycleStatus
-} from '../types/exercise.types';
+import { supabase } from '../../../../lib/db';
+import { ExerciseDefinition, ExerciseInstance, ExerciseResponse, ExerciseResult, ExerciseEvent } from '../types/exercise.types';
 
 export class ExerciseRepository {
   // --- DEFINITIONS ---
@@ -124,7 +117,8 @@ export class ExerciseRepository {
   }
 
   /**
-   * Retrieves user exercise instances, automatically deduplicating by exercise_id.
+   * Retrieves user exercise instances, automatically deduplicating by exercise_id
+   * and auto-creating missing core exercises (0, 1, 2, 3) as available.
    */
   public static async getUserInstances(userId: string, cycleId?: string): Promise<ExerciseInstance[]> {
     let query = supabase.from('exercise_instances').select('*').eq('user_id', userId);
@@ -164,6 +158,33 @@ export class ExerciseRepository {
       }
     }
 
+    // Ensure all 4 core exercises exist for the user
+    const coreExerciseIds = ['exercise_0', 'exercise_1', 'exercise_2', 'exercise_3'];
+    for (const reqId of coreExerciseIds) {
+      if (!deduplicatedMap.has(reqId)) {
+        try {
+          const { data: newInst } = await supabase
+            .from('exercise_instances')
+            .insert({
+              user_id: userId,
+              exercise_id: reqId,
+              status: 'available',
+              unlock_time: new Date().toISOString(),
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+          if (newInst) {
+            deduplicatedMap.set(reqId, newInst);
+          }
+        } catch (e) {
+          console.warn(`[ExerciseRepository] Failed to auto-create missing ${reqId} for ${userId}`, e);
+        }
+      }
+    }
+
     // Sort by standard exercise order (exercise_0, exercise_1, exercise_2, exercise_3)
     const exerciseOrder = ['exercise_0', 'ocean', 'exercise_1', 'word_association', 'exercise_2', 'inkblot_projective', 'exercise_3', 'self_perception'];
     
@@ -187,17 +208,18 @@ export class ExerciseRepository {
       }
     }
 
+    const dbPayload = {
+      user_id: inst.user_id,
+      exercise_id: inst.exercise_id,
+      cycle_id: inst.cycle_id,
+      status: inst.status || 'locked',
+      unlock_time: inst.unlock_time || new Date().toISOString(),
+      version: inst.version || 1
+    };
+
     const { data, error } = await supabase
       .from('exercise_instances')
-      .insert({
-        user_id: inst.user_id,
-        exercise_id: inst.exercise_id,
-        cycle_id: inst.cycle_id,
-        status: inst.status || 'locked',
-        unlock_time: inst.unlock_time || null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .insert(dbPayload)
       .select()
       .single();
 
@@ -205,18 +227,20 @@ export class ExerciseRepository {
     return data;
   }
 
-  public static async updateInstanceStatus(
-    id: string,
-    status: ExerciseLifecycleStatus,
-    extraFields?: Partial<ExerciseInstance>
-  ): Promise<ExerciseInstance> {
+  public static async updateInstanceStatus(id: string, status: string, extraFields: any = {}): Promise<ExerciseInstance> {
+    const now = new Date().toISOString();
+    const updatePayload: any = {
+      status,
+      updated_at: now,
+      ...extraFields
+    };
+
+    if (status === 'in_progress' || status === 'started') updatePayload.start_time = now;
+    if (status === 'completed') updatePayload.completion_time = now;
+
     const { data, error } = await supabase
       .from('exercise_instances')
-      .update({
-        status,
-        ...extraFields,
-        updated_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', id)
       .select()
       .single();
@@ -225,40 +249,30 @@ export class ExerciseRepository {
     return data;
   }
 
-  // --- EVENTS ---
-  public static async recordEvent(event: any): Promise<any> {
-    const { data, error } = await supabase
-      .from('exercise_events')
-      .insert({
-        instance_id: event.instance_id,
-        user_id: event.user_id,
-        event_type: event.event_type,
-        metadata: event.metadata || {},
-        created_at: new Date().toISOString()
-      })
-      .select()
-      .maybeSingle();
-
-    if (error) console.warn('[ExerciseRepository] recordEvent warning:', error.message);
-    return data || null;
-  }
-
   // --- RESPONSES ---
-  public static async saveResponse(response: ExerciseResponse): Promise<ExerciseResponse> {
+  public static async getResponsesForInstance(instanceId: string): Promise<ExerciseResponse[]> {
     const { data, error } = await supabase
       .from('exercise_responses')
-      .upsert(
-        {
-          instance_id: response.instance_id,
-          user_id: response.user_id,
-          question_id: response.question_id,
-          prompt: (response as any).prompt || '',
-          response: response.response,
-          metadata: (response as any).metadata || {},
-          updated_at: new Date().toISOString()
-        },
-        { onConflict: 'instance_id,question_id' }
-      )
+      .select('*')
+      .eq('instance_id', instanceId)
+      .order('updated_at', { ascending: true });
+
+    if (error) throw new Error(`[ExerciseRepository] getResponsesForInstance error: ${error.message}`);
+    return data || [];
+  }
+
+  public static async saveResponse(resp: any): Promise<ExerciseResponse> {
+    const { data, error } = await supabase
+      .from('exercise_responses')
+      .upsert({
+        instance_id: resp.instance_id || resp.instanceId,
+        user_id: resp.user_id || resp.userId,
+        question_id: resp.question_id || resp.questionId,
+        prompt: resp.prompt || '',
+        response: resp.response,
+        response_metadata: resp.response_metadata || resp.metadata || {},
+        updated_at: new Date().toISOString()
+      })
       .select()
       .single();
 
@@ -266,38 +280,31 @@ export class ExerciseRepository {
     return data;
   }
 
-  public static async getResponses(instanceId: string): Promise<ExerciseResponse[]> {
-    const { data, error } = await supabase
-      .from('exercise_responses')
-      .select('*')
-      .eq('instance_id', instanceId)
-      .order('created_at', { ascending: true });
-
-    if (error) throw new Error(`[ExerciseRepository] getResponses error: ${error.message}`);
-    return data || [];
-  }
-
-  public static async getResponsesForInstance(instanceId: string): Promise<ExerciseResponse[]> {
-    return this.getResponses(instanceId);
-  }
-
   // --- RESULTS ---
-  public static async saveResult(result: Partial<ExerciseResult>): Promise<ExerciseResult> {
+  public static async getResultForInstance(instanceId: string): Promise<ExerciseResult | null> {
     const { data, error } = await supabase
       .from('exercise_results')
-      .upsert(
-        {
-          instance_id: result.instance_id,
-          user_id: result.user_id,
-          summary: result.summary,
-          analysis: result.analysis,
-          model: (result as any).model || null,
-          provider: (result as any).provider || null,
-          raw_json: (result as any).raw_json || null,
-          generated_at: new Date().toISOString()
-        },
-        { onConflict: 'instance_id' }
-      )
+      .select('*')
+      .eq('instance_id', instanceId)
+      .maybeSingle();
+
+    if (error) throw new Error(`[ExerciseRepository] getResultForInstance error: ${error.message}`);
+    return data;
+  }
+
+  public static async saveResult(resData: any): Promise<ExerciseResult> {
+    const { data, error } = await supabase
+      .from('exercise_results')
+      .insert({
+        instance_id: resData.instance_id || resData.instanceId,
+        user_id: resData.user_id || resData.userId,
+        summary: resData.summary,
+        analysis: resData.analysis || {},
+        score: resData.score,
+        model: resData.model || 'v4-ai-engine',
+        provider: resData.provider || 'groq',
+        generated_at: new Date().toISOString()
+      })
       .select()
       .single();
 
@@ -305,18 +312,20 @@ export class ExerciseRepository {
     return data;
   }
 
-  public static async getResult(instanceId: string): Promise<ExerciseResult | null> {
+  // --- EVENTS ---
+  public static async recordEvent(evt: { instance_id?: string; instanceId?: string; userId: string; eventType: string; payload?: any; eventData?: any }): Promise<ExerciseEvent> {
     const { data, error } = await supabase
-      .from('exercise_results')
-      .select('*')
-      .eq('instance_id', instanceId)
-      .maybeSingle();
+      .from('exercise_events')
+      .insert({
+        instance_id: evt.instance_id || evt.instanceId,
+        user_id: evt.userId,
+        event_type: evt.eventType,
+        event_data: evt.payload || evt.eventData || {}
+      })
+      .select()
+      .single();
 
-    if (error) throw new Error(`[ExerciseRepository] getResult error: ${error.message}`);
+    if (error) throw new Error(`[ExerciseRepository] recordEvent error: ${error.message}`);
     return data;
-  }
-
-  public static async getResultForInstance(instanceId: string): Promise<ExerciseResult | null> {
-    return this.getResult(instanceId);
   }
 }
