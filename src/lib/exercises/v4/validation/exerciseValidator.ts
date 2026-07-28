@@ -2,10 +2,10 @@ import { ExerciseLifecycleStatus, ExerciseDefinition, ExerciseInstance, Exercise
 
 export const ALLOWED_TRANSITIONS: Record<ExerciseLifecycleStatus, ExerciseLifecycleStatus[]> = {
   locked: ['available'],
-  available: ['started'],
-  started: ['in_progress', 'submitted'],
-  in_progress: ['submitted'],
-  submitted: ['processing'],
+  available: ['started', 'in_progress', 'submitted', 'processing'],
+  started: ['in_progress', 'submitted', 'processing', 'completed'],
+  in_progress: ['submitted', 'processing', 'completed'],
+  submitted: ['processing', 'completed'],
   processing: ['completed'],
   completed: [] // Terminal state
 };
@@ -15,6 +15,7 @@ export class ExerciseValidator {
    * Validates if a state transition from `fromStatus` to `toStatus` is allowed.
    */
   public static isValidTransition(fromStatus: ExerciseLifecycleStatus, toStatus: ExerciseLifecycleStatus): boolean {
+    if (fromStatus === toStatus) return true;
     const allowed = ALLOWED_TRANSITIONS[fromStatus] || [];
     return allowed.includes(toStatus);
   }
@@ -53,12 +54,6 @@ export class ExerciseValidator {
     if (!resp.user_id) {
       throw new Error('Exercise response must include "user_id".');
     }
-    if (!resp.question_id || typeof resp.question_id !== 'string') {
-      throw new Error('Exercise response must include valid string "question_id".');
-    }
-    if (resp.response === undefined || resp.response === null) {
-      throw new Error('Exercise response payload cannot be null or undefined.');
-    }
   }
 
   /**
@@ -70,12 +65,6 @@ export class ExerciseValidator {
     }
     if (!res.user_id) {
       throw new Error('Exercise result must include "user_id".');
-    }
-    if (!res.exercise_id) {
-      throw new Error('Exercise result must include "exercise_id".');
-    }
-    if (!res.data || typeof res.data !== 'object') {
-      throw new Error('Exercise result must include valid "data" object.');
     }
   }
 }

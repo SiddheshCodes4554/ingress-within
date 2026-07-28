@@ -255,24 +255,29 @@ export class ExerciseRepository {
       .from('exercise_responses')
       .select('*')
       .eq('instance_id', instanceId)
-      .order('updated_at', { ascending: true });
+      .order('created_at', { ascending: true });
 
     if (error) throw new Error(`[ExerciseRepository] getResponsesForInstance error: ${error.message}`);
     return data || [];
   }
 
   public static async saveResponse(resp: any): Promise<ExerciseResponse> {
+    const qId = resp.question_id || resp.questionId || resp.step_id || 'q1';
+    const sId = resp.step_id || resp.stepId || qId;
+    const promptText = resp.prompt || '';
+
+    const dbPayload: any = {
+      instance_id: resp.instance_id || resp.instanceId,
+      user_id: resp.user_id || resp.userId,
+      question_id: qId,
+      step_id: sId,
+      response: String(resp.response !== undefined ? resp.response : ''),
+      metadata: resp.metadata || resp.response_metadata || (promptText ? { prompt: promptText } : {})
+    };
+
     const { data, error } = await supabase
       .from('exercise_responses')
-      .upsert({
-        instance_id: resp.instance_id || resp.instanceId,
-        user_id: resp.user_id || resp.userId,
-        question_id: resp.question_id || resp.questionId,
-        prompt: resp.prompt || '',
-        response: resp.response,
-        response_metadata: resp.response_metadata || resp.metadata || {},
-        updated_at: new Date().toISOString()
-      })
+      .upsert(dbPayload, { onConflict: 'instance_id,question_id' })
       .select()
       .single();
 
@@ -320,7 +325,7 @@ export class ExerciseRepository {
         instance_id: evt.instance_id || evt.instanceId,
         user_id: evt.userId,
         event_type: evt.eventType,
-        event_data: evt.payload || evt.eventData || {}
+        payload: evt.payload || evt.eventData || {}
       })
       .select()
       .single();
