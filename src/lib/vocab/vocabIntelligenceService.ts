@@ -45,19 +45,78 @@ export class VocabularyIntelligenceService {
     const snapshots = (dbSnaps || []).filter(s => s.cycle_id !== '00000000-0000-0000-0000-000000000000' && s.cycle_id !== '11111111-1111-1111-1111-111111111111');
 
     if (snapshots.length === 0) {
-      // Check if user has any entries at all
-      const { count: entryCount } = await supabase
+      // Dynamically extract real vocabulary from user's actual journal entries
+      const { data: userEntries, count: entryCount } = await supabase
         .from('entries')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId);
+        .select('id, content, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (!userEntries || userEntries.length === 0) {
+        return {
+          isAvailable: false,
+          stats: { entriesCount: 0, distinctWordCount: 0, mostUsedWord: 'none', mostUsedFrequency: 0, currentCycleWordsCount: 0 },
+          mostUsed: [],
+          timeline: [],
+          clusters: [],
+          allWords: { frequent: [], occasional: [], usedOnce: [] },
+          shiftSignals: { last: [], six: [], all: [] }
+        };
+      }
+
+      // Filter stop words to extract meaningful emotional/expressive vocabulary
+      const stopWords = new Set([
+        'the','be','to','of','and','a','in','that','have','i','it','for','not','on','with','he','as','you','do','at','this','but','his','by','from','they','we','say','her','she','or','an','will','my','one','all','would','there','their','what','so','up','out','if','about','who','get','which','go','me','when','make','can','like','time','no','just','him','know','take','people','into','year','your','good','some','could','them','see','other','than','then','now','look','only','come','its','over','think','also','back','after','use','two','how','our','work','first','well','way','even','new','want','because','any','these','give','day','most','us','is','am','are','was','were','been','being','has','had','having','did','doing','feel','feeling','felt','really','very','thing','things','something','going','got'
+      ]);
+
+      const wordCounts = new Map<string, { word: string; count: number; entryIds: Set<string> }>();
+
+      for (const entry of userEntries) {
+        if (!entry.content) continue;
+        const words = entry.content.toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ').split(/\s+/).filter(Boolean);
+        for (const rawW of words) {
+          const w = rawW.trim();
+          if (w.length <= 2 || stopWords.has(w) || /^\d+$/.test(w)) continue;
+          if (!wordCounts.has(w)) {
+            wordCounts.set(w, { word: w, count: 0, entryIds: new Set() });
+          }
+          const item = wordCounts.get(w)!;
+          item.count += 1;
+          item.entryIds.add(entry.id);
+        }
+      }
+
+      const sorted = Array.from(wordCounts.values()).sort((a, b) => b.count - a.count);
+      const mostUsed = sorted.slice(0, 5).map(s => ({
+        word: s.word,
+        normalized_word: s.word,
+        frequency: s.count
+      }));
+
+      const topConcepts = sorted.slice(0, 3).map(s => ({
+        concept: s.word.charAt(0).toUpperCase() + s.word.slice(1)
+      }));
+
+      const topWordsSummary = sorted.slice(0, 2).map(s => s.word).join(' & ');
 
       return {
-        isAvailable: false,
-        stats: { entriesCount: entryCount || 0, distinctWordCount: 0, mostUsedWord: 'none', mostUsedFrequency: 0 },
-        mostUsed: [],
+        isAvailable: sorted.length > 0,
+        stats: {
+          entriesCount: entryCount || userEntries.length,
+          distinctWordCount: sorted.length,
+          mostUsedWord: mostUsed[0]?.word || 'none',
+          mostUsedFrequency: mostUsed[0]?.frequency || 0,
+          currentCycleWordsCount: sorted.length
+        },
+        mostUsed,
+        concepts: topConcepts,
+        clusters: sorted.length > 0 ? [{ cluster_name: topWordsSummary || 'Reflection' }] : [],
         timeline: [],
-        clusters: [],
-        allWords: { frequent: [], occasional: [], usedOnce: [] },
+        allWords: {
+          frequent: sorted.filter(s => s.count >= 3).map(s => ({ word: s.word, normalized_word: s.word, frequency: s.count })),
+          occasional: sorted.filter(s => s.count === 2).map(s => ({ word: s.word, normalized_word: s.word, frequency: s.count })),
+          usedOnce: sorted.filter(s => s.count === 1).map(s => ({ word: s.word, normalized_word: s.word, frequency: s.count }))
+        },
         shiftSignals: { last: [], six: [], all: [] }
       };
     }
