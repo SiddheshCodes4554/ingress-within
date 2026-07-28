@@ -82,19 +82,19 @@ export default function DashboardPage({ user, profile, onSignOut }) {
     }
   };
 
-  const loadData = async () => {
+  const loadData = async (force = true) => {
     setIsLoading(true);
     setError(null);
     try {
       const [result, vStats, cycles, reports, patterns] = await Promise.all([
-        DashboardService.fetchDashboardData().catch((err) => {
+        DashboardService.fetchDashboardData(force).catch((err) => {
           console.error('fetchDashboardData failed:', err);
           return null;
         }),
-        DashboardService.fetchVocabOverview().catch(() => null),
-        DashboardService.fetchCyclesList().catch(() => []),
-        DashboardService.fetchWeeklyReports().catch(() => []),
-        DashboardService.fetchPatternOverview().catch(() => null)
+        DashboardService.fetchVocabOverview(force).catch(() => null),
+        DashboardService.fetchCyclesList(force).catch(() => []),
+        DashboardService.fetchWeeklyReports(undefined, force).catch(() => []),
+        DashboardService.fetchPatternOverview(force).catch(() => null)
       ]);
 
       setData(result);

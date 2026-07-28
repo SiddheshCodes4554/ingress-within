@@ -217,13 +217,17 @@ export class DashboardService {
   /**
    * Fetches dashboard data by combining parallel requests to entries, threads, and sessions endpoints.
    */
-  static async fetchDashboardData(): Promise<DashboardData> {
+  static async fetchDashboardData(force = false): Promise<DashboardData> {
     const cacheKey = 'dashboard_data';
+    if (force) {
+      const scopedKey = this.getScopedCacheKey(cacheKey);
+      delete this.cache[scopedKey];
+    }
     return this.getCachedOrFetch<DashboardData>(cacheKey, async () => {
       const startTime = performance.now();
       try {
         const [entriesRes, threadsRes, sessionRes, cycleStatusRes] = await Promise.all([
-          fetch('/api/entries?limit=5', { headers: this.getHeaders() }),
+          fetch('/api/entries?limit=25', { headers: this.getHeaders() }),
           fetch('/api/threads', { headers: this.getHeaders() }),
           fetch('/api/session', { headers: this.getHeaders() }).catch(err => {
             console.error('Session fetch failed in dashboardService:', err);
@@ -593,8 +597,13 @@ export class DashboardService {
     }
   }
 
-  static async fetchVocabOverview(): Promise<any> {
-    return this.getCachedOrFetch<any>('vocab_overview', async () => {
+  static async fetchVocabOverview(force = false): Promise<any> {
+    const cacheKey = 'vocab_overview';
+    if (force) {
+      const scopedKey = this.getScopedCacheKey(cacheKey);
+      delete this.cache[scopedKey];
+    }
+    return this.getCachedOrFetch<any>(cacheKey, async () => {
       const startTime = performance.now();
       const res = await fetch('/api/vocab/overview', {
         headers: DashboardService.getHeaders()
@@ -606,7 +615,7 @@ export class DashboardService {
       const duration = performance.now() - startTime;
       this.trackLatency('fetchVocabOverview', duration);
       return data.data;
-    });
+    }, true);
   }
 
   static async fetchVocabByCycle(): Promise<any> {
@@ -712,8 +721,13 @@ export class DashboardService {
   /**
    * Fetches the complete, cycle-centric timeline list.
    */
-  static async fetchCyclesList(): Promise<any[]> {
-    return this.getCachedOrFetch<any[]>('cycles_list', async () => {
+  static async fetchCyclesList(force = false): Promise<any[]> {
+    const cacheKey = 'cycles_list';
+    if (force) {
+      const scopedKey = this.getScopedCacheKey(cacheKey);
+      delete this.cache[scopedKey];
+    }
+    return this.getCachedOrFetch<any[]>(cacheKey, async () => {
       const startTime = performance.now();
       const res = await fetch('/api/cycles', {
         headers: DashboardService.getHeaders()
@@ -725,7 +739,7 @@ export class DashboardService {
       const duration = performance.now() - startTime;
       this.trackLatency('fetchCyclesList', duration);
       return data.cycles || [];
-    });
+    }, true);
   }
 
   /**
@@ -829,8 +843,12 @@ export class DashboardService {
     });
   }
 
-  static async fetchPatternOverview(): Promise<any> {
+  static async fetchPatternOverview(force = false): Promise<any> {
     const cacheKey = 'patterns_overview';
+    if (force) {
+      const scopedKey = this.getScopedCacheKey(cacheKey);
+      delete this.cache[scopedKey];
+    }
     return this.getCachedOrFetch<any>(cacheKey, async () => {
       const startTime = performance.now();
       const res = await fetch('/api/patterns', {
