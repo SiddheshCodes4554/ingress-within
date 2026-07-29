@@ -8,6 +8,8 @@ export class StepEngine {
   static parseSteps(intervention: Intervention): InterventionStep[] {
     const rawSteps = intervention.steps || [];
     const questions = intervention.questions || [];
+    const totalDurationMinutes = intervention.estimated_duration || intervention.duration_minutes || (intervention as any).duration || 5;
+    const defaultStepDurationSeconds = Math.ceil((totalDurationMinutes * 60) / Math.max(1, rawSteps.length));
 
     return rawSteps.map((stepItem, index) => {
       const stepNumber = index + 1;
@@ -22,7 +24,7 @@ export class StepEngine {
           title: `Step ${stepNumber}`,
           content: stepItem,
           optional_question: questionForStep,
-          estimated_duration: Math.ceil((intervention.estimated_duration * 60) / Math.max(1, rawSteps.length)),
+          estimated_duration: defaultStepDurationSeconds,
           allow_previous: true,
           auto_advance: false,
         };
@@ -38,7 +40,8 @@ export class StepEngine {
         content: s.content || '',
         optional_question: s.optional_question || questionForStep,
         optional_media: s.optional_media,
-        estimated_duration: s.estimated_duration || 60,
+        items: s.items,
+        estimated_duration: s.estimated_duration || defaultStepDurationSeconds,
         allow_previous: s.allow_previous !== undefined ? s.allow_previous : true,
         auto_advance: s.auto_advance !== undefined ? s.auto_advance : false,
       };

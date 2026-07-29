@@ -35,6 +35,8 @@ export interface Intervention {
   subcategory?: string | null;
   difficulty: InterventionDifficulty | string;
   estimated_duration: number; // minutes
+  duration_minutes?: number;
+  duration?: number;
   cover_image?: string | null;
   icon?: string | null;
   steps: string[];

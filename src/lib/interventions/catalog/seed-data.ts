@@ -62,6 +62,8 @@ export const SEED_INTERVENTIONS: Intervention[] = rawInterventions.map((item) =>
   slug: slugify(item.title),
   short_description: item.description,
   long_description: item.description,
+  duration: item.duration_minutes,
+  duration_minutes: item.duration_minutes,
   estimated_duration: item.duration_minutes,
   difficulty: item.duration_minutes <= 5 ? 'easy' : item.duration_minutes <= 15 ? 'medium' : 'hard',
   icon: item.category,

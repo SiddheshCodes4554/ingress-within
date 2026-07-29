@@ -2,9 +2,10 @@ import React from 'react';
 import { CheckCircle, Clock, Calendar, ArrowLeft } from 'lucide-react';
 
 export function CompletionStep({ intervention, session, progress, onReturnToDashboard }) {
-  const formattedDuration = session?.elapsed_seconds
-    ? `${Math.ceil(session.elapsed_seconds / 60)} minutes`
-    : `${intervention?.estimated_duration || 5} minutes`;
+  const targetDuration = intervention?.estimated_duration || intervention?.duration_minutes || intervention?.duration || 5;
+  const formattedDuration = session?.elapsed_seconds && session.elapsed_seconds > 0
+    ? `${Math.ceil(session.elapsed_seconds / 60)} min (target: ${targetDuration} min)`
+    : `${targetDuration} minutes`;
 
   const completedTime = session?.completed_at
     ? new Date(session.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
