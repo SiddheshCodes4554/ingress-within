@@ -2,47 +2,51 @@ import { InterventionRepository } from '../repositories/intervention.repository'
 import { SessionRepository } from '../repositories/session.repository';
 import { FavoriteRepository } from '../repositories/favorite.repository';
 import { HistoryRepository } from '../repositories/history.repository';
-import { CatalogProvider } from '../catalog/catalog-provider';
-import {
-  CATEGORY_DESCRIPTIONS,
-  CATEGORY_ICONS,
-  CATEGORY_LABELS,
-  CATEGORY_SHORT_LABELS,
-  INDIA_CRISIS_RESOURCES,
-} from '../constants/categories';
+import { CategoryRepository } from '../repositories/category.repository';
+import { ResponseRepository } from '../repositories/response.repository';
+import { RecommendationService } from './recommendation.service';
+import { InterventionSeeder } from '../catalog/seeder';
+import { INDIA_CRISIS_RESOURCES } from '../constants/categories';
 import {
   CatalogFilterParams,
   CompleteSessionDTO,
   InterventionDetailResponse,
   PaginatedResult,
   PaginationParams,
-  ResumeSessionDTO,
+  RecommendationResponse,
   StartSessionDTO,
 } from '../types/dto';
-import { Intervention, InterventionCategoryMeta, InterventionHistory, InterventionSession } from '../types/intervention';
-import { supabase } from '../../db';
+import { Intervention, InterventionCategory, InterventionHistory, InterventionResponse, InterventionSession } from '../types/intervention';
 
 export class InterventionService {
   private interventionRepo: InterventionRepository;
   private sessionRepo: SessionRepository;
   private favoriteRepo: FavoriteRepository;
   private historyRepo: HistoryRepository;
+  private categoryRepo: CategoryRepository;
+  private responseRepo: ResponseRepository;
+  private recommendationService: RecommendationService;
 
   constructor(
     interventionRepo?: InterventionRepository,
     sessionRepo?: SessionRepository,
     favoriteRepo?: FavoriteRepository,
-    historyRepo?: HistoryRepository
+    historyRepo?: HistoryRepository,
+    categoryRepo?: CategoryRepository,
+    responseRepo?: ResponseRepository,
+    recommendationService?: RecommendationService
   ) {
     this.interventionRepo = interventionRepo || new InterventionRepository();
     this.sessionRepo = sessionRepo || new SessionRepository();
     this.favoriteRepo = favoriteRepo || new FavoriteRepository();
     this.historyRepo = historyRepo || new HistoryRepository();
+    this.categoryRepo = categoryRepo || new CategoryRepository();
+    this.responseRepo = responseRepo || new ResponseRepository();
+    this.recommendationService = recommendationService || new RecommendationService(this.interventionRepo);
   }
 
   /**
    * 1. getCatalog(params?)
-   * Returns paginated catalog with filters (category, max_duration, difficulty, search).
    */
   async getCatalog(params: CatalogFilterParams = {}): Promise<PaginatedResult<Intervention>> {
     return this.interventionRepo.findCatalog(params);
@@ -50,191 +54,157 @@ export class InterventionService {
 
   /**
    * 2. getCategories()
-   * Returns list of category metadata with technique counts and crisis info.
+   * Loads categories from database with technique counts.
    */
-  async getCategories(): Promise<{ categories: InterventionCategoryMeta[]; crisis_resources: typeof INDIA_CRISIS_RESOURCES }> {
-    const catalog = await CatalogProvider.getCatalog();
-    const activeCatalog = catalog.filter((i) => !i.deleted_at && i.status === 'active');
+  async getCategories(): Promise<{ categories: InterventionCategory[]; crisis_resources: typeof INDIA_CRISIS_RESOURCES }> {
+    const categories = await this.categoryRepo.findAll();
+    const catalog = await this.interventionRepo.findCatalog({ limit: 100 });
 
     const counts: Record<string, number> = {};
-    for (const item of activeCatalog) {
+    catalog.data.forEach((item) => {
       counts[item.category] = (counts[item.category] || 0) + 1;
-    }
+    });
 
-    const categories: InterventionCategoryMeta[] = Object.keys(CATEGORY_LABELS).map((catId) => ({
-      id: catId,
-      slug: catId,
-      label: CATEGORY_LABELS[catId] || catId,
-      short_label: CATEGORY_SHORT_LABELS[catId] || catId,
-      description: CATEGORY_DESCRIPTIONS[catId] || '',
-      icon: CATEGORY_ICONS[catId] || 'help-circle',
-      technique_count: counts[catId] || 0,
-      is_crisis: catId === 'crisis_safety',
+    const enriched = categories.map((cat) => ({
+      ...cat,
+      technique_count: counts[cat.id] || 0,
     }));
 
     return {
-      categories,
+      categories: enriched,
       crisis_resources: INDIA_CRISIS_RESOURCES,
     };
   }
 
   /**
    * 3. getIntervention(idOrSlug, userId?)
-   * Fetches single intervention detail, optionally attaching user's favorite status & active session.
    */
   async getIntervention(idOrSlug: string, userId?: string): Promise<InterventionDetailResponse | null> {
     const intervention = await this.interventionRepo.findByIdOrSlug(idOrSlug);
     if (!intervention) return null;
 
-    let is_favorite = false;
+    let is_favourite = false;
     let active_session: InterventionSession | null = null;
+    let previous_responses: InterventionResponse[] | undefined = undefined;
 
     if (userId) {
-      is_favorite = await this.favoriteRepo.isFavorite(userId, intervention.id);
+      is_favourite = await this.favoriteRepo.isFavorite(userId, intervention.id);
       active_session = await this.sessionRepo.findActiveSession(userId, intervention.id);
+
+      if (active_session) {
+        previous_responses = await this.responseRepo.findBySessionId(active_session.id);
+      }
     }
 
     return {
       intervention,
-      is_favorite,
+      is_favourite,
       active_session,
+      previous_responses,
     };
   }
 
   /**
    * 4. startSession(userId, dto)
-   * Starts a new session or returns existing active session, and logs history entry.
    */
   async startSession(userId: string, dto: StartSessionDTO): Promise<{ session: InterventionSession; history: InterventionHistory }> {
     const intervention = await this.interventionRepo.findByIdOrSlug(dto.intervention_id);
-    if (!intervention) {
-      throw new Error(`Intervention not found: ${dto.intervention_id}`);
-    }
+    if (!intervention) throw new Error(`Intervention not found: ${dto.intervention_id}`);
 
-    // Check if there is already an active in-progress session
     let session = await this.sessionRepo.findActiveSession(userId, intervention.id);
     if (!session) {
       session = await this.sessionRepo.createSession(userId, intervention.id);
     }
 
-    // Log history open event
     const history = await this.historyRepo.logOpen(userId, intervention.id, session.id);
-
-    // Write audit log
-    await this.logAudit(userId, 'start_session', 'intervention_session', session.id, { intervention_id: intervention.id });
-
     return { session, history };
   }
 
   /**
-   * 5. resumeSession(userId, dto)
-   * Updates last position and elapsed time for an active session.
+   * resumeSession(userId, dto)
    */
-  async resumeSession(userId: string, dto: ResumeSessionDTO): Promise<InterventionSession> {
+  async resumeSession(
+    userId: string,
+    dto: { session_id: string; last_position?: number; elapsed_seconds?: number }
+  ): Promise<InterventionSession & { last_position?: number }> {
     const session = await this.sessionRepo.findById(userId, dto.session_id);
-    if (!session) {
-      throw new Error(`Session not found or unauthorized: ${dto.session_id}`);
-    }
+    if (!session) throw new Error(`Session not found or unauthorized: ${dto.session_id}`);
 
     const updated = await this.sessionRepo.updateSession(userId, dto.session_id, {
-      last_position: dto.last_position !== undefined ? dto.last_position : session.last_position,
+      last_step: dto.last_position !== undefined ? dto.last_position : session.last_step,
       elapsed_seconds: dto.elapsed_seconds !== undefined ? dto.elapsed_seconds : session.elapsed_seconds,
     });
 
-    if (!updated) {
-      throw new Error('Failed to update session');
-    }
+    if (!updated) throw new Error('Failed to update session');
 
-    await this.logAudit(userId, 'resume_session', 'intervention_session', session.id, {
-      last_position: dto.last_position,
-      elapsed_seconds: dto.elapsed_seconds,
-    });
-
-    return updated;
+    return {
+      ...updated,
+      last_position: updated.last_step,
+    };
   }
 
   /**
-   * 6. completeSession(userId, dto)
-   * Marks session as completed, updates completion timestamps, and stores final responses.
+   * 5. completeSession(userId, dto)
+   * Completes session, updates history, and stores reflection answers in intervention_responses table.
+   * STRICT GUARANTEE: Responses are STORED ONLY. They are NEVER sent to AI or analyzed.
    */
   async completeSession(userId: string, dto: CompleteSessionDTO): Promise<InterventionSession> {
     const session = await this.sessionRepo.findById(userId, dto.session_id);
-    if (!session) {
-      throw new Error(`Session not found or unauthorized: ${dto.session_id}`);
-    }
+    if (!session) throw new Error(`Session not found or unauthorized: ${dto.session_id}`);
 
     const now = new Date().toISOString();
-    const finalElapsed = dto.elapsed_seconds !== undefined ? dto.elapsed_seconds : session.elapsed_seconds || 0;
+    const elapsed = dto.elapsed_seconds !== undefined ? dto.elapsed_seconds : session.elapsed_seconds || 0;
 
     const updated = await this.sessionRepo.updateSession(userId, dto.session_id, {
       status: 'completed',
       completed_at: now,
-      elapsed_seconds: finalElapsed,
-      responses: dto.responses ? { ...(session.responses || {}), ...dto.responses } : session.responses,
+      elapsed_seconds: elapsed,
     });
 
-    if (!updated) {
-      throw new Error('Failed to complete session');
+    if (!updated) throw new Error('Failed to complete session');
+
+    // Store responses (STORED ONLY - ZERO AI)
+    if (dto.responses && dto.responses.length > 0) {
+      await this.responseRepo.storeResponses(session.id, dto.responses);
     }
 
-    // Update history record
-    await this.historyRepo.logCompletion(userId, session.id, finalElapsed);
-
-    // Audit log
-    await this.logAudit(userId, 'complete_session', 'intervention_session', session.id, {
-      intervention_id: session.intervention_id,
-      elapsed_seconds: finalElapsed,
-    });
+    // Update history
+    await this.historyRepo.logCompletion(userId, session.id, elapsed);
 
     return updated;
   }
 
   /**
-   * 7. favorite(userId, interventionId)
-   * Adds intervention to user favorites.
+   * 6. favourite / unfavourite / toggle
    */
-  async favorite(userId: string, interventionId: string): Promise<boolean> {
+  async favourite(userId: string, interventionId: string): Promise<boolean> {
     const intervention = await this.interventionRepo.findByIdOrSlug(interventionId);
     if (!intervention) throw new Error(`Intervention not found: ${interventionId}`);
-
-    const res = await this.favoriteRepo.addFavorite(userId, intervention.id);
-    await this.logAudit(userId, 'favorite', 'intervention', intervention.id);
-    return res;
+    return this.favoriteRepo.addFavorite(userId, intervention.id);
   }
 
-  /**
-   * 8. unfavorite(userId, interventionId)
-   * Removes intervention from user favorites.
-   */
-  async unfavorite(userId: string, interventionId: string): Promise<boolean> {
+  async unfavourite(userId: string, interventionId: string): Promise<boolean> {
     const intervention = await this.interventionRepo.findByIdOrSlug(interventionId);
     if (!intervention) throw new Error(`Intervention not found: ${interventionId}`);
-
-    const res = await this.favoriteRepo.removeFavorite(userId, intervention.id);
-    await this.logAudit(userId, 'unfavorite', 'intervention', intervention.id);
-    return res;
+    return this.favoriteRepo.removeFavorite(userId, intervention.id);
   }
 
-  /**
-   * Helper to toggle favorite status.
-   */
-  async toggleFavorite(userId: string, interventionId: string): Promise<{ is_favorite: boolean }> {
+  async toggleFavourite(userId: string, interventionId: string): Promise<{ is_favourite: boolean }> {
     const intervention = await this.interventionRepo.findByIdOrSlug(interventionId);
     if (!intervention) throw new Error(`Intervention not found: ${interventionId}`);
 
-    const currentlyFavorite = await this.favoriteRepo.isFavorite(userId, intervention.id);
-    if (currentlyFavorite) {
-      await this.unfavorite(userId, intervention.id);
-      return { is_favorite: false };
+    const isFav = await this.favoriteRepo.isFavorite(userId, intervention.id);
+    if (isFav) {
+      await this.unfavourite(userId, intervention.id);
+      return { is_favourite: false };
     } else {
-      await this.favorite(userId, intervention.id);
-      return { is_favorite: true };
+      await this.favourite(userId, intervention.id);
+      return { is_favourite: true };
     }
   }
 
   /**
-   * 9. search(query, params?)
-   * Convenience search method across titles, descriptions, categories, and tags.
+   * 7. search(query, params?)
    */
   async search(query: string, params: CatalogFilterParams = {}): Promise<PaginatedResult<Intervention>> {
     return this.interventionRepo.findCatalog({
@@ -244,52 +214,37 @@ export class InterventionService {
   }
 
   /**
-   * 10. recentlyUsed(userId, limit?)
-   * Gets list of interventions recently used by the authenticated user.
+   * 8. getRecommendations(userId, limit?)
+   * Deterministic rule-based recommendation engine (Zero AI).
+   */
+  async getRecommendations(userId: string, limit = 5): Promise<RecommendationResponse> {
+    return this.recommendationService.getRecommendations(userId, limit);
+  }
+
+  /**
+   * 9. recentlyUsed(userId, limit?)
    */
   async recentlyUsed(userId: string, limit = 5): Promise<Intervention[]> {
     const recentIds = await this.historyRepo.getRecentlyUsed(userId, limit);
     const list: Intervention[] = [];
-
     for (const id of recentIds) {
       const item = await this.interventionRepo.findByIdOrSlug(id);
       if (item) list.push(item);
     }
-
     return list;
   }
 
   /**
-   * Gets user history with pagination.
+   * 10. getUserHistory(userId, params?)
    */
   async getUserHistory(userId: string, params: PaginationParams = {}): Promise<PaginatedResult<InterventionHistory>> {
     return this.historyRepo.getUserHistory(userId, params);
   }
 
   /**
-   * Private helper for writing audit logs.
+   * Idempotent Seeder Invocation
    */
-  private async logAudit(
-    userId: string,
-    action: string,
-    entityType: string,
-    entityId: string,
-    metadata: Record<string, unknown> = {}
-  ): Promise<void> {
-    try {
-      await supabase.from('intervention_audit_logs').insert([
-        {
-          user_id: userId,
-          action,
-          entity_type: entityType,
-          entity_id: entityId,
-          metadata,
-          created_at: new Date().toISOString(),
-        },
-      ]);
-    } catch (e) {
-      // Audit log failures should not block main application flow
-      console.warn('[InterventionService] Audit log warning:', e);
-    }
+  async seedDatabase() {
+    return InterventionSeeder.seedAll();
   }
 }

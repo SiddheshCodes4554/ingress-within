@@ -41,7 +41,7 @@ export class InterventionRepository {
 
       const { data, count, error } = await query;
 
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
         const total = count || data.length;
         return {
           data: data as Intervention[],
@@ -58,15 +58,15 @@ export class InterventionRepository {
       console.warn('[InterventionRepository] DB lookup error, using in-memory catalog fallback:', e);
     }
 
-    // In-memory fallback if DB table does not exist or fails
+    // In-memory fallback if DB table does not exist or has not been populated yet
     let all = await CatalogProvider.getCatalog();
-    all = all.filter((i) => !i.deleted_at && (params.status ? i.status === params.status : i.status === 'active'));
+    all = all.filter((i) => (params.status ? i.status === params.status : i.status === 'active'));
 
     if (params.category) {
       all = all.filter((i) => i.category === params.category);
     }
     if (params.max_duration) {
-      all = all.filter((i) => i.duration_minutes <= params.max_duration!);
+      all = all.filter((i) => (i.estimated_duration || 0) <= params.max_duration!);
     }
     if (params.difficulty) {
       all = all.filter((i) => i.difficulty === params.difficulty);
@@ -76,7 +76,7 @@ export class InterventionRepository {
       all = all.filter(
         (i) =>
           i.title.toLowerCase().includes(q) ||
-          i.description.toLowerCase().includes(q) ||
+          (i.short_description || i.long_description || '').toLowerCase().includes(q) ||
           i.category.toLowerCase().includes(q) ||
           i.tags?.some((t) => t.toLowerCase().includes(q))
       );
@@ -117,6 +117,6 @@ export class InterventionRepository {
     }
 
     const all = await CatalogProvider.getCatalog();
-    return all.find((i) => (i.id === idOrSlug || i.slug === idOrSlug) && !i.deleted_at) || null;
+    return all.find((i) => i.id === idOrSlug || i.slug === idOrSlug) || null;
   }
 }

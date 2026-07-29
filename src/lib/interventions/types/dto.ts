@@ -1,4 +1,4 @@
-import { Intervention, InterventionCategoryMeta, InterventionHistory, InterventionSession } from './intervention';
+import { Intervention, InterventionCategory, InterventionHistory, InterventionResponse, InterventionSession, RecommendationResult } from './intervention';
 
 export interface PaginationParams {
   page?: number;
@@ -26,34 +26,33 @@ export interface CatalogFilterParams extends PaginationParams {
 
 export interface InterventionDetailResponse {
   intervention: Intervention;
-  is_favorite: boolean;
+  is_favourite: boolean;
   active_session?: InterventionSession | null;
+  previous_responses?: InterventionResponse[];
 }
 
 export interface StartSessionDTO {
   intervention_id: string;
 }
 
-export interface ResumeSessionDTO {
-  session_id: string;
-  last_position?: number | Record<string, unknown>;
-  elapsed_seconds?: number;
-}
-
 export interface CompleteSessionDTO {
   session_id: string;
   elapsed_seconds?: number;
-  responses?: Record<string, unknown>;
+  responses?: Array<{ question_id: string; answer: string }>;
 }
 
-export interface FavoriteDTO {
+export interface FavouriteDTO {
   intervention_id: string;
-  action?: 'favorite' | 'unfavorite' | 'toggle';
+  action?: 'favourite' | 'unfavourite' | 'toggle';
 }
 
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  meta?: Record<string, unknown>;
+export interface RecommendationResponse {
+  engine_version: string;
+  recommended: RecommendationResult[];
+  inputs_evaluated: {
+    vocab_keywords_count: number;
+    active_patterns_count: number;
+    completed_exercises_count: number;
+    current_cycle_id?: string;
+  };
 }

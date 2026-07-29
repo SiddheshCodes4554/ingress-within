@@ -16,9 +16,9 @@ export class HistoryRepository {
       user_id: userId,
       intervention_id: interventionId,
       session_id: sessionId || null,
-      opened_at: now,
-      time_spent: 0,
-      created_at: now,
+      started_at: now,
+      duration: 0,
+      completion_state: 'in_progress',
     };
 
     try {
@@ -40,9 +40,9 @@ export class HistoryRepository {
       user_id: userId,
       intervention_id: interventionId,
       session_id: sessionId || null,
-      opened_at: now,
-      time_spent: 0,
-      created_at: now,
+      started_at: now,
+      duration: 0,
+      completion_state: 'in_progress',
     };
 
     HistoryRepository.memoryHistory.push(memoryEntry);
@@ -50,14 +50,14 @@ export class HistoryRepository {
   }
 
   /**
-   * Updates completion timestamp and time_spent for a session history record.
+   * Updates completion timestamp and duration for a session history record.
    */
   async logCompletion(userId: string, sessionId: string, timeSpentSeconds: number): Promise<boolean> {
     const now = new Date().toISOString();
     try {
       const { error } = await supabase
         .from('intervention_history')
-        .update({ completed_at: now, time_spent: timeSpentSeconds })
+        .update({ completed_at: now, duration: timeSpentSeconds, completion_state: 'completed' })
         .eq('session_id', sessionId)
         .eq('user_id', userId);
 
@@ -69,7 +69,8 @@ export class HistoryRepository {
     const match = HistoryRepository.memoryHistory.find((h) => h.session_id === sessionId && h.user_id === userId);
     if (match) {
       match.completed_at = now;
-      match.time_spent = timeSpentSeconds;
+      match.duration = timeSpentSeconds;
+      match.completion_state = 'completed';
       return true;
     }
     return false;
@@ -90,8 +91,7 @@ export class HistoryRepository {
         .from('intervention_history')
         .select('*', { count: 'exact' })
         .eq('user_id', userId)
-        .is('deleted_at', null)
-        .order('opened_at', { ascending: false })
+        .order('started_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
       if (!error && data) {
@@ -125,8 +125,8 @@ export class HistoryRepository {
 
     // In-memory fallback
     const userHistory = HistoryRepository.memoryHistory
-      .filter((h) => h.user_id === userId && !h.deleted_at)
-      .sort((a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime());
+      .filter((h) => h.user_id === userId)
+      .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
 
     const total = userHistory.length;
     const paginated = userHistory.slice(offset, offset + limit);
@@ -162,8 +162,7 @@ export class HistoryRepository {
         .from('intervention_history')
         .select('intervention_id')
         .eq('user_id', userId)
-        .is('deleted_at', null)
-        .order('opened_at', { ascending: false })
+        .order('started_at', { ascending: false })
         .limit(limitCount * 2);
 
       if (!error && data) {
@@ -175,8 +174,8 @@ export class HistoryRepository {
     }
 
     const userHistory = HistoryRepository.memoryHistory
-      .filter((h) => h.user_id === userId && !h.deleted_at)
-      .sort((a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime());
+      .filter((h) => h.user_id === userId)
+      .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
 
     const uniqueIds = Array.from(new Set(userHistory.map((h) => h.intervention_id))).slice(0, limitCount);
     return uniqueIds;

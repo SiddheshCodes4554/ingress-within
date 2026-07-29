@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '../../../../lib/auth-helper';
 import { interventionEngine } from '../../../../lib/interventions/engine/intervention-engine';
-import { FavoriteSchema } from '../../../../lib/interventions/validators/intervention.schema';
 
 /**
- * POST /api/interventions/favorite
- * Body: { intervention_id: string, action?: 'favorite' | 'unfavorite' | 'toggle' }
- * Manages favorites for the authenticated user.
+ * POST /api/interventions/favourite (also aliased for favorite)
+ * Body: { intervention_id: string, action?: 'favourite' | 'unfavourite' | 'toggle' | 'favorite' | 'unfavorite' }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -22,38 +20,38 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const parseResult = FavoriteSchema.safeParse(body);
 
-    if (!parseResult.success) {
+    if (!body || !body.intervention_id) {
       return NextResponse.json(
-        { success: false, error: 'Invalid request body', details: parseResult.error.flatten() },
+        { success: false, error: 'intervention_id is required' },
         { status: 400 }
       );
     }
 
-    const { intervention_id, action } = parseResult.data;
+    const intervention_id = body.intervention_id;
+    const action = body.action || 'toggle';
 
-    let isFavorite = false;
-    if (action === 'favorite') {
-      await interventionEngine.favorite(userId, intervention_id);
-      isFavorite = true;
-    } else if (action === 'unfavorite') {
-      await interventionEngine.unfavorite(userId, intervention_id);
-      isFavorite = false;
+    let isFav = false;
+    if (action === 'favourite' || action === 'favorite') {
+      await interventionEngine.favourite(userId, intervention_id);
+      isFav = true;
+    } else if (action === 'unfavourite' || action === 'unfavorite') {
+      await interventionEngine.unfavourite(userId, intervention_id);
+      isFav = false;
     } else {
-      const res = await interventionEngine.toggleFavorite(userId, intervention_id);
-      isFavorite = res.is_favourite;
+      const res = await interventionEngine.toggleFavourite(userId, intervention_id);
+      isFav = res.is_favourite;
     }
 
     return NextResponse.json({
       success: true,
       data: {
         intervention_id,
-        is_favorite: isFavorite,
+        is_favourite: isFav,
       },
     });
   } catch (error) {
-    console.error('POST /api/interventions/favorite error:', error);
+    console.error('POST /api/interventions/favourite error:', error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }

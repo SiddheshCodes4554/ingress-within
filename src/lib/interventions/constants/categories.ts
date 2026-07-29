@@ -1,4 +1,4 @@
-import { InterventionCategoryMeta } from '../types/intervention';
+import { InterventionCategory } from '../types/intervention';
 
 export const CATEGORY_LABELS: Record<string, string> = {
   anxiety_worry: 'Anxiety & Worry',

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '../../../../lib/auth-helper';
 import { interventionEngine } from '../../../../lib/interventions/engine/intervention-engine';
-import { CompleteSessionSchema } from '../../../../lib/interventions/validators/intervention.schema';
 
 /**
  * POST /api/interventions/complete
- * Body: { session_id: string, elapsed_seconds?: number, responses?: object }
- * Completes an active intervention session for the authenticated user.
+ * Body: { session_id: string, elapsed_seconds?: number, responses?: Array<{ question_id: string, answer: string }> }
+ * Completes session and stores user responses.
+ * STRICT GUARANTEE: Responses are STORED ONLY. They are NEVER sent to AI or analyzed.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -22,16 +22,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const parseResult = CompleteSessionSchema.safeParse(body);
 
-    if (!parseResult.success) {
+    if (!body || !body.session_id) {
       return NextResponse.json(
-        { success: false, error: 'Invalid request body', details: parseResult.error.flatten() },
+        { success: false, error: 'session_id is required' },
         { status: 400 }
       );
     }
 
-    const completedSession = await interventionEngine.completeSession(userId, parseResult.data);
+    const completedSession = await interventionEngine.completeSession(userId, {
+      session_id: body.session_id,
+      elapsed_seconds: body.elapsed_seconds,
+      responses: body.responses,
+    });
 
     return NextResponse.json({
       success: true,

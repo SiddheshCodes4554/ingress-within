@@ -60,9 +60,22 @@ const rawInterventions = [
 export const SEED_INTERVENTIONS: Intervention[] = rawInterventions.map((item) => ({
   ...item,
   slug: slugify(item.title),
+  short_description: item.description,
+  long_description: item.description,
+  estimated_duration: item.duration_minutes,
   difficulty: item.duration_minutes <= 5 ? 'easy' : item.duration_minutes <= 15 ? 'medium' : 'hard',
   icon: item.category,
   cover_image: null,
+  questions: [
+    {
+      id: `q_${item.id}_1`,
+      prompt: `How did you feel before and after completing ${item.title}?`,
+      type: 'text',
+    },
+  ],
+  completion_type: 'guided_steps',
+  contraindications: [],
+  benefits: [item.description],
   status: 'active',
   content_version: 1,
   created_at: new Date('2026-01-01T00:00:00.000Z').toISOString(),

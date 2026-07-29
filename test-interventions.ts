@@ -59,7 +59,7 @@ async function runTests() {
     const completeResult = await engine.completeSession(userA, {
       session_id: startResult.session.id,
       elapsed_seconds: 180,
-      responses: { 0: 'Felt much calmer' },
+      responses: [{ question_id: 'q_anx_001_1', answer: 'Felt much calmer' }],
     });
     assert(completeResult.status === 'completed', 'Completion stored with status completed');
     assert(!!completeResult.completed_at, 'Completion timestamp present');
@@ -68,12 +68,12 @@ async function runTests() {
     const favResult = await engine.favorite(userA, 'anx_001');
     assert(favResult === true, 'Favorite stored for User A');
     const isFav = await engine.getIntervention('anx_001', userA);
-    assert(isFav?.is_favorite === true, 'User A favorite flag verified on single lookup');
+    assert(isFav?.is_favourite === true, 'User A favorite flag verified on single lookup');
 
     const unfavResult = await engine.unfavorite(userA, 'anx_001');
     assert(unfavResult === true, 'Unfavorite processed for User A');
     const isUnfav = await engine.getIntervention('anx_001', userA);
-    assert(isUnfav?.is_favorite === false, 'User A unfavorite flag verified');
+    assert(isUnfav?.is_favourite === false, 'User A unfavorite flag verified');
 
     // 7. History stored
     const historyA = await engine.getHistory(userA);
@@ -84,7 +84,7 @@ async function runTests() {
     assert(historyB.data.length === 0, 'User isolation verified (User B sees 0 history of User A)', `User B history items: ${historyB.data.length}`);
 
     const isFavB = await engine.getIntervention('anx_001', userB);
-    assert(isFavB?.is_favorite === false, 'User isolation verified (User B favorite flag is false)');
+    assert(isFavB?.is_favourite === false, 'User isolation verified (User B favorite flag is false)');
   } catch (err) {
     console.error('Unexpected error during test execution:', err);
     failedCount++;
