@@ -308,7 +308,7 @@ export default function InterventionsPage() {
                           {item.category.replace(/_/g, ' ')}
                         </span>
                         <div className="flex items-center gap-1 text-[11px] text-mid font-mono bg-mint-grey px-2 py-0.5 rounded">
-                          <Clock size={11} /> {item.duration_minutes}m
+                          <Clock size={11} /> {item.duration_minutes || item.estimated_duration || item.duration || 5}m
                         </div>
                       </div>
 

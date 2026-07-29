@@ -2,6 +2,7 @@ import { supabase } from '../../db';
 import { Intervention } from '../types/intervention';
 import { CatalogFilterParams, PaginatedResult } from '../types/dto';
 import { CatalogProvider } from '../catalog/catalog-provider';
+import { SEED_INTERVENTIONS } from '../catalog/seed-data';
 import { DEFAULT_LIMIT, DEFAULT_PAGE } from '../constants/defaults';
 
 export class InterventionRepository {
@@ -42,9 +43,18 @@ export class InterventionRepository {
       const { data, count, error } = await query;
 
       if (!error && data && data.length > 0) {
-        let items = data as Intervention[];
+        let items = data.map((item: any) => {
+          const matchedSeed = SEED_INTERVENTIONS.find((s) => s.id === item.id);
+          const dur = matchedSeed?.duration_minutes || matchedSeed?.estimated_duration || item.duration_minutes || item.estimated_duration || 5;
+          return {
+            ...item,
+            duration_minutes: dur,
+            estimated_duration: dur,
+          } as Intervention;
+        });
+
         if (params.max_duration) {
-          items = items.filter((i) => (i.estimated_duration || (i as any).duration_minutes || 0) <= params.max_duration!);
+          items = items.filter((i) => (i.estimated_duration || i.duration_minutes || 0) <= params.max_duration!);
         }
         const total = items.length;
         return {
@@ -114,7 +124,14 @@ export class InterventionRepository {
         .maybeSingle();
 
       if (!error && data) {
-        return data as Intervention;
+        const item = data as any;
+        const matchedSeed = SEED_INTERVENTIONS.find((s) => s.id === item.id);
+        const dur = matchedSeed?.duration_minutes || matchedSeed?.estimated_duration || item.duration_minutes || item.estimated_duration || 5;
+        return {
+          ...item,
+          duration_minutes: dur,
+          estimated_duration: dur,
+        } as Intervention;
       }
     } catch (e) {
       console.warn('[InterventionRepository] Single fetch DB fallback:', e);
