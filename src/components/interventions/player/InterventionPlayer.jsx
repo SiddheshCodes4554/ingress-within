@@ -91,87 +91,80 @@ export function InterventionPlayer({ interventionId, sessionId: initialSessionId
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
   };
 
-  // 4. Next Step Navigation
+  // 4. Next Step Navigation (Optimistic & Super Fast)
   const handleNext = async () => {
-    if (!session || isSubmitting) return;
+    if (!steps || steps.length === 0) return;
 
-    setIsSubmitting(true);
-    try {
-      const currentStep = steps[currentStepIndex];
-      const questionId = currentStep?.optional_question?.id;
-      const answerVal = questionId ? answers[questionId] : undefined;
+    const currentStep = steps[currentStepIndex];
+    const questionId = currentStep?.optional_question?.id;
+    const answerVal = questionId ? answers[questionId] : undefined;
+    const isLast = currentStepIndex >= steps.length - 1;
+    const activeSessionId = session?.id || initialSessionId;
 
-      // Check if this is the final step
-      if (currentStepIndex >= steps.length - 1) {
-        // Complete Session
-        const res = await fetch('/api/interventions/session/complete', {
+    if (isLast) {
+      // INSTANT COMPLETION DISPLAY
+      setIsCompleted(true);
+
+      // Async background server sync to record history & complete session
+      if (activeSessionId) {
+        const payload = {
+          session_id: activeSessionId,
+          elapsed_seconds: elapsedSeconds,
+          responses: Object.entries(answers).map(([qId, ans]) => ({ question_id: qId, answer: ans })),
+        };
+        fetch('/api/interventions/session/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            session_id: session.id,
-            elapsed_seconds: elapsedSeconds,
-            responses: Object.entries(answers).map(([qId, ans]) => ({ question_id: qId, answer: ans })),
-          }),
+          body: JSON.stringify(payload),
+        }).catch(() => {
+          fetch('/api/interventions/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          }).catch(() => {});
         });
+      }
+    } else {
+      // INSTANT STEP TRANSITION (0ms UI latency)
+      const nextIndex = currentStepIndex + 1;
+      setCurrentStepIndex(nextIndex);
 
-        const json = await res.json();
-        if (json.success) {
-          setIsCompleted(true);
-        }
-      } else {
-        // Advance step
-        const res = await fetch('/api/interventions/session/step', {
+      // Background async sync to server
+      if (activeSessionId) {
+        fetch('/api/interventions/session/step', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            session_id: session.id,
+            session_id: activeSessionId,
             direction: 'next',
             question_id: questionId,
             answer: answerVal,
             elapsed_seconds: elapsedSeconds,
           }),
-        });
-
-        const json = await res.json();
-        if (json.success && json.data) {
-          setSession(json.data.session);
-          setProgress(json.data.progress);
-          setCurrentStepIndex(currentStepIndex + 1);
-        }
+        }).catch((err) => console.warn('Background step sync failed:', err));
       }
-    } catch (err) {
-      console.error('Error advancing step:', err);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
-  // 5. Previous Step Navigation
-  const handlePrevious = async () => {
-    if (!session || currentStepIndex <= 0 || isSubmitting) return;
+  // 5. Previous Step Navigation (Optimistic & Super Fast)
+  const handlePrevious = () => {
+    if (currentStepIndex <= 0) return;
 
-    setIsSubmitting(true);
-    try {
-      const res = await fetch('/api/interventions/session/step', {
+    // INSTANT STEP TRANSITION (0ms UI latency)
+    const prevIndex = currentStepIndex - 1;
+    setCurrentStepIndex(prevIndex);
+
+    const activeSessionId = session?.id || initialSessionId;
+    if (activeSessionId) {
+      fetch('/api/interventions/session/step', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          session_id: session.id,
+          session_id: activeSessionId,
           direction: 'previous',
           elapsed_seconds: elapsedSeconds,
         }),
-      });
-
-      const json = await res.json();
-      if (json.success && json.data) {
-        setSession(json.data.session);
-        setProgress(json.data.progress);
-        setCurrentStepIndex(currentStepIndex - 1);
-      }
-    } catch (err) {
-      console.error('Error navigating to previous step:', err);
-    } finally {
-      setIsSubmitting(false);
+      }).catch((err) => console.warn('Background step sync failed:', err));
     }
   };
 
