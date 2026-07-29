@@ -16,6 +16,7 @@ export default function InterventionsPage() {
 
   // Player mode state
   const [playerInterventionId, setPlayerInterventionId] = useState(null);
+  const [playerSessionId, setPlayerSessionId] = useState(null);
 
   // Active technique details & step-through practice mode
   const [activeIntervention, setActiveIntervention] = useState(null);
@@ -156,13 +157,18 @@ export default function InterventionsPage() {
     }
   };
 
-  if (playerInterventionId) {
+  if (playerInterventionId || playerSessionId) {
     return (
       <InterventionPlayer
         interventionId={playerInterventionId}
-        onBack={() => setPlayerInterventionId(null)}
+        sessionId={playerSessionId}
+        onBack={() => {
+          setPlayerInterventionId(null);
+          setPlayerSessionId(null);
+        }}
         onComplete={() => {
           setPlayerInterventionId(null);
+          setPlayerSessionId(null);
           fetchHistory();
         }}
       />
@@ -490,29 +496,61 @@ export default function InterventionsPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {history.map((entry, idx) => (
-                    <div
-                      key={idx}
-                      className="p-4 bg-mint-grey/40 rounded-lg border border-primary/5 flex items-center justify-between gap-4"
-                    >
-                      <div>
-                        <div className="text-xs font-semibold text-primary font-serif italic">
-                          {entry.intervention?.title || entry.intervention_id}
+                  {history.map((entry, idx) => {
+                    const isCompleted = !!entry.completed_at || entry.completion_state === 'completed' || entry.status === 'completed';
+                    const dateVal = entry.started_at || entry.opened_at || entry.created_at || entry.timestamp || entry.last_activity;
+                    const dateStr = dateVal && !isNaN(new Date(dateVal).getTime())
+                      ? new Date(dateVal).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : 'Recently';
+
+                    return (
+                      <div
+                        key={idx}
+                        className="p-4 bg-white rounded-xl border border-primary/10 flex items-center justify-between gap-4 shadow-xs hover:border-accent/30 transition-all"
+                      >
+                        <div>
+                          <div className="text-sm font-semibold text-primary font-serif italic">
+                            {entry.intervention?.title || entry.intervention_id}
+                          </div>
+                          <div className="text-xs text-mid font-mono mt-1 flex items-center gap-1.5">
+                            <Clock size={12} className="text-accent" />
+                            <span>Started: {dateStr}</span>
+                          </div>
                         </div>
-                        <div className="text-[10px] text-mid font-mono mt-0.5">
-                          Opened: {new Date(entry.opened_at).toLocaleString()}
+
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
+                              isCompleted
+                                ? 'bg-secondary/20 text-[#1A5040]'
+                                : 'bg-amber-100/90 text-amber-900 border border-amber-300/60'
+                            }`}
+                          >
+                            {isCompleted ? 'Completed' : 'Started'}
+                          </span>
+
+                          {!isCompleted && (
+                            <button
+                              onClick={() => {
+                                setPlayerInterventionId(entry.intervention_id || entry.intervention?.id);
+                                setPlayerSessionId(entry.session_id || entry.id || null);
+                              }}
+                              className="px-3.5 py-1.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary/90 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            >
+                              <Play size={12} className="fill-white" />
+                              <span>Continue</span>
+                            </button>
+                          )}
                         </div>
                       </div>
-                      <span
-                        className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${entry.completed_at
-                          ? 'bg-secondary/20 text-[#1A5040]'
-                          : 'bg-primary/10 text-mid'
-                          }`}
-                      >
-                        {entry.completed_at ? 'Completed' : 'Started'}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
