@@ -25,7 +25,7 @@ export class InterventionRepository {
       }
 
       if (params.max_duration) {
-        query = query.lte('duration_minutes', params.max_duration);
+        query = query.or(`estimated_duration.lte.${params.max_duration},duration_minutes.lte.${params.max_duration}`);
       }
 
       if (params.difficulty) {
@@ -42,15 +42,19 @@ export class InterventionRepository {
       const { data, count, error } = await query;
 
       if (!error && data && data.length > 0) {
-        const total = count || data.length;
+        let items = data as Intervention[];
+        if (params.max_duration) {
+          items = items.filter((i) => (i.estimated_duration || (i as any).duration_minutes || 0) <= params.max_duration!);
+        }
+        const total = items.length;
         return {
-          data: data as Intervention[],
+          data: items,
           pagination: {
             page,
             limit,
             total,
             total_pages: Math.ceil(total / limit) || 1,
-            has_more: offset + data.length < total,
+            has_more: offset + items.length < total,
           },
         };
       }

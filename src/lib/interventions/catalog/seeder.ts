@@ -147,6 +147,7 @@ export class InterventionSeeder {
       id: item.id,
       slug: item.slug,
       title: item.title,
+      description: item.short_description,
       short_description: item.short_description,
       long_description: item.long_description || item.short_description,
       category: item.category,

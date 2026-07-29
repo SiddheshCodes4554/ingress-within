@@ -288,7 +288,7 @@ export default function InterventionsPage() {
                         : 'bg-mint-grey/80 text-mid hover:bg-mint-grey hover:text-primary'
                     }`}
                   >
-                    {cat.label} ({cat.technique_count})
+                    {cat.name || cat.label || cat.id} ({cat.technique_count})
                   </button>
                 ))}
               </div>

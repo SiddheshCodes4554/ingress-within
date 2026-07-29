@@ -6,7 +6,7 @@ import { CategoryRepository } from '../repositories/category.repository';
 import { ResponseRepository } from '../repositories/response.repository';
 import { RecommendationService } from './recommendation.service';
 import { InterventionSeeder } from '../catalog/seeder';
-import { INDIA_CRISIS_RESOURCES } from '../constants/categories';
+import { CATEGORY_LABELS, INDIA_CRISIS_RESOURCES } from '../constants/categories';
 import {
   CatalogFilterParams,
   CompleteSessionDTO,
@@ -67,6 +67,8 @@ export class InterventionService {
 
     const enriched = categories.map((cat) => ({
       ...cat,
+      name: cat.name || CATEGORY_LABELS[cat.id] || cat.id,
+      label: cat.name || CATEGORY_LABELS[cat.id] || cat.id,
       technique_count: counts[cat.id] || 0,
     }));
 

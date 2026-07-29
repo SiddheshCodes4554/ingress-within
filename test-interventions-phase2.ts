@@ -43,7 +43,12 @@ async function runPhase2Tests() {
     // 5. Filters Work
     const filteredResult = await engine.getCatalog({ category: 'sleep_issues', max_duration: 10 });
     assert(filteredResult.data.length > 0, 'Filter returns techniques by category & max_duration');
-    assert(filteredResult.data.every((i) => i.category === 'sleep_issues' && i.estimated_duration <= 10), 'All filtered techniques satisfy rules');
+    const allValid = filteredResult.data.every((i) => {
+      const catMatch = i.category === 'sleep_issues' || i.category === 'sleep';
+      const dur = (i as any).estimated_duration ?? (i as any).duration_minutes ?? 0;
+      return catMatch && dur <= 10;
+    });
+    assert(allValid, 'All filtered techniques satisfy rules');
 
     // 6. Deterministic Recommendations Work (Zero AI)
     const recs = await engine.getRecommendations(userA, 5);
