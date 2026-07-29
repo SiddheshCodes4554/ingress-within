@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Clock, Heart, ArrowLeft, CheckCircle, Play, ShieldAlert, Sparkles, Filter, RotateCcw, X, PhoneCall } from 'lucide-react';
 import DashboardNavbar from '../components/DashboardNavbar';
 import Footer from '../components/Footer';
+import { InterventionPlayer } from '../components/interventions/player/InterventionPlayer';
 
 export default function InterventionsPage() {
   const [categories, setCategories] = useState([]);
@@ -12,6 +13,9 @@ export default function InterventionsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [durationFilter, setDurationFilter] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Player mode state
+  const [playerInterventionId, setPlayerInterventionId] = useState(null);
 
   // Active technique details & step-through practice mode
   const [activeIntervention, setActiveIntervention] = useState(null);
@@ -95,22 +99,9 @@ export default function InterventionsPage() {
     }
   };
 
-  const handleStartPractice = async () => {
-    if (!activeIntervention) return;
-    try {
-      const res = await fetch('/api/interventions/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ intervention_id: activeIntervention.id }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        setActiveSession(json.data.session);
-        setCurrentStep(0);
-        setIsFinished(false);
-      }
-    } catch (e) {
-      console.error('Error starting session:', e);
+  const handleStartPractice = () => {
+    if (activeIntervention) {
+      setPlayerInterventionId(activeIntervention.id);
     }
   };
 
@@ -164,6 +155,19 @@ export default function InterventionsPage() {
       console.error('Error toggling favorite:', e);
     }
   };
+
+  if (playerInterventionId) {
+    return (
+      <InterventionPlayer
+        interventionId={playerInterventionId}
+        onBack={() => setPlayerInterventionId(null)}
+        onComplete={() => {
+          setPlayerInterventionId(null);
+          fetchHistory();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-mint-grey text-primary font-sans flex flex-col justify-between">
