@@ -170,26 +170,6 @@ export default function InterventionsPage() {
       <div>
         <DashboardNavbar activeTab="interventions" />
 
-        {/* Crisis Banner */}
-        <div className="bg-primary text-white text-xs px-6 py-2.5 flex items-center justify-between border-b border-accent/20">
-          <div className="max-w-[1140px] mx-auto w-full flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-2 text-accent font-semibold">
-              <ShieldAlert size={16} />
-              <span>In crisis right now? Free, confidential support is available 24/7 in India.</span>
-            </div>
-            <div className="flex items-center gap-4 text-[11px] text-supporting">
-              <span>Tele-MANAS: <strong className="text-accent">14416</strong></span>
-              <span>KIRAN: <strong className="text-accent">1800-599-0019</strong></span>
-              <button
-                onClick={() => setShowCrisisModal(true)}
-                className="underline hover:text-white transition-colors cursor-pointer"
-              >
-                More Helplines &rarr;
-              </button>
-            </div>
-          </div>
-        </div>
-
         <main className="max-w-[1140px] mx-auto px-6 py-8">
           {/* Header */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
