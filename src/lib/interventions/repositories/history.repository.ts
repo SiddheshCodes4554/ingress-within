@@ -94,7 +94,7 @@ export class HistoryRepository {
         .order('started_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
         const total = count || data.length;
 
         // Populate intervention metadata for each history entry
