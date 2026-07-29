@@ -119,7 +119,7 @@ export default function InterventionsPage() {
           session_id: activeSession.id,
           last_position: nextPos,
         }),
-      }).catch(() => {});
+      }).catch(() => { });
     } else {
       // Finish technique
       try {
@@ -179,7 +179,7 @@ export default function InterventionsPage() {
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-mid mb-1">
-                Evidence-Based Self-Help Bank · India Edition
+                Evidence-Based Self-Help Bank ·
               </div>
               <h1 className="font-serif text-3xl md:text-4xl text-primary font-normal">
                 Intervention Bank
@@ -195,11 +195,10 @@ export default function InterventionsPage() {
                   setViewMode(viewMode === 'history' ? 'grid' : 'history');
                   if (viewMode !== 'history') fetchHistory();
                 }}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider border transition-all cursor-pointer ${
-                  viewMode === 'history'
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-white border-primary/10 text-mid hover:border-primary/30'
-                }`}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider border transition-all cursor-pointer ${viewMode === 'history'
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-white border-primary/10 text-mid hover:border-primary/30'
+                  }`}
               >
                 {viewMode === 'history' ? 'Back to Catalog' : 'My History'}
               </button>
@@ -252,11 +251,10 @@ export default function InterventionsPage() {
               <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar text-xs">
                 <button
                   onClick={() => setSelectedCategory(null)}
-                  className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap cursor-pointer ${
-                    selectedCategory === null
-                      ? 'bg-primary text-white font-semibold'
-                      : 'bg-mint-grey/80 text-mid hover:bg-mint-grey hover:text-primary'
-                  }`}
+                  className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap cursor-pointer ${selectedCategory === null
+                    ? 'bg-primary text-white font-semibold'
+                    : 'bg-mint-grey/80 text-mid hover:bg-mint-grey hover:text-primary'
+                    }`}
                 >
                   All Categories
                 </button>
@@ -264,13 +262,12 @@ export default function InterventionsPage() {
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id === selectedCategory ? null : cat.id)}
-                    className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap cursor-pointer ${
-                      selectedCategory === cat.id
-                        ? 'bg-primary text-white font-semibold'
-                        : cat.is_crisis
+                    className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap cursor-pointer ${selectedCategory === cat.id
+                      ? 'bg-primary text-white font-semibold'
+                      : cat.is_crisis
                         ? 'bg-[#E0A898]/20 text-[#8a3020] hover:bg-[#E0A898]/30 font-semibold'
                         : 'bg-mint-grey/80 text-mid hover:bg-mint-grey hover:text-primary'
-                    }`}
+                      }`}
                   >
                     {cat.name || cat.label || cat.id} ({cat.technique_count})
                   </button>
@@ -296,9 +293,8 @@ export default function InterventionsPage() {
                     key={item.id}
                     whileHover={{ y: -3 }}
                     onClick={() => openInterventionDetail(item)}
-                    className={`bg-white rounded-xl p-5 border border-primary/8 shadow-xs hover:border-secondary transition-all cursor-pointer flex flex-col justify-between relative overflow-hidden group ${
-                      item.category === 'crisis_safety' ? 'border-l-4 border-l-accent' : 'border-l-4 border-l-secondary'
-                    }`}
+                    className={`bg-white rounded-xl p-5 border border-primary/8 shadow-xs hover:border-secondary transition-all cursor-pointer flex flex-col justify-between relative overflow-hidden group ${item.category === 'crisis_safety' ? 'border-l-4 border-l-accent' : 'border-l-4 border-l-secondary'
+                      }`}
                   >
                     <div>
                       <div className="flex items-center justify-between gap-2 mb-2">
@@ -359,11 +355,10 @@ export default function InterventionsPage() {
 
                 <button
                   onClick={handleToggleFavorite}
-                  className={`p-2.5 rounded-full border transition-all cursor-pointer ${
-                    isFavorite
-                      ? 'bg-accent/20 border-accent text-[#8a3020]'
-                      : 'bg-mint-grey border-primary/10 text-mid hover:text-primary'
-                  }`}
+                  className={`p-2.5 rounded-full border transition-all cursor-pointer ${isFavorite
+                    ? 'bg-accent/20 border-accent text-[#8a3020]'
+                    : 'bg-mint-grey border-primary/10 text-mid hover:text-primary'
+                    }`}
                   title={isFavorite ? 'Unfavorite' : 'Favorite'}
                 >
                   <Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} />
@@ -397,13 +392,12 @@ export default function InterventionsPage() {
                       {activeIntervention.steps.map((_, idx) => (
                         <div
                           key={idx}
-                          className={`h-1.5 rounded-full transition-all ${
-                            idx === currentStep
-                              ? 'w-6 bg-secondary'
-                              : idx < currentStep
+                          className={`h-1.5 rounded-full transition-all ${idx === currentStep
+                            ? 'w-6 bg-secondary'
+                            : idx < currentStep
                               ? 'w-3 bg-primary'
                               : 'w-3 bg-primary/10'
-                          }`}
+                            }`}
                         />
                       ))}
                     </div>
@@ -510,11 +504,10 @@ export default function InterventionsPage() {
                         </div>
                       </div>
                       <span
-                        className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
-                          entry.completed_at
-                            ? 'bg-secondary/20 text-[#1A5040]'
-                            : 'bg-primary/10 text-mid'
-                        }`}
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${entry.completed_at
+                          ? 'bg-secondary/20 text-[#1A5040]'
+                          : 'bg-primary/10 text-mid'
+                          }`}
                       >
                         {entry.completed_at ? 'Completed' : 'Started'}
                       </span>
