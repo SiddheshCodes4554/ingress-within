@@ -1,5 +1,5 @@
 export type InterventionStatus = 'active' | 'draft' | 'archived';
-export type SessionStatus = 'not_started' | 'in_progress' | 'completed' | 'abandoned';
+export type SessionStatus = 'not_started' | 'available' | 'started' | 'in_progress' | 'paused' | 'completed' | 'abandoned';
 export type InterventionDifficulty = 'easy' | 'medium' | 'hard';
 export type CompletionType = 'guided_steps' | 'timer' | 'write_in';
 

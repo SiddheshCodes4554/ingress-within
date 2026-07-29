@@ -1,0 +1,86 @@
+import { InterventionStep, SessionProgress, StepType } from '../../types/step';
+import { Intervention } from '../../types/intervention';
+
+export class StepEngine {
+  /**
+   * Normalizes raw intervention steps into structured InterventionStep objects.
+   */
+  static parseSteps(intervention: Intervention): InterventionStep[] {
+    const rawSteps = intervention.steps || [];
+    const questions = intervention.questions || [];
+
+    return rawSteps.map((stepItem, index) => {
+      const stepNumber = index + 1;
+      const questionForStep = questions.find((q) => q.step_index === index || q.step_index === stepNumber);
+
+      if (typeof stepItem === 'string') {
+        // Simple text / instruction step
+        return {
+          step_id: `step_${intervention.id}_${stepNumber}`,
+          step_number: stepNumber,
+          step_type: questionForStep ? 'reflection' : 'instruction',
+          title: `Step ${stepNumber}`,
+          content: stepItem,
+          optional_question: questionForStep,
+          estimated_duration: Math.ceil((intervention.estimated_duration * 60) / Math.max(1, rawSteps.length)),
+          allow_previous: true,
+          auto_advance: false,
+        };
+      }
+
+      // Pre-structured step object
+      const s = stepItem as any;
+      return {
+        step_id: s.step_id || `step_${intervention.id}_${stepNumber}`,
+        step_number: stepNumber,
+        step_type: s.step_type || 'instruction',
+        title: s.title || `Step ${stepNumber}`,
+        content: s.content || '',
+        optional_question: s.optional_question || questionForStep,
+        optional_media: s.optional_media,
+        estimated_duration: s.estimated_duration || 60,
+        allow_previous: s.allow_previous !== undefined ? s.allow_previous : true,
+        auto_advance: s.auto_advance !== undefined ? s.auto_advance : false,
+      };
+    });
+  }
+
+  /**
+   * Calculates progression percentage and completed step array.
+   */
+  static calculateProgress(
+    currentStepNumber: number,
+    totalSteps: number,
+    elapsedSeconds: number,
+    completedStepsInput?: number[]
+  ): SessionProgress {
+    const validTotal = Math.max(1, totalSteps);
+    const completedSet = new Set(completedStepsInput || []);
+
+    // Mark all preceding steps as completed
+    for (let i = 1; i < currentStepNumber; i++) {
+      completedSet.add(i);
+    }
+
+    const completedSteps = Array.from(completedSet).sort((a, b) => a - b);
+    const completionPercentage = Math.min(100, Math.round((completedSteps.length / validTotal) * 100));
+
+    return {
+      current_step: currentStepNumber,
+      total_steps: validTotal,
+      completed_steps: completedSteps,
+      elapsed_seconds: elapsedSeconds,
+      last_activity: new Date().toISOString(),
+      completion_percentage: completionPercentage,
+    };
+  }
+
+  /**
+   * Validates if moving to previous step is allowed.
+   */
+  static canMovePrevious(steps: InterventionStep[], currentStepNumber: number): boolean {
+    if (currentStepNumber <= 1) return false;
+    const currentStep = steps[currentStepNumber - 1];
+    return currentStep ? currentStep.allow_previous : true;
+  }
+}

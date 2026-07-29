@@ -35,10 +35,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: {
-        session: result.session,
-        history: result.history,
-      },
+      data: result,
     });
   } catch (error) {
     console.error('POST /api/interventions/start error:', error);
