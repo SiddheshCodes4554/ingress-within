@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Home, PenLine, FileText, TrendingUp, Settings, BookOpen } from 'lucide-react';
+import { User, Home, PenLine, FileText, TrendingUp, Settings, BookOpen, Compass } from 'lucide-react';
 
 export default function DashboardNavbar({ activeTab }) {
   const isMobileNavHidden = typeof window !== 'undefined' && (
@@ -37,6 +37,7 @@ export default function DashboardNavbar({ activeTab }) {
           <nav className="hidden md:flex gap-6">
             <button className={getTabClass('home')} onClick={() => window.navigateTo('/dashboard')}>Home</button>
             <button className={getTabClass('write')} onClick={() => window.navigateTo('/write')}>Write</button>
+            <button className={getTabClass('interventions')} onClick={() => window.navigateTo('/interventions')}>Interventions</button>
             <button className={getTabClass('reports')} onClick={() => window.navigateTo('/reports')}>Reports</button>
             <button className={getTabClass('patterns')} onClick={() => window.navigateTo('/patterns')}>Patterns</button>
             <button className={getTabClass('knowledge')} onClick={() => window.navigateTo('/knowledge')}>Knowledge</button>
@@ -81,6 +82,11 @@ export default function DashboardNavbar({ activeTab }) {
             <PenLine size={17} className={activeTab === 'write' ? 'text-secondary mb-0.5' : 'text-mid/50 mb-0.5'} />
             <span>Write</span>
             {activeTab === 'write' && <div className="absolute bottom-0 w-1 h-1 rounded-full bg-secondary" />}
+          </button>
+          <button onClick={() => window.navigateTo('/interventions')} className={getMobileTabClass('interventions')}>
+            <Compass size={17} className={activeTab === 'interventions' ? 'text-secondary mb-0.5' : 'text-mid/50 mb-0.5'} />
+            <span>Practice</span>
+            {activeTab === 'interventions' && <div className="absolute bottom-0 w-1 h-1 rounded-full bg-secondary" />}
           </button>
           <button onClick={() => window.navigateTo('/reports')} className={getMobileTabClass('reports')}>
             <FileText size={17} className={activeTab === 'reports' ? 'text-secondary mb-0.5' : 'text-mid/50 mb-0.5'} />

@@ -19,6 +19,7 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const PatternsPage = lazy(() => import('./pages/PatternsPage'));
 const VocabPage = lazy(() => import('./pages/VocabPage'));
 const KnowledgeBankPage = lazy(() => import('./pages/KnowledgeBankPage'));
+const InterventionsPage = lazy(() => import('./pages/InterventionsPage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
 const SessionFlowPage = lazy(() => import('./pages/SessionFlowPage'));
 const ThreadDetailPage = lazy(() => import('./pages/ThreadDetailPage'));
@@ -200,12 +201,12 @@ export default function App() {
     }
 
     // If there is a transient database/network error on a pointer/protected route, prevent redirect loops to /auth
-    if (authError && (path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread'))) {
+    if (authError && (path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/interventions') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread'))) {
       console.warn('[App.jsx] Redirect Engine: Database/Network error detected on protected path. Preventing redirect to /auth. Reason: TRANSIENT_ERROR_SHIELD');
       return;
     }
 
-    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread') || path.startsWith('/entry') || path.startsWith('/knowledge');
+    const isProtectedRoute = path.startsWith('/onboarding') || path.startsWith('/dashboard') || path.startsWith('/settings') || path.startsWith('/write') || path.startsWith('/reports') || path.startsWith('/patterns') || path.startsWith('/vocab') || path.startsWith('/interventions') || path.startsWith('/support') || path.startsWith('/session') || path.startsWith('/thread') || path.startsWith('/entry') || path.startsWith('/knowledge');
 
 
     if (isProtectedRoute) {
@@ -328,6 +329,9 @@ export default function App() {
         window.scrollTo(0, 0);
       } else if (path === '/knowledge' || path === '/knowledge/') {
         setCurrentRoute('knowledge');
+        window.scrollTo(0, 0);
+      } else if (path === '/interventions' || path === '/interventions/') {
+        setCurrentRoute('interventions');
         window.scrollTo(0, 0);
       } else if (path === '/exercise' || path === '/exercise/' || path === '/exercises' || path === '/exercises/' || path === '/assessment' || path === '/assessment/') {
         setCurrentRoute('exercise');
@@ -465,6 +469,8 @@ export default function App() {
         return <KnowledgeBankPage user={user} profile={profile} onSignOut={handleSignOut} />;
       case 'exercise':
         return <ExercisePage user={user} profile={profile} onSignOut={handleSignOut} />;
+      case 'interventions':
+        return <InterventionsPage />;
       case 'support':
         return <SupportPage />;
       case 'session':

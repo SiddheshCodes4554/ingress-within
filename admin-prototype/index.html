@@ -1,234 +1,2694 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="paper">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ingress Within — Admin Operations Dashboard</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ingress Within · Operations Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="dark-theme">
-  <div id="app" class="app-layout">
-    <!-- LEFT SIDEBAR -->
+
+<body>
+  <!-- ===== TOAST CONTAINER ===== -->
+  <div id="toast-container" aria-live="polite"></div>
+
+  <!-- ===== MODAL BACKDROP ===== -->
+  <div id="modal-backdrop" class="modal-backdrop" onclick="closeModal()"></div>
+
+  <!-- ===== GLOBAL MODAL ===== -->
+  <div id="global-modal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal__head">
+      <h3 class="modal__title" id="modal-title">Modal</h3>
+      <button class="modal__close" onclick="closeModal()" aria-label="Close modal">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="modal__body" id="modal-body"></div>
+    <div class="modal__foot" id="modal-foot">
+      <button class="btn btn--ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn--primary" onclick="closeModal()">Confirm</button>
+    </div>
+  </div>
+
+  <!-- ===== DRAWER ===== -->
+  <div id="drawer-backdrop" class="drawer-backdrop" onclick="closeDrawer()"></div>
+  <div id="drawer" class="drawer" role="dialog" aria-modal="true">
+    <div class="drawer__head">
+      <h3 class="drawer__title" id="drawer-title">Drawer</h3>
+      <button class="drawer__close" onclick="closeDrawer()" aria-label="Close drawer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="drawer__body" id="drawer-body"></div>
+  </div>
+
+  <!-- ===== APP SHELL ===== -->
+  <div class="app" id="app">
+
+    <!-- ===== SIDEBAR ===== -->
     <aside class="sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <div class="logo-ring">
-          <div class="logo-dot"></div>
+      <div class="sidebar__brand">
+        <div class="sidebar__logo">
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1.5" fill="none" />
+            <path d="M10 20c0-5.5 2.5-8 6-8s6 2.5 6 8" stroke="currentColor" stroke-width="1.5"
+              stroke-linecap="round" />
+            <path d="M12 22c0-4 1.5-6 4-6s4 2 4 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            <circle cx="16" cy="10" r="2" fill="currentColor" />
+          </svg>
         </div>
-        <div class="logo-text">
-          <span class="brand-name">ingress <em>within</em></span>
-          <span class="brand-badge">ADMIN OPS</span>
-        </div>
+        <span class="sidebar__brand-name">Ingress Within</span>
+        <button class="sidebar__collapse" id="sidebarCollapse" aria-label="Collapse sidebar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
       </div>
 
-      <nav class="sidebar-nav">
-        <div class="nav-section-title">Core Operations</div>
-        <a href="#dashboard" class="nav-item active" data-tab="dashboard">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
-          <span>Dashboard</span>
-        </a>
-        <a href="#users" class="nav-item" data-tab="users">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          <span>Users</span>
-          <span class="badge badge-subtle">1,420</span>
-        </a>
-        <a href="#therapists" class="nav-item" data-tab="therapists">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-          <span>Therapists</span>
-          <span class="badge badge-mint">24 Active</span>
-        </a>
-        <a href="#advisors" class="nav-item" data-tab="advisors">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-          <span>Advisors</span>
-        </a>
+      <nav class="sidebar__nav" id="sidebarNav">
+        <div class="sidebar__section">
+          <span class="sidebar__section-title">Overview</span>
+          <a class="sidebar__link active" data-page="dashboard" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <rect x="14" y="14" width="7" height="7" rx="1" />
+            </svg>
+            <span>Dashboard</span>
+          </a>
+        </div>
 
-        <div class="nav-section-title">Finance & Growth</div>
-        <a href="#subscriptions" class="nav-item" data-tab="subscriptions">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-          <span>Subscriptions</span>
-        </a>
-        <a href="#payments" class="nav-item" data-tab="payments">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-          <span>Payments</span>
-        </a>
+        <div class="sidebar__section">
+          <span class="sidebar__section-title">People</span>
+          <a class="sidebar__link" data-page="users" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 00-3-3.87" />
+              <path d="M16 3.13a4 4 0 010 7.75" />
+            </svg>
+            <span>Users</span>
+            <span class="badge badge--accent">2.4k</span>
+          </a>
+          <a class="sidebar__link" data-page="therapists" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M4.5 12.5l3-3 3 3 4.5-4.5" />
+              <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z" />
+              <path d="M9 14h6" />
+              <path d="M12 11v6" />
+            </svg>
+            <span>Therapists</span>
+          </a>
+          <a class="sidebar__link" data-page="advisors" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+            </svg>
+            <span>Advisors</span>
+          </a>
+        </div>
 
-        <div class="nav-section-title">CMS & Content</div>
-        <a href="#interventions" class="nav-item" data-tab="interventions">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          <span>Intervention Bank</span>
-        </a>
-        <a href="#knowledge-base" class="nav-item" data-tab="knowledge-base">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-          <span>Knowledge Base</span>
-        </a>
-        <a href="#vocabulary" class="nav-item" data-tab="vocabulary">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
-          <span>Vocabulary</span>
-        </a>
-        <a href="#patterns" class="nav-item" data-tab="patterns">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-          <span>Patterns</span>
-        </a>
-        <a href="#exercises" class="nav-item" data-tab="exercises">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
-          <span>Exercises</span>
-        </a>
+        <div class="sidebar__section">
+          <span class="sidebar__section-title">Commerce</span>
+          <a class="sidebar__link" data-page="subscriptions" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="2" y="7" width="20" height="14" rx="2" />
+              <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" />
+            </svg>
+            <span>Subscriptions</span>
+            <span class="badge badge--warning">12</span>
+          </a>
+          <a class="sidebar__link" data-page="payments" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="2" y="6" width="20" height="12" rx="2" />
+              <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01" />
+            </svg>
+            <span>Payments</span>
+          </a>
+        </div>
 
-        <div class="nav-section-title">Engine & Intelligence</div>
-        <a href="#reports" class="nav-item" data-tab="reports">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          <span>Reports Queue</span>
-        </a>
-        <a href="#ai-usage" class="nav-item" data-tab="ai-usage">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-          <span>AI Usage & Cost</span>
-        </a>
-        <a href="#system-health" class="nav-item" data-tab="system-health">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-          <span>System Health</span>
-          <span class="status-indicator status-green"></span>
-        </a>
+        <div class="sidebar__section">
+          <span class="sidebar__section-title">Content</span>
+          <a class="sidebar__link" data-page="interventions" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
+            </svg>
+            <span>Intervention Bank</span>
+          </a>
+          <a class="sidebar__link" data-page="knowledge" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+            </svg>
+            <span>Knowledge Base</span>
+          </a>
+        </div>
 
-        <div class="nav-section-title">Admin & Compliance</div>
-        <a href="#support" class="nav-item" data-tab="support">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          <span>Support & Feedback</span>
-        </a>
-        <a href="#notifications" class="nav-item" data-tab="notifications">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <span>Notifications & Comms</span>
-        </a>
-        <a href="#audit-logs" class="nav-item" data-tab="audit-logs">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="12 8 12 12 14 14"/><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"/></svg>
-          <span>Audit Logs</span>
-        </a>
-        <a href="#settings" class="nav-item" data-tab="settings">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          <span>Settings</span>
-        </a>
+        <div class="sidebar__section">
+          <span class="sidebar__section-title">Analytics</span>
+          <a class="sidebar__link" data-page="vocabulary" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M4 20h16" />
+              <path d="M4 20V4" />
+              <path d="M4 8h12" />
+              <path d="M4 12h8" />
+              <path d="M4 16h6" />
+            </svg>
+            <span>Vocabulary</span>
+          </a>
+          <a class="sidebar__link" data-page="patterns" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+            <span>Patterns</span>
+          </a>
+          <a class="sidebar__link" data-page="reports" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+            <span>Reports</span>
+          </a>
+          <a class="sidebar__link" data-page="exercises" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 6v6l4 2" />
+            </svg>
+            <span>Exercises</span>
+          </a>
+          <a class="sidebar__link" data-page="ai-usage" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 2a4 4 0 014 4c0 2-2 3-4 5-2-2-4-3-4-5a4 4 0 014-4z" />
+              <path d="M6 14c0-1.5 2-3 6-3s6 1.5 6 3" />
+              <circle cx="12" cy="19" r="2" />
+            </svg>
+            <span>AI Usage</span>
+          </a>
+          <a class="sidebar__link" data-page="analytics" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <line x1="18" y1="20" x2="18" y2="10" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+            <span>Analytics</span>
+          </a>
+        </div>
+
+        <div class="sidebar__section">
+          <span class="sidebar__section-title">Operations</span>
+          <a class="sidebar__link" data-page="support" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+            </svg>
+            <span>Support</span>
+            <span class="badge badge--danger">3</span>
+          </a>
+          <a class="sidebar__link" data-page="content-manager" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+            </svg>
+            <span>Content</span>
+          </a>
+          <a class="sidebar__link" data-page="notifications-page" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 01-3.46 0" />
+            </svg>
+            <span>Notifications</span>
+          </a>
+          <a class="sidebar__link" data-page="settings" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+            </svg>
+            <span>Settings</span>
+          </a>
+          <a class="sidebar__link" data-page="audit-logs" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            <span>Audit Logs</span>
+          </a>
+          <a class="sidebar__link" data-page="system-health" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+            </svg>
+            <span>System Health</span>
+          </a>
+        </div>
       </nav>
 
-      <div class="sidebar-footer">
-        <div class="user-profile-sm">
-          <div class="avatar-circle">FA</div>
-          <div class="user-info-sm">
-            <span class="user-name-sm">Founder Admin</span>
-            <span class="user-role-sm">Super Admin</span>
-          </div>
+      <div class="sidebar__footer">
+        <div class="sidebar__theme-toggle">
+          <button id="themeToggle" class="btn btn--ghost btn--sm" aria-label="Toggle theme">
+            <svg class="sun-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <circle cx="12" cy="12" r="5" />
+              <line x1="12" y1="1" x2="12" y2="3" />
+              <line x1="12" y1="21" x2="12" y2="23" />
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+              <line x1="1" y1="12" x2="3" y2="12" />
+              <line x1="21" y1="12" x2="23" y2="12" />
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+            </svg>
+            <svg class="moon-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+            </svg>
+          </button>
+          <span class="sidebar__theme-label">Appearance</span>
         </div>
       </div>
     </aside>
 
-    <!-- MAIN WRAPPER -->
-    <div class="main-wrapper">
-      <!-- TOP NAVIGATION BAR -->
+    <!-- ===== MAIN CONTENT ===== -->
+    <main class="main">
+      <!-- TOP BAR -->
       <header class="topbar">
-        <div class="topbar-left">
-          <button class="mobile-sidebar-toggle" id="menuToggle">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        <div class="topbar__left">
+          <button class="topbar__menu-btn" id="mobileMenuBtn" aria-label="Toggle menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
           </button>
-
-          <!-- GLOBAL SEARCH BAR -->
-          <div class="global-search-container">
-            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" id="globalSearch" placeholder="Search users, therapists, interventions, audit logs... (⌘K)" />
-            <span class="kbd-shortcut">⌘K</span>
+          <div class="topbar__breadcrumb" id="breadcrumb">
+            <span class="topbar__crumb current">Dashboard</span>
           </div>
         </div>
 
-        <div class="topbar-right">
-          <!-- ENVIRONMENT INDICATOR -->
-          <div class="env-badge">
-            <span class="env-dot"></span>
-            Production (v4.2.0)
+        <div class="topbar__center">
+          <div class="topbar__search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input type="text" class="topbar__search-input" placeholder="Search anything…" id="globalSearch" />
+            <span class="topbar__search-hint">⌘K</span>
+          </div>
+        </div>
+
+        <div class="topbar__right">
+          <!-- Create flow -->
+          <button class="btn btn--primary btn--sm" id="createBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Create
+          </button>
+          <!-- Notifications -->
+          <button class="topbar__icon-btn" id="notifBtn" aria-label="Notifications">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 01-3.46 0" />
+            </svg>
+            <span class="topbar__notif-dot"></span>
+          </button>
+          <!-- Profile -->
+          <div class="topbar__profile" id="profileDropdown">
+            <div class="topbar__avatar">
+              <span>AK</span>
+            </div>
+            <div class="topbar__profile-info">
+              <span class="topbar__profile-name">Alex Kim</span>
+              <span class="topbar__profile-role">Platform Admin</span>
+            </div>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+            <!-- Dropdown -->
+            <div class="topbar__dropdown" id="profileDropdownMenu">
+              <a href="#" onclick="closeAllDropdowns()">Profile</a>
+              <a href="#" onclick="closeAllDropdowns()">Account Settings</a>
+              <a href="#" onclick="closeAllDropdowns()">API Keys</a>
+              <hr class="dropdown-divider" />
+              <a href="#" onclick="closeAllDropdowns()" style="color:var(--color-danger)">Sign Out</a>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- ===== PAGE CONTAINER ===== -->
+      <div class="page-container">
+
+        <!-- ===== DASHBOARD PAGE ===== -->
+        <section class="page active" id="page-dashboard">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Dashboard</h1>
+              <p class="page__subtitle">Platform overview for July 28, 2026</p>
+            </div>
+            <div class="page__actions">
+              <button class="btn btn--ghost btn--sm" onclick="showToast('Report exported as PDF')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Export
+              </button>
+              <button class="btn btn--ghost btn--sm" onclick="showToast('Dashboard refreshed')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 4 23 10 17 10" />
+                  <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" />
+                </svg>
+                Refresh
+              </button>
+            </div>
           </div>
 
-          <!-- NOTIFICATIONS -->
-          <div class="dropdown-wrap">
-            <button class="icon-btn" id="notifBtn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-              <span class="notif-badge">3</span>
-            </button>
-            <div class="dropdown-menu notif-menu" id="notifDropdown">
-              <div class="dropdown-header">
-                <span>System Alerts</span>
-                <a href="#" class="text-link text-xs">Mark all read</a>
+          <!-- Stat cards -->
+          <div class="stats-grid">
+            <div class="stat-card" onclick="showToast('Total Users: 2,418')">
+              <div class="stat-card__icon stat-card__icon--blue"><svg width="20" height="20" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                </svg></div>
+              <div class="stat-card__body">
+                <span class="stat-card__value" data-counter="2418">0</span>
+                <span class="stat-card__label">Total Users</span>
               </div>
-              <div class="notif-list">
-                <div class="notif-item unread">
-                  <div class="notif-icon alert-red">⚠️</div>
-                  <div class="notif-body">
-                    <p class="notif-title">High Risk Pattern Detected</p>
-                    <p class="notif-sub">User #1042 triggered high emotional distress score (8.4/10).</p>
-                    <span class="notif-time">4 mins ago</span>
+              <span class="stat-card__change up">+12.4%</span>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card__icon stat-card__icon--green"><svg width="20" height="20" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="1.5">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg></div>
+              <div class="stat-card__body">
+                <span class="stat-card__value" data-counter="892">0</span>
+                <span class="stat-card__label">Active Today</span>
+              </div>
+              <span class="stat-card__change up">+5.2%</span>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card__icon stat-card__icon--amber"><svg width="20" height="20" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg></div>
+              <div class="stat-card__body">
+                <span class="stat-card__value" data-counter="47">0</span>
+                <span class="stat-card__label">Journals Today</span>
+              </div>
+              <span class="stat-card__change up">+8.1%</span>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card__icon stat-card__icon--purple"><svg width="20" height="20" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                </svg></div>
+              <div class="stat-card__body">
+                <span class="stat-card__value" data-counter="128">0</span>
+                <span class="stat-card__label">Reports (Week)</span>
+              </div>
+              <span class="stat-card__change up">+3.7%</span>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card__icon stat-card__icon--rose"><svg width="20" height="20" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="1.5">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 6v6l4 2" />
+                </svg></div>
+              <div class="stat-card__body">
+                <span class="stat-card__value" data-counter="1567">0</span>
+                <span class="stat-card__label">Exercises Done</span>
+              </div>
+              <span class="stat-card__change up">+15.3%</span>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card__icon stat-card__icon--teal"><svg width="20" height="20" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="2" y="7" width="20" height="14" rx="2" />
+                  <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" />
+                </svg></div>
+              <div class="stat-card__body">
+                <span class="stat-card__value" data-counter="342">0</span>
+                <span class="stat-card__label">Subscriptions</span>
+              </div>
+              <span class="stat-card__change up">+6.8%</span>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card__icon stat-card__icon--slate"><svg width="20" height="20" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="1.5">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                </svg></div>
+              <div class="stat-card__body">
+                <span class="stat-card__value" data-counter="89">0</span>
+                <span class="stat-card__label">Interventions Used</span>
+              </div>
+              <span class="stat-card__change up">+11.2%</span>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card__icon stat-card__icon--indigo"><svg width="20" height="20" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M12 2a4 4 0 014 4c0 2-2 3-4 5-2-2-4-3-4-5a4 4 0 014-4z" />
+                  <path d="M6 14c0-1.5 2-3 6-3s6 1.5 6 3" />
+                </svg></div>
+              <div class="stat-card__body">
+                <span class="stat-card__value" data-counter="2.4M">0</span>
+                <span class="stat-card__label">AI Tokens Today</span>
+              </div>
+              <span class="stat-card__change up">+22.1%</span>
+            </div>
+          </div>
+
+          <!-- Charts row -->
+          <div class="grid-2col">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Weekly Activity</h3>
+                <div class="card__tabs">
+                  <button class="card__tab active" data-chart="week" onclick="switchChart(this,'week')">Week</button>
+                  <button class="card__tab" data-chart="month" onclick="switchChart(this,'month')">Month</button>
+                </div>
+              </div>
+              <div class="card__body">
+                <div class="chart" id="weeklyChart">
+                  <div class="chart__bars">
+                    <div class="chart__bar" style="height:40%"><span>Mon</span></div>
+                    <div class="chart__bar" style="height:65%"><span>Tue</span></div>
+                    <div class="chart__bar" style="height:55%"><span>Wed</span></div>
+                    <div class="chart__bar" style="height:80%"><span>Thu</span></div>
+                    <div class="chart__bar" style="height:70%"><span>Fri</span></div>
+                    <div class="chart__bar" style="height:45%"><span>Sat</span></div>
+                    <div class="chart__bar" style="height:30%"><span>Sun</span></div>
                   </div>
                 </div>
-                <div class="notif-item unread">
-                  <div class="notif-icon alert-purple">⚡</div>
-                  <div class="notif-body">
-                    <p class="notif-title">Groq AI Spike Warning</p>
-                    <p class="notif-sub">Latency reached 1.2s during Exercise 3 synthesis batch.</p>
-                    <span class="notif-time">18 mins ago</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Revenue (MTD)</h3>
+                <span class="badge badge--success">+18.3%</span>
+              </div>
+              <div class="card__body">
+                <div class="chart" id="revenueChart">
+                  <div class="chart__area">
+                    <svg viewBox="0 0 300 120" class="chart__svg">
+                      <path d="M0,100 Q30,90 60,80 T120,60 T180,45 T240,30 T300,20" stroke="var(--color-primary)"
+                        stroke-width="2" fill="none" />
+                      <path d="M0,100 Q30,90 60,80 T120,60 T180,45 T240,30 T300,20 L300,120 L0,120 Z"
+                        fill="url(#areaGrad)" opacity="0.15" />
+                      <defs>
+                        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stop-color="var(--color-primary)" />
+                          <stop offset="100%" stop-color="var(--color-primary)" stop-opacity="0" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
                   </div>
                 </div>
-                <div class="notif-item">
-                  <div class="notif-icon alert-green">✓</div>
-                  <div class="notif-body">
-                    <p class="notif-title">Weekly Reports Generated</p>
-                    <p class="notif-sub">Batch of 342 weekly cycle reports completed successfully.</p>
-                    <span class="notif-time">1 hour ago</span>
+                <div class="chart__legend">
+                  <span class="chart__legend-item"><span class="dot dot--primary"></span>Revenue</span>
+                  <span class="chart__legend-item"><span class="dot dot--muted"></span>Target</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Activity + Alerts -->
+          <div class="grid-2col">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Recent Activity</h3>
+                <button class="btn btn--ghost btn--sm" onclick="showToast('Viewing all activity')">View all</button>
+              </div>
+              <div class="card__body">
+                <div class="activity-timeline">
+                  <div class="timeline__item">
+                    <div class="timeline__dot timeline__dot--green"></div>
+                    <div class="timeline__content">
+                      <p class="timeline__text">User <strong>Siddhesh</strong> logged Day 6 entry: <em>"Today felt steady..."</em></p>
+                      <span class="timeline__time">2 min ago</span>
+                    </div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__dot timeline__dot--purple"></div>
+                    <div class="timeline__content">
+                      <p class="timeline__text">Exercise System V4: <strong>Exercise 0 (OCEAN Baseline)</strong> summary generated</p>
+                      <span class="timeline__time">15 min ago</span>
+                    </div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__dot timeline__dot--blue"></div>
+                    <div class="timeline__content">
+                      <p class="timeline__text">User <strong>Sakshi Bhuwania</strong> completed Day 14 reflection thread</p>
+                      <span class="timeline__time">25 min ago</span>
+                    </div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__dot timeline__dot--amber"></div>
+                    <div class="timeline__content">
+                      <p class="timeline__text">Vocabulary Engine compiled <strong>106 distinct words</strong> across Cycle 2 entries</p>
+                      <span class="timeline__time">1h ago</span>
+                    </div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__dot timeline__dot--green"></div>
+                    <div class="timeline__content">
+                      <p class="timeline__text">Pattern Engine detected <strong>"Emotional Exhaustion"</strong> trajectory shift</p>
+                      <span class="timeline__time">2h ago</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">System Alerts</h3>
+                <button class="btn btn--ghost btn--sm" onclick="showToast('All alerts acknowledged')">Acknowledge
+                  all</button>
+              </div>
+              <div class="card__body">
+                <div class="alerts-list">
+                  <div class="alert-item alert-item--warning">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                    <div><strong>Rate limit approaching</strong><span>Groq API at 78% capacity</span></div>
+                  </div>
+                  <div class="alert-item alert-item--danger">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="15" y1="9" x2="9" y2="15" />
+                      <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                    <div><strong>3 failed payments</strong><span>Subscriptions at risk of churn</span></div>
+                  </div>
+                  <div class="alert-item alert-item--info">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="16" x2="12" y2="12" />
+                      <line x1="12" y1="8" x2="12.01" y2="8" />
+                    </svg>
+                    <div><strong>Database maintenance</strong><span>Scheduled for 2:00 AM UTC</span></div>
+                  </div>
+                  <div class="alert-item alert-item--success">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+                      <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                    <div><strong>Backup completed</strong><span>All data backed up successfully</span></div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- PROFILE DROPDOWN -->
-          <div class="dropdown-wrap">
-            <button class="profile-btn" id="profileBtn">
-              <div class="avatar-sm">FA</div>
-            </button>
+          <!-- Platform health -->
+          <div class="card">
+            <div class="card__head">
+              <h3 class="card__title">Platform Health</h3>
+            </div>
+            <div class="card__body">
+              <div class="health-grid">
+                <div class="health-item"><span class="health__label">API Latency</span><span
+                    class="health__value health--ok">45ms</span></div>
+                <div class="health-item"><span class="health__label">Queue Depth</span><span
+                    class="health__value health--ok">12</span></div>
+                <div class="health-item"><span class="health__label">Workers Active</span><span
+                    class="health__value health--ok">4/4</span></div>
+                <div class="health-item"><span class="health__label">Redis</span><span
+                    class="health__value health--ok">Connected</span></div>
+                <div class="health-item"><span class="health__label">Supabase</span><span
+                    class="health__value health--ok">23ms</span></div>
+                <div class="health-item"><span class="health__label">Storage</span><span
+                    class="health__value health--warn">78%</span></div>
+                <div class="health-item"><span class="health__label">Claude API</span><span
+                    class="health__value health--ok">Operational</span></div>
+                <div class="health-item"><span class="health__label">Groq API</span><span
+                    class="health__value health--warn">Degraded</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== USERS PAGE ===== -->
+        <section class="page" id="page-users">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Users</h1>
+              <p class="page__subtitle">2,418 total users · 892 active today</p>
+            </div>
+            <div class="page__actions">
+              <button class="btn btn--ghost btn--sm" onclick="openModal('user-invite')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Invite
+              </button>
+              <button class="btn btn--ghost btn--sm" onclick="showToast('User list exported')">Export</button>
+            </div>
+          </div>
+
+          <!-- Filters -->
+          <div class="table-filters">
+            <div class="search-field">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input type="text" placeholder="Search by name, email, or ID…" class="search-field__input" id="userSearch"
+                oninput="filterTable('userSearch','usersTable')" />
+            </div>
+            <div class="filter-chips">
+              <button class="chip chip--active">All</button>
+              <button class="chip">Active</button>
+              <button class="chip">At Risk</button>
+              <button class="chip">Suspended</button>
+              <button class="chip">Trialing</button>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="table-wrapper">
+            <table class="table" id="usersTable">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Email</th>
+                  <th>Status</th>
+                  <th>Risk</th>
+                  <th>Journals</th>
+                  <th>Subscription</th>
+                  <th>Last Login</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr onclick="openUserDrawer('Siddhesh')">
+                  <td>
+                    <div class="user-cell">
+                      <div class="user-avatar">S</div>
+                      <div><strong>Siddhesh</strong><span class="text-muted">ID #f36d91ed</span></div>
+                    </div>
+                  </td>
+                  <td>siddhesh@ingresswithin.app</td>
+                  <td><span class="status status--active">Active</span></td>
+                  <td><span class="risk risk--low">Low</span></td>
+                  <td>36</td>
+                  <td><span class="badge badge--success">Inner Circle</span></td>
+                  <td>2 min ago</td>
+                  <td>
+                    <div class="action-btns"><button class="btn btn--ghost btn--xs"
+                        onclick="event.stopPropagation();openUserDrawer('Siddhesh')">View</button><button
+                        class="btn btn--ghost btn--xs"
+                        onclick="event.stopPropagation();showToast('User status refreshed')">Audit</button></div>
+                  </td>
+                </tr>
+                <tr onclick="openUserDrawer('Sakshi Bhuwania')">
+                  <td>
+                    <div class="user-cell">
+                      <div class="user-avatar">SB</div>
+                      <div><strong>Sakshi Bhuwania</strong><span class="text-muted">ID #04087b67</span></div>
+                    </div>
+                  </td>
+                  <td>sakshi@ingresswithin.app</td>
+                  <td><span class="status status--active">Active</span></td>
+                  <td><span class="risk risk--low">Low</span></td>
+                  <td>9</td>
+                  <td><span class="badge badge--success">Inner Circle</span></td>
+                  <td>15 min ago</td>
+                  <td>
+                    <div class="action-btns"><button class="btn btn--ghost btn--xs"
+                        onclick="event.stopPropagation();openUserDrawer('Sakshi Bhuwania')">View</button><button
+                        class="btn btn--ghost btn--xs"
+                        onclick="event.stopPropagation();showToast('User status refreshed')">Audit</button></div>
+                  </td>
+                </tr>
+                <tr onclick="openUserDrawer('Siddhu')">
+                  <td>
+                    <div class="user-cell">
+                      <div class="user-avatar">S</div>
+                      <div><strong>Siddhu</strong><span class="text-muted">ID #10000000</span></div>
+                    </div>
+                  </td>
+                  <td>siddhu@ingresswithin.app</td>
+                  <td><span class="status status--active">Active</span></td>
+                  <td><span class="risk risk--low">Low</span></td>
+                  <td>1</td>
+                  <td><span class="badge badge--info">Trial</span></td>
+                  <td>1h ago</td>
+                  <td>
+                    <div class="action-btns"><button class="btn btn--ghost btn--xs"
+                        onclick="event.stopPropagation();openUserDrawer('Siddhu')">View</button><button
+                        class="btn btn--ghost btn--xs"
+                        onclick="event.stopPropagation();showToast('User status refreshed')">Audit</button></div>
+                  </td>
+                </tr>
+                <tr onclick="openUserDrawer('Aarav Sharma')">
+                  <td>
+                    <div class="user-cell">
+                      <div class="user-avatar">AS</div>
+                      <div><strong>Aarav Sharma</strong><span class="text-muted">ID #1024</span></div>
+                    </div>
+                  </td>
+                  <td>aarav.s@example.com</td>
+                  <td><span class="status status--active">Active</span></td>
+                  <td><span class="risk risk--low">Low</span></td>
+                  <td>28</td>
+                  <td><span class="badge badge--success">Inner Circle</span></td>
+                  <td>45 min ago</td>
+                  <td>
+                    <div class="action-btns"><button class="btn btn--ghost btn--xs"
+                        onclick="event.stopPropagation();openUserDrawer('Aarav Sharma')">View</button><button
+                        class="btn btn--ghost btn--xs">Audit</button></div>
+                  </td>
+                </tr>
+                <tr onclick="openUserDrawer('Ananya Iyer')">
+                  <td>
+                    <div class="user-cell">
+                      <div class="user-avatar">AI</div>
+                      <div><strong>Ananya Iyer</strong><span class="text-muted">ID #1025</span></div>
+                    </div>
+                  </td>
+                  <td>ananya.i@example.com</td>
+                  <td><span class="status status--active">Active</span></td>
+                  <td><span class="risk risk--med">Medium</span></td>
+                  <td>19</td>
+                  <td><span class="badge badge--warning">Clinical Tier</span></td>
+                  <td>2h ago</td>
+                  <td>
+                    <div class="action-btns"><button class="btn btn--ghost btn--xs"
+                        onclick="event.stopPropagation();openUserDrawer('Ananya Iyer')">View</button><button
+                        class="btn btn--ghost btn--xs">Audit</button></div>
+                  </td>
+                </tr>
+                <tr onclick="openUserDrawer('Rohan Mehta')">
+                  <td>
+                    <div class="user-cell">
+                      <div class="user-avatar">RM</div>
+                      <div><strong>Rohan Mehta</strong><span class="text-muted">ID #1026</span></div>
+                    </div>
+                  </td>
+                  <td>rohan.m@example.com</td>
+                  <td><span class="status status--warning">At Risk</span></td>
+                  <td><span class="risk risk--high">High</span></td>
+                  <td>14</td>
+                  <td><span class="badge badge--warning">Clinical Tier</span></td>
+                  <td>3h ago</td>
+                  <td>
+                    <div class="action-btns"><button class="btn btn--ghost btn--xs"
+                        onclick="event.stopPropagation();openUserDrawer('Rohan Mehta')">View</button><button
+                        class="btn btn--ghost btn--xs">Audit</button></div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span class="pagination__info">Showing 1–6 of 2,418</span>
+            <div class="pagination__controls">
+              <button class="btn btn--ghost btn--sm" disabled>Previous</button>
+              <button class="btn btn--primary btn--sm">1</button>
+              <button class="btn btn--ghost btn--sm">2</button>
+              <button class="btn btn--ghost btn--sm">3</button>
+              <span class="pagination__ellipsis">…</span>
+              <button class="btn btn--ghost btn--sm">403</button>
+              <button class="btn btn--ghost btn--sm">Next</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== THERAPISTS PAGE ===== -->
+        <section class="page" id="page-therapists">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Therapists</h1>
+              <p class="page__subtitle">34 registered therapists · 6 pending verification</p>
+            </div>
+            <div class="page__actions">
+              <button class="btn btn--primary btn--sm" onclick="showToast('Invitation sent to therapist')">+ Invite
+                Therapist</button>
+            </div>
+          </div>
+          <div class="grid-2col">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Therapist Overview</h3>
+              </div>
+              <div class="card__body">
+                <div class="stat-row">
+                  <div class="stat-row__item"><span class="stat-row__value">34</span><span
+                      class="stat-row__label">Total</span></div>
+                  <div class="stat-row__item"><span class="stat-row__value">28</span><span
+                      class="stat-row__label">Verified</span></div>
+                  <div class="stat-row__item"><span class="stat-row__value">6</span><span
+                      class="stat-row__label">Pending</span></div>
+                  <div class="stat-row__item"><span class="stat-row__value">4</span><span
+                      class="stat-row__label">Unavailable</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Session Activity</h3>
+              </div>
+              <div class="card__body">
+                <div class="chart__bars chart__bars--sm">
+                  <div class="chart__bar" style="height:70%"><span>Mon</span></div>
+                  <div class="chart__bar" style="height:85%"><span>Tue</span></div>
+                  <div class="chart__bar" style="height:60%"><span>Wed</span></div>
+                  <div class="chart__bar" style="height:90%"><span>Thu</span></div>
+                  <div class="chart__bar" style="height:75%"><span>Fri</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="table-wrapper" style="margin-top:1.5rem">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Therapist</th>
+                  <th>Clients</th>
+                  <th>Status</th>
+                  <th>Consent</th>
+                  <th>Sessions (Week)</th>
+                  <th>Reports Shared</th>
+                  <th>Availability</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <div class="user-cell">
+                      <div class="user-avatar">DM</div>
+                      <div><strong>Dr. Martinez</strong></div>
+                    </div>
+                  </td>
+                  <td>12</td>
+                  <td><span class="status status--active">Verified</span></td>
+                  <td><span class="badge badge--success">Active</span></td>
+                  <td>18</td>
+                  <td>9</td>
+                  <td><span class="status status--active">Available</span></td>
+                  <td><button class="btn btn--ghost btn--xs">View</button></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="user-cell">
+                      <div class="user-avatar">LJ</div>
+                      <div><strong>Dr. Lisa Johansson</strong></div>
+                    </div>
+                  </td>
+                  <td>8</td>
+                  <td><span class="status status--active">Verified</span></td>
+                  <td><span class="badge badge--success">Active</span></td>
+                  <td>14</td>
+                  <td>6</td>
+                  <td><span class="status status--active">Available</span></td>
+                  <td><button class="btn btn--ghost btn--xs">View</button></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="user-cell">
+                      <div class="user-avatar">RP</div>
+                      <div><strong>Dr. Rachel Park</strong></div>
+                    </div>
+                  </td>
+                  <td>5</td>
+                  <td><span class="status status--warning">Pending</span></td>
+                  <td><span class="badge badge--secondary">Pending</span></td>
+                  <td>6</td>
+                  <td>2</td>
+                  <td><span class="status status--warning">Limited</span></td>
+                  <td><button class="btn btn--ghost btn--xs">Review</button></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="user-cell">
+                      <div class="user-avatar">AC</div>
+                      <div><strong>Dr. Alan Chen</strong></div>
+                    </div>
+                  </td>
+                  <td>15</td>
+                  <td><span class="status status--active">Verified</span></td>
+                  <td><span class="badge badge--success">Active</span></td>
+                  <td>24</td>
+                  <td>12</td>
+                  <td><span class="status status--active">Available</span></td>
+                  <td><button class="btn btn--ghost btn--xs">View</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===== ADVISORS PAGE ===== -->
+        <section class="page" id="page-advisors">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Advisors</h1>
+              <p class="page__subtitle">12 active advisors · 84 recommendations this week</p>
+            </div>
+            <div class="page__actions">
+              <button class="btn btn--primary btn--sm" onclick="showToast('Advisor invitation sent')">+ Add
+                Advisor</button>
+            </div>
+          </div>
+          <div class="grid-3col">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Advisor Directory</h3>
+              </div>
+              <div class="card__body">
+                <div class="list-cards">
+                  <div class="list-card">
+                    <div class="user-cell">
+                      <div class="user-avatar" style="background:var(--color-primary);color:#fff">EP</div>
+                      <div><strong>Elena Petrova</strong><span class="text-muted">Clinical Psychologist</span></div>
+                    </div><span class="badge badge--success">Active</span>
+                  </div>
+                  <div class="list-card">
+                    <div class="user-cell">
+                      <div class="user-avatar" style="background:var(--color-accent);color:#fff">MN</div>
+                      <div><strong>Marcus Nygaard</strong><span class="text-muted">Behavioural Therapist</span></div>
+                    </div><span class="badge badge--success">Active</span>
+                  </div>
+                  <div class="list-card">
+                    <div class="user-cell">
+                      <div class="user-avatar" style="background:var(--color-secondary);color:#fff">ST</div>
+                      <div><strong>Sophie Turner</strong><span class="text-muted">CBT Specialist</span></div>
+                    </div><span class="badge badge--warning">On Leave</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Recommendations</h3>
+              </div>
+              <div class="card__body">
+                <div class="list-cards">
+                  <div class="list-card">
+                    <div><strong>84</strong><span class="text-muted">This Week</span></div>
+                    <div><span class="change up">+12%</span></div>
+                  </div>
+                  <div class="list-card">
+                    <div><strong>312</strong><span class="text-muted">This Month</span></div>
+                    <div><span class="change up">+8%</span></div>
+                  </div>
+                  <div class="list-card">
+                    <div><strong>1,847</strong><span class="text-muted">All Time</span></div>
+                    <div><span class="change up">+15%</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Referral History</h3>
+              </div>
+              <div class="card__body">
+                <div class="activity-timeline">
+                  <div class="timeline__item">
+                    <div class="timeline__dot timeline__dot--green"></div>
+                    <div class="timeline__content">
+                      <p class="timeline__text">Elena → <strong>Sarah Chen</strong></p>
+                      <span class="timeline__time">2h ago</span>
+                    </div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__dot timeline__dot--blue"></div>
+                    <div class="timeline__content">
+                      <p class="timeline__text">Marcus → <strong>David Kim</strong></p>
+                      <span class="timeline__time">5h ago</span>
+                    </div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__dot timeline__dot--purple"></div>
+                    <div class="timeline__content">
+                      <p class="timeline__text">Sophie → <strong>Maria Lopez</strong></p>
+                      <span class="timeline__time">1d ago</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== SUBSCRIPTIONS PAGE ===== -->
+        <section class="page" id="page-subscriptions">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Subscriptions</h1>
+              <p class="page__subtitle">360 active subscriptions · ₹3.4L MRR · 12 at-risk</p>
+            </div>
+            <div class="page__actions">
+              <button class="btn btn--ghost btn--sm" onclick="openModal('pricing')">Manage Plans</button>
+              <button class="btn btn--primary btn--sm" onclick="showToast('Founding offer coupon created')">+ Create Coupon</button>
+            </div>
+          </div>
+
+          <div class="pricing-cards">
+            <div class="pricing-card">
+              <h3 class="pricing-card__title">First 7 Days</h3>
+              <p class="pricing-card__price">₹0</p>
+              <p class="pricing-card__period">no card required</p>
+              <ul class="pricing-card__features">
+                <li>1 entry/day with AI reflection</li>
+                <li>1 question per day</li>
+                <li>Pattern tracking begins</li>
+                <li>Stop anytime if not honest</li>
+              </ul>
+              <span class="pricing-card__count">1,204 users</span>
+            </div>
+            <div class="pricing-card">
+              <span class="pricing-card__badge" style="background:var(--color-accent);color:var(--color-primary)">Launch Offer</span>
+              <h3 class="pricing-card__title">Founding 50</h3>
+              <p class="pricing-card__price">₹799</p>
+              <p class="pricing-card__period">per month (locked ₹999)</p>
+              <ul class="pricing-card__features">
+                <li>Launch discount for first 50</li>
+                <li>Daily entries & AI reflections</li>
+                <li>Weekly summary & cycle reports</li>
+                <li>₹999 locked forever</li>
+              </ul>
+              <span class="pricing-card__count">118 users</span>
+            </div>
+            <div class="pricing-card pricing-card--featured">
+              <span class="pricing-card__badge">Most Popular</span>
+              <h3 class="pricing-card__title">Ingress Inner Circle</h3>
+              <p class="pricing-card__price">₹999</p>
+              <p class="pricing-card__period">per month</p>
+              <ul class="pricing-card__features">
+                <li>Full daily entries & reflections</li>
+                <li>Exercise System V4 Engine</li>
+                <li>Vocabulary & Pattern Intelligence</li>
+                <li>Day 28 Cycle Assessment</li>
+                <li>Priority AI worker processing</li>
+              </ul>
+              <span class="pricing-card__count">218 users</span>
+            </div>
+            <div class="pricing-card">
+              <h3 class="pricing-card__title">Clinical / Advisor</h3>
+              <p class="pricing-card__price">₹2,499</p>
+              <p class="pricing-card__period">per month</p>
+              <ul class="pricing-card__features">
+                <li>Everything in Inner Circle</li>
+                <li>Therapist review flags & triage</li>
+                <li>Clinical advisor matching</li>
+                <li>Structured counsellor PDF export</li>
+                <li>Dedicated support</li>
+              </ul>
+              <span class="pricing-card__count">24 users</span>
+            </div>
+          </div>
+
+          <div class="grid-2col">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Renewals (Next 30 Days)</h3>
+              </div>
+              <div class="card__body">
+                <div class="stat-row">
+                  <div class="stat-row__item"><span class="stat-row__value">47</span><span
+                      class="stat-row__label">Upcoming</span></div>
+                  <div class="stat-row__item"><span class="stat-row__value">12</span><span class="stat-row__label">At
+                      Risk</span></div>
+                  <div class="stat-row__item"><span class="stat-row__value">₹46,953</span><span
+                      class="stat-row__label">Expected</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Failed Payments</h3>
+              </div>
+              <div class="card__body">
+                <div class="activity-timeline">
+                  <div class="timeline__item">
+                    <div class="timeline__dot timeline__dot--danger"></div>
+                    <div class="timeline__content">
+                      <p><strong>James Wright</strong> — Premium renewal failed</p><span class="timeline__time">1h
+                        ago</span>
+                    </div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__dot timeline__dot--danger"></div>
+                    <div class="timeline__content">
+                      <p><strong>Anna Lee</strong> — Premium renewal failed</p><span class="timeline__time">4h
+                        ago</span>
+                    </div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__dot timeline__dot--danger"></div>
+                    <div class="timeline__content">
+                      <p><strong>Robert Chen</strong> — Enterprise invoice past due</p><span class="timeline__time">1d
+                        ago</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== PAYMENTS PAGE ===== -->
+        <section class="page" id="page-payments">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Payments</h1>
+              <p class="page__subtitle">₹3.4L MRR · ₹18,981 in transactions today</p>
+            </div>
+            <div class="page__actions">
+              <button class="btn btn--ghost btn--sm" onclick="showToast('GST Invoice generated')">Generate GST Invoice</button>
+              <button class="btn btn--ghost btn--sm" onclick="showToast('Report exported')">Export</button>
+            </div>
+          </div>
+          <div class="grid-2col">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Revenue (Last 7 Days)</h3>
+              </div>
+              <div class="card__body">
+                <div class="chart__area">
+                  <svg viewBox="0 0 300 100" class="chart__svg">
+                    <path d="M0,80 Q30,70 60,75 T120,50 T180,40 T240,30 T300,25" stroke="var(--color-primary)"
+                      stroke-width="2" fill="none" />
+                    <path d="M0,80 Q30,70 60,75 T120,50 T180,40 T240,30 T300,25 L300,100 L0,100 Z" fill="url(#revGrad)"
+                      opacity="0.12" />
+                    <defs>
+                      <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="var(--color-primary)" />
+                        <stop offset="100%" stop-color="var(--color-primary)" stop-opacity="0" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Payment Gateway Methods</h3>
+              </div>
+              <div class="card__body">
+                <div class="list-cards">
+                  <div class="list-card">
+                    <div><span class="dot dot--primary"></span> UPI (GPay / PhonePe / Paytm)</div><span>62%</span>
+                  </div>
+                  <div class="list-card">
+                    <div><span class="dot dot--purple"></span> Debit & Credit Cards</div><span>28%</span>
+                  </div>
+                  <div class="list-card">
+                    <div><span class="dot dot--teal"></span> Netbanking (Razorpay)</div><span>10%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="table-wrapper" style="margin-top:1.5rem">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Transaction ID</th>
+                  <th>User</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Gateway Method</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>INV-2026-0842</td>
+                  <td>Siddhesh</td>
+                  <td>₹999.00</td>
+                  <td><span class="status status--active">Completed</span></td>
+                  <td>UPI (Razorpay)</td>
+                  <td>Today</td>
+                </tr>
+                <tr>
+                  <td>INV-2026-0841</td>
+                  <td>Sakshi Bhuwania</td>
+                  <td>₹999.00</td>
+                  <td><span class="status status--active">Completed</span></td>
+                  <td>Visa ••4242</td>
+                  <td>Today</td>
+                </tr>
+                <tr>
+                  <td>INV-2026-0840</td>
+                  <td>Siddhu</td>
+                  <td>₹0.00</td>
+                  <td><span class="status status--active">7-Day Trial</span></td>
+                  <td>—</td>
+                  <td>Today</td>
+                </tr>
+                <tr>
+                  <td>INV-2026-0839</td>
+                  <td>Aarav Sharma</td>
+                  <td>₹799.00</td>
+                  <td><span class="status status--active">Completed</span></td>
+                  <td>UPI (GPay)</td>
+                  <td>1h ago</td>
+                </tr>
+                <tr>
+                  <td>INV-2026-0838</td>
+                  <td>Ananya Iyer</td>
+                  <td>₹2,499.00</td>
+                  <td><span class="status status--active">Completed</span></td>
+                  <td>Netbanking (HDFC)</td>
+                  <td>3h ago</td>
+                </tr>
+                <tr>
+                  <td>INV-2026-0837</td>
+                  <td>Priya Patel</td>
+                  <td>₹999.00</td>
+                  <td><span class="status status--active">Completed</span></td>
+                  <td>UPI (PhonePe)</td>
+                  <td>6h ago</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===== INTERVENTIONS PAGE ===== -->
+        <section class="page" id="page-interventions">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Intervention Bank</h1>
+              <p class="page__subtitle">48 interventions · 12 categories · Last updated 2h ago</p>
+            </div>
+            <div class="page__actions">
+              <button class="btn btn--primary btn--sm" onclick="openModal('intervention')">+ New Intervention</button>
+            </div>
+          </div>
+          <div class="table-filters">
+            <div class="search-field">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input type="text" placeholder="Search interventions…" class="search-field__input" />
+            </div>
+            <div class="filter-chips">
+              <button class="chip chip--active">All</button>
+              <button class="chip">Grounding</button>
+              <button class="chip">Breathing</button>
+              <button class="chip">CBT</button>
+              <button class="chip">Mindfulness</button>
+              <button class="chip">Journaling</button>
+            </div>
+          </div>
+          <div class="grid-3col">
+            <div class="intervention-card">
+              <div class="intervention-card__head">
+                <span class="badge badge--primary">Grounding</span>
+                <span class="badge badge--secondary">Beginner</span>
+              </div>
+              <h4 class="intervention-card__title">5-4-3-2-1 Technique</h4>
+              <p class="intervention-card__desc">A sensory grounding exercise using sight, touch, hearing, smell, and
+                taste.</p>
+              <div class="intervention-card__meta"><span>⏱ 5 min</span><span>🏷️ anxiety, panic</span></div>
+              <div class="intervention-card__actions">
+                <button class="btn btn--ghost btn--xs" onclick="openModal('intervention-preview')">Preview</button>
+                <button class="btn btn--ghost btn--xs" onclick="showToast('Intervention edited')">Edit</button>
+                <button class="btn btn--ghost btn--xs" onclick="showToast('Intervention archived')">Archive</button>
+              </div>
+            </div>
+            <div class="intervention-card">
+              <div class="intervention-card__head">
+                <span class="badge badge--primary">Breathing</span>
+                <span class="badge badge--secondary">Beginner</span>
+              </div>
+              <h4 class="intervention-card__title">Box Breathing</h4>
+              <p class="intervention-card__desc">4-count inhale, hold, exhale, hold — a Navy SEAL technique for calm.
+              </p>
+              <div class="intervention-card__meta"><span>⏱ 3 min</span><span>🏷️ stress, focus</span></div>
+              <div class="intervention-card__actions">
+                <button class="btn btn--ghost btn--xs" onclick="openModal('intervention-preview')">Preview</button>
+                <button class="btn btn--ghost btn--xs" onclick="showToast('Intervention edited')">Edit</button>
+                <button class="btn btn--ghost btn--xs" onclick="showToast('Intervention archived')">Archive</button>
+              </div>
+            </div>
+            <div class="intervention-card">
+              <div class="intervention-card__head">
+                <span class="badge badge--primary">CBT</span>
+                <span class="badge badge--warning">Advanced</span>
+              </div>
+              <h4 class="intervention-card__title">Thought Record</h4>
+              <p class="intervention-card__desc">Identify and reframe negative automatic thoughts using CBT principles.
+              </p>
+              <div class="intervention-card__meta"><span>⏱ 15 min</span><span>🏷️ thoughts, beliefs</span></div>
+              <div class="intervention-card__actions">
+                <button class="btn btn--ghost btn--xs" onclick="openModal('intervention-preview')">Preview</button>
+                <button class="btn btn--ghost btn--xs" onclick="showToast('Intervention edited')">Edit</button>
+                <button class="btn btn--ghost btn--xs" onclick="showToast('Intervention archived')">Archive</button>
+              </div>
+            </div>
+            <div class="intervention-card">
+              <div class="intervention-card__head">
+                <span class="badge badge--primary">Mindfulness</span>
+                <span class="badge badge--secondary">Intermediate</span>
+              </div>
+              <h4 class="intervention-card__title">Body Scan</h4>
+              <p class="intervention-card__desc">Progressive awareness of physical sensations from head to toe.</p>
+              <div class="intervention-card__meta"><span>⏱ 10 min</span><span>🏷️ awareness, relaxation</span></div>
+              <div class="intervention-card__actions">
+                <button class="btn btn--ghost btn--xs" onclick="openModal('intervention-preview')">Preview</button>
+                <button class="btn btn--ghost btn--xs" onclick="showToast('Intervention edited')">Edit</button>
+                <button class="btn btn--ghost btn--xs" onclick="showToast('Intervention archived')">Archive</button>
+              </div>
+            </div>
+            <div class="intervention-card">
+              <div class="intervention-card__head">
+                <span class="badge badge--primary">Journaling</span>
+                <span class="badge badge--secondary">Beginner</span>
+              </div>
+              <h4 class="intervention-card__title">Gratitude Log</h4>
+              <p class="intervention-card__desc">Daily practice of noting three things you're grateful for.</p>
+              <div class="intervention-card__meta"><span>⏱ 5 min</span><span>🏷️ gratitude, positivity</span></div>
+              <div class="intervention-card__actions">
+                <button class="btn btn--ghost btn--xs" onclick="openModal('intervention-preview')">Preview</button>
+                <button class="btn btn--ghost btn--xs" onclick="showToast('Intervention edited')">Edit</button>
+                <button class="btn btn--ghost btn--xs" onclick="showToast('Intervention archived')">Archive</button>
+              </div>
+            </div>
+            <div class="intervention-card">
+              <div class="intervention-card__head">
+                <span class="badge badge--primary">CBT</span>
+                <span class="badge badge--warning">Advanced</span>
+              </div>
+              <h4 class="intervention-card__title">Behavioral Activation</h4>
+              <p class="intervention-card__desc">Schedule and track activities that improve mood and reduce avoidance.
+              </p>
+              <div class="intervention-card__meta"><span>⏱ 20 min</span><span>🏷️ depression, motivation</span></div>
+              <div class="intervention-card__actions">
+                <button class="btn btn--ghost btn--xs" onclick="openModal('intervention-preview')">Preview</button>
+                <button class="btn btn--ghost btn--xs" onclick="showToast('Intervention edited')">Edit</button>
+                <button class="btn btn--ghost btn--xs" onclick="showToast('Intervention archived')">Archive</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== KNOWLEDGE BASE PAGE ===== -->
+        <section class="page" id="page-knowledge">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Knowledge Base</h1>
+              <p class="page__subtitle">124 articles · 8 categories · 14 drafts pending review</p>
+            </div>
+            <div class="page__actions">
+              <button class="btn btn--primary btn--sm" onclick="showToast('New article created')">+ New Article</button>
+            </div>
+          </div>
+          <div class="table-filters">
+            <div class="search-field">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input type="text" placeholder="Search articles…" class="search-field__input" />
+            </div>
+            <div class="filter-chips">
+              <button class="chip chip--active">All</button>
+              <button class="chip">Published</button>
+              <button class="chip">Drafts</button>
+              <button class="chip">Archived</button>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Category</th>
+                  <th>Status</th>
+                  <th>Author</th>
+                  <th>Version</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Understanding Anxiety Triggers</strong></td>
+                  <td>Mental Health</td>
+                  <td><span class="status status--active">Published</span></td>
+                  <td>Dr. Martinez</td>
+                  <td>v3</td>
+                  <td>2h ago</td>
+                  <td><button class="btn btn--ghost btn--xs">Edit</button><button class="btn btn--ghost btn--xs"
+                      onclick="showToast('Version history opened')">History</button></td>
+                </tr>
+                <tr>
+                  <td><strong>Journaling for Beginners</strong></td>
+                  <td>Self-Help</td>
+                  <td><span class="status status--active">Published</span></td>
+                  <td>Content Team</td>
+                  <td>v5</td>
+                  <td>1d ago</td>
+                  <td><button class="btn btn--ghost btn--xs">Edit</button><button class="btn btn--ghost btn--xs"
+                      onclick="showToast('Version history opened')">History</button></td>
+                </tr>
+                <tr>
+                  <td><strong>CBT Techniques Guide</strong></td>
+                  <td>Therapy</td>
+                  <td><span class="status status--warning">Draft</span></td>
+                  <td>Dr. Johansson</td>
+                  <td>v1</td>
+                  <td>3h ago</td>
+                  <td><button class="btn btn--ghost btn--xs">Review</button><button class="btn btn--ghost btn--xs"
+                      onclick="showToast('Version history opened')">History</button></td>
+                </tr>
+                <tr>
+                  <td><strong>Sleep Hygiene Protocol</strong></td>
+                  <td>Wellness</td>
+                  <td><span class="status status--warning">Draft</span></td>
+                  <td>Content Team</td>
+                  <td>v2</td>
+                  <td>6h ago</td>
+                  <td><button class="btn btn--ghost btn--xs">Review</button><button class="btn btn--ghost btn--xs"
+                      onclick="showToast('Version history opened')">History</button></td>
+                </tr>
+                <tr>
+                  <td><strong>Mindfulness Meditation 101</strong></td>
+                  <td>Meditation</td>
+                  <td><span class="status status--active">Published</span></td>
+                  <td>AI Generated</td>
+                  <td>v2</td>
+                  <td>2d ago</td>
+                  <td><button class="btn btn--ghost btn--xs">Edit</button><button class="btn btn--ghost btn--xs"
+                      onclick="showToast('Version history opened')">History</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===== VOCABULARY PAGE ===== -->
+        <section class="page" id="page-vocabulary">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Vocabulary Intelligence Engine</h1>
+              <p class="page__subtitle">106 distinct words compiled across 36 user journal entries</p>
+            </div>
+          </div>
+          <div class="grid-2col">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Most Frequent Emotional Words</h3>
+              </div>
+              <div class="card__body">
+                <div class="word-cloud">
+                  <span class="word word--xl" style="color:var(--color-success)">confident (8×)</span>
+                  <span class="word word--lg" style="color:var(--color-primary)">calm (6×)</span>
+                  <span class="word word--lg" style="color:var(--color-danger)">frustrated (5×)</span>
+                  <span class="word word--md" style="color:var(--color-warning)">overwhelmed (4×)</span>
+                  <span class="word word--md" style="color:var(--color-primary)">grounded (4×)</span>
+                  <span class="word word--md" style="color:var(--color-success)">happy (4×)</span>
+                  <span class="word word--md">grateful (4×)</span>
+                  <span class="word word--sm">patient (4×)</span>
+                  <span class="word word--sm">proud (4×)</span>
+                  <span class="word word--sm">peaceful (3×)</span>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Concept Clusters & Shift Signals</h3>
+              </div>
+              <div class="card__body">
+                <div class="distribution">
+                  <div class="dist-item"><span class="dist__label">Confidence (assurance, self-assured)</span>
+                    <div class="dist__bar">
+                      <div class="dist__fill" style="width:38%;background:var(--color-success)"></div>
+                    </div><span class="dist__pct">38%</span>
+                  </div>
+                  <div class="dist-item"><span class="dist__label">Steady / Calm (grounded, balanced)</span>
+                    <div class="dist__bar">
+                      <div class="dist__fill" style="width:28%;background:var(--color-primary)"></div>
+                    </div><span class="dist__pct">28%</span>
+                  </div>
+                  <div class="dist-item"><span class="dist__label">Manageable (predictable, stable)</span>
+                    <div class="dist__bar">
+                      <div class="dist__fill" style="width:20%;background:var(--color-info)"></div>
+                    </div><span class="dist__pct">20%</span>
+                  </div>
+                  <div class="dist-item"><span class="dist__label">Overwhelm & Restlessness</span>
+                    <div class="dist__bar">
+                      <div class="dist__fill" style="width:14%;background:var(--color-warning)"></div>
+                    </div><span class="dist__pct">14%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card__head">
+              <h3 class="card__title">Vocabulary Growth</h3>
+            </div>
+            <div class="card__body">
+              <div class="chart__bars">
+                <div class="chart__bar" style="height:45%"><span>Jan</span></div>
+                <div class="chart__bar" style="height:52%"><span>Feb</span></div>
+                <div class="chart__bar" style="height:48%"><span>Mar</span></div>
+                <div class="chart__bar" style="height:61%"><span>Apr</span></div>
+                <div class="chart__bar" style="height:58%"><span>May</span></div>
+                <div class="chart__bar" style="height:73%"><span>Jun</span></div>
+                <div class="chart__bar" style="height:85%"><span>Jul</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== PATTERNS PAGE ===== -->
+        <section class="page" id="page-patterns">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Pattern Analytics</h1>
+              <p class="page__subtitle">Behaviour patterns detected across 2,847 users</p>
+            </div>
+          </div>
+          <div class="grid-2col">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Pattern Intelligence Engine</h3>
+              </div>
+              <div class="card__body">
+                <div class="list-cards">
+                  <div class="list-card">
+                    <div><strong>Emotional Exhaustion</strong><br><span class="text-muted" style="font-size:0.75rem">Depleted mental reserves after high output</span></div><span class="badge badge--danger">Returned</span>
+                  </div>
+                  <div class="list-card">
+                    <div><strong>Self-Doubt</strong><br><span class="text-muted" style="font-size:0.75rem">Questioning progress despite positive indicators</span></div><span class="badge badge--warning">New Pattern</span>
+                  </div>
+                  <div class="list-card">
+                    <div><strong>Restlessness</strong><br><span class="text-muted" style="font-size:0.75rem">Task jumping and agitation prior to evening</span></div><span class="badge badge--warning">New Pattern</span>
+                  </div>
+                  <div class="list-card">
+                    <div><strong>Autopilot Mode</strong><br><span class="text-muted" style="font-size:0.75rem">Executing routine without emotional connection</span></div><span class="badge badge--info">New Pattern</span>
+                  </div>
+                  <div class="list-card">
+                    <div><strong>Routine-Based Stability</strong><br><span class="text-muted" style="font-size:0.75rem">Grounded emotional baseline during structured days</span></div><span class="badge badge--success">Quiet / Baseline</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Risk Detection Overview</h3>
+              </div>
+              <div class="card__body">
+                <div class="risk-cards">
+                  <div class="risk-card risk-card--high"><span class="risk-card__icon">⚠️</span>
+                    <div><strong>12 High Risk</strong><span>Requires immediate attention</span></div>
+                  </div>
+                  <div class="risk-card risk-card--med"><span class="risk-card__icon">⚡</span>
+                    <div><strong>34 Medium Risk</strong><span>Monitor regularly</span></div>
+                  </div>
+                  <div class="risk-card risk-card--low"><span class="risk-card__icon">✓</span>
+                    <div><strong>186 Low Risk</strong><span>On track</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== REPORTS PAGE ===== -->
+        <section class="page" id="page-reports">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Reports</h1>
+              <p class="page__subtitle">Weekly & monthly AI-generated reports</p>
+            </div>
+            <div class="page__actions">
+              <button class="btn btn--primary btn--sm" onclick="showToast('Report generation queued')">Generate
+                Report</button>
+            </div>
+          </div>
+          <div class="tabs">
+            <button class="tab tab--active" onclick="switchReportTab(this,'weekly')">Weekly</button>
+            <button class="tab" onclick="switchReportTab(this,'monthly')">Monthly</button>
+            <button class="tab" onclick="switchReportTab(this,'queue')">Generation Queue</button>
+          </div>
+          <div class="tab-content active" id="report-weekly">
+            <div class="table-wrapper">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Report</th>
+                    <th>User</th>
+                    <th>Status</th>
+                    <th>Period</th>
+                    <th>Generated</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Wk-30 Summary</td>
+                    <td>Sarah Chen</td>
+                    <td><span class="status status--active">Completed</span></td>
+                    <td>Jul 21–27</td>
+                    <td>1h ago</td>
+                    <td><button class="btn btn--ghost btn--xs">View</button><button class="btn btn--ghost btn--xs"
+                        onclick="showToast('Report downloaded')">Download</button></td>
+                  </tr>
+                  <tr>
+                    <td>Wk-30 Summary</td>
+                    <td>David Kim</td>
+                    <td><span class="status status--warning">Processing</span></td>
+                    <td>Jul 21–27</td>
+                    <td>—</td>
+                    <td><button class="btn btn--ghost btn--xs" disabled>View</button></td>
+                  </tr>
+                  <tr>
+                    <td>Wk-30 Summary</td>
+                    <td>Maria Lopez</td>
+                    <td><span class="status status--active">Completed</span></td>
+                    <td>Jul 21–27</td>
+                    <td>45m ago</td>
+                    <td><button class="btn btn--ghost btn--xs">View</button><button class="btn btn--ghost btn--xs"
+                        onclick="showToast('Report downloaded')">Download</button></td>
+                  </tr>
+                  <tr>
+                    <td>Wk-29 Summary</td>
+                    <td>James Wright</td>
+                    <td><span class="status status--danger">Failed</span></td>
+                    <td>Jul 14–20</td>
+                    <td>2d ago</td>
+                    <td><button class="btn btn--ghost btn--xs"
+                        onclick="showToast('Retrying report generation')">Retry</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="tab-content" id="report-monthly">
+            <div class="grid-2col">
+              <div class="card">
+                <div class="card__head">
+                  <h3 class="card__title">Monthly Report Stats</h3>
+                </div>
+                <div class="card__body">
+                  <div class="stat-row">
+                    <div class="stat-row__item"><span class="stat-row__value">847</span><span
+                        class="stat-row__label">Completed</span></div>
+                    <div class="stat-row__item"><span class="stat-row__value">23</span><span
+                        class="stat-row__label">Pending</span></div>
+                    <div class="stat-row__item"><span class="stat-row__value">8</span><span
+                        class="stat-row__label">Failed</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card__head">
+                  <h3 class="card__title">TODO: Founder Decision</h3>
+                </div>
+                <div class="card__body">
+                  <p class="text-muted" style="font-style:italic">Define monthly report structure and delivery schedule.
+                  </p><span class="badge badge--warning">Founder Decision Needed</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="tab-content" id="report-queue">
+            <div class="grid-3col">
+              <div class="card">
+                <div class="card__head">
+                  <h3 class="card__title">In Queue</h3>
+                </div>
+                <div class="card__body">
+                  <p style="font-size:2.5rem;font-weight:600;font-family:var(--font-serif)">14</p>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card__head">
+                  <h3 class="card__title">Processing</h3>
+                </div>
+                <div class="card__body">
+                  <p style="font-size:2.5rem;font-weight:600;font-family:var(--font-serif)">3</p>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card__head">
+                  <h3 class="card__title">Failed</h3>
+                </div>
+                <div class="card__body">
+                  <p style="font-size:2.5rem;font-weight:600;font-family:var(--font-serif)">2</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== EXERCISES PAGE ===== -->
+        <section class="page" id="page-exercises">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Exercises System (V4 Engine)</h1>
+              <p class="page__subtitle">4 Core Diagnostic & Projective Interventions · 100% Availability for All Users</p>
+            </div>
+            <div class="page__actions">
+              <button class="btn btn--primary btn--sm" onclick="showToast('Exercise System V4 active across all profiles')">System V4 Ready</button>
+            </div>
+          </div>
+          <div class="grid-3col">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">System Status</h3>
+              </div>
+              <div class="card__body">
+                <p style="font-size:2rem;font-weight:600;font-family:var(--font-serif);color:var(--color-success)">100% Available</p>
+                <span class="change up">All 4 exercises reset to available</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">AI Analysis Workers</h3>
+              </div>
+              <div class="card__body">
+                <p style="font-size:2rem;font-weight:600;font-family:var(--font-serif)">2-Call Parallel</p>
+                <span class="change up">Groq 70B & Claude synthesis</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Persistence Engine</h3>
+              </div>
+              <div class="card__body">
+                <p style="font-size:2rem;font-weight:600;font-family:var(--font-serif)">Supabase V4</p>
+                <span class="change up">step_id & instance_id mapped</span>
+              </div>
+            </div>
+          </div>
+          <div class="table-wrapper" style="margin-top:1.5rem">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Exercise Name & ID</th>
+                  <th>Diagnostic Category</th>
+                  <th>Unlock Schedule</th>
+                  <th>Prompting & Stimuli</th>
+                  <th>AI Analysis Output</th>
+                  <th>System Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Exercise 0: Baseline OCEAN Assessment</strong><br><span class="text-muted">exercise_0</span></td>
+                  <td><span class="badge badge--primary">Psychometric Baseline</span></td>
+                  <td>Day 1 Baseline</td>
+                  <td>10 Standard Likert Items</td>
+                  <td>5 OCEAN Trait Scores + Baseline prose</td>
+                  <td><span class="badge badge--success">Active (100%)</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Exercise 1: Word Association Test</strong><br><span class="text-muted">exercise_1</span></td>
+                  <td><span class="badge badge--warning">Projective Association</span></td>
+                  <td>Day 10 (Cycle 1)</td>
+                  <td>12 Word Stimuli Sequence</td>
+                  <td>Emotional Register Gap & Pair Sentences</td>
+                  <td><span class="badge badge--success">Active (100%)</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Exercise 2: Inkblot Projective Test</strong><br><span class="text-muted">exercise_2</span></td>
+                  <td><span class="badge badge--secondary">Projective Inkblot</span></td>
+                  <td>Day 18 (Cycle 1)</td>
+                  <td>5 Bilateral Inkblot Cards</td>
+                  <td>Defense Lens (Intellectualization/Projection)</td>
+                  <td><span class="badge badge--success">Active (100%)</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Exercise 3: Self Perception Test</strong><br><span class="text-muted">exercise_3</span></td>
+                  <td><span class="badge badge--info">Divergence Check</span></td>
+                  <td>Day 25 (Cycle 1)</td>
+                  <td>5 Self-Perception Prompts</td>
+                  <td>3-Sentence Observation + Gap Score (X/5)</td>
+                  <td><span class="badge badge--success">Active (100%)</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===== AI USAGE PAGE ===== -->
+        <section class="page" id="page-ai-usage">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">AI Usage & Inference Engine</h1>
+              <p class="page__subtitle">2.4M tokens today · ₹12,450 estimated cost · 18,247 requests</p>
+            </div>
+          </div>
+          <div class="grid-2col">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Claude 3.5 Sonnet Usage</h3>
+                <span class="badge badge--primary">1.6M tokens</span>
+              </div>
+              <div class="card__body">
+                <div class="chart__bars">
+                  <div class="chart__bar" style="height:55%"><span>Mon</span></div>
+                  <div class="chart__bar" style="height:70%"><span>Tue</span></div>
+                  <div class="chart__bar" style="height:60%"><span>Wed</span></div>
+                  <div class="chart__bar" style="height:85%"><span>Thu</span></div>
+                  <div class="chart__bar" style="height:75%"><span>Fri</span></div>
+                  <div class="chart__bar" style="height:50%"><span>Sat</span></div>
+                  <div class="chart__bar" style="height:40%"><span>Sun</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Groq Llama 3 70B Usage</h3>
+                <span class="badge badge--warning">0.8M tokens</span>
+              </div>
+              <div class="card__body">
+                <div class="chart__bars">
+                  <div class="chart__bar" style="height:45%"><span>Mon</span></div>
+                  <div class="chart__bar" style="height:60%"><span>Tue</span></div>
+                  <div class="chart__bar" style="height:55%"><span>Wed</span></div>
+                  <div class="chart__bar" style="height:72%"><span>Thu</span></div>
+                  <div class="chart__bar" style="height:68%"><span>Fri</span></div>
+                  <div class="chart__bar" style="height:42%"><span>Sat</span></div>
+                  <div class="chart__bar" style="height:35%"><span>Sun</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="grid-3col" style="margin-top:1.5rem">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Avg Latency</h3>
+              </div>
+              <div class="card__body">
+                <p style="font-size:2rem;font-family:var(--font-serif)">1.2s</p>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Total Cost (MTD)</h3>
+              </div>
+              <div class="card__body">
+                <p style="font-size:2rem;font-family:var(--font-serif)">₹84,250</p>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Avg Requests/min</h3>
+              </div>
+              <div class="card__body">
+                <p style="font-size:2rem;font-family:var(--font-serif)">42</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== ANALYTICS PAGE ===== -->
+        <section class="page" id="page-analytics">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Analytics</h1>
+              <p class="page__subtitle">Full platform analytics with key metrics</p>
+            </div>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-card__icon stat-card__icon--blue"><svg width="20" height="20" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                </svg></div>
+              <div class="stat-card__body"><span class="stat-card__value">2,418</span><span
+                  class="stat-card__label">Total Users</span></div><span class="stat-card__change up">+12.4%</span>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card__icon stat-card__icon--green"><svg width="20" height="20" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg></div>
+              <div class="stat-card__body"><span class="stat-card__value">12,847</span><span
+                  class="stat-card__label">Journals</span></div><span class="stat-card__change up">+18.2%</span>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card__icon stat-card__icon--amber"><svg width="20" height="20" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="1.5">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 6v6l4 2" />
+                </svg></div>
+              <div class="stat-card__body"><span class="stat-card__value">1,567</span><span
+                  class="stat-card__label">Exercises</span></div><span class="stat-card__change up">+15.3%</span>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card__icon stat-card__icon--purple"><svg width="20" height="20" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="2" y="7" width="20" height="14" rx="2" />
+                  <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" />
+                </svg></div>
+              <div class="stat-card__body"><span class="stat-card__value">₹3.4L</span><span
+                  class="stat-card__label">MRR</span></div><span class="stat-card__change up">+8.4%</span>
+            </div>
+          </div>
+          <div class="grid-2col" style="margin-top:1.5rem">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">User Growth</h3><span class="badge badge--success">+12.4%</span>
+              </div>
+              <div class="card__body">
+                <div class="chart__area"><svg viewBox="0 0 300 100" class="chart__svg">
+                    <path d="M0,90 Q30,85 60,80 T120,65 T180,50 T240,40 T300,30" stroke="var(--color-success)"
+                      stroke-width="2" fill="none" />
+                    <path d="M0,90 Q30,85 60,80 T120,65 T180,50 T240,40 T300,30 L300,100 L0,100 Z"
+                      fill="url(#growthGrad)" opacity="0.12" />
+                    <defs>
+                      <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="var(--color-success)" />
+                        <stop offset="100%" stop-color="var(--color-success)" stop-opacity="0" />
+                      </linearGradient>
+                    </defs>
+                  </svg></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Engagement Score</h3><span class="badge badge--primary">+6.7%</span>
+              </div>
+              <div class="card__body">
+                <div class="chart__area"><svg viewBox="0 0 300 100" class="chart__svg">
+                    <path d="M0,70 Q30,65 60,68 T120,55 T180,45 T240,35 T300,28" stroke="var(--color-primary)"
+                      stroke-width="2" fill="none" />
+                    <path d="M0,70 Q30,65 60,68 T120,55 T180,45 T240,35 T300,28 L300,100 L0,100 Z"
+                      fill="url(#engageGrad)" opacity="0.12" />
+                    <defs>
+                      <linearGradient id="engageGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="var(--color-primary)" />
+                        <stop offset="100%" stop-color="var(--color-primary)" stop-opacity="0" />
+                      </linearGradient>
+                    </defs>
+                  </svg></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== SUPPORT PAGE ===== -->
+        <section class="page" id="page-support">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Support</h1>
+              <p class="page__subtitle">3 open tickets · 12 feedback items · 2 bug reports</p>
+            </div>
+            <div class="page__actions">
+              <button class="btn btn--primary btn--sm" onclick="showToast('New ticket created')">+ New Ticket</button>
+            </div>
+          </div>
+          <div class="tabs">
+            <button class="tab tab--active" onclick="switchSupportTab(this,'tickets')">Tickets</button>
+            <button class="tab" onclick="switchSupportTab(this,'feedback')">Feedback</button>
+            <button class="tab" onclick="switchSupportTab(this,'bugs')">Bug Reports</button>
+          </div>
+          <div class="tab-content active" id="support-tickets">
+            <div class="table-wrapper">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Subject</th>
+                    <th>User</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Assignee</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>#2841</td>
+                    <td>Cannot access weekly report</td>
+                    <td>Sarah Chen</td>
+                    <td><span class="badge badge--danger">High</span></td>
+                    <td><span class="status status--warning">Open</span></td>
+                    <td>Alex Kim</td>
+                    <td>1h ago</td>
+                  </tr>
+                  <tr>
+                    <td>#2840</td>
+                    <td>Billing question about upgrade</td>
+                    <td>David Kim</td>
+                    <td><span class="badge badge--secondary">Low</span></td>
+                    <td><span class="status status--active">Closed</span></td>
+                    <td>Support Bot</td>
+                    <td>3h ago</td>
+                  </tr>
+                  <tr>
+                    <td>#2839</td>
+                    <td>Exercise not loading</td>
+                    <td>Maria Lopez</td>
+                    <td><span class="badge badge--primary">Medium</span></td>
+                    <td><span class="status status--warning">Open</span></td>
+                    <td>—</td>
+                    <td>5h ago</td>
+                  </tr>
+                  <tr>
+                    <td>#2838</td>
+                    <td>Feature request: dark mode</td>
+                    <td>Michael Torres</td>
+                    <td><span class="badge badge--secondary">Low</span></td>
+                    <td><span class="status status--info">Backlog</span></td>
+                    <td>—</td>
+                    <td>1d ago</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="tab-content" id="support-feedback">
+            <div class="grid-3col">
+              <div class="card">
+                <div class="card__head">
+                  <h3 class="card__title">⭐ 4.8</h3>
+                </div>
+                <div class="card__body">
+                  <p class="text-muted">Average Rating</p>
+                  <p>Based on 247 reviews this month</p>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card__head">
+                  <h3 class="card__title">📊 92%</h3>
+                </div>
+                <div class="card__body">
+                  <p class="text-muted">Satisfaction Rate</p>
+                  <p>+3% from last month</p>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card__head">
+                  <h3 class="card__title">⏱ 4.2m</h3>
+                </div>
+                <div class="card__body">
+                  <p class="text-muted">Avg Response Time</p>
+                  <p>Within SLA target</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="tab-content" id="support-bugs">
+            <div class="list-cards">
+              <div class="list-card">
+                <div><strong>Report PDF not rendering charts</strong><span class="text-muted"
+                    style="display:block">Affects Chrome users on v124+</span></div><span
+                  class="badge badge--danger">Critical</span>
+              </div>
+              <div class="list-card">
+                <div><strong>Push notifications delayed</strong><span class="text-muted" style="display:block">Average
+                    delay of 4 minutes</span></div><span class="badge badge--primary">Medium</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== NOTIFICATIONS PAGE ===== -->
+        <section class="page" id="page-notifications-page">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Notifications</h1>
+              <p class="page__subtitle">Manage email, push, SMS, and announcement templates</p>
+            </div>
+            <div class="page__actions">
+              <button class="btn btn--primary btn--sm" onclick="showToast('New notification template created')">+ New
+                Template</button>
+            </div>
+          </div>
+          <div class="tabs">
+            <button class="tab tab--active" onclick="switchNotifTab(this,'email')">Email</button>
+            <button class="tab" onclick="switchNotifTab(this,'push')">Push</button>
+            <button class="tab" onclick="switchNotifTab(this,'sms')">SMS</button>
+            <button class="tab" onclick="switchNotifTab(this,'announce')">Announcements</button>
+          </div>
+          <div class="tab-content active" id="notif-email">
+            <div class="table-wrapper">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Template</th>
+                    <th>Trigger</th>
+                    <th>Status</th>
+                    <th>Last Sent</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Welcome Email</strong></td>
+                    <td>New signup</td>
+                    <td><span class="status status--active">Active</span></td>
+                    <td>12 min ago</td>
+                    <td><button class="btn btn--ghost btn--xs">Edit</button><button class="btn btn--ghost btn--xs"
+                        onclick="showToast('Template previewed')">Preview</button></td>
+                  </tr>
+                  <tr>
+                    <td><strong>Weekly Report Ready</strong></td>
+                    <td>Report generation</td>
+                    <td><span class="status status--active">Active</span></td>
+                    <td>2h ago</td>
+                    <td><button class="btn btn--ghost btn--xs">Edit</button><button class="btn btn--ghost btn--xs"
+                        onclick="showToast('Template previewed')">Preview</button></td>
+                  </tr>
+                  <tr>
+                    <td><strong>Payment Failed</strong></td>
+                    <td>Failed charge</td>
+                    <td><span class="status status--active">Active</span></td>
+                    <td>1h ago</td>
+                    <td><button class="btn btn--ghost btn--xs">Edit</button><button class="btn btn--ghost btn--xs"
+                        onclick="showToast('Template previewed')">Preview</button></td>
+                  </tr>
+                  <tr>
+                    <td><strong>Trial Expiring</strong></td>
+                    <td>3 days before trial end</td>
+                    <td><span class="status status--warning">Draft</span></td>
+                    <td>—</td>
+                    <td><button class="btn btn--ghost btn--xs">Review</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="tab-content" id="notif-push">
+            <div class="card">
+              <div class="card__body">
+                <p class="text-muted" style="font-style:italic">Push notification templates — TODO: Define template
+                  structure and delivery rules</p><span class="badge badge--warning">Founder Decision Needed</span>
+              </div>
+            </div>
+          </div>
+          <div class="tab-content" id="notif-sms">
+            <div class="card">
+              <div class="card__body">
+                <p class="text-muted" style="font-style:italic">SMS notification templates — TODO: Select SMS provider
+                  and define opt-in flow</p><span class="badge badge--warning">Founder Decision Needed</span>
+              </div>
+            </div>
+          </div>
+          <div class="tab-content" id="notif-announce">
+            <div class="card">
+              <div class="card__body">
+                <div class="list-cards">
+                  <div class="list-card">
+                    <div><strong>New: AI-powered insights</strong><span class="text-muted" style="display:block">Sent to
+                        2,418 users · 68% open rate</span></div><span class="badge badge--success">Sent</span>
+                  </div>
+                  <div class="list-card">
+                    <div><strong>Upcoming maintenance</strong><span class="text-muted" style="display:block">Scheduled
+                        for Aug 2</span></div><span class="badge badge--warning">Scheduled</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== SETTINGS PAGE ===== -->
+        <section class="page" id="page-settings">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Settings</h1>
+              <p class="page__subtitle">Platform configuration and preferences</p>
+            </div>
+            <div class="page__actions">
+              <button class="btn btn--primary btn--sm" onclick="showToast('Settings saved')">Save Changes</button>
+            </div>
+          </div>
+          <div class="settings-sections">
+            <div class="settings-section">
+              <h3 class="settings-section__title">General</h3>
+              <div class="settings-field"><label>Platform Name</label><input type="text" class="input"
+                  value="Ingress Within" /></div>
+              <div class="settings-field"><label>Support Email</label><input type="email" class="input"
+                  value="support@ingresswithin.com" /></div>
+              <div class="settings-field"><label>Default Language</label><select class="input">
+                  <option>English</option>
+                  <option>Spanish</option>
+                  <option>French</option>
+                </select></div>
+            </div>
+            <div class="settings-section">
+              <h3 class="settings-section__title">Security</h3>
+              <div class="settings-field"><label>Session Timeout (min)</label><input type="number" class="input"
+                  value="60" /></div>
+              <div class="settings-field"><label>2FA Enforcement</label><label class="toggle"><input type="checkbox"
+                    checked /><span class="toggle__slider"></span></label></div>
+              <div class="settings-field"><label>Password Min Length</label><input type="number" class="input"
+                  value="12" /></div>
+            </div>
+            <div class="settings-section">
+              <h3 class="settings-section__title">Branding</h3>
+              <div class="settings-field"><label>Primary Color</label><input type="color" class="input input--color"
+                  value="#8B7D6B" /></div>
+              <div class="settings-field"><label>Logo URL</label><input type="text" class="input"
+                  placeholder="https://..." /></div>
+            </div>
+            <div class="settings-section">
+              <h3 class="settings-section__title">AI Providers</h3>
+              <div class="settings-field"><label>Claude API Key</label><input type="password" class="input"
+                  value="sk-ant-••••••••" /></div>
+              <div class="settings-field"><label>Groq API Key</label><input type="password" class="input"
+                  value="gsk-••••••••" /></div>
+            </div>
+            <div class="settings-section">
+              <h3 class="settings-section__title">Roles & Permissions</h3>
+              <div class="table-wrapper">
+                <table class="table table--sm">
+                  <thead>
+                    <tr>
+                      <th>Role</th>
+                      <th>Users</th>
+                      <th>Permissions</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>Admin</strong></td>
+                      <td>3</td>
+                      <td>Full access</td>
+                      <td><button class="btn btn--ghost btn--xs">Edit</button></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Therapist</strong></td>
+                      <td>34</td>
+                      <td>Client management, reports</td>
+                      <td><button class="btn btn--ghost btn--xs">Edit</button></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Advisor</strong></td>
+                      <td>12</td>
+                      <td>Referrals, recommendations</td>
+                      <td><button class="btn btn--ghost btn--xs">Edit</button></td>
+                    </tr>
+                    <tr>
+                      <td><strong>User</strong></td>
+                      <td>2,418</td>
+                      <td>Self-service only</td>
+                      <td><button class="btn btn--ghost btn--xs">Edit</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="settings-section">
+              <h3 class="settings-section__title">Environment Variables</h3>
+              <div class="env-vars">
+                <div class="env-var"><code>SUPABASE_URL</code><code
+                    class="text-muted">https://••••.supabase.co</code><button class="btn btn--ghost btn--xs"
+                    onclick="showToast('Copied')">Copy</button></div>
+                <div class="env-var"><code>CLAUDE_API_KEY</code><code class="text-muted">sk-ant-••••••••</code><button
+                    class="btn btn--ghost btn--xs" onclick="showToast('Copied')">Copy</button></div>
+                <div class="env-var"><code>GROQ_API_KEY</code><code class="text-muted">gsk-••••••••</code><button
+                    class="btn btn--ghost btn--xs" onclick="showToast('Copied')">Copy</button></div>
+                <div class="env-var"><code>REDIS_URL</code><code class="text-muted">redis://••••••••</code><button
+                    class="btn btn--ghost btn--xs" onclick="showToast('Copied')">Copy</button></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== AUDIT LOGS PAGE ===== -->
+        <section class="page" id="page-audit-logs">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Audit Logs</h1>
+              <p class="page__subtitle">Track every important action on the platform</p>
+            </div>
+            <div class="page__actions">
+              <button class="btn btn--ghost btn--sm" onclick="showToast('Audit log exported')">Export</button>
+            </div>
+          </div>
+          <div class="table-filters">
+            <div class="search-field">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input type="text" placeholder="Search audit logs…" class="search-field__input" />
+            </div>
+            <div class="filter-chips">
+              <button class="chip chip--active">All</button>
+              <button class="chip">User Actions</button>
+              <button class="chip">Admin Actions</button>
+              <button class="chip">System</button>
+              <button class="chip">Auth</button>
+              <button class="chip">Payments</button>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Action</th>
+                  <th>Actor</th>
+                  <th>Target</th>
+                  <th>Category</th>
+                  <th>IP</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>2026-07-28 14:22:03</td>
+                  <td>User suspended</td>
+                  <td>Alex Kim (Admin)</td>
+                  <td>James Wright</td>
+                  <td><span class="badge badge--danger">Admin</span></td>
+                  <td>192.168.1.42</td>
+                </tr>
+                <tr>
+                  <td>2026-07-28 13:45:12</td>
+                  <td>Report generated</td>
+                  <td>System</td>
+                  <td>Sarah Chen</td>
+                  <td><span class="badge badge--primary">System</span></td>
+                  <td>—</td>
+                </tr>
+                <tr>
+                  <td>2026-07-28 12:30:00</td>
+                  <td>Subscription cancelled</td>
+                  <td>System</td>
+                  <td>Emily Davis</td>
+                  <td><span class="badge badge--warning">Payment</span></td>
+                  <td>—</td>
+                </tr>
+                <tr>
+                  <td>2026-07-28 11:15:44</td>
+                  <td>Password reset</td>
+                  <td>Maria Lopez</td>
+                  <td>Self</td>
+                  <td><span class="badge badge--secondary">Auth</span></td>
+                  <td>10.0.0.15</td>
+                </tr>
+                <tr>
+                  <td>2026-07-28 10:02:18</td>
+                  <td>Intervention published</td>
+                  <td>Content Team</td>
+                  <td>Grounding 101</td>
+                  <td><span class="badge badge--success">Content</span></td>
+                  <td>192.168.1.50</td>
+                </tr>
+                <tr>
+                  <td>2026-07-28 09:30:00</td>
+                  <td>Invoice refunded</td>
+                  <td>Alex Kim (Admin)</td>
+                  <td>INV-2026-0830</td>
+                  <td><span class="badge badge--warning">Payment</span></td>
+                  <td>192.168.1.42</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===== SYSTEM HEALTH PAGE ===== -->
+        <section class="page" id="page-system-health">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">System Health</h1>
+              <p class="page__subtitle">All systems operational · Last checked 30s ago</p>
+            </div>
+            <div class="page__actions">
+              <button class="btn btn--ghost btn--sm" onclick="showToast('System health refreshed')"
+                id="healthRefreshBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 4 23 10 17 10" />
+                  <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" />
+                </svg>
+                Refresh
+              </button>
+            </div>
+          </div>
+          <div class="health-dashboard">
+            <div class="health-card health-card--ok">
+              <div class="health-card__icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="9 12 11 14 15 10" />
+                </svg>
+              </div>
+              <div class="health-card__body">
+                <h4>Queue Service</h4>
+                <p>Active · 12 pending</p>
+                <span class="health-metric">45ms avg latency</span>
+              </div>
+            </div>
+            <div class="health-card health-card--ok">
+              <div class="health-card__icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="9 12 11 14 15 10" />
+                </svg>
+              </div>
+              <div class="health-card__body">
+                <h4>Workers</h4>
+                <p>4/4 running</p>
+                <span class="health-metric">All healthy</span>
+              </div>
+            </div>
+            <div class="health-card health-card--ok">
+              <div class="health-card__icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="9 12 11 14 15 10" />
+                </svg>
+              </div>
+              <div class="health-card__body">
+                <h4>Scheduler</h4>
+                <p>Running</p>
+                <span class="health-metric">Next job in 3min</span>
+              </div>
+            </div>
+            <div class="health-card health-card--ok">
+              <div class="health-card__icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="9 12 11 14 15 10" />
+                </svg>
+              </div>
+              <div class="health-card__body">
+                <h4>Redis</h4>
+                <p>Connected</p>
+                <span class="health-metric">0.8ms ping</span>
+              </div>
+            </div>
+            <div class="health-card health-card--ok">
+              <div class="health-card__icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="9 12 11 14 15 10" />
+                </svg>
+              </div>
+              <div class="health-card__body">
+                <h4>Supabase</h4>
+                <p>23ms response</p>
+                <span class="health-metric">98.7% uptime</span>
+              </div>
+            </div>
+            <div class="health-card health-card--warn">
+              <div class="health-card__icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </div>
+              <div class="health-card__body">
+                <h4>Storage</h4>
+                <p>78% capacity</p>
+                <span class="health-metric">22GB / 28GB used</span>
+              </div>
+            </div>
+            <div class="health-card health-card--ok">
+              <div class="health-card__icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="9 12 11 14 15 10" />
+                </svg>
+              </div>
+              <div class="health-card__body">
+                <h4>Claude API</h4>
+                <p>Operational</p>
+                <span class="health-metric">1.2s avg latency</span>
+              </div>
+            </div>
+            <div class="health-card health-card--warn">
+              <div class="health-card__icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </div>
+              <div class="health-card__body">
+                <h4>Groq API</h4>
+                <p>Degraded performance</p>
+                <span class="health-metric">78% capacity</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== CONTENT MANAGER PAGE ===== -->
+        <section class="page" id="page-content-manager">
+          <div class="page__header">
+            <div>
+              <h1 class="page__title">Content Manager</h1>
+              <p class="page__subtitle">Manage all platform content in one place</p>
+            </div>
+            <div class="page__actions">
+              <button class="btn btn--primary btn--sm" onclick="showToast('Content module selected')">+ New
+                Content</button>
+            </div>
+          </div>
+          <div class="grid-2col">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Content Overview</h3>
+              </div>
+              <div class="card__body">
+                <div class="list-cards">
+                  <div class="list-card">
+                    <div><strong>Intervention Bank</strong><span class="text-muted" style="display:block">48
+                        interventions, 12 categories</span></div><span class="badge badge--success">Active</span>
+                  </div>
+                  <div class="list-card">
+                    <div><strong>Knowledge Base</strong><span class="text-muted" style="display:block">124 articles, 8
+                        categories</span></div><span class="badge badge--success">Active</span>
+                  </div>
+                  <div class="list-card">
+                    <div><strong>Exercise Library</strong><span class="text-muted" style="display:block">24
+                        exercises</span></div><span class="badge badge--success">Active</span>
+                  </div>
+                  <div class="list-card">
+                    <div><strong>Email Templates</strong><span class="text-muted" style="display:block">12
+                        templates</span></div><span class="badge badge--warning">4 Drafts</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="card__title">Recent Content Updates</h3>
+              </div>
+              <div class="card__body">
+                <div class="activity-timeline">
+                  <div class="timeline__item">
+                    <div class="timeline__dot timeline__dot--green"></div>
+                    <div class="timeline__content">
+                      <p>"Grounding 101" published</p><span class="timeline__time">2h ago</span>
+                    </div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__dot timeline__dot--blue"></div>
+                    <div class="timeline__content">
+                      <p>"CBT Guide" draft updated</p><span class="timeline__time">3h ago</span>
+                    </div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__dot timeline__dot--amber"></div>
+                    <div class="timeline__content">
+                      <p>"Sleep Hygiene" sent for review</p><span class="timeline__time">6h ago</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div><!-- /page-container -->
+    </main>
+
+    <!-- ===== RIGHT CONTEXT PANEL ===== -->
+    <aside class="context-panel" id="contextPanel">
+      <div class="context-panel__head">
+        <h3 class="context-panel__title">Context</h3>
+        <button class="context-panel__close" id="contextPanelClose" aria-label="Close panel">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+      <div class="context-panel__body">
+        <div class="context-section">
+          <h4 class="context-section__title">Today's Stats</h4>
+          <div class="context-stat"><span>Active Users</span><strong>3</strong></div>
+          <div class="context-stat"><span>Journals Logged</span><strong>36</strong></div>
+          <div class="context-stat"><span>AI Requests</span><strong>1,284</strong></div>
+          <div class="context-stat"><span>Revenue Today</span><strong>₹18,981</strong></div>
+        </div>
+        <div class="context-section">
+          <h4 class="context-section__title">Quick Actions</h4>
+          <button class="btn btn--ghost btn--sm context-action"
+            onclick="showToast('Navigating to users page');navigateTo('users')">👤 View Users</button>
+          <button class="btn btn--ghost btn--sm context-action"
+            onclick="showToast('Navigating to reports');navigateTo('reports')">📄 Check Reports</button>
+          <button class="btn btn--ghost btn--sm context-action"
+            onclick="showToast('Navigating to system health');navigateTo('system-health')">🔧 System Health</button>
+        </div>
+        <div class="context-section">
+          <h4 class="context-section__title">Online Now</h4>
+          <div class="online-users">
+            <div class="online-user"><span class="online-dot"></span>Siddhesh</div>
+            <div class="online-user"><span class="online-dot"></span>Sakshi Bhuwania</div>
+            <div class="online-user"><span class="online-dot"></span>Siddhu</div>
+            <div class="online-user"><span class="online-dot"></span>Dr. Ananya Sen</div>
           </div>
         </div>
-      </header>
-
-      <!-- MAIN CONTENT WORKSPACE -->
-      <main class="workspace" id="workspace">
-        <!-- WORKSPACE VIEWS WILL BE RENDERED HERE VIA JAVASCRIPT -->
-      </main>
-    </div>
-
-    <!-- SLIDING CONTEXT DRAWER -->
-    <div class="drawer-overlay" id="drawerOverlay"></div>
-    <div class="drawer" id="contextDrawer">
-      <div class="drawer-header">
-        <h3 id="drawerTitle">User Profile & Timeline</h3>
-        <button class="drawer-close" id="drawerClose">✕</button>
-      </div>
-      <div class="drawer-body" id="drawerBody">
-        <!-- DRAWER CONTENT INJECTED BY JS -->
-      </div>
-    </div>
-
-    <!-- MODAL WINDOW CONTAINER -->
-    <div class="modal-overlay" id="modalOverlay">
-      <div class="modal" id="modalContainer">
-        <div class="modal-header">
-          <h3 id="modalTitle">Modal Title</h3>
-          <button class="modal-close" id="modalClose">✕</button>
-        </div>
-        <div class="modal-body" id="modalBody">
-          <!-- MODAL CONTENT INJECTED BY JS -->
+        <div class="context-section">
+          <h4 class="context-section__title">TODO: Founders' Decisions</h4>
+          <div class="todo-item"
+            style="background:var(--color-bg-warning);border-left:3px solid var(--color-warning);padding:0.625rem;border-radius:0.375rem;margin-bottom:0.5rem">
+            <p style="font-size:0.8rem;font-style:italic">Define monthly report structure and delivery schedule.</p>
+            <span class="badge badge--warning">Decision Needed</span>
+          </div>
+          <div class="todo-item"
+            style="background:var(--color-bg-warning);border-left:3px solid var(--color-warning);padding:0.625rem;border-radius:0.375rem">
+            <p style="font-size:0.8rem;font-style:italic">Select SMS provider and notification opt-in flow.</p>
+            <span class="badge badge--warning">Decision Needed</span>
+          </div>
         </div>
       </div>
-    </div>
+    </aside>
 
-    <!-- TOAST NOTIFICATION CONTAINER -->
-    <div class="toast-container" id="toastContainer"></div>
-  </div>
+  </div><!-- /app -->
 
-  <script src="app.js"></script>
+  <script src="script.js"></script>
 </body>
+
 </html>
