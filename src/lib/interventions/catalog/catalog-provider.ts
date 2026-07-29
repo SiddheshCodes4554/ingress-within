@@ -1,12 +1,15 @@
 import { SEED_INTERVENTIONS } from './seed-data';
 import { Intervention } from '../types/intervention';
 import { supabase } from '../../db';
+import { ContentValidator } from '../validators/content.validator';
+import { ContentMigrator } from '../engine/content/migrator';
 
 export class CatalogProvider {
   private static cachedCatalog: Intervention[] | null = null;
 
   /**
    * Retrieves full catalog with fallback to memory seed data if DB is unavailable or empty.
+   * All loaded definitions are validated and migrated deterministically.
    */
   public static async getCatalog(): Promise<Intervention[]> {
     if (this.cachedCatalog && process.env.NODE_ENV !== 'development') {
@@ -18,52 +21,30 @@ export class CatalogProvider {
         .from('interventions')
         .select('*')
         .eq('status', 'active')
-        .is('deleted_at', null)
         .order('id', { ascending: true });
 
       if (!error && data && data.length > 0) {
-        this.cachedCatalog = data as Intervention[];
+        const validated = data.map((item) => {
+          const migrated = ContentMigrator.migrate(item);
+          ContentValidator.validate(migrated);
+          return item as Intervention;
+        });
+
+        this.cachedCatalog = validated;
         return this.cachedCatalog;
       }
     } catch (err) {
       console.warn('[CatalogProvider] Supabase query fallback to seed data:', err);
     }
 
-    // Fallback to in-memory seed catalog
-    this.cachedCatalog = SEED_INTERVENTIONS;
-    return SEED_INTERVENTIONS;
-  }
+    // Fallback to in-memory seed catalog validated through ContentValidator
+    const validatedSeed = SEED_INTERVENTIONS.map((item) => {
+      const migrated = ContentMigrator.migrate(item);
+      ContentValidator.validate(migrated);
+      return item;
+    });
 
-  /**
-   * Ensures the DB has the initial seed interventions.
-   */
-  public static async seedDatabaseIfEmpty(): Promise<boolean> {
-    try {
-      const { count, error: countErr } = await supabase
-        .from('interventions')
-        .select('*', { count: 'exact', head: true });
-
-      if (countErr) {
-        console.warn('[CatalogProvider] DB seed check failed:', countErr.message);
-        return false;
-      }
-
-      if (count === 0) {
-        console.log('[CatalogProvider] Seeding 35 interventions into database...');
-        const { error: insertErr } = await supabase
-          .from('interventions')
-          .upsert(SEED_INTERVENTIONS, { onConflict: 'id' });
-
-        if (insertErr) {
-          console.error('[CatalogProvider] Seeding error:', insertErr.message);
-          return false;
-        }
-        console.log('[CatalogProvider] Database successfully seeded!');
-        return true;
-      }
-    } catch (e) {
-      console.error('[CatalogProvider] Unexpected seeding error:', e);
-    }
-    return false;
+    this.cachedCatalog = validatedSeed;
+    return validatedSeed;
   }
 }
