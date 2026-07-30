@@ -55,6 +55,6 @@ export function buildSequence(personalisedWords: string[]): SequenceItem[] {
     { position: 9,  word: has3 ? p[2] : 'STILL',         source: has3 ? 'personalised' : 'fixed' },
     { position: 10, word: 'CLOSE',                       source: 'fixed' },
     { position: 11, word: has3 ? 'STILL' : 'BREAK',      source: 'fixed' },
-    { position: 12, word: has3 ? 'BREAK' : 'CHANGE',     source: 'fixed' }
+    { position: 12, word: has3 ? 'BREAK' : 'TRUST',      source: 'fixed' }
   ];
 }

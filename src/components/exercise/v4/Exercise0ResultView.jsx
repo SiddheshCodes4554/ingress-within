@@ -83,7 +83,7 @@ export default function Exercise0ResultView({ instanceId, onClose }) {
     { label: 'Conscientiousness', score: scores.conscientiousness ?? 70, desc: 'Structure & goal discipline' },
     { label: 'Extraversion', score: scores.extraversion ?? 65, desc: 'Social engagement & energy' },
     { label: 'Agreeableness', score: scores.agreeableness ?? 80, desc: 'Empathy & interpersonal harmony' },
-    { label: 'Emotional Sensitivity (Neuroticism)', score: scores.neuroticism ?? 60, desc: 'Reactivity to environmental stress' }
+    { label: 'Emotional Sensitivity', score: scores.neuroticism ?? 60, desc: 'Reactivity to environmental stress' }
   ];
 
   return (
@@ -96,7 +96,7 @@ export default function Exercise0ResultView({ instanceId, onClose }) {
               <Brain className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-serif italic text-xl text-primary">Exercise 0: OCEAN Baseline Analysis</h2>
+              <h2 className="font-serif italic text-xl text-primary">Baseline Assessment Analysis</h2>
               <p className="text-xs text-mid flex items-center gap-1.5 mt-0.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Immutable Stored Assessment
               </p>
@@ -111,7 +111,7 @@ export default function Exercise0ResultView({ instanceId, onClose }) {
           </button>
         </header>
 
-        {/* Executive Summary Card */}
+        {/* Executive Synthesis Card */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -127,19 +127,19 @@ export default function Exercise0ResultView({ instanceId, onClose }) {
           </div>
 
           <p className="text-base text-primary font-serif italic leading-relaxed">
-            "{result.summary || analysis.summary || 'Your baseline OCEAN psychometric profile has been synthesized and recorded.'}"
+            "{result.summary || analysis.summary || 'Your baseline psychometric profile has been synthesized and recorded.'}"
           </p>
         </motion.div>
 
-        {/* Big Five OCEAN Trait Scores Grid */}
+        {/* Personalization Profile Grid */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white/70 backdrop-blur-md border border-white/90 rounded-3xl p-8 space-y-6 shadow-sm"
         >
           <div className="space-y-1">
-            <h3 className="text-lg font-serif italic text-primary">Big Five Personality Traits</h3>
-            <p className="text-xs text-mid">Calculated baseline dimensions from your initial 10-item psychometric response.</p>
+            <h3 className="text-lg font-serif italic text-primary">Personalization Profile</h3>
+            <p className="text-xs text-mid">Calculated baseline dimensions used to personalize your experience.</p>
           </div>
 
           <div className="space-y-4">

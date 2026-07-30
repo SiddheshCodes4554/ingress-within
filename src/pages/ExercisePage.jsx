@@ -28,16 +28,16 @@ import Exercise3ResultView from '../components/exercise/v4/Exercise3ResultView';
 // Founder-approved exercise definitions & titles
 const EXERCISE_METADATA = {
   exercise_0: {
-    title: 'Baseline OCEAN Assessment',
+    title: 'Baseline Assessment',
     category: 'Baseline',
-    description: '12-question Big Five personality baseline measuring Neuroticism, Extraversion, Openness, Agreeableness, and Conscientiousness.',
+    description: '12-question initial assessment used to personalize your experience.',
     unlockDay: 1,
     getProgress: (inst) => `Question ${inst.current_step || 1} of 12`
   },
   ocean: {
-    title: 'Baseline OCEAN Assessment',
+    title: 'Baseline Assessment',
     category: 'Baseline',
-    description: '12-question Big Five personality baseline measuring Neuroticism, Extraversion, Openness, Agreeableness, and Conscientiousness.',
+    description: '12-question initial assessment used to personalize your experience.',
     unlockDay: 1,
     getProgress: (inst) => `Question ${inst.current_step || 1} of 12`
   },

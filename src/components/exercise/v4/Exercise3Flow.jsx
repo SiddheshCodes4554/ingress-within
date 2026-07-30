@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Exercise3ResultView from './Exercise3ResultView';
 
 export const EXERCISE_3_QUESTIONS = [
   {
@@ -138,10 +139,10 @@ export default function Exercise3Flow({ instance, initialResponses = [], onClose
           responses: formattedResponses
         })
       });
+      setCurrentQ(7);
     } catch (err) {
       console.error('[Exercise3Flow] Submission error:', err);
-    } finally {
-      if (onComplete) onComplete();
+      setCurrentQ(7);
     }
   };
 
@@ -202,6 +203,19 @@ export default function Exercise3Flow({ instance, initialResponses = [], onClose
           </div>
         </div>
       </div>
+    );
+  }
+
+  // ── 2B. RESULT / REFLECTION SCREEN ─────────────────────────────────────
+  if (currentQ === 7) {
+    return (
+      <Exercise3ResultView
+        instanceId={instance.id}
+        onClose={() => {
+          if (onComplete) onComplete();
+          else if (onClose) onClose();
+        }}
+      />
     );
   }
 

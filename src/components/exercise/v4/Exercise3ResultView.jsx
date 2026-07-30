@@ -60,7 +60,7 @@ export default function Exercise3ResultView({ instanceId, onClose }) {
   const summary = resultData.summary || analysis.ai_analysis_text || 'Your responses have been recorded and saved into your Day 30 report.';
   const gapScore = typeof analysis.gap_score === 'number' ? analysis.gap_score : null;
   const gapSeverity = analysis.gap_severity || (gapScore === null ? null : gapScore <= 1 ? 'low' : gapScore <= 3 ? 'moderate' : 'significant');
-  const rawResponses = analysis.raw_responses || [];
+  const rawResponses = analysis.raw_responses || resultData.responses || resultData.raw_responses || [];
 
   const completedAtFormatted = resultData.generated_at || resultData.created_at
     ? new Date(resultData.generated_at || resultData.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -157,7 +157,13 @@ export default function Exercise3ResultView({ instanceId, onClose }) {
           {/* 5 Saved Question Responses */}
           <div className="space-y-6 pt-2">
             {EXERCISE_3_QUESTIONS.map((q) => {
-              const found = rawResponses.find(r => r.question_id === `question_${q.id}` || r.question === q.id);
+              const found = rawResponses.find(r =>
+                r.question_id === `question_${q.id}` ||
+                r.question_id === `q${q.id}` ||
+                r.question === String(q.id) ||
+                String(r.question_id || '').endsWith(String(q.id)) ||
+                Number(r.step || r.current_step || r.position) === q.id
+              );
               const userResponse = found?.response || '—';
 
               return (

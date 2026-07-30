@@ -262,7 +262,7 @@ export default function Exercise0Flow({ instanceId, onClose, onComplete }) {
               <hr className="w-8 border-t-2 border-[#B8A8D4] my-4" />
 
               <p className="text-[13px] leading-[1.65] text-[#4A6A64]">
-                This shapes how we respond to you. You won't see it again — but it's working in the background.
+                This will be used to personalize your experience.
               </p>
             </div>
 

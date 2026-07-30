@@ -3,8 +3,8 @@ import { ExerciseDefinition } from '../types/exercise.types';
 export const EXERCISE_0_DEFINITION: ExerciseDefinition = {
   id: 'exercise_0',
   exercise_type: 'ocean_baseline',
-  title: 'Cognitive & Emotional Baseline',
-  description: '12-item OCEAN baseline assessment measuring core processing styles.',
+  title: 'Baseline Assessment',
+  description: 'Initial assessment used to personalize your experience.',
   unlock_rules: { day: 1, cycle: 1, strategy: 'immediate' },
   cycle: 1,
   frequency: 'once_per_cycle',

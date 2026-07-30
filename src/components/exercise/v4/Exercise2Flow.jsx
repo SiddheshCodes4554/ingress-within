@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { InkblotImagePreloader } from '../../../lib/exercises/v4/imageGen/inkblotImagePreloader';
 import { INKBLOT_IMAGE_ROLES, InkblotImageGenerator } from '../../../lib/exercises/v4/imageGen/inkblotImageGenerator';
+import Exercise2ResultView from './Exercise2ResultView';
 
 export default function Exercise2Flow({ instance, initialResponses = [], onClose, onComplete }) {
   const [screen, setScreen] = useState('preparing'); // 'preparing' | 'intro' | 'step' | 'transition' | 'loading' | 'reflection' | 'failed'
@@ -141,7 +142,6 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
           if (currentStatus === 'completed') {
             if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
             setScreen('reflection');
-            if (onComplete) onComplete();
           } else if (currentStatus === 'failed' || attempts > 12) {
             if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
             setScreen('failed');
@@ -375,54 +375,13 @@ export default function Exercise2Flow({ instance, initialResponses = [], onClose
   // ── 6. REFLECTION SCREEN ────────────────────────────────────────────────
   if (screen === 'reflection') {
     return (
-      <div className="fixed inset-0 z-50 bg-[#ECEFF0] text-[#1E2A2E] flex flex-col justify-between p-6 font-sans overflow-y-auto">
-        <div className="max-w-[480px] w-full mx-auto py-8 space-y-6">
-          <div className="flex items-center justify-between border-b border-[#1E2A2E]/10 pb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-[18px] h-[18px] rounded-full border-[1.5px] border-[#8DBFB4] flex items-center justify-center">
-                <div className="w-[5px] h-[5px] rounded-full bg-[#8DBFB4]" />
-              </div>
-              <span className="font-sans font-semibold text-sm">ingress <em className="text-[#8DBFB4] not-italic">within</em></span>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-xs font-semibold text-[#4A6A64] hover:text-[#1E2A2E] cursor-pointer"
-            >
-              Close
-            </button>
-          </div>
-
-          <div>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#8DBFB4]">EXECUTIVE SYNTHESIS</span>
-            <h2 className="font-serif italic text-xl text-[#1E2A2E] mt-2 mb-4">
-              "Your responses have been recorded and analyzed."
-            </h2>
-            <hr className="w-8 border-t-2 border-[#B8A8D4] mb-4" />
-            <p className="text-xs text-[#4A6A64]">
-              This feeds into your Day 30 report.
-            </p>
-          </div>
-
-          <div className="space-y-4 pt-4 border-t border-[#1E2A2E]/10">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#8DBFB4]">YOUR RESPONSES</span>
-            {responses.map((r, idx) => (
-              <div key={idx} className="bg-white rounded-xl p-3.5 border border-[#1E2A2E]/5 text-xs space-y-1">
-                <span className="text-[10px] font-semibold text-[#8DBFB4] uppercase">Card {r.image_id} · Step {r.step}</span>
-                <p className="font-serif italic text-[#1E2A2E]">"{r.response}"</p>
-              </div>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full py-3.5 rounded-lg bg-[#1E2A2E] text-white text-sm font-semibold hover:bg-[#1E2A2E]/90 transition-all cursor-pointer"
-          >
-            Return to Dashboard
-          </button>
-        </div>
-      </div>
+      <Exercise2ResultView
+        instanceId={instance.id}
+        onClose={() => {
+          if (onComplete) onComplete();
+          else if (onClose) onClose();
+        }}
+      />
     );
   }
 
