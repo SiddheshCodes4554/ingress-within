@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRight, BookOpen, Edit3, CheckCircle2 } from 'lucide-react';
 
 export function InstructionStep({ step, initialValue = '', onSaveAnswer, onNext, isSubmitting }) {
-  const hasWriteIn = !!step.optional_question || /\b(write|jot down|list|note|log|identify|name|record|detail|draft|summarize|answer|reflect|describe|state)\b/i.test(step.content || '');
+  const needsResponse = (text) => /\b(write|jot down|list|note|log)\b/i.test(text || '');
+  const hasWriteIn = !!step.optional_question || step.step_type === 'reflection' || step.step_type === 'text' || needsResponse(step.content);
   const qId = step.optional_question?.id || step.step_id || `q_${step.step_number}`;
 
   const [text, setText] = useState(initialValue);
@@ -53,31 +54,33 @@ export function InstructionStep({ step, initialValue = '', onSaveAnswer, onNext,
         ))}
       </div>
 
-      <div className="mb-8 relative border-t border-accent/15 pt-6 mt-6">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5 text-xs text-supporting font-semibold uppercase tracking-wider">
-            <Edit3 size={14} className="text-accent" />
-            <span>Your notes / reflection (optional)</span>
+      {hasWriteIn && (
+        <div className="mb-8 relative border-t border-accent/15 pt-6 mt-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5 text-xs text-supporting font-semibold uppercase tracking-wider">
+              <Edit3 size={14} className="text-accent" />
+              <span>Write your response</span>
+            </div>
+            {isSaved && (
+              <span className="flex items-center gap-1 text-emerald-600 text-xs font-medium lowercase">
+                <CheckCircle2 size={13} /> Saved
+              </span>
+            )}
           </div>
-          {isSaved && (
-            <span className="flex items-center gap-1 text-emerald-600 text-xs font-medium lowercase">
-              <CheckCircle2 size={13} /> Saved
-            </span>
-          )}
+          <textarea
+            rows={3}
+            value={text}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            placeholder="Write here — it's saved automatically."
+            className="w-full p-3.5 rounded-xl border border-accent/25 bg-white text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all resize-y shadow-xs"
+          />
+          <div className="flex justify-between items-center text-[11px] text-supporting mt-1 px-0.5">
+            <span>Saved privately in your session log.</span>
+            <span>{text.length} characters</span>
+          </div>
         </div>
-        <textarea
-          rows={3}
-          value={text}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          placeholder="Write any thoughts, observations, or notes for this step..."
-          className="w-full p-3.5 rounded-xl border border-accent/25 bg-white text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all resize-y shadow-xs"
-        />
-        <div className="flex justify-between items-center text-[11px] text-supporting mt-1 px-0.5">
-          <span>Saved privately in your session log.</span>
-          <span>{text.length} characters</span>
-        </div>
-      </div>
+      )}
 
       {step.optional_media && step.optional_media.url && (
         <div className="mb-8 rounded-2xl overflow-hidden border border-accent/20 bg-mint-grey/50 p-2">

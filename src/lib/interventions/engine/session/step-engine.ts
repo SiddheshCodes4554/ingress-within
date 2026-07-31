@@ -12,7 +12,7 @@ export class StepEngine {
     const defaultStepDurationSeconds = Math.ceil((totalDurationMinutes * 60) / Math.max(1, rawSteps.length));
 
     const needsResponse = (text: string) =>
-      /\b(write|jot down|list|note|log|identify|name|record|detail|draft|summarize|answer|reflect|describe|state)\b/i.test(text || '');
+      /\b(write|jot down|list|note|log)\b/i.test(text || '');
 
     return rawSteps.map((stepItem, index) => {
       const stepNumber = index + 1;
