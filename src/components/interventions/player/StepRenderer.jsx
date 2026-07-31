@@ -22,11 +22,14 @@ export function StepRenderer({
 
   const type = (step.step_type || 'instruction').toLowerCase();
 
+  const keyId = step.step_id || `step_${step.step_number || 1}`;
+
   switch (type) {
     case 'text':
     case 'reflection':
       return (
         <TextStep
+          key={keyId}
           step={step}
           initialValue={initialAnswer || ''}
           onSaveAnswer={onSaveAnswer}
@@ -38,6 +41,7 @@ export function StepRenderer({
     case 'checklist':
       return (
         <ChecklistStep
+          key={keyId}
           step={step}
           onNext={onNext}
           isSubmitting={isSubmitting}
@@ -47,6 +51,7 @@ export function StepRenderer({
     case 'breathing':
       return (
         <BreathingStep
+          key={keyId}
           step={step}
           onNext={onNext}
           isSubmitting={isSubmitting}
@@ -56,6 +61,7 @@ export function StepRenderer({
     case 'timer':
       return (
         <TimerStep
+          key={keyId}
           step={step}
           onNext={onNext}
           isSubmitting={isSubmitting}
@@ -68,6 +74,7 @@ export function StepRenderer({
     case 'media':
       return (
         <MediaStep
+          key={keyId}
           step={step}
           onNext={onNext}
           isSubmitting={isSubmitting}
@@ -77,6 +84,7 @@ export function StepRenderer({
     case 'completion':
       return (
         <CompletionStep
+          key="completion_step"
           intervention={intervention}
           session={session}
           progress={progress}
@@ -88,6 +96,7 @@ export function StepRenderer({
     default:
       return (
         <InstructionStep
+          key={keyId}
           step={step}
           initialValue={initialAnswer || ''}
           onSaveAnswer={onSaveAnswer}

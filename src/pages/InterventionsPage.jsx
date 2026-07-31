@@ -83,21 +83,9 @@ export default function InterventionsPage() {
     }
   };
 
-  const openInterventionDetail = async (item) => {
-    try {
-      const res = await fetch(`/api/interventions/${item.id}`);
-      const json = await res.json();
-      if (json.success) {
-        setActiveIntervention(json.data.intervention);
-        setIsFavorite(json.data.is_favorite);
-        setActiveSession(json.data.active_session || null);
-        setCurrentStep(0);
-        setStepResponses({});
-        setIsFinished(false);
-        setViewMode('detail');
-      }
-    } catch (e) {
-      console.error('Error fetching intervention detail:', e);
+  const openInterventionDetail = (item) => {
+    if (item && (item.id || item.slug)) {
+      setPlayerInterventionId(item.id || item.slug);
     }
   };
 
