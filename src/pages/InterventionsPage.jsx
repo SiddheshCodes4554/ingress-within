@@ -29,6 +29,7 @@ export default function InterventionsPage() {
   // View modes: 'grid' | 'detail' | 'history'
   const [viewMode, setViewMode] = useState('grid');
   const [history, setHistory] = useState([]);
+  const [expandedHistoryId, setExpandedHistoryId] = useState(null);
   const [showCrisisModal, setShowCrisisModal] = useState(false);
 
   // Load Categories & Catalog
@@ -509,45 +510,78 @@ export default function InterventionsPage() {
                         })
                       : 'Recently';
 
+                    const entryResponses = entry.responses || entry.notes || [];
+                    const isExpanded = expandedHistoryId === (entry.id || idx);
+
                     return (
                       <div
                         key={idx}
-                        className="p-4 bg-white rounded-xl border border-primary/10 flex items-center justify-between gap-4 shadow-xs hover:border-accent/30 transition-all"
+                        className="p-4 bg-white rounded-xl border border-primary/10 flex flex-col gap-3 shadow-xs hover:border-accent/30 transition-all"
                       >
-                        <div>
-                          <div className="text-sm font-semibold text-primary font-serif italic">
-                            {entry.intervention?.title || entry.intervention_id}
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <div className="text-sm font-semibold text-primary font-serif italic">
+                              {entry.intervention?.title || entry.intervention_id}
+                            </div>
+                            <div className="text-xs text-mid font-mono mt-1 flex items-center gap-1.5">
+                              <Clock size={12} className="text-accent" />
+                              <span>Started: {dateStr}</span>
+                            </div>
                           </div>
-                          <div className="text-xs text-mid font-mono mt-1 flex items-center gap-1.5">
-                            <Clock size={12} className="text-accent" />
-                            <span>Started: {dateStr}</span>
-                          </div>
-                        </div>
 
-                        <div className="flex items-center gap-3">
-                          <span
-                            className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
-                              isCompleted
-                                ? 'bg-secondary/20 text-[#1A5040]'
-                                : 'bg-amber-100/90 text-amber-900 border border-amber-300/60'
-                            }`}
-                          >
-                            {isCompleted ? 'Completed' : 'Started'}
-                          </span>
-
-                          {!isCompleted && (
-                            <button
-                              onClick={() => {
-                                setPlayerInterventionId(entry.intervention_id || entry.intervention?.id);
-                                setPlayerSessionId(entry.session_id || entry.id || null);
-                              }}
-                              className="px-3.5 py-1.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary/90 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                          <div className="flex items-center gap-2 flex-wrap justify-end">
+                            <span
+                              className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
+                                isCompleted
+                                  ? 'bg-secondary/20 text-[#1A5040]'
+                                  : 'bg-amber-100/90 text-amber-900 border border-amber-300/60'
+                              }`}
                             >
-                              <Play size={12} className="fill-white" />
-                              <span>Continue</span>
-                            </button>
-                          )}
+                              {isCompleted ? 'Completed' : 'Started'}
+                            </span>
+
+                            {entryResponses.length > 0 && (
+                              <button
+                                onClick={() => setExpandedHistoryId(isExpanded ? null : (entry.id || idx))}
+                                className="px-3 py-1.5 bg-mint-grey hover:bg-accent/15 text-primary text-xs font-medium rounded-lg transition-all cursor-pointer border border-primary/10"
+                              >
+                                {isExpanded ? 'Hide Notes' : `View Notes (${entryResponses.length})`}
+                              </button>
+                            )}
+
+                            {!isCompleted && (
+                              <button
+                                onClick={() => {
+                                  setPlayerInterventionId(entry.intervention_id || entry.intervention?.id);
+                                  setPlayerSessionId(entry.session_id || entry.id || null);
+                                }}
+                                className="px-3.5 py-1.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary/90 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                              >
+                                <Play size={12} className="fill-white" />
+                                <span>Continue</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
+
+                        {/* Collapsible Written Notes Section */}
+                        {isExpanded && entryResponses.length > 0 && (
+                          <div className="pt-3 border-t border-primary/10 space-y-2 text-xs">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-mid block">
+                              What You Wrote
+                            </span>
+                            {entryResponses.map((r, rIdx) => (
+                              <div key={rIdx} className="bg-mint-grey/60 rounded-lg p-3 border border-primary/5 space-y-0.5">
+                                <span className="text-[10px] font-semibold text-secondary uppercase tracking-wider block">
+                                  {r.question_prompt || r.question_id || `Response ${rIdx + 1}`}
+                                </span>
+                                <p className="font-serif italic text-primary text-xs whitespace-pre-wrap">
+                                  "{r.answer || r.response}"
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

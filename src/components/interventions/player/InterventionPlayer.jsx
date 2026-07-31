@@ -235,7 +235,23 @@ export function InterventionPlayer({ interventionId, sessionId: initialSessionId
           <StepRenderer
             step={{ step_type: 'completion' }}
             intervention={intervention}
-            session={session}
+            session={{
+              ...session,
+              elapsed_seconds: elapsedSeconds,
+              completed_at: session?.completed_at || new Date().toISOString(),
+              responses: Object.entries(answers)
+                .filter(([_, ans]) => ans && String(ans).trim().length > 0)
+                .map(([qId, ans]) => {
+                  const matchingStep = steps.find(
+                    (s) => s.optional_question?.id === qId || s.step_id === qId || `q_${s.step_number}` === qId
+                  );
+                  return {
+                    question_id: qId,
+                    question_prompt: matchingStep?.content || matchingStep?.title || qId,
+                    answer: ans,
+                  };
+                }),
+            }}
             progress={progress}
             onReturnToDashboard={onComplete || onBack}
           />
@@ -245,7 +261,13 @@ export function InterventionPlayer({ interventionId, sessionId: initialSessionId
             intervention={intervention}
             session={session}
             progress={progress}
-            initialAnswer={currentStep?.optional_question?.id ? answers[currentStep.optional_question.id] : undefined}
+            initialAnswer={
+              answers[currentStep?.optional_question?.id] ||
+              answers[currentStep?.step_id] ||
+              answers[`q_${currentStep?.step_number}`] ||
+              answers[`q_${intervention?.id}_step_${currentStep?.step_number}`] ||
+              ''
+            }
             onSaveAnswer={handleSaveAnswer}
             onNext={handleNext}
             isSubmitting={isSubmitting}

@@ -101,10 +101,19 @@ export class HistoryRepository {
         const enriched = await Promise.all(
           data.map(async (item) => {
             const intervention = await interventionRepo.findByIdOrSlug(item.intervention_id);
+            let responses: any[] = [];
+            if (item.session_id || item.id) {
+              const { data: respData } = await supabase
+                .from('intervention_responses')
+                .select('*')
+                .eq('session_id', item.session_id || item.id);
+              responses = respData || [];
+            }
             return {
               ...item,
               intervention: intervention || undefined,
-            } as InterventionHistory;
+              responses,
+            } as any;
           })
         );
 

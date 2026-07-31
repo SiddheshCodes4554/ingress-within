@@ -89,6 +89,8 @@ export function StepRenderer({
       return (
         <InstructionStep
           step={step}
+          initialValue={initialAnswer || ''}
+          onSaveAnswer={onSaveAnswer}
           onNext={onNext}
           isSubmitting={isSubmitting}
         />

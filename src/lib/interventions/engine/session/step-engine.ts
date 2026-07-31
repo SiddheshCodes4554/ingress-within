@@ -11,19 +11,23 @@ export class StepEngine {
     const totalDurationMinutes = intervention.estimated_duration || intervention.duration_minutes || (intervention as any).duration || 5;
     const defaultStepDurationSeconds = Math.ceil((totalDurationMinutes * 60) / Math.max(1, rawSteps.length));
 
+    const needsResponse = (text: string) =>
+      /\b(write|jot down|list|note|log|identify|name|record|detail|draft|summarize|answer|reflect|describe|state)\b/i.test(text || '');
+
     return rawSteps.map((stepItem, index) => {
       const stepNumber = index + 1;
       const questionForStep = questions.find((q) => q.step_index === index || q.step_index === stepNumber);
 
       if (typeof stepItem === 'string') {
-        // Simple text / instruction step
+        const isWriteStep = !!questionForStep || needsResponse(stepItem);
+        const qObj = questionForStep || (isWriteStep ? { id: `q_${intervention.id}_step_${stepNumber}`, prompt: stepItem, type: 'text' } : undefined);
         return {
           step_id: `step_${intervention.id}_${stepNumber}`,
           step_number: stepNumber,
-          step_type: questionForStep ? 'reflection' : 'instruction',
+          step_type: isWriteStep ? 'reflection' : 'instruction',
           title: `Step ${stepNumber}`,
           content: stepItem,
-          optional_question: questionForStep,
+          optional_question: qObj,
           estimated_duration: defaultStepDurationSeconds,
           allow_previous: true,
           auto_advance: false,
@@ -32,13 +36,17 @@ export class StepEngine {
 
       // Pre-structured step object
       const s = stepItem as any;
+      const stepContent = s.content || s.instruction || '';
+      const isWriteStep = s.step_type === 'reflection' || s.step_type === 'text' || !!s.optional_question || !!questionForStep || needsResponse(stepContent || s.title || '');
+      const qObj = s.optional_question || questionForStep || (isWriteStep ? { id: `q_${intervention.id}_step_${stepNumber}`, prompt: stepContent || s.title || '', type: 'text' } : undefined);
+
       return {
         step_id: s.step_id || `step_${intervention.id}_${stepNumber}`,
         step_number: stepNumber,
-        step_type: s.step_type || 'instruction',
+        step_type: isWriteStep ? (s.step_type || 'reflection') : (s.step_type || 'instruction'),
         title: s.title || `Step ${stepNumber}`,
-        content: s.content || '',
-        optional_question: s.optional_question || questionForStep,
+        content: stepContent,
+        optional_question: qObj,
         optional_media: s.optional_media,
         items: s.items,
         estimated_duration: s.estimated_duration || defaultStepDurationSeconds,

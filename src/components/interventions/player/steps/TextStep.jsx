@@ -9,19 +9,21 @@ export function TextStep({ step, initialValue = '', onSaveAnswer, onNext, isSubm
     setText(initialValue);
   }, [initialValue]);
 
+  const qId = step.optional_question?.id || step.step_id || `q_${step.step_number}`;
+
   const handleChange = (e) => {
     const val = e.target.value;
     setText(val);
     setIsSaved(false);
-    if (onSaveAnswer && step.optional_question?.id) {
-      onSaveAnswer(step.optional_question.id, val);
+    if (onSaveAnswer && qId) {
+      onSaveAnswer(qId, val);
       setIsSaved(true);
     }
   };
 
   const handleBlur = () => {
-    if (onSaveAnswer && step.optional_question?.id) {
-      onSaveAnswer(step.optional_question.id, text);
+    if (onSaveAnswer && qId) {
+      onSaveAnswer(qId, text);
       setIsSaved(true);
     }
   };

@@ -50,6 +50,25 @@ export function CompletionStep({ intervention, session, progress, onReturnToDash
         </div>
       </div>
 
+      {/* What You Wrote (Private Stored Notes) */}
+      {session?.responses && session.responses.length > 0 && (
+        <div className="w-full bg-white rounded-2xl border border-accent/20 p-6 mb-8 shadow-sm text-left space-y-3">
+          <div className="text-xs text-supporting uppercase tracking-wider font-semibold border-b border-accent/10 pb-2">
+            What You Wrote
+          </div>
+          {session.responses.map((resp, idx) => (
+            <div key={idx} className="bg-mint-grey/50 rounded-xl p-3.5 border border-accent/10 text-xs space-y-1">
+              <span className="text-[10px] font-semibold text-accent uppercase tracking-wider block">
+                {resp.question_prompt || resp.question_id || `Note ${idx + 1}`}
+              </span>
+              <p className="font-serif italic text-primary text-sm whitespace-pre-wrap">
+                "{resp.answer || resp.response}"
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Primary Action Button */}
       <button
         onClick={onReturnToDashboard}
