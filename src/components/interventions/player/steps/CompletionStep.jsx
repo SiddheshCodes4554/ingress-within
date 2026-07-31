@@ -56,16 +56,35 @@ export function CompletionStep({ intervention, session, progress, onReturnToDash
           <div className="text-xs text-supporting uppercase tracking-wider font-semibold border-b border-accent/10 pb-2">
             What You Wrote
           </div>
-          {session.responses.map((resp, idx) => (
-            <div key={idx} className="bg-mint-grey/50 rounded-xl p-3.5 border border-accent/10 text-xs space-y-1">
-              <span className="text-[10px] font-semibold text-accent uppercase tracking-wider block">
-                {resp.question_prompt || resp.question_id || `Note ${idx + 1}`}
-              </span>
-              <p className="font-serif italic text-primary text-sm whitespace-pre-wrap">
-                "{resp.answer || resp.response}"
-              </p>
-            </div>
-          ))}
+          {session.responses.map((resp, idx) => {
+            let label = resp.question_prompt || resp.prompt || '';
+            const rawId = resp.question_id || label;
+            if (!label || label.startsWith('q_') || label.startsWith('Q_') || label.startsWith('step_')) {
+              if (intervention?.steps) {
+                const match = rawId.match(/step[_\s]*(\d+)/i);
+                if (match && match[1]) {
+                  const stepIdx = parseInt(match[1], 10) - 1;
+                  const stepObj = intervention.steps[stepIdx];
+                  if (typeof stepObj === 'string') label = stepObj;
+                  else if (stepObj?.content || stepObj?.instruction) label = stepObj.content || stepObj.instruction;
+                }
+              }
+            }
+            if (!label || label.startsWith('q_') || label.startsWith('Q_')) {
+              label = `Note ${idx + 1}`;
+            }
+
+            return (
+              <div key={idx} className="bg-mint-grey/50 rounded-xl p-3.5 border border-accent/10 text-xs space-y-1">
+                <span className="text-[10px] font-semibold text-accent uppercase tracking-wider block">
+                  {label}
+                </span>
+                <p className="font-serif italic text-primary text-sm whitespace-pre-wrap">
+                  "{resp.answer || resp.response}"
+                </p>
+              </div>
+            );
+          })}
         </div>
       )}
 

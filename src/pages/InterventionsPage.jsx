@@ -570,16 +570,33 @@ export default function InterventionsPage() {
                             <span className="text-[10px] font-bold uppercase tracking-wider text-mid block">
                               What You Wrote
                             </span>
-                            {entryResponses.map((r, rIdx) => (
-                              <div key={rIdx} className="bg-mint-grey/60 rounded-lg p-3 border border-primary/5 space-y-0.5">
-                                <span className="text-[10px] font-semibold text-secondary uppercase tracking-wider block">
-                                  {r.question_prompt || r.question_id || `Response ${rIdx + 1}`}
-                                </span>
-                                <p className="font-serif italic text-primary text-xs whitespace-pre-wrap">
-                                  "{r.answer || r.response}"
-                                </p>
-                              </div>
-                            ))}
+                            {entryResponses.map((r, rIdx) => {
+                              let displayPrompt = r.question_prompt || r.prompt || '';
+                              const rawId = r.question_id || displayPrompt;
+                              if (!displayPrompt || displayPrompt.startsWith('q_') || displayPrompt.startsWith('Q_') || displayPrompt.startsWith('step_')) {
+                                const intervention = entry.intervention;
+                                const match = rawId.match(/step[_\s]*(\d+)/i);
+                                if (match && match[1] && intervention?.steps) {
+                                  const stepIdx = parseInt(match[1], 10) - 1;
+                                  const stepObj = intervention.steps[stepIdx];
+                                  if (typeof stepObj === 'string') displayPrompt = stepObj;
+                                  else if (stepObj?.content || stepObj?.instruction) displayPrompt = stepObj.content || stepObj.instruction;
+                                }
+                              }
+                              if (!displayPrompt || displayPrompt.startsWith('q_') || displayPrompt.startsWith('Q_')) {
+                                displayPrompt = `Note ${rIdx + 1}`;
+                              }
+                              return (
+                                <div key={rIdx} className="bg-mint-grey/60 rounded-lg p-3 border border-primary/5 space-y-0.5">
+                                  <span className="text-[10px] font-semibold text-secondary uppercase tracking-wider block">
+                                    {displayPrompt}
+                                  </span>
+                                  <p className="font-serif italic text-primary text-xs whitespace-pre-wrap">
+                                    "{r.answer || r.response}"
+                                  </p>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>

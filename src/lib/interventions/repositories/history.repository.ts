@@ -107,7 +107,31 @@ export class HistoryRepository {
                 .from('intervention_responses')
                 .select('*')
                 .eq('session_id', item.session_id || item.id);
-              responses = respData || [];
+
+              responses = (respData || []).map((r) => {
+                let prompt = r.question_prompt || r.prompt;
+                if ((!prompt || prompt.startsWith('q_') || prompt.startsWith('Q_') || prompt.startsWith('step_')) && intervention) {
+                  const qId = r.question_id || prompt || '';
+                  const match = qId.match(/step[_\s]*(\d+)/i);
+                  if (match && match[1] && intervention.steps) {
+                    const stepIdx = parseInt(match[1], 10) - 1;
+                    const stepObj = intervention.steps[stepIdx];
+                    if (typeof stepObj === 'string') {
+                      prompt = stepObj;
+                    } else if (stepObj && typeof stepObj === 'object') {
+                      prompt = (stepObj as any).content || (stepObj as any).instruction || (stepObj as any).title;
+                    }
+                  }
+                  if ((!prompt || prompt.startsWith('q_') || prompt.startsWith('Q_')) && intervention.questions) {
+                    const foundQ = intervention.questions.find((qItem) => qItem.id === qId);
+                    if (foundQ?.prompt) prompt = foundQ.prompt;
+                  }
+                }
+                return {
+                  ...r,
+                  question_prompt: prompt || 'Step Note',
+                };
+              });
             }
             return {
               ...item,
