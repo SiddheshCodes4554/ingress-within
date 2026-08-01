@@ -416,11 +416,11 @@ INPUT CONTEXT:
 - Previous Reflection (AVOID repeating its phrasing, themes, or question): ${previousReflection || 'None'}
 
 RULES FOR THE OBSERVATION ("reflection"):
-1. Write 2-3 plain, conversational sentences (strictly between 10 and 100 words total).
-2. Point to one specific emotional shift, contradiction, strength, or avoidance in their writing. Go one layer deeper than what they wrote.
+1. Write 2-3 rich, empathetic paragraphs (between 100 and 220 words total).
+2. Deeply mirror their specific words and emotional tone. Point to one specific emotional shift, pattern, or internal contradiction in their writing. Go one layer deeper than what they wrote.
 3. NEVER give advice, suggestions, or directives. Do NOT use phrases like: "you should", "try to", "consider", "remember to", "it is important to", "you need to", "make sure to", "suggest", "recommend", "you could", "try doing".
 4. NEVER use clinical diagnostic labels. Do NOT use: "disorder", "diagnose", "clinical", "therapy", "therapist", "patient", "treatment", "depression", "anxiety", "bipolar", "ptsd", "adhd", "schiz".
-5. Avoid template phrases or repetitive endings (e.g., do NOT end with "Sit with that", "Come back tomorrow", "Take a moment", or similar). Every reflection must feel completely unique to this entry.
+5. Avoid template phrases or repetitive endings. Every reflection must feel completely unique, warm, and deeply tuned to this entry.
 
 RULES FOR THE CLOSING QUESTION ("closing_question"):
 Ask exactly ONE thoughtful question that naturally follows their writing. It must make them face what they are keeping vague or avoiding, focusing on internal experience/feelings (not action).
@@ -433,9 +433,9 @@ You must return a valid JSON object matching the requested schema. Do not output
 Schema:
 {
   "classification": "Flat" | "Open" | "Scattered",
-  "reflection": "The 2-3 plain conversational sentences observing the entry.",
+  "reflection": "The 2-3 rich, empathetic paragraphs observing the entry.",
   "closing_nudge": "Personalized transition nudge.",
-  "closing_question": "Single question.",
+  "closing_question": "Single thoughtful question.",
   "confidence": "high" | "medium" | "low",
   "themes": ["2-4 themes"],
   "vocabulary": ["2-5 key emotion words from entry"],

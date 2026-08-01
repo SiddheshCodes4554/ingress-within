@@ -216,10 +216,10 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
           </div>
         </div>
 
-        {/* Two Column Layout */}
+        {/* Two Column Layout: Journal Entry vs AI Reflection & Crisis Resources */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
-          {/* Left Column: Original Journal Entry & Vocabulary */}
+          {/* Left Column: Original Journal Entry */}
           <div className="lg:col-span-7 space-y-6">
             <div className="bg-white rounded-xl border border-[#1E2A2E]/5 p-6 md:p-8 shadow-[0_8px_32px_rgba(30,42,46,0.02)] space-y-6">
               <div className="border-b border-[#1E2A2E]/5 pb-4 flex items-center justify-between">
@@ -235,194 +235,88 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
             </div>
           </div>
 
-          {/* Right Column: AI Reflection & Continuity */}
+          {/* Right Column: AI Reflection & Crisis Support Banner */}
           <div className="lg:col-span-5 space-y-6">
             
-            {/* AI Reflection or Crisis Support Card */}
+            {/* Compact Crisis Support Banner if Crisis Flagged */}
+            {entry.crisis_flag && (
+              <div className="bg-white rounded-xl border border-accent/20 p-5 shadow-xs space-y-4">
+                <div className="flex items-start gap-2.5 text-accent font-semibold">
+                  <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                  <div>
+                    <div className="text-xs">Confidential Support Services</div>
+                    <p className="text-[11px] text-mid font-normal leading-relaxed mt-0.5">
+                      This entry was flagged for emotional support. Confidential resources are available 24/7.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <a 
+                    href="tel:9152987821" 
+                    className="flex flex-col items-center justify-center p-2.5 bg-accent/5 hover:bg-accent/15 border border-accent/20 rounded-xl transition-all text-center group"
+                  >
+                    <div className="font-semibold text-[11px] text-primary group-hover:text-accent">iCall</div>
+                    <span className="text-[9px] uppercase font-bold text-accent mt-1">Call</span>
+                  </a>
+
+                  <a 
+                    href="tel:18602662345" 
+                    className="flex flex-col items-center justify-center p-2.5 bg-[#8DBFB4]/10 hover:bg-[#8DBFB4]/20 border border-[#8DBFB4]/25 rounded-xl transition-all text-center group"
+                  >
+                    <div className="font-semibold text-[11px] text-primary group-hover:text-[#1A5040]">Vandrevala</div>
+                    <span className="text-[9px] uppercase font-bold text-[#1A5040] mt-1">24/7</span>
+                  </a>
+
+                  <a 
+                    href="https://wa.me/919152987821" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex flex-col items-center justify-center p-2.5 bg-[#B8A8D4]/10 hover:bg-[#B8A8D4]/20 border border-[#B8A8D4]/25 rounded-xl transition-all text-center group"
+                  >
+                    <div className="font-semibold text-[11px] text-primary group-hover:text-[#5A4A8A]">WhatsApp</div>
+                    <span className="text-[9px] uppercase font-bold text-[#5A4A8A] mt-1">Text</span>
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {/* AI Reflection Card */}
             <div className="bg-white rounded-xl border border-[#1E2A2E]/5 p-6 shadow-[0_8px_32px_rgba(30,42,46,0.02)] space-y-5">
               <div className="border-b border-[#1E2A2E]/5 pb-3 flex items-center justify-between">
                 <h3 className="font-serif text-[15px] text-primary font-normal flex items-center gap-2">
-                  {entry.crisis_flag ? (
-                    <>
-                      <HeartHandshake size={16} className="text-accent" />
-                      <span>Support Resources</span>
-                    </>
-                  ) : (
-                    <>
-                      <Compass size={16} className="text-[#5A4A8A]" />
-                      <span>AI Reflection</span>
-                    </>
-                  )}
+                  <Compass size={16} className="text-[#5A4A8A]" />
+                  <span>AI Reflection</span>
                 </h3>
                 
-                {reflection && !entry.crisis_flag && (
-                  <div className="flex gap-1.5">
-                    {reflection.classification && (
-                      <span className="text-[8.5px] bg-[#5A4A8A]/10 text-[#5A4A8A] font-bold uppercase tracking-widest px-2 py-0.5 rounded">
-                        {reflection.classification}
-                      </span>
-                    )}
-                  </div>
+                {reflection?.classification && (
+                  <span className="text-[8.5px] bg-[#5A4A8A]/10 text-[#5A4A8A] font-bold uppercase tracking-widest px-2 py-0.5 rounded">
+                    {reflection.classification}
+                  </span>
                 )}
               </div>
 
-              {entry.crisis_flag ? (
-                <div className="space-y-6 text-left">
-                  <div className="p-4 bg-accent/5 border border-accent/15 rounded-xl space-y-2">
-                    <div className="flex items-start gap-2.5 text-accent font-semibold">
-                      <AlertCircle size={15} className="mt-0.5 shrink-0" />
-                      <div className="text-[12px] leading-relaxed">
-                        Crisis Support Notice
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-mid leading-relaxed pl-6">
-                      This entry was flagged for emotional support. Please use the resources below whenever you need help.
-                    </p>
-                  </div>
-
-                  <div className="space-y-3 pt-1">
-                    <div className="text-[9px] tracking-wider uppercase text-accent font-bold">
-                      Confidential Support Services
-                    </div>
-
-                    <div className="grid gap-3 pt-1">
-                      <a 
-                        href="tel:9152987821" 
-                        className="flex items-center justify-between p-3.5 bg-mint-grey/50 hover:bg-mint-grey rounded-xl border border-[#1E2A2E]/5 hover:border-accent/35 transition-all text-left group"
-                      >
-                        <div>
-                          <div className="font-semibold text-xs text-primary group-hover:text-accent transition-colors">iCall (India)</div>
-                          <div className="text-[10px] text-mid mt-0.5">Psychological counselling · Mon–Sat · 8am–10pm</div>
-                        </div>
-                        <span className="px-2.5 py-1 bg-primary/5 text-primary text-[9px] uppercase font-bold rounded-full group-hover:bg-primary group-hover:text-white transition-all shrink-0">Call</span>
-                      </a>
-
-                      <a 
-                        href="tel:18602662345" 
-                        className="flex items-center justify-between p-3.5 bg-mint-grey/50 hover:bg-mint-grey rounded-xl border border-[#1E2A2E]/5 hover:border-accent/35 transition-all text-left group"
-                      >
-                        <div>
-                          <div className="font-semibold text-xs text-primary group-hover:text-accent transition-colors">Vandrevala Foundation</div>
-                          <div className="text-[10px] text-mid mt-0.5">Mental health support · 24/7 · Free & Confidential</div>
-                        </div>
-                        <span className="px-2.5 py-1 bg-[#8DBFB4]/15 text-[#1A5040] text-[9px] uppercase font-bold rounded-full group-hover:bg-[#8DBFB4] group-hover:text-white transition-all shrink-0">24/7</span>
-                      </a>
-
-                      <a 
-                        href="https://wa.me/919152987821" 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="flex items-center justify-between p-3.5 bg-mint-grey/50 hover:bg-mint-grey rounded-xl border border-[#1E2A2E]/5 hover:border-accent/35 transition-all text-left group"
-                      >
-                        <div>
-                          <div className="font-semibold text-xs text-primary group-hover:text-accent transition-colors">iCall — WhatsApp Text Line</div>
-                          <div className="text-[10px] text-mid mt-0.5">Text support if calling feels like too much</div>
-                        </div>
-                        <span className="px-2.5 py-1 bg-[#B8A8D4]/15 text-[#5A4A8A] text-[9px] uppercase font-bold rounded-full group-hover:bg-[#B8A8D4] group-hover:text-white transition-all shrink-0">Text</span>
-                      </a>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-[#1E2A2E]/10 space-y-3">
-                    <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">
-                      Journal Reflection
-                    </div>
-                    <p className="text-[12.5px] text-primary leading-relaxed whitespace-pre-wrap font-serif">
-                      {reflection?.reflection_text && !reflection.reflection_text.includes('Processing')
-                        ? reflection.reflection_text
-                        : "You described your situation with attention and care today. We are holding a quiet, grounding space for your thoughts."
-                      }
-                    </p>
-                    {(reflection?.closing_question || "What is feeling the most steady or grounding for you right now?") && (
-                      <div className="p-3.5 bg-secondary/5 rounded-xl border border-secondary/15 space-y-1.5 mt-2">
-                        <div className="text-[8px] font-bold uppercase tracking-widest text-secondary flex items-center gap-1">
-                          <HelpCircle size={10} />
-                          <span>Inquiry for contemplation</span>
-                        </div>
-                        <p className="font-serif text-sm italic text-primary/95 leading-relaxed">
-                          "{reflection?.closing_question || "What is feeling the most steady or grounding for you right now?"}"
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : reflection ? (
-                <div className="space-y-4">
-                  {reflection.status === 'failed' ? (
-                    <div className="p-4 bg-accent/5 border border-accent/15 rounded-xl space-y-3">
-                      <div className="flex items-start gap-2.5 text-accent">
-                        <AlertCircle size={15} className="mt-0.5 shrink-0" />
-                        <div className="text-[11.5px] font-medium leading-relaxed">
-                          {reflection.reflection_text || 'Reflection suppressed due to crisis protocol.'}
-                        </div>
-                      </div>
-                      {(entry?.crisis_flag || reflection?.reflection_text === 'Reflection suppressed due to crisis protocol.' || reflection?.themes?.includes('Crisis')) && (
-                        <div className="text-[10.5px] text-mid leading-relaxed pl-6">
-                          We noticed this entry carries significant distress. We have muted the AI evaluation to hold a safe space.
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-[12.5px] text-primary leading-relaxed whitespace-pre-wrap">
-                        {reflection.reflection_text}
-                      </p>
-                      
-                      {reflection.closing_question && (
-                        <div className="p-4 bg-secondary/5 rounded-xl border border-secondary/15 space-y-1.5">
-                          <div className="text-[8px] font-bold uppercase tracking-widest text-secondary flex items-center gap-1">
-                            <HelpCircle size={10} />
-                            <span>Inquiry for contemplation</span>
-                          </div>
-                          <p className="font-serif text-sm italic text-primary/95 leading-relaxed">
-                            "{reflection.closing_question}"
-                          </p>
-                        </div>
-                      )}
-
-                      {reflection.reflection_answer && (
-                        <div className="p-4 bg-mint-grey/25 rounded-xl border border-[#1E2A2E]/5 space-y-2 text-left relative overflow-hidden pl-5">
-                          <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-secondary" />
-                          <div className="text-[8px] uppercase font-bold text-secondary tracking-widest flex items-center gap-1.5">
-                            <span>Your Response</span>
-                            {reflection.answered_at && (
-                              <span className="text-[9.5px] text-mid/60 font-normal font-sans lowercase">
-                                (on {new Date(reflection.answered_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })})
-                              </span>
-                            )}
-                          </div>
-                          <p className="font-serif italic text-primary/95 text-[12.5px] leading-relaxed whitespace-pre-wrap">
-                            "{reflection.reflection_answer}"
-                          </p>
-                        </div>
-                      )}
-
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <p className="text-[12.5px] text-primary leading-relaxed whitespace-pre-wrap font-serif">
-                    You described your situation with attention and care today. We are holding a quiet, grounding space for your thoughts.
-                  </p>
-                  <div className="p-3.5 bg-secondary/5 rounded-xl border border-secondary/15 space-y-1.5">
+              <div className="space-y-4">
+                <p className="text-[13px] text-primary leading-relaxed whitespace-pre-wrap font-serif">
+                  {reflection?.reflection_text && !reflection.reflection_text.includes('Processing')
+                    ? reflection.reflection_text
+                    : "You described your situation with attention and care today. We are holding a quiet, grounding space for your thoughts."
+                  }
+                </p>
+                
+                {(reflection?.closing_question || "What is feeling the most steady or grounding for you right now?") && (
+                  <div className="p-4 bg-secondary/5 rounded-xl border border-secondary/15 space-y-1.5 mt-3">
                     <div className="text-[8px] font-bold uppercase tracking-widest text-secondary flex items-center gap-1">
                       <HelpCircle size={10} />
                       <span>Inquiry for contemplation</span>
                     </div>
                     <p className="font-serif text-sm italic text-primary/95 leading-relaxed">
-                      "What is feeling the most steady or grounding for you right now?"
+                      "{reflection?.closing_question || "What is feeling the most steady or grounding for you right now?"}"
                     </p>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-
-            {/* Core Daily & Crisis Recommendations */}
-            <PostJournalInterventions
-              isCrisis={Boolean(entry.crisis_flag)}
-              onLaunchIntervention={(id) => setPlayerInterventionId(id)}
-            />
 
             {/* Reflection Continuity Flow Card */}
             {entry.decrypted_reflection_text && previousReflection && (
@@ -438,7 +332,6 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
                   
                   {/* Step 1: Yesterday's Prompt */}
                   <div className="relative space-y-2">
-                    {/* Circle Dot Linker */}
                     <div className="absolute -left-[25px] top-1.5 w-[9px] h-[9px] rounded-full border border-secondary bg-white" />
                     
                     <div className="flex items-center gap-1.5 text-[8.5px] uppercase font-bold text-secondary">
@@ -465,7 +358,6 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
 
                   {/* Step 2: Today's Response */}
                   <div className="relative space-y-2">
-                    {/* Circle Dot Linker */}
                     <div className="absolute -left-[25px] top-1.5 w-[9px] h-[9px] rounded-full bg-secondary" />
                     
                     <div className="text-[8.5px] uppercase font-bold text-secondary">
@@ -485,6 +377,13 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
 
         </div>
 
+        {/* Full-Width Bottom Section: Daily Practices & Crisis Recommendations */}
+        <div className="pt-8 border-t border-[#1E2A2E]/10">
+          <PostJournalInterventions
+            isCrisis={Boolean(entry.crisis_flag)}
+            onLaunchIntervention={(id) => setPlayerInterventionId(id)}
+          />
+        </div>
       </main>
 
       <footer className="py-6 border-t border-primary/5 bg-white text-center text-[10px] text-mid/60 mt-12">

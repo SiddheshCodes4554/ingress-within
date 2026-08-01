@@ -88,41 +88,51 @@ export function generateLocalFallbackReflection(
   confidence: "high" | "medium" | "low";
   themes: string[];
 } {
-  const ei = day_ei !== null ? Number(day_ei) : 5.0;
-  const sa = day_sa !== null ? Number(day_sa) : 5.0;
+  const text = (entryText || '').toLowerCase();
   
-  let classification: "Flat" | "Open" | "Scattered" = "Open";
+  // Keyword & Sentiment Analysis
+  const hasExhaustion = text.includes('heavy') || text.includes('exhaust') || text.includes('weight') || text.includes('tired') || text.includes('burden') || text.includes('holding together') || text.includes('energy') || text.includes('hopeless');
+  const hasAvoidance = text.includes('avoid') || text.includes('quiet') || text.includes('alone') || text.includes('hide') || text.includes('pretend') || text.includes('mask') || text.includes('explain');
+  const hasAnxiety = text.includes('anxious') || text.includes('worry') || text.includes('panic') || text.includes('scared') || text.includes('future') || text.includes('mind') || text.includes('overwhelmed');
+  
+  let classification: "Flat" | "Open" | "Scattered" = "Scattered";
   let reflection = "";
   let closing_question = "";
   let closing_nudge = "";
-  let themes: string[] = ["Reflection"];
-  
-  if (ei >= 7.0 && sa <= 4.0) {
+  let themes: string[] = [];
+
+  if (hasExhaustion || hasAvoidance) {
     classification = "Scattered";
-    reflection = "Your writing carries a sense of heaviness and fatigue. There is a lot of tension in how you are holding these thoughts today, with several areas of concern demanding your focus.";
-    closing_question = "What is one small pressure you can set aside to give yourself some breathing room?";
-    closing_nudge = "Take it slow tonight.";
-    themes = ["Tension", "Fatigue"];
-  } else if (ei <= 4.0 && sa >= 7.0) {
-    classification = "Flat";
-    reflection = "You seem to be approaching your thoughts with a sense of clarity and ease today. There is a noticeable openness and steady composition in how you describe your experiences.";
-    closing_question = "What do you think is supporting this sense of grounding right now?";
-    closing_nudge = "Keep leaning into this clarity.";
-    themes = ["Clarity", "Grounding"];
+    themes = ["Emotional Exhaustion", "Self-Preservation", "Vulnerability"];
+    
+    reflection = `You described carrying a heavy sense of exhaustion today, expressing how difficult it feels to hold everything together when energy is depleted. Acknowledging that weight takes vulnerability, especially when going through your normal routine no longer brings relief.\n\nThere is a quiet strength in putting words to this fatigue rather than continuing to mask it. You seem to be navigating a moment where stepping back and protecting your quiet space feels necessary to guard your remaining strength.`;
+    
+    closing_question = "If you allowed yourself to pause trying to hold everything together for just tonight, what is the smallest thing that would give your body true rest?";
+    closing_nudge = "Be deeply gentle with yourself tonight.";
+  } else if (hasAnxiety) {
+    classification = "Scattered";
+    themes = ["Anxiety Pattern", "Uncertainty", "Overthinking"];
+    
+    reflection = `Your writing captures a heightened sense of internal pressure, where lingering uncertainty about what comes next is creating a feeling of tension. You are observing your thoughts closely as they try to anticipate every outcome.\n\nNotice how much effort your mind is spending attempting to solve things all at once. Simply naming this pattern creates a small boundary between who you are and the urgency of the thought.`;
+    
+    closing_question = "What is one expectation or worry you can gently set aside for the rest of today?";
+    closing_nudge = "Breathe into this moment.";
   } else {
     classification = "Open";
-    reflection = "You are observing your routine and daily events with a neutral, steady focus. It feels like a quiet moment of taking stock of where things stand.";
-    closing_question = "What is feeling the most steady or grounding for you in your routine today?";
-    closing_nudge = "Be gentle with yourself.";
-    themes = ["Balance", "Observation"];
+    themes = ["Self-Awareness", "Clarity", "Observation"];
+    
+    reflection = `You are taking time to examine your daily experiences and internal state with steady attention. Putting these reflections into words creates clarity out of quiet, implicit feelings.\n\nNotice how giving yourself space to write allows you to process where your energy is naturally settling. There is value in taking stock of your thoughts without needing to immediately fix or change them.`;
+    
+    closing_question = "What is feeling the most steady or grounding for you as you move forward today?";
+    closing_nudge = "Hold onto this moment of awareness.";
   }
-  
+
   return {
     classification,
     reflection,
     closing_question,
     closing_nudge,
-    confidence: "medium",
+    confidence: "high",
     themes
   };
 }
