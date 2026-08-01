@@ -223,6 +223,10 @@ export class InterventionService {
     return this.recommendationService.getRecommendations(userId, limit);
   }
 
+  async getPostJournalRecommendations(userId: string, isCrisis = false) {
+    return this.recommendationService.getPostJournalRecommendations(userId, isCrisis);
+  }
+
   /**
    * 9. recentlyUsed(userId, limit?)
    */

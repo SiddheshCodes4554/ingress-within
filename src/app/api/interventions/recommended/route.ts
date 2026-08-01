@@ -22,6 +22,16 @@ export async function GET(request: NextRequest) {
 
     const limitParam = request.nextUrl.searchParams.get('limit');
     const limit = limitParam ? parseInt(limitParam, 10) : 5;
+    const isCrisis = request.nextUrl.searchParams.get('isCrisis') === 'true';
+    const postJournal = request.nextUrl.searchParams.get('postJournal') === 'true' || request.nextUrl.searchParams.has('isCrisis');
+
+    if (postJournal) {
+      const postJournalData = await interventionEngine.getPostJournalRecommendations(userId, isCrisis);
+      return NextResponse.json({
+        success: true,
+        data: postJournalData,
+      });
+    }
 
     const recommendations = await interventionEngine.getRecommendations(userId, limit);
 

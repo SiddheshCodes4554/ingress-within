@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { DashboardService } from '../services/dashboardService';
 import DashboardNavbar from '../components/DashboardNavbar';
+import { PostJournalInterventions } from '../components/interventions/PostJournalInterventions';
+import { InterventionPlayer } from '../components/interventions/player/InterventionPlayer';
 
 const STRESSOR_OPTIONS = [
   { 
@@ -75,6 +77,7 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
   const [crisisType, setCrisisType] = useState(null);
   const [generatedReflection, setGeneratedReflection] = useState(null);
   const [crisisReflectionAnswer, setCrisisReflectionAnswer] = useState('');
+  const [playerInterventionId, setPlayerInterventionId] = useState(null);
 
   const handleFinishCrisisFlow = async () => {
     if (crisisReflectionAnswer.trim() && generatedReflection?.id) {
@@ -588,6 +591,19 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
           Your reflection is being mapped. Prepare for a final closing inquiry.
         </p>
       </div>
+    );
+  }
+
+  if (playerInterventionId) {
+    return (
+      <InterventionPlayer
+        interventionId={playerInterventionId}
+        onBack={() => setPlayerInterventionId(null)}
+        onComplete={() => {
+          setPlayerInterventionId(null);
+          window.navigateTo('/dashboard');
+        }}
+      />
     );
   }
 
@@ -1137,9 +1153,15 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
                     </p>
                   </div>
 
+                  {/* Core Daily Interventions Section */}
+                  <PostJournalInterventions
+                    isCrisis={false}
+                    onLaunchIntervention={(id) => setPlayerInterventionId(id)}
+                  />
+
                   <button 
                     onClick={() => window.navigateTo('/dashboard')}
-                    className="mx-auto flex items-center justify-center gap-1.5 bg-primary hover:bg-[#2A3A3E] text-white font-semibold text-xs tracking-wider uppercase py-3.5 px-10 rounded-xl transition-all shadow-sm cursor-pointer mt-4"
+                    className="mx-auto flex items-center justify-center gap-1.5 bg-primary hover:bg-[#2A3A3E] text-white font-semibold text-xs tracking-wider uppercase py-3.5 px-10 rounded-xl transition-all shadow-sm cursor-pointer mt-4 border-none"
                   >
                     <span>Return to Dashboard</span>
                   </button>
@@ -1271,7 +1293,13 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
                     </div>
                   )}
 
-                  {/* 4. Action Button */}
+                  {/* 4. Core Daily & Crisis-Specific Interventions */}
+                  <PostJournalInterventions
+                    isCrisis={true}
+                    onLaunchIntervention={(id) => setPlayerInterventionId(id)}
+                  />
+
+                  {/* 5. Action Button */}
                   <div className="pt-2 text-center">
                     <button 
                       onClick={handleFinishCrisisFlow}

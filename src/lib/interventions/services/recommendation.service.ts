@@ -145,6 +145,71 @@ export class RecommendationService {
   }
 
   /**
+   * Deterministically returns Post-Journal Recommendation Groups.
+   * - Core Daily Interventions ("Take a minute for yourself")
+   * - Crisis Support Recommendations ("Extra support for moments like this", if isCrisis)
+   * ZERO AI / ZERO LLM calls. 100% deterministic & fast.
+   */
+  async getPostJournalRecommendations(userId: string, isCrisis = false) {
+    console.log(`[RecommendationService] Fetching post-journal recommendations for user ${userId} (isCrisis: ${isCrisis})`);
+
+    // Configurable Recommendation Groups
+    const coreDailyIds = ['anx_001', 'anx_003', 'str_002'];
+    const crisisSupportIds = ['pan_001', 'slp_002', 'anx_005', 'pan_002'];
+
+    const coreDailyItems: any[] = [];
+    for (const id of coreDailyIds) {
+      const item = await this.interventionRepo.findByIdOrSlug(id);
+      if (item) coreDailyItems.push(item);
+    }
+
+    const crisisSupportItems: any[] = [];
+    if (isCrisis) {
+      for (const id of crisisSupportIds) {
+        const item = await this.interventionRepo.findByIdOrSlug(id);
+        if (item) crisisSupportItems.push(item);
+      }
+    }
+
+    return {
+      engine_version: RecommendationService.ENGINE_VERSION,
+      is_crisis: isCrisis,
+      groups: [
+        {
+          group_id: 'core_daily',
+          title: 'Take a minute for yourself',
+          subtitle: 'Small practices that may help you reset before moving on.',
+          visible: true,
+          interventions: coreDailyItems,
+        },
+        {
+          group_id: 'crisis_support',
+          title: 'Extra support for moments like this',
+          subtitle: 'Gentle, evidence-based practices designed to ground and steady your body right now.',
+          visible: isCrisis,
+          interventions: crisisSupportItems,
+        },
+        {
+          group_id: 'therapist_recommended',
+          title: 'Therapist Recommended',
+          subtitle: 'Curated by clinical advisors for daily resilience.',
+          visible: false,
+          interventions: [],
+        },
+        {
+          group_id: 'personalised_recommendations',
+          title: 'Personalised Recommendations',
+          subtitle: 'Matched to your emotional reflection patterns.',
+          visible: false,
+          interventions: [],
+        },
+      ],
+      core_daily: coreDailyItems,
+      crisis_support: crisisSupportItems,
+    };
+  }
+
+  /**
    * Safely loads read-only snapshot data for a user.
    */
   private async loadUserSnapshots(userId: string) {

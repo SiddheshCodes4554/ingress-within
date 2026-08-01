@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, Clock, Calendar, ArrowLeft } from 'lucide-react';
+import { CheckCircle, Clock, Calendar, ArrowLeft, ArrowRight } from 'lucide-react';
 
 export function CompletionStep({ intervention, session, progress, onReturnToDashboard }) {
   const targetDuration = intervention?.estimated_duration || intervention?.duration_minutes || intervention?.duration || 5;
@@ -11,29 +11,45 @@ export function CompletionStep({ intervention, session, progress, onReturnToDash
     ? new Date(session.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+  const handleExploreMore = () => {
+    if (typeof window !== 'undefined') {
+      window.navigateTo('/interventions');
+    }
+  };
+
   return (
-    <div className="max-w-xl mx-auto py-12 px-4 text-center animate-fade-in flex flex-col items-center">
+    <div className="max-w-xl mx-auto py-10 px-4 text-center animate-fade-in flex flex-col items-center">
       {/* Success Badge */}
-      <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-6 shadow-inner animate-bounce-short">
-        <CheckCircle size={44} strokeWidth={2} />
+      <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-5 shadow-inner">
+        <CheckCircle size={38} strokeWidth={2} />
       </div>
 
-      <h1 className="text-3xl md:text-4xl font-serif text-primary mb-3 leading-tight">
-        You've completed today's intervention.
+      <h1 className="text-2xl md:text-3xl font-serif font-medium text-primary mb-2 leading-tight">
+        Nice job taking a moment for yourself.
       </h1>
 
-      <p className="text-mid text-sm mb-8 max-w-md">
-        Great work taking time for your well-being. Your practice session has been recorded.
+      <p className="text-mid text-sm mb-6 font-serif italic max-w-md">
+        Small moments like these can make a difference over time.
       </p>
 
       {/* Summary Card */}
-      <div className="w-full bg-white rounded-2xl border border-accent/20 p-6 mb-8 shadow-sm space-y-4">
-        <div className="flex items-center justify-between py-2 border-b border-accent/10">
+      <div className="w-full bg-white rounded-2xl border border-accent/20 p-5 mb-6 shadow-xs space-y-3.5 text-left">
+        <div className="flex items-center justify-between py-1.5 border-b border-accent/10">
+          <div className="flex items-center gap-2">
+            <CheckCircle size={15} className="text-emerald-500" />
+            <span className="text-xs text-supporting uppercase tracking-wider font-semibold">Status</span>
+          </div>
+          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full">
+            Intervention completed
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between py-1.5 border-b border-accent/10">
           <span className="text-xs text-supporting uppercase tracking-wider font-semibold">Intervention</span>
           <span className="text-sm font-serif font-medium text-primary">{intervention?.title}</span>
         </div>
 
-        <div className="flex items-center justify-between py-2 border-b border-accent/10">
+        <div className="flex items-center justify-between py-1.5 border-b border-accent/10">
           <div className="flex items-center gap-1.5 text-xs text-supporting">
             <Clock size={15} className="text-accent" />
             <span>Practice Duration</span>
@@ -41,7 +57,7 @@ export function CompletionStep({ intervention, session, progress, onReturnToDash
           <span className="text-sm font-mono font-semibold text-primary">{formattedDuration}</span>
         </div>
 
-        <div className="flex items-center justify-between py-2">
+        <div className="flex items-center justify-between py-1.5">
           <div className="flex items-center gap-1.5 text-xs text-supporting">
             <Calendar size={15} className="text-accent" />
             <span>Completed At</span>
@@ -52,7 +68,7 @@ export function CompletionStep({ intervention, session, progress, onReturnToDash
 
       {/* What You Wrote (Private Stored Notes) */}
       {session?.responses && session.responses.length > 0 && (
-        <div className="w-full bg-white rounded-2xl border border-accent/20 p-6 mb-8 shadow-sm text-left space-y-3">
+        <div className="w-full bg-white rounded-2xl border border-accent/20 p-5 mb-6 shadow-xs text-left space-y-3">
           <div className="text-xs text-supporting uppercase tracking-wider font-semibold border-b border-accent/10 pb-2">
             What You Wrote
           </div>
@@ -75,7 +91,7 @@ export function CompletionStep({ intervention, session, progress, onReturnToDash
             }
 
             return (
-              <div key={idx} className="bg-mint-grey/50 rounded-xl p-3.5 border border-accent/10 text-xs space-y-1">
+              <div key={idx} className="bg-mint-grey/50 rounded-xl p-3 border border-accent/10 text-xs space-y-1">
                 <span className="text-[10px] font-semibold text-accent uppercase tracking-wider block">
                   {label}
                 </span>
@@ -88,14 +104,24 @@ export function CompletionStep({ intervention, session, progress, onReturnToDash
         </div>
       )}
 
-      {/* Primary Action Button */}
-      <button
-        onClick={onReturnToDashboard}
-        className="w-full max-w-md py-3.5 bg-primary text-white font-medium text-sm rounded-xl hover:bg-primary/90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md hover:shadow-lg"
-      >
-        <ArrowLeft size={16} />
-        <span>Return to Dashboard</span>
-      </button>
+      {/* Action Buttons */}
+      <div className="w-full max-w-md flex flex-col sm:flex-row gap-3">
+        <button
+          onClick={onReturnToDashboard || (() => typeof window !== 'undefined' && window.navigateTo('/dashboard'))}
+          className="flex-1 py-3 bg-primary text-white font-semibold text-xs uppercase tracking-wider rounded-xl hover:bg-[#2A3A3E] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:shadow-md border-none"
+        >
+          <ArrowLeft size={15} />
+          <span>Return to Dashboard</span>
+        </button>
+
+        <button
+          onClick={handleExploreMore}
+          className="flex-1 py-3 bg-white text-primary border border-[#1E2A2E]/15 hover:border-accent font-semibold text-xs uppercase tracking-wider rounded-xl hover:bg-mint-grey/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <span>Explore More Interventions</span>
+          <ArrowRight size={15} className="text-accent" />
+        </button>
+      </div>
     </div>
   );
 }

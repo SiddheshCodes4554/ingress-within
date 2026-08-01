@@ -32,6 +32,10 @@ export class InterventionEngine {
     return this.service.getRecommendations(userId, limit);
   }
 
+  async getPostJournalRecommendations(userId: string, isCrisis = false) {
+    return this.service.getPostJournalRecommendations(userId, isCrisis);
+  }
+
   async recentlyUsed(userId: string, limit = 5) {
     return this.service.recentlyUsed(userId, limit);
   }

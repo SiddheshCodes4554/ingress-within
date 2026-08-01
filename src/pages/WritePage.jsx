@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, CheckCircle2, BookOpen, AlertCircle, Smile, HeartHandshake, X, HelpCircle } from 'lucide-react';
 import { DashboardService } from '../services/dashboardService';
 import DashboardNavbar from '../components/DashboardNavbar';
+import { PostJournalInterventions } from '../components/interventions/PostJournalInterventions';
+import { InterventionPlayer } from '../components/interventions/player/InterventionPlayer';
 
 const reflections = {
   fresh: {
@@ -53,6 +55,7 @@ export default function WritePage({ user, profile, onSignOut }) {
   const [lastReflectionAutosavedAt, setLastReflectionAutosavedAt] = useState('');
   const [reflectionSaveError, setReflectionSaveError] = useState(null);
   const [crisisReflectionAnswer, setCrisisReflectionAnswer] = useState('');
+  const [playerInterventionId, setPlayerInterventionId] = useState(null);
 
   const handleFinishCrisisFlow = async () => {
     if (crisisReflectionAnswer.trim() && (generatedReflection?.id || reflectionToAnswer?.id)) {
@@ -346,6 +349,19 @@ export default function WritePage({ user, profile, onSignOut }) {
       <div className="min-h-screen bg-mint-grey flex items-center justify-center">
         <p className="text-mid italic text-sm animate-pulse">Preparing workspace...</p>
       </div>
+    );
+  }
+
+  if (playerInterventionId) {
+    return (
+      <InterventionPlayer
+        interventionId={playerInterventionId}
+        onBack={() => setPlayerInterventionId(null)}
+        onComplete={() => {
+          setPlayerInterventionId(null);
+          window.navigateTo('/dashboard');
+        }}
+      />
     );
   }
 
@@ -653,6 +669,12 @@ export default function WritePage({ user, profile, onSignOut }) {
               </div>
             </div>
 
+            {/* Core Daily Interventions Section */}
+            <PostJournalInterventions
+              isCrisis={false}
+              onLaunchIntervention={(id) => setPlayerInterventionId(id)}
+            />
+
             <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-[#1E2A2E]/5">
               <button 
                 onClick={() => window.navigateTo('/dashboard')}
@@ -803,7 +825,13 @@ export default function WritePage({ user, profile, onSignOut }) {
               </div>
             )}
 
-            {/* 4. Action Button */}
+            {/* 4. Core Daily & Crisis-Specific Interventions */}
+            <PostJournalInterventions
+              isCrisis={true}
+              onLaunchIntervention={(id) => setPlayerInterventionId(id)}
+            />
+
+            {/* 5. Action Button */}
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <button 
                 onClick={handleFinishCrisisFlow}
