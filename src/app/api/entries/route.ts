@@ -399,7 +399,13 @@ export async function POST(request: NextRequest) {
         const { processReflectionGeneration } = await import('../../../lib/queue/workers/reflectionWorker');
         await processReflectionGeneration({ entry_id: newEntry.id, user_id: authUser.userId });
 
-        // Retrieve the generated reflection
+        // Retrieve the updated entry with crisis_flag and generated reflection
+        const { data: updatedEntry } = await supabase
+          .from('entries')
+          .select('*')
+          .eq('id', newEntry.id)
+          .single();
+
         const { data: dbReflection } = await supabase
           .from('reflections')
           .select('*')
@@ -407,6 +413,14 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
 
         reflectionRecord = dbReflection;
+
+        return NextResponse.json({
+          success: true,
+          entry: {
+            ...(updatedEntry || newEntry),
+            reflection: reflectionRecord
+          }
+        });
       } catch (err: any) {
         console.error(`[API Entries POST] Synchronous AI generation failed:`, err.message);
       }

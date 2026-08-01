@@ -52,6 +52,35 @@ export default function WritePage({ user, profile, onSignOut }) {
   const [reflectionAutosaveStatus, setReflectionAutosaveStatus] = useState('Idle');
   const [lastReflectionAutosavedAt, setLastReflectionAutosavedAt] = useState('');
   const [reflectionSaveError, setReflectionSaveError] = useState(null);
+  const [crisisReflectionAnswer, setCrisisReflectionAnswer] = useState('');
+
+  const handleFinishCrisisFlow = async () => {
+    if (crisisReflectionAnswer.trim() && (generatedReflection?.id || reflectionToAnswer?.id)) {
+      const reflId = generatedReflection?.id || reflectionToAnswer?.id;
+      try {
+        await fetch('/api/reflections/answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reflection_id: reflId,
+            response_text: crisisReflectionAnswer.trim(),
+          }),
+        }).catch(() => {
+          fetch('/api/vocab/thread-responses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              thread_id: generatedReflection?.thread_id || reflId,
+              response_text: crisisReflectionAnswer.trim(),
+            }),
+          }).catch(() => {});
+        });
+      } catch (err) {
+        console.error('Error submitting crisis reflection response:', err);
+      }
+    }
+    window.navigateTo('/dashboard');
+  };
 
   // Load data on mount
   useEffect(() => {
@@ -229,11 +258,13 @@ export default function WritePage({ user, profile, onSignOut }) {
       // If reflection or crisis is returned synchronously, transition instantly!
       if (entryObj.crisis_flag || entryObj.reflection) {
         setIsSavingEntry(false);
+        if (entryObj.reflection) {
+          setGeneratedReflection(entryObj.reflection);
+        }
         if (entryObj.crisis_flag) {
           setCrisisType(entryObj.crisis_type);
           setScreenState('crisis');
         } else {
-          setGeneratedReflection(entryObj.reflection);
           setScreenState('reflection');
         }
         return;
@@ -252,11 +283,14 @@ export default function WritePage({ user, profile, onSignOut }) {
             clearInterval(pollInterval);
             setIsSavingEntry(false);
             
+            if (entryStatus.reflection) {
+              setGeneratedReflection(entryStatus.reflection);
+            }
+
             if (isCrisis) {
               setCrisisType(entryStatus.crisis_type);
               setScreenState('crisis');
             } else {
-              setGeneratedReflection(entryStatus.reflection);
               setScreenState('reflection');
             }
           }
@@ -670,56 +704,112 @@ export default function WritePage({ user, profile, onSignOut }) {
       {screenState === 'crisis' && (
         <div className="flex-1 bg-white overflow-y-auto page-fade-enter-active">
           <div className="max-w-[580px] mx-auto px-6 py-12 flex flex-col space-y-8">
-            <div className="w-12 h-12 rounded-full bg-accent/15 flex items-center justify-center text-accent">
-              <HeartHandshake size={24} />
-            </div>
+            {/* 1. High-Priority Crisis Support Section */}
+            <div className="space-y-6">
+              <div className="w-12 h-12 rounded-full bg-accent/15 flex items-center justify-center text-accent">
+                <HeartHandshake size={24} />
+              </div>
 
-            <div className="space-y-4">
-              <h2 className="font-serif text-2xl text-primary font-normal">Please take a moment</h2>
-              <p className="text-[16px] text-primary leading-relaxed font-serif">
-                {crisisType === 'Risk_Language'
-                  ? "What you wrote suggests you may be thinking about hurting yourself or ending your life. Please don’t go through this alone — reach out to someone who can help."
-                  : "We noticed today’s entry carries a lot of weight. Before we continue — you don’t have to hold this alone. If things feel overwhelming right now, please reach out to someone who can help."
-                }
-              </p>
-            </div>
+              <div className="space-y-4">
+                <h2 className="font-serif text-2xl text-primary font-normal">Please take a moment</h2>
+                <p className="text-[16px] text-primary leading-relaxed font-serif">
+                  {crisisType === 'Risk_Language'
+                    ? "What you wrote suggests you may be thinking about hurting yourself or ending your life. Please don’t go through this alone — reach out to someone who can help."
+                    : "We noticed today’s entry carries a lot of weight. Before we continue — you don’t have to hold this alone. If things feel overwhelming right now, please reach out to someone who can help."
+                  }
+                </p>
+              </div>
 
-            <div className="border-t border-b border-[#1E2A2E]/10 py-6 space-y-4">
-              <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">Confidential Support Resources</div>
-              
-              <div className="grid gap-3">
-                <a href="tel:9152987821" className="flex items-center justify-between p-4 bg-mint-grey rounded-xl border border-transparent hover:border-[#8DBFB4]/25 transition-all text-left">
-                  <div>
-                    <div className="font-semibold text-xs text-primary">iCall (India)</div>
-                    <div className="text-[11px] text-mid">Psychological counselling helpline · Mon–Sat · 8am–10pm</div>
-                  </div>
-                  <span className="px-2.5 py-1 bg-primary/5 text-primary text-[10px] uppercase font-bold rounded-full">Call</span>
-                </a>
+              <div className="border-t border-b border-[#1E2A2E]/10 py-6 space-y-4">
+                <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">Confidential Support Resources</div>
+                
+                <div className="grid gap-3">
+                  <a href="tel:9152987821" className="flex items-center justify-between p-4 bg-mint-grey rounded-xl border border-transparent hover:border-[#8DBFB4]/25 transition-all text-left">
+                    <div>
+                      <div className="font-semibold text-xs text-primary">iCall (India)</div>
+                      <div className="text-[11px] text-mid">Psychological counselling helpline · Mon–Sat · 8am–10pm</div>
+                    </div>
+                    <span className="px-2.5 py-1 bg-primary/5 text-primary text-[10px] uppercase font-bold rounded-full">Call</span>
+                  </a>
 
-                <a href="tel:18602662345" className="flex items-center justify-between p-4 bg-mint-grey rounded-xl border border-transparent hover:border-[#8DBFB4]/25 transition-all text-left">
-                  <div>
-                    <div className="font-semibold text-xs text-primary">Vandrevala Foundation</div>
-                    <div className="text-[11px] text-mid">Mental health support · 24/7 · Free & Confidential</div>
-                  </div>
-                  <span className="px-2.5 py-1 bg-[#8DBFB4]/15 text-[#1A5040] text-[10px] uppercase font-bold rounded-full">24 / 7</span>
-                </a>
+                  <a href="tel:18602662345" className="flex items-center justify-between p-4 bg-mint-grey rounded-xl border border-transparent hover:border-[#8DBFB4]/25 transition-all text-left">
+                    <div>
+                      <div className="font-semibold text-xs text-primary">Vandrevala Foundation</div>
+                      <div className="text-[11px] text-mid">Mental health support · 24/7 · Free & Confidential</div>
+                    </div>
+                    <span className="px-2.5 py-1 bg-[#8DBFB4]/15 text-[#1A5040] text-[10px] uppercase font-bold rounded-full">24 / 7</span>
+                  </a>
 
-                <a href="https://wa.me/919152987821" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-4 bg-mint-grey rounded-xl border border-transparent hover:border-[#8DBFB4]/25 transition-all text-left">
-                  <div>
-                    <div className="font-semibold text-xs text-primary">iCall — WhatsApp Text Line</div>
-                    <div className="text-[11px] text-mid">Text support if calling feels like too much</div>
-                  </div>
-                  <span className="px-2.5 py-1 bg-[#B8A8D4]/15 text-[#5A4A8A] text-[10px] uppercase font-bold rounded-full">WhatsApp</span>
-                </a>
+                  <a href="https://wa.me/919152987821" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-4 bg-mint-grey rounded-xl border border-transparent hover:border-[#8DBFB4]/25 transition-all text-left">
+                    <div>
+                      <div className="font-semibold text-xs text-primary">iCall — WhatsApp Text Line</div>
+                      <div className="text-[11px] text-mid">Text support if calling feels like too much</div>
+                    </div>
+                    <span className="px-2.5 py-1 bg-[#B8A8D4]/15 text-[#5A4A8A] text-[10px] uppercase font-bold rounded-full">WhatsApp</span>
+                  </a>
+                </div>
               </div>
             </div>
 
-            <div className="pt-2">
+            {/* 2. Visual Divider */}
+            <div className="relative flex items-center justify-center my-2">
+              <div className="w-full border-t border-[#1E2A2E]/15" />
+              <span className="absolute bg-white px-3 text-[11px] font-serif italic text-mid/80">
+                Whenever you're ready...
+              </span>
+            </div>
+
+            {/* 3. Reflection Section (Reflection Card) */}
+            {(generatedReflection || reflectionToAnswer) && (
+              <div className="bg-[#F8FAF9] border border-[#1E2A2E]/10 rounded-2xl p-6 space-y-6 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] tracking-wider uppercase text-[#8DBFB4] font-bold flex items-center gap-1.5">
+                    <Sparkles size={12} />
+                    <span>Journal Reflection</span>
+                  </div>
+                  <span className="text-[10px] uppercase tracking-wider text-mid font-mono">{getFormattedDate()}</span>
+                </div>
+
+                <div className="space-y-3">
+                  {((generatedReflection?.reflection_text || reflectionToAnswer?.reflection_text) || '').split('\n\n').map((para, idx) => (
+                    <p key={idx} className="text-[15px] text-[#1E2A2E] leading-relaxed font-serif">
+                      {para}
+                    </p>
+                  ))}
+                </div>
+
+                {(generatedReflection?.closing_question || reflectionToAnswer?.closing_question) && (
+                  <div className="border-l-[2.5px] border-[#E0A898] pl-4 py-1 space-y-1 bg-white/80 rounded-r-xl p-3">
+                    <div className="text-[9px] tracking-wider uppercase text-[#E0A898] font-bold">Inquiry for contemplation</div>
+                    <p className="text-[15px] text-[#E0A898] italic font-serif leading-relaxed">
+                      "{generatedReflection?.closing_question || reflectionToAnswer?.closing_question}"
+                    </p>
+                  </div>
+                )}
+
+                {/* Optional Thread Response Input */}
+                <div className="space-y-2 pt-2 border-t border-[#1E2A2E]/10">
+                  <label className="text-xs font-semibold text-primary block">
+                    Your thoughts / response (optional):
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={crisisReflectionAnswer}
+                    onChange={(e) => setCrisisReflectionAnswer(e.target.value)}
+                    placeholder="Write any thoughts when you feel ready..."
+                    className="w-full p-3.5 rounded-xl border border-accent/30 bg-white text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all resize-y shadow-inner"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 4. Action Button */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <button 
-                onClick={() => window.navigateTo('/dashboard')}
-                className="w-full py-3.5 bg-primary text-white hover:bg-[#2A3A3E] rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer text-center border-none"
+                onClick={handleFinishCrisisFlow}
+                className="w-full py-3.5 bg-primary text-white hover:bg-[#2A3A3E] rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer text-center border-none shadow-sm hover:shadow-md"
               >
-                I am okay to continue
+                {crisisReflectionAnswer.trim() ? 'Submit & Finish' : 'I am okay to continue'}
               </button>
             </div>
           </div>

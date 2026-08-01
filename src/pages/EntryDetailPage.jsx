@@ -248,16 +248,16 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
               </div>
 
               {entry.crisis_flag ? (
-                <div className="space-y-4 text-left">
+                <div className="space-y-6 text-left">
                   <div className="p-4 bg-accent/5 border border-accent/15 rounded-xl space-y-2">
                     <div className="flex items-start gap-2.5 text-accent font-semibold">
                       <AlertCircle size={15} className="mt-0.5 shrink-0" />
                       <div className="text-[12px] leading-relaxed">
-                        Reflection Suppressed
+                        Crisis Support Notice
                       </div>
                     </div>
                     <p className="text-[11px] text-mid leading-relaxed pl-6">
-                      This entry triggered a crisis safety protocol. We have muted the AI evaluation to hold a safe space.
+                      This entry was flagged for emotional support. Please use the resources below whenever you need help.
                     </p>
                   </div>
 
@@ -265,11 +265,8 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
                     <div className="text-[9px] tracking-wider uppercase text-accent font-bold">
                       Confidential Support Services
                     </div>
-                    <p className="text-[11.5px] text-mid leading-relaxed">
-                      Please don't hold this heavy feeling alone. Reach out to professionals who can help you through this moment:
-                    </p>
 
-                    <div className="grid gap-3 pt-2">
+                    <div className="grid gap-3 pt-1">
                       <a 
                         href="tel:9152987821" 
                         className="flex items-center justify-between p-3.5 bg-mint-grey/50 hover:bg-mint-grey rounded-xl border border-[#1E2A2E]/5 hover:border-accent/35 transition-all text-left group"
@@ -306,6 +303,17 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
                       </a>
                     </div>
                   </div>
+
+                  {reflection && (
+                    <div className="pt-4 border-t border-[#1E2A2E]/10 space-y-3">
+                      <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">
+                        Journal Reflection
+                      </div>
+                      <p className="text-[12.5px] text-primary leading-relaxed whitespace-pre-wrap">
+                        {reflection.reflection_text}
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : reflection ? (
                 <div className="space-y-4">

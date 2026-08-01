@@ -84,7 +84,7 @@ export async function processCrisisDetection(jobData: {
       updatePayload.crisis_flag = true;
       updatePayload.crisis_type = result.crisisType;
       updatePayload.crisis_flagged_at = new Date().toISOString();
-      updatePayload.reflection_suppressed = true;
+      updatePayload.reflection_suppressed = false;
       updatePayload.risk_language_quote = result.riskQuote || 'AI crisis detection engine match';
 
       // 4. Log to crisis_log table with full audit context
@@ -142,59 +142,8 @@ export async function processCrisisDetection(jobData: {
           completed_at: new Date().toISOString(),
           status: 'success'
         });
-
-        if (result.crisisFlag) {
-          // If crisis is detected, subsequent workers are bypassed.
-          // Emit skipped/suppressed events to immediately satisfy the Weekly Report orchestrator.
-          const weekNum = entry.cycle_day / 7;
-          const skippedEvents: any[] = [
-            'REFLECTION_COMPLETED',
-            'THREADS_COMPLETED',
-            'VOCABULARY_COMPLETED',
-            'CYCLE_METADATA_UPDATED'
-          ];
-          for (const ev of skippedEvents) {
-            await weeklyReportOrchestrator.emitEvent({
-              user_id,
-              entry_id,
-              cycle_id: entry.cycle_id,
-              week_number: weekNum,
-              job_name: ev,
-              completed_at: new Date().toISOString(),
-              status: 'suppressed'
-            });
-          }
-        }
       } catch (eventErr: any) {
         console.error(`[Crisis Detection Worker] Error emitting events:`, eventErr.message);
-      }
-    }
-
-    // Sequential Chaining based on Crisis Gating
-    if (result.crisisFlag) {
-      console.log(`[Crisis Detection Worker] Suppression due to crisis. Setting reflection status to 'failed'.`);
-      const { data: existingReflection } = await supabase
-        .from('reflections')
-        .select('id')
-        .eq('entry_id', entry_id)
-        .maybeSingle();
-
-      const reflectionPayload = {
-        entry_id,
-        user_id,
-        cycle_id: entry.cycle_id,
-        reflection_text: 'Reflection suppressed due to crisis protocol.',
-        provider: 'system',
-        confidence: 'low',
-        themes: ['Crisis'],
-        status: 'failed',
-        generated_at: new Date().toISOString()
-      };
-
-      if (existingReflection) {
-        await supabase.from('reflections').update(reflectionPayload).eq('id', existingReflection.id);
-      } else {
-        await supabase.from('reflections').insert(reflectionPayload);
       }
     }
 

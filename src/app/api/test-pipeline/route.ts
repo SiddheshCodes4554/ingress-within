@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
           isImmediateDistress,
           isRiskLanguage,
           explanation: crisisResult.explanation,
-          reflectionSuppressed: crisisFlag
+          reflectionSuppressed: false
         },
         aiTrace: {
           systemPrompt: tracing.lastSystemPrompt || '',
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
           isImmediateDistress,
           isRiskLanguage,
           explanation: crisisResult.explanation,
-          reflectionSuppressed: crisisResult.crisisFlag
+          reflectionSuppressed: false
         },
         aiTrace: {
           systemPrompt: tracing.lastSystemPrompt || '',
@@ -410,12 +410,8 @@ export async function POST(request: NextRequest) {
       let reflectionValidation: any = null;
       let reflectionAttempts = 0;
       let reflectionTrace: any = null;
-      let reflectionSuppressed = crisisResult.crisisFlag;
+      let reflectionSuppressed = false;
       let result: any = null;
-
-      if (reflectionSuppressed) {
-        reflectionTextOutput = 'Reflection suppressed due to crisis protocol.';
-      } else {
         // Run Reflection Generation
         const reflStart = Date.now();
         
@@ -525,7 +521,6 @@ export async function POST(request: NextRequest) {
           promptSize,
           estimatedTokens
         };
-      }
 
       const totalLatency = Date.now() - startTime;
 

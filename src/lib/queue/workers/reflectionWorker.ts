@@ -187,36 +187,9 @@ export async function processReflectionGeneration(jobData: {
     return;
   }
 
-  // 2. Crisis Protocol Suppression Check
-  if (entry.crisis_flag || entry.reflection_suppressed) {
-    console.log(`[Reflection Engine] [3/8] [Entry: ${entry_id}] Crisis flagged or reflection suppressed. Logging crisis placeholder and exiting.`);
-    
-    const { data: existingReflection } = await supabase
-      .from('reflections')
-      .select('id')
-      .eq('entry_id', entry_id)
-      .maybeSingle();
-
-    const reflectionPayload = {
-      entry_id,
-      user_id,
-      cycle_id: entry.cycle_id,
-      reflection_text: 'Reflection suppressed due to crisis protocol.',
-      closing_question: null,
-      classification: null,
-      provider: 'system',
-      confidence: 'low',
-      themes: ['Crisis'],
-      status: 'failed',
-      generated_at: new Date().toISOString()
-    };
-
-    if (existingReflection) {
-      await supabase.from('reflections').update(reflectionPayload).eq('id', existingReflection.id);
-    } else {
-      await supabase.from('reflections').insert(reflectionPayload);
-    }
-    return;
+  // 2. Crisis Protocol Check (Reflection generated for all entries including crisis)
+  if (entry.crisis_flag) {
+    console.log(`[Reflection Engine] [Entry: ${entry_id}] Crisis flagged entry. Generating supportive crisis reflection observation.`);
   }
 
   // 3. Decrypt text
@@ -426,7 +399,7 @@ export async function processReflectionGeneration(jobData: {
       .maybeSingle();
 
     const fullReflectionText = `${result.reflection.trim()}\n\n${(result.closing_nudge || 'Sit with that tonight.\nCome back tomorrow and tell me what came up.').trim()}`;
-    const reflectionPayload = {
+    const reflectionPayload: any = {
       entry_id,
       user_id,
       cycle_id: entry.cycle_id,
@@ -436,6 +409,7 @@ export async function processReflectionGeneration(jobData: {
       provider: providerName,
       confidence: result.confidence || 'high',
       themes: result.themes || [],
+      reflection_type: entry.crisis_flag ? 'crisis' : 'normal',
       status: 'ready',
       generated_at: new Date().toISOString()
     };

@@ -73,6 +73,35 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
   const [currentStage, setCurrentStage] = useState('start');
   const [targetStageAfterSustained, setTargetStageAfterSustained] = useState('start');
   const [crisisType, setCrisisType] = useState(null);
+  const [generatedReflection, setGeneratedReflection] = useState(null);
+  const [crisisReflectionAnswer, setCrisisReflectionAnswer] = useState('');
+
+  const handleFinishCrisisFlow = async () => {
+    if (crisisReflectionAnswer.trim() && generatedReflection?.id) {
+      try {
+        await fetch('/api/reflections/answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reflection_id: generatedReflection.id,
+            response_text: crisisReflectionAnswer.trim(),
+          }),
+        }).catch(() => {
+          fetch('/api/vocab/thread-responses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              thread_id: generatedReflection?.thread_id || generatedReflection.id,
+              response_text: crisisReflectionAnswer.trim(),
+            }),
+          }).catch(() => {});
+        });
+      } catch (err) {
+        console.error('Error submitting crisis reflection response:', err);
+      }
+    }
+    window.navigateTo('/dashboard');
+  };
 
   // Dashboard context data (for yesterday's entry and open threads)
   const [dashboardData, setDashboardData] = useState(null);
@@ -490,6 +519,10 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
               clearInterval(pollInterval);
               setIsSaving(false);
               
+              if (entryStatus.reflection) {
+                setGeneratedReflection(entryStatus.reflection);
+              }
+
               if (entryStatus.crisis_flag) {
                 setCrisisType(entryStatus.crisis_type);
                 setCurrentStage('crisis');
@@ -1131,7 +1164,7 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
                 </motion.div>
               )}
 
-              {/* --- VIEW: CRISIS (Immediate Crisis Support Screen) --- */}
+              {/* --- VIEW: CRISIS (Immediate Crisis Support Screen + Reflection Integration) --- */}
               {currentStage === 'crisis' && (
                 <motion.div
                   key="crisis"
@@ -1140,6 +1173,7 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
                   exit={{ opacity: 0 }}
                   className="max-w-md mx-auto space-y-6 text-left"
                 >
+                  {/* 1. High Priority Support Resources */}
                   <div className="flex justify-center">
                     <div className="w-12 h-12 rounded-full bg-accent/15 flex items-center justify-center text-accent">
                       <HeartHandshake size={24} />
@@ -1175,15 +1209,75 @@ export default function SessionFlowPage({ user, profile, onSignOut }) {
                         </div>
                         <span className="px-2 py-0.5 bg-[#8DBFB4]/15 text-[#1A5040] text-[9px] uppercase font-bold rounded-full">24 / 7</span>
                       </a>
+
+                      <a href="https://wa.me/919152987821" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3.5 bg-mint-grey rounded-xl border border-transparent hover:border-[#8DBFB4]/25 transition-all text-left decoration-none">
+                        <div>
+                          <div className="font-semibold text-xs text-primary">iCall — WhatsApp Text Line</div>
+                          <div className="text-[10px] text-mid">Text support if calling feels like too much</div>
+                        </div>
+                        <span className="px-2 py-0.5 bg-[#B8A8D4]/15 text-[#5A4A8A] text-[9px] uppercase font-bold rounded-full">WhatsApp</span>
+                      </a>
                     </div>
                   </div>
 
+                  {/* 2. Visual Divider */}
+                  <div className="relative flex items-center justify-center my-3">
+                    <div className="w-full border-t border-[#1E2A2E]/15" />
+                    <span className="absolute bg-white px-3 text-[11px] font-serif italic text-mid/80">
+                      Whenever you're ready...
+                    </span>
+                  </div>
+
+                  {/* 3. Integrated Reflection Card */}
+                  {generatedReflection && (
+                    <div className="bg-[#F8FAF9] border border-[#1E2A2E]/10 rounded-2xl p-5 space-y-4 shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <div className="text-[10px] tracking-wider uppercase text-[#8DBFB4] font-bold flex items-center gap-1.5">
+                          <Sparkles size={12} />
+                          <span>Journal Reflection</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        {(generatedReflection.reflection_text || '').split('\n\n').map((para, idx) => (
+                          <p key={idx} className="text-sm text-[#1E2A2E] leading-relaxed font-serif">
+                            {para}
+                          </p>
+                        ))}
+                      </div>
+
+                      {generatedReflection.closing_question && (
+                        <div className="border-l-[2.5px] border-[#E0A898] pl-3 py-1 space-y-0.5 bg-white/80 rounded-r-xl p-2.5">
+                          <div className="text-[8px] tracking-wider uppercase text-[#E0A898] font-bold">Inquiry for contemplation</div>
+                          <p className="text-sm text-[#E0A898] italic font-serif leading-relaxed">
+                            "{generatedReflection.closing_question}"
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Optional Thread Response Textarea */}
+                      <div className="space-y-1.5 pt-2 border-t border-[#1E2A2E]/10">
+                        <label className="text-xs font-semibold text-primary block">
+                          Your thoughts / response (optional):
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={crisisReflectionAnswer}
+                          onChange={(e) => setCrisisReflectionAnswer(e.target.value)}
+                          placeholder="Write any thoughts when you feel ready..."
+                          className="w-full p-3 rounded-xl border border-accent/30 bg-white text-primary text-xs focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all resize-y"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 4. Action Button */}
                   <div className="pt-2 text-center">
                     <button 
-                      onClick={() => window.navigateTo('/dashboard')}
-                      className="w-full py-3 bg-primary hover:bg-[#2A3A3E] text-white font-semibold text-xs tracking-wider uppercase rounded-xl transition-all cursor-pointer border-none"
+                      onClick={handleFinishCrisisFlow}
+                      className="w-full py-3.5 bg-primary hover:bg-[#2A3A3E] text-white font-semibold text-xs tracking-wider uppercase rounded-xl transition-all cursor-pointer border-none shadow-sm hover:shadow-md"
                     >
-                      I am okay to continue
+                      {crisisReflectionAnswer.trim() ? 'Submit & Finish' : 'I am okay to continue'}
                     </button>
                   </div>
                 </motion.div>

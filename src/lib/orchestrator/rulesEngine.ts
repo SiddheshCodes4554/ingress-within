@@ -29,26 +29,11 @@ export const ORCHESTRATION_RULES: OrchestrationRule[] = [
     }
   },
 
-  // 2. CrisisDetected (crisis flag true) -> Suppress Reflection
-  {
-    name: 'CrisisDetected -> Suppress Reflection',
-    triggerEvent: 'CrisisDetected',
-    conditions: async (userId, payload) => payload.has_crisis === true,
-    action: async (userId, payload, ctx) => {
-      console.log(`[RulesEngine] Crisis detected for entry ${payload.entry_id}. Suppressing reflection.`);
-      await ctx.emitEvent(userId, 'ReflectionCompleted', {
-        entry_id: payload.entry_id,
-        cycle_id: payload.cycle_id,
-        bypassed: true
-      });
-    }
-  },
-
-  // 3. CrisisDetected (crisis flag false) -> Queue Reflection
+  // 2. CrisisDetected -> Queue Reflection (All entries receive a reflection including crisis)
   {
     name: 'CrisisDetected -> Queue Reflection',
     triggerEvent: 'CrisisDetected',
-    conditions: async (userId, payload) => payload.has_crisis === false,
+    conditions: async () => true,
     action: async (userId, payload, ctx) => {
       const jobId = await ctx.enqueueJob(userId, 'reflection', `CrisisDetected:${payload.entry_id}`);
       await ctx.queueRegistry.addJob('reflection_generation', `refl_${payload.entry_id}`, {
