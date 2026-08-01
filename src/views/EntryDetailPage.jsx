@@ -180,8 +180,8 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
                 )}
                 {entry.crisis_flag && (
                   <span className="px-2.5 py-0.5 bg-accent/15 text-accent text-[9.5px] font-bold uppercase tracking-widest rounded-full flex items-center gap-1">
-                    <AlertCircle size={10} />
-                    Crisis Suppressed
+                    <HeartHandshake size={10} />
+                    Crisis Support Active
                   </span>
                 )}
               </div>
@@ -309,8 +309,11 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
                       <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">
                         Journal Reflection
                       </div>
-                      <p className="text-[12.5px] text-primary leading-relaxed whitespace-pre-wrap">
-                        {reflection.reflection_text}
+                      <p className="text-[12.5px] text-primary leading-relaxed whitespace-pre-wrap font-serif">
+                        {reflection.reflection_text && !reflection.reflection_text.includes('Processing')
+                          ? reflection.reflection_text
+                          : "You described your situation with attention and care today. We are holding a quiet, grounding space for your thoughts."
+                        }
                       </p>
                     </div>
                   )}

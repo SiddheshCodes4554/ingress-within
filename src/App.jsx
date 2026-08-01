@@ -2,36 +2,36 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PolicyModal from './components/PolicyModal';
 
-const LandingPage = lazy(() => import('./pages/LandingPage'));
-const WhatItIsPage = lazy(() => import('./pages/WhatItIsPage'));
-const HowItWorksPage = lazy(() => import('./pages/HowItWorksPage'));
-const AboutPage = lazy(() => import('./pages/AboutPage'));
-const PricingPage = lazy(() => import('./pages/PricingPage'));
-const FaqPage = lazy(() => import('./pages/FaqPage'));
-const ContactPage = lazy(() => import('./pages/ContactPage'));
-const AuthPage = lazy(() => import('./pages/AuthPage'));
-const AiDataPage = lazy(() => import('./pages/AiDataPage'));
-const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
-const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const SettingsPage = lazy(() => import('./pages/SettingsPage'));
-const WritePage = lazy(() => import('./pages/WritePage'));
-const ReportsPage = lazy(() => import('./pages/ReportsPage'));
-const PatternsPage = lazy(() => import('./pages/PatternsPage'));
-const VocabPage = lazy(() => import('./pages/VocabPage'));
-const KnowledgeBankPage = lazy(() => import('./pages/KnowledgeBankPage'));
-const InterventionsPage = lazy(() => import('./pages/InterventionsPage'));
-const SupportPage = lazy(() => import('./pages/SupportPage'));
-const SessionFlowPage = lazy(() => import('./pages/SessionFlowPage'));
-const ThreadDetailPage = lazy(() => import('./pages/ThreadDetailPage'));
-const ThreadsPage = lazy(() => import('./pages/ThreadsPage'));
-const EntryDetailPage = lazy(() => import('./pages/EntryDetailPage'));
-const ExercisePage = lazy(() => import('./pages/ExercisePage'));
+const LandingPage = lazy(() => import('./views/LandingPage'));
+const WhatItIsPage = lazy(() => import('./views/WhatItIsPage'));
+const HowItWorksPage = lazy(() => import('./views/HowItWorksPage'));
+const AboutPage = lazy(() => import('./views/AboutPage'));
+const PricingPage = lazy(() => import('./views/PricingPage'));
+const FaqPage = lazy(() => import('./views/FaqPage'));
+const ContactPage = lazy(() => import('./views/ContactPage'));
+const AuthPage = lazy(() => import('./views/AuthPage'));
+const AiDataPage = lazy(() => import('./views/AiDataPage'));
+const OnboardingPage = lazy(() => import('./views/OnboardingPage'));
+const DashboardPage = lazy(() => import('./views/DashboardPage'));
+const SettingsPage = lazy(() => import('./views/SettingsPage'));
+const WritePage = lazy(() => import('./views/WritePage'));
+const ReportsPage = lazy(() => import('./views/ReportsPage'));
+const PatternsPage = lazy(() => import('./views/PatternsPage'));
+const VocabPage = lazy(() => import('./views/VocabPage'));
+const KnowledgeBankPage = lazy(() => import('./views/KnowledgeBankPage'));
+const InterventionsPage = lazy(() => import('./views/InterventionsPage'));
+const SupportPage = lazy(() => import('./views/SupportPage'));
+const SessionFlowPage = lazy(() => import('./views/SessionFlowPage'));
+const ThreadDetailPage = lazy(() => import('./views/ThreadDetailPage'));
+const ThreadsPage = lazy(() => import('./views/ThreadsPage'));
+const EntryDetailPage = lazy(() => import('./views/EntryDetailPage'));
+const ExercisePage = lazy(() => import('./views/ExercisePage'));
 const TestPage = (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_TEST_PAGE === 'true')
-  ? lazy(() => import('./pages/TestPage'))
+  ? lazy(() => import('./views/TestPage'))
   : () => null;
 
 const FounderTestPage = (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_TEST_PAGE === 'true')
-  ? lazy(() => import('./pages/FounderTestPage'))
+  ? lazy(() => import('./views/FounderTestPage'))
   : () => null;
 
 

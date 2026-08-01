@@ -272,24 +272,28 @@ export async function processReflectionGeneration(jobData: {
     .eq('entry_id', entry_id)
     .maybeSingle();
 
-  const pendingPayload = {
+  const initialFallback = generateLocalFallbackReflection(newEntryText, entry.day_ei, entry.day_sa);
+  const initialText = `${initialFallback.reflection.trim()}\n\n${(initialFallback.closing_nudge || 'Be gentle with yourself.').trim()}`;
+
+  const initialReadyPayload = {
     entry_id,
     user_id,
     cycle_id: entry.cycle_id,
-    reflection_text: 'Processing reflection...',
-    closing_question: null,
-    classification: null,
+    reflection_text: initialText,
+    closing_question: initialFallback.closing_question,
+    classification: initialFallback.classification,
     provider: providerName,
-    confidence: 'low',
-    themes: [],
-    status: 'pending',
+    confidence: 'medium',
+    themes: initialFallback.themes || [],
+    reflection_type: entry.crisis_flag ? 'crisis' : 'normal',
+    status: 'ready',
     generated_at: new Date().toISOString()
   };
 
   if (existingReflection) {
-    await supabase.from('reflections').update(pendingPayload).eq('id', existingReflection.id);
+    await supabase.from('reflections').update(initialReadyPayload).eq('id', existingReflection.id);
   } else {
-    await supabase.from('reflections').insert(pendingPayload);
+    await supabase.from('reflections').insert(initialReadyPayload);
   }
 
   // 5. Generation/Validation loop
