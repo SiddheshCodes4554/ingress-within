@@ -16,6 +16,8 @@ import {
   HeartHandshake
 } from 'lucide-react';
 import DashboardNavbar from '../components/DashboardNavbar';
+import { PostJournalInterventions } from '../components/interventions/PostJournalInterventions';
+import { InterventionPlayer } from '../components/interventions/player/InterventionPlayer';
 
 function EntryDetailSkeleton() {
   return (
@@ -66,6 +68,7 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [playerInterventionId, setPlayerInterventionId] = useState(null);
 
   const fetchEntryDetails = async () => {
     setIsLoading(true);
@@ -93,6 +96,22 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
       fetchEntryDetails();
     }
   }, [entryId]);
+
+  if (playerInterventionId) {
+    return (
+      <InterventionPlayer
+        interventionId={playerInterventionId}
+        onBack={() => setPlayerInterventionId(null)}
+        onComplete={() => {
+          setPlayerInterventionId(null);
+          if (typeof window !== 'undefined') {
+            if (typeof window.navigateTo === 'function') window.navigateTo('/dashboard');
+            else window.location.href = '/dashboard';
+          }
+        }}
+      />
+    );
+  }
 
   if (isLoading) {
     return <EntryDetailSkeleton />;
@@ -304,19 +323,28 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
                     </div>
                   </div>
 
-                  {reflection && (
-                    <div className="pt-4 border-t border-[#1E2A2E]/10 space-y-3">
-                      <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">
-                        Journal Reflection
-                      </div>
-                      <p className="text-[12.5px] text-primary leading-relaxed whitespace-pre-wrap font-serif">
-                        {reflection.reflection_text && !reflection.reflection_text.includes('Processing')
-                          ? reflection.reflection_text
-                          : "You described your situation with attention and care today. We are holding a quiet, grounding space for your thoughts."
-                        }
-                      </p>
+                  <div className="pt-4 border-t border-[#1E2A2E]/10 space-y-3">
+                    <div className="text-[9px] tracking-wider uppercase text-[#8DBFB4] font-bold">
+                      Journal Reflection
                     </div>
-                  )}
+                    <p className="text-[12.5px] text-primary leading-relaxed whitespace-pre-wrap font-serif">
+                      {reflection?.reflection_text && !reflection.reflection_text.includes('Processing')
+                        ? reflection.reflection_text
+                        : "You described your situation with attention and care today. We are holding a quiet, grounding space for your thoughts."
+                      }
+                    </p>
+                    {(reflection?.closing_question || "What is feeling the most steady or grounding for you right now?") && (
+                      <div className="p-3.5 bg-secondary/5 rounded-xl border border-secondary/15 space-y-1.5 mt-2">
+                        <div className="text-[8px] font-bold uppercase tracking-widest text-secondary flex items-center gap-1">
+                          <HelpCircle size={10} />
+                          <span>Inquiry for contemplation</span>
+                        </div>
+                        <p className="font-serif text-sm italic text-primary/95 leading-relaxed">
+                          "{reflection?.closing_question || "What is feeling the most steady or grounding for you right now?"}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : reflection ? (
                 <div className="space-y-4">
@@ -373,16 +401,28 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
                   )}
                 </div>
               ) : (
-                <div className="text-center py-8 space-y-3">
-                  <div className="w-8 h-8 rounded-full border border-dashed border-[#1E2A2E]/20 flex items-center justify-center text-light-mid animate-spin mx-auto" style={{ animationDuration: '3s' }}>
-                    <Sparkles size={14} />
-                  </div>
-                  <p className="text-[11.5px] text-mid italic">
-                    AI Reflection is currently compiling. Check back shortly.
+                <div className="space-y-4">
+                  <p className="text-[12.5px] text-primary leading-relaxed whitespace-pre-wrap font-serif">
+                    You described your situation with attention and care today. We are holding a quiet, grounding space for your thoughts.
                   </p>
+                  <div className="p-3.5 bg-secondary/5 rounded-xl border border-secondary/15 space-y-1.5">
+                    <div className="text-[8px] font-bold uppercase tracking-widest text-secondary flex items-center gap-1">
+                      <HelpCircle size={10} />
+                      <span>Inquiry for contemplation</span>
+                    </div>
+                    <p className="font-serif text-sm italic text-primary/95 leading-relaxed">
+                      "What is feeling the most steady or grounding for you right now?"
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
+
+            {/* Core Daily & Crisis Recommendations */}
+            <PostJournalInterventions
+              isCrisis={Boolean(entry.crisis_flag)}
+              onLaunchIntervention={(id) => setPlayerInterventionId(id)}
+            />
 
             {/* Reflection Continuity Flow Card */}
             {entry.decrypted_reflection_text && previousReflection && (

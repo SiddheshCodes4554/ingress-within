@@ -59,6 +59,41 @@ export async function GET(
       console.error(`[api/entries/[id]] Database error fetching reflection for entry ${entryId}:`, reflectionError);
     }
 
+    let activeReflection = reflection;
+    if (!activeReflection || activeReflection.status === 'pending' || !activeReflection.reflection_text || activeReflection.reflection_text.includes('Processing')) {
+      try {
+        console.log(`[api/entries/[id]] Reflection missing or pending for entry ${entryId}. Generating auto-heal reflection.`);
+        const { generateLocalFallbackReflection } = await import('../../../../lib/queue/workers/reflectionWorker');
+        const fallback = generateLocalFallbackReflection(entry.content || '', entry.day_ei || null, entry.day_sa || null);
+        const fullText = `${fallback.reflection.trim()}\n\n${(fallback.closing_nudge || 'Be gentle with yourself.').trim()}`;
+        
+        const fallbackPayload = {
+          entry_id: entry.id,
+          user_id: authUser.userId,
+          cycle_id: entry.cycle_id,
+          reflection_text: fullText,
+          closing_question: fallback.closing_question,
+          classification: fallback.classification,
+          provider: 'local-fallback',
+          confidence: 'high',
+          themes: fallback.themes || [],
+          reflection_type: entry.crisis_flag ? 'crisis' : 'normal',
+          status: 'ready',
+          generated_at: new Date().toISOString()
+        };
+
+        const { data: savedRef } = await supabase
+          .from('reflections')
+          .upsert(fallbackPayload, { onConflict: 'entry_id' })
+          .select('*')
+          .maybeSingle();
+
+        activeReflection = savedRef || fallbackPayload;
+      } catch (autoHealErr) {
+        console.error(`[api/entries/[id]] Auto-heal reflection error:`, autoHealErr);
+      }
+    }
+
     // Fetch previous entry chronologically (created_at preceding current entry)
     const { data: previousEntry } = await supabase
       .from('entries')
@@ -126,8 +161,8 @@ export async function GET(
       }
     }
 
-    const reflectionState = reflection ? {
-      ...reflection,
+    const reflectionState = activeReflection ? {
+      ...activeReflection,
       vocabulary: vocabWords
     } : null;
 
