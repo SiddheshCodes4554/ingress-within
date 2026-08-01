@@ -1,7 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Component } from 'react';
 import { Wind, Compass, Activity, ShieldCheck, Heart, Sparkles, ArrowRight, X } from 'lucide-react';
 
-export function PostJournalInterventions({ isCrisis = false, onLaunchIntervention }) {
+class LocalErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.warn('[PostJournalInterventions] Render error caught by boundary:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return null;
+    }
+    return this.props.children;
+  }
+}
+
+function PostJournalInterventionsInner({ isCrisis = false, onLaunchIntervention }) {
   const [loading, setLoading] = useState(true);
   const [coreDaily, setCoreDaily] = useState([]);
   const [crisisSupport, setCrisisSupport] = useState([]);
@@ -10,22 +32,31 @@ export function PostJournalInterventions({ isCrisis = false, onLaunchInterventio
   useEffect(() => {
     // Check if dismissed in current session
     if (typeof window !== 'undefined') {
-      const dismissed = sessionStorage.getItem('iw_dismissed_post_journal_interventions') === 'true';
-      setIsDismissed(dismissed);
+      try {
+        const dismissed = sessionStorage.getItem('iw_dismissed_post_journal_interventions') === 'true';
+        setIsDismissed(dismissed);
+      } catch (e) {
+        console.warn('SessionStorage access error:', e);
+      }
     }
 
     async function fetchRecommendations() {
       try {
         setLoading(true);
         const res = await fetch(`/api/interventions/recommended?postJournal=true&isCrisis=${isCrisis ? 'true' : 'false'}`);
+        if (!res.ok) {
+          throw new Error(`HTTP error ${res.status}`);
+        }
         const json = await res.json();
-        if (json.success && json.data) {
-          setCoreDaily(json.data.core_daily || []);
-          setCrisisSupport(json.data.crisis_support || []);
+        if (json && json.success && json.data) {
+          setCoreDaily(Array.isArray(json.data.core_daily) ? json.data.core_daily : []);
+          setCrisisSupport(Array.isArray(json.data.crisis_support) ? json.data.crisis_support : []);
+        } else {
+          throw new Error(json?.error || 'Invalid API response');
         }
       } catch (err) {
-        console.warn('Failed to fetch post-journal intervention recommendations:', err);
-        // Fallback default cards if offline
+        console.warn('Failed to fetch post-journal intervention recommendations, using local defaults:', err);
+        // Fallback default cards
         setCoreDaily([
           { id: 'anx_001', title: '4-7-8 Breathing', duration_minutes: 3, description: 'A slow-breathing technique to calm the nervous system when worry feels overwhelming.' },
           { id: 'anx_003', title: '5-4-3-2-1 Grounding', duration_minutes: 5, description: 'Uses the five senses to pull attention out of anxious thoughts and into the present moment.' },
@@ -48,14 +79,28 @@ export function PostJournalInterventions({ isCrisis = false, onLaunchInterventio
   const handleDismiss = () => {
     setIsDismissed(true);
     if (typeof window !== 'undefined') {
-      sessionStorage.setItem('iw_dismissed_post_journal_interventions', 'true');
+      try {
+        sessionStorage.setItem('iw_dismissed_post_journal_interventions', 'true');
+      } catch (e) {}
     }
   };
 
   const handleRestore = () => {
     setIsDismissed(false);
     if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('iw_dismissed_post_journal_interventions');
+      try {
+        sessionStorage.removeItem('iw_dismissed_post_journal_interventions');
+      } catch (e) {}
+    }
+  };
+
+  const handleNavigateToInterventions = () => {
+    if (typeof window !== 'undefined') {
+      if (typeof window.navigateTo === 'function') {
+        window.navigateTo('/interventions');
+      } else {
+        window.location.href = '/interventions';
+      }
     }
   };
 
@@ -73,8 +118,8 @@ export function PostJournalInterventions({ isCrisis = false, onLaunchInterventio
   }
 
   const getIconForIntervention = (item, idx) => {
-    const type = (item.type || '').toLowerCase();
-    const title = (item.title || '').toLowerCase();
+    const type = String(item?.type || '').toLowerCase();
+    const title = String(item?.title || '').toLowerCase();
 
     if (type.includes('breathing') || title.includes('breathing')) return <Wind size={18} className="text-accent" />;
     if (type.includes('grounding') || title.includes('grounding')) return <Compass size={18} className="text-[#5A4A8A]" />;
@@ -82,6 +127,9 @@ export function PostJournalInterventions({ isCrisis = false, onLaunchInterventio
     if (isCrisis) return <ShieldCheck size={18} className="text-accent" />;
     return <Sparkles size={18} className="text-secondary" />;
   };
+
+  const safeCoreDaily = Array.isArray(coreDaily) ? coreDaily : [];
+  const safeCrisisSupport = Array.isArray(crisisSupport) ? crisisSupport : [];
 
   return (
     <div className="space-y-8 animate-fade-in pt-4">
@@ -118,9 +166,9 @@ export function PostJournalInterventions({ isCrisis = false, onLaunchInterventio
           </div>
         ) : (
           <div className="grid sm:grid-cols-3 gap-3">
-            {coreDaily.map((item, idx) => (
+            {safeCoreDaily.map((item, idx) => (
               <div
-                key={item.id || idx}
+                key={item?.id || idx}
                 className="bg-[#F8FAF9] hover:bg-white border border-[#1E2A2E]/10 hover:border-accent/30 rounded-2xl p-4 flex flex-col justify-between space-y-3 transition-all shadow-xs hover:shadow-sm group"
               >
                 <div className="space-y-2">
@@ -129,21 +177,21 @@ export function PostJournalInterventions({ isCrisis = false, onLaunchInterventio
                       {getIconForIntervention(item, idx)}
                     </div>
                     <span className="px-2 py-0.5 bg-[#8DBFB4]/15 text-[#1A5040] text-[10px] font-mono font-semibold rounded-full">
-                      {item.duration_minutes || item.estimated_duration || 5} min
+                      {item?.duration_minutes || item?.estimated_duration || 5} min
                     </span>
                   </div>
 
                   <h4 className="font-serif text-sm font-semibold text-primary group-hover:text-accent transition-colors line-clamp-1">
-                    {item.title}
+                    {item?.title || 'Practice'}
                   </h4>
 
                   <p className="text-[11.5px] text-mid leading-relaxed line-clamp-2 font-serif">
-                    {item.description}
+                    {item?.description || ''}
                   </p>
                 </div>
 
                 <button
-                  onClick={() => onLaunchIntervention && onLaunchIntervention(item.id)}
+                  onClick={() => onLaunchIntervention && item?.id && onLaunchIntervention(item.id)}
                   className="w-full py-2 bg-primary text-white hover:bg-[#2A3A3E] rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer text-center border-none shadow-xs group-hover:shadow-sm"
                 >
                   Start
@@ -155,7 +203,7 @@ export function PostJournalInterventions({ isCrisis = false, onLaunchInterventio
       </div>
 
       {/* 2. CRISIS SUPPORT INTERVENTIONS SECTION (If Crisis == TRUE) */}
-      {isCrisis && (
+      {isCrisis && safeCrisisSupport.length > 0 && (
         <div className="space-y-4 pt-2 border-t border-[#1E2A2E]/10">
           <div className="space-y-1">
             <div className="text-[10px] uppercase tracking-wider text-accent font-bold">
@@ -170,9 +218,9 @@ export function PostJournalInterventions({ isCrisis = false, onLaunchInterventio
           </div>
 
           <div className="grid sm:grid-cols-2 gap-3">
-            {crisisSupport.map((item, idx) => (
+            {safeCrisisSupport.map((item, idx) => (
               <div
-                key={item.id || idx}
+                key={item?.id || idx}
                 className="bg-[#FFF9F8] hover:bg-white border border-accent/20 hover:border-accent/40 rounded-2xl p-4 flex flex-col justify-between space-y-3 transition-all shadow-xs hover:shadow-sm group"
               >
                 <div className="space-y-2">
@@ -181,21 +229,21 @@ export function PostJournalInterventions({ isCrisis = false, onLaunchInterventio
                       <ShieldCheck size={18} />
                     </div>
                     <span className="px-2 py-0.5 bg-accent/15 text-accent text-[10px] font-mono font-semibold rounded-full">
-                      {item.duration_minutes || item.estimated_duration || 5} min
+                      {item?.duration_minutes || item?.estimated_duration || 5} min
                     </span>
                   </div>
 
                   <h4 className="font-serif text-sm font-semibold text-primary group-hover:text-accent transition-colors line-clamp-1">
-                    {item.title}
+                    {item?.title || 'Crisis Practice'}
                   </h4>
 
                   <p className="text-[11.5px] text-mid leading-relaxed line-clamp-2 font-serif">
-                    {item.description}
+                    {item?.description || ''}
                   </p>
                 </div>
 
                 <button
-                  onClick={() => onLaunchIntervention && onLaunchIntervention(item.id)}
+                  onClick={() => onLaunchIntervention && item?.id && onLaunchIntervention(item.id)}
                   className="w-full py-2 bg-accent text-white hover:bg-accent/90 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer text-center border-none shadow-xs"
                 >
                   Start
@@ -209,9 +257,7 @@ export function PostJournalInterventions({ isCrisis = false, onLaunchInterventio
       {/* 3. BROWSE INTERVENTION BANK DIRECT LINK */}
       <div className="pt-2 flex justify-center">
         <button
-          onClick={() => {
-            if (typeof window !== 'undefined') window.navigateTo('/interventions');
-          }}
+          onClick={handleNavigateToInterventions}
           className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-accent transition-colors cursor-pointer bg-transparent border-none group"
         >
           <span>Browse the Intervention Bank</span>
@@ -219,5 +265,13 @@ export function PostJournalInterventions({ isCrisis = false, onLaunchInterventio
         </button>
       </div>
     </div>
+  );
+}
+
+export function PostJournalInterventions(props) {
+  return (
+    <LocalErrorBoundary>
+      <PostJournalInterventionsInner {...props} />
+    </LocalErrorBoundary>
   );
 }

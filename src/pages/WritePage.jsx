@@ -618,7 +618,11 @@ export default function WritePage({ user, profile, onSignOut }) {
             
             <div className="space-y-4">
               {(() => {
-                const text = generatedReflection?.reflection_text || (reflections[writeMode] ? (reflections[writeMode].obs + "\n\n" + reflections[writeMode].q) : "");
+                const reflObj = Array.isArray(generatedReflection) ? generatedReflection[0] : generatedReflection;
+                const reflText = typeof reflObj?.reflection_text === 'string' && reflObj.reflection_text.trim().length > 0 && !reflObj.reflection_text.includes('Processing') ? reflObj.reflection_text : null;
+                const text = reflText || (reflections[writeMode] ? (reflections[writeMode].obs + "\n\n" + reflections[writeMode].q) : "You described your situation with attention and care today.\n\nWhat is feeling the most steady for you right now?");
+                if (!text || typeof text !== 'string') return null;
+
                 const paragraphs = text.split('\n\n').filter(Boolean);
                 if (paragraphs.length === 0) return null;
                 
@@ -638,7 +642,7 @@ export default function WritePage({ user, profile, onSignOut }) {
                       <div className="border-l-[2.5px] border-[#E0A898] pl-4 space-y-1.5 mt-6">
                         <div className="text-[9px] tracking-wider uppercase text-[#E0A898] font-bold">Carry into today's reflection</div>
                         <p className="text-[16px] text-[#E0A898] italic font-serif leading-relaxed">
-                          {questionParagraph.startsWith('"') || questionParagraph.startsWith('“') ? questionParagraph : `"${questionParagraph}"`}
+                          {typeof questionParagraph === 'string' && (questionParagraph.startsWith('"') || questionParagraph.startsWith('“')) ? questionParagraph : `"${questionParagraph}"`}
                         </p>
                       </div>
                     )}

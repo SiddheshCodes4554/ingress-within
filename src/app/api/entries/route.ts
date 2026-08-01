@@ -387,7 +387,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let reflectionRecord = null;
+    let reflectionRecord: any = null;
     if (newEntry) {
       // 1. Run crisis detection and reflection generation synchronously to return it instantly!
       try {
@@ -413,6 +413,37 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
 
         reflectionRecord = dbReflection;
+
+        // If for any reason dbReflection is missing or status is pending, run fallback generation directly!
+        if (!reflectionRecord || reflectionRecord.status === 'pending' || reflectionRecord.reflection_text?.includes('Processing')) {
+          console.warn(`[API Entries POST] Reflection is missing or pending. Creating instant fallback reflection.`);
+          const { generateLocalFallbackReflection } = await import('../../../lib/queue/workers/reflectionWorker');
+          const fallback = generateLocalFallbackReflection(content.trim(), newEntry.day_ei || null, newEntry.day_sa || null);
+          const fullFallbackText = `${fallback.reflection.trim()}\n\n${(fallback.closing_nudge || 'Be gentle with yourself.').trim()}`;
+          
+          const fallbackPayload = {
+            entry_id: newEntry.id,
+            user_id: authUser.userId,
+            cycle_id: newEntry.cycle_id,
+            reflection_text: fullFallbackText,
+            closing_question: fallback.closing_question,
+            classification: fallback.classification,
+            provider: 'local-fallback',
+            confidence: 'high',
+            themes: fallback.themes || [],
+            reflection_type: (updatedEntry || newEntry)?.crisis_flag ? 'crisis' : 'normal',
+            status: 'ready',
+            generated_at: new Date().toISOString()
+          };
+
+          const { data: savedFallback } = await supabase
+            .from('reflections')
+            .upsert(fallbackPayload, { onConflict: 'entry_id' })
+            .select('*')
+            .maybeSingle();
+
+          reflectionRecord = savedFallback || fallbackPayload;
+        }
 
         return NextResponse.json({
           success: true,

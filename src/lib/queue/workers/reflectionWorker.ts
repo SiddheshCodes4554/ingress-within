@@ -354,38 +354,21 @@ export async function processReflectionGeneration(jobData: {
         const isTimeout = err.message?.toLowerCase().includes('timeout') || err.message?.toLowerCase().includes('etimedout');
         const is5xx = err.message?.includes('500') || err.message?.includes('502') || err.message?.includes('503') || err.message?.includes('504') || err.message?.includes('HTTP error 5');
 
-        if (isRateLimit || isTimeout || is5xx) {
-          console.warn(`[Reflection Engine] Temporary network/provider error on attempt ${attempts}. Raising BullMQ retry exception.`);
-          // Mark status as pending in database so the UI continues polling during retry cooldowns
-          await supabase
-            .from('reflections')
-            .update({ status: 'pending', generated_at: new Date().toISOString() })
-            .eq('entry_id', entry_id);
-          throw err;
+        if (isRateLimit || isTimeout || is5xx || attempts >= 2) {
+          console.warn(`[Reflection Engine] Network/provider error or rate limit on attempt ${attempts}. Falling back to deterministic local reflection generator.`);
+          result = generateLocalFallbackReflection(newEntryText, entry.day_ei, entry.day_sa);
+          success = true;
+          break;
         }
       }
     }
   }
 
   // 6. Check if all attempts failed, and use local fallback if so
-  if (!success) {
-    console.warn(`[Reflection Engine] [5/8] [Entry: ${entry_id}] All 3 AI generation attempts failed. Falling back to local deterministic reflection generator.`);
-    try {
-      result = generateLocalFallbackReflection(newEntryText, entry.day_ei, entry.day_sa);
-      success = true;
-    } catch (fallbackErr: any) {
-      console.error(`[Reflection Engine] Local fallback generation failed:`, fallbackErr.message);
-      // Save state as pending to allow background retries later instead of failing permanently.
-      await supabase
-        .from('reflections')
-        .update({
-          status: 'pending',
-          reflection_text: 'Reflection compiling. We are reviewing style guidelines.',
-          generated_at: new Date().toISOString()
-        })
-        .eq('entry_id', entry_id);
-      return;
-    }
+  if (!success || !result) {
+    console.warn(`[Reflection Engine] AI generation unfulfilled. Falling back to local deterministic reflection generator.`);
+    result = generateLocalFallbackReflection(newEntryText, entry.day_ei, entry.day_sa);
+    success = true;
   }
 
   console.log(`[Reflection Engine] [6/8] [Entry: ${entry_id}] Reflection observation parsed and validated successfully (attempts: ${attempts}).`);
