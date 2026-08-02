@@ -109,10 +109,13 @@ export default function DashboardPage({ user, profile, onSignOut }) {
         const latestEntry = result.entries[0];
         const reflection = latestEntry.reflection;
 
-        if (reflection && reflection.status === 'ready' && reflection.closing_question) {
-          setReflectionToAnswer(reflection);
+        if (reflection && (reflection.status === 'ready' || reflection.reflection_text) && !reflection.reflection_answer) {
+          setReflectionToAnswer({
+            ...reflection,
+            closing_question: reflection.closing_question || "What is feeling the most steady or grounding for you right now?"
+          });
           setReflectionEntry(latestEntry);
-          setReflectionAnswerText(reflection.reflection_answer || '');
+          setReflectionAnswerText('');
         } else {
           setReflectionToAnswer(null);
           setReflectionEntry(null);
@@ -159,10 +162,13 @@ export default function DashboardPage({ user, profile, onSignOut }) {
         const latestEntry = freshData.entries[0];
         const reflection = latestEntry.reflection;
 
-        if (reflection && reflection.status === 'ready' && reflection.closing_question) {
-          setReflectionToAnswer(reflection);
+        if (reflection && (reflection.status === 'ready' || reflection.reflection_text) && !reflection.reflection_answer) {
+          setReflectionToAnswer({
+            ...reflection,
+            closing_question: reflection.closing_question || "What is feeling the most steady or grounding for you right now?"
+          });
           setReflectionEntry(latestEntry);
-          setReflectionAnswerText(reflection.reflection_answer || '');
+          setReflectionAnswerText('');
         } else {
           setReflectionToAnswer(null);
           setReflectionEntry(null);
@@ -877,42 +883,39 @@ export default function DashboardPage({ user, profile, onSignOut }) {
 
                                                 <div className="flex items-center gap-2">
                                                   {entry.crisis_flag ? (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[8.5px] font-bold bg-accent/15 text-accent uppercase tracking-widest animate-pulse">
-                                                      <AlertCircle size={10} className="text-accent shrink-0" />
-                                                      <span>Crisis Suppressed</span>
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[8.5px] font-bold bg-accent/15 text-accent uppercase tracking-widest">
+                                                      <HeartHandshake size={10} className="text-accent shrink-0" />
+                                                      <span>Crisis Support Active</span>
                                                     </span>
                                                   ) : (
                                                     <>
                                                       {/* Reflection Status Badge */}
-                                                      {entry.reflectionStatus === 'Completed' && (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#8DBFB4]/15 text-[#1A5040]">
-                                                          <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
-                                                          <span>Reflection Answered</span>
-                                                        </span>
-                                                      )}
-                                                      {entry.reflectionStatus === 'Pending Response' && (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#8DBFB4]/15 text-[#1A5040]">
-                                                          <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
-                                                          <span>Reflection Ready</span>
-                                                        </span>
-                                                      )}
-                                                      {entry.reflectionStatus === 'Processing AI...' && (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#f59e0b]/10 text-[#b45309] animate-pulse">
-                                                          <span className="w-1 h-1 rounded-full bg-[#f59e0b]" />
-                                                          <span>Processing AI...</span>
-                                                        </span>
-                                                      )}
-                                                      {(entry.reflectionStatus === 'None' || !entry.reflectionStatus || entry.reflectionStatus === 'Ready') && (() => {
-                                                        const entryDate = new Date(entry.created_at);
-                                                        const today = new Date();
-                                                        const isToday = entryDate.getDate() === today.getDate() &&
-                                                                        entryDate.getMonth() === today.getMonth() &&
-                                                                        entryDate.getFullYear() === today.getFullYear();
-                                                        if (isToday) {
+                                                      {(() => {
+                                                        const refl = entry.reflection;
+                                                        const isAnswered = Boolean(refl?.reflection_answer) || entry.reflectionStatus === 'Completed';
+                                                        const isReady = Boolean(refl) || entry.reflectionStatus === 'Pending Response' || entry.reflectionStatus === 'Ready';
+
+                                                        if (isAnswered) {
                                                           return (
-                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#f59e0b]/10 text-[#b45309]">
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#8DBFB4]/15 text-[#1A5040]">
+                                                              <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
+                                                              <span>Reflection Answered</span>
+                                                            </span>
+                                                          );
+                                                        }
+                                                        if (isReady) {
+                                                          return (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#8DBFB4]/15 text-[#1A5040]">
+                                                              <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
+                                                              <span>Reflection Ready</span>
+                                                            </span>
+                                                          );
+                                                        }
+                                                        if (entry.reflectionStatus === 'Processing AI...') {
+                                                          return (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-medium bg-[#f59e0b]/10 text-[#b45309] animate-pulse">
                                                               <span className="w-1 h-1 rounded-full bg-[#f59e0b]" />
-                                                              <span>Compiling Continuity</span>
+                                                              <span>Processing AI...</span>
                                                             </span>
                                                           );
                                                         }
@@ -930,17 +933,26 @@ export default function DashboardPage({ user, profile, onSignOut }) {
 
                                               <div className="flex items-center justify-between pt-1 mt-1 border-t border-[#1E2A2E]/5">
                                                 <div>
-                                                  {entry.reflectionStatus === 'Pending Response' && (
-                                                    <button
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleOpenReflectionForEntry(entry);
-                                                      }}
-                                                      className="px-2.5 py-1.5 bg-[#8DBFB4]/12 hover:bg-[#8DBFB4]/20 text-[#1A5040] text-[9.5px] font-bold uppercase tracking-wider rounded transition-all cursor-pointer border-none"
-                                                    >
-                                                      Answer Reflection
-                                                    </button>
-                                                  )}
+                                                  {(() => {
+                                                    const refl = entry.reflection;
+                                                    const isAnswered = Boolean(refl?.reflection_answer) || entry.reflectionStatus === 'Completed';
+                                                    const isReady = Boolean(refl) || entry.reflectionStatus === 'Pending Response' || entry.reflectionStatus === 'Ready';
+
+                                                    if (isReady && !isAnswered) {
+                                                      return (
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleOpenReflectionForEntry(entry);
+                                                          }}
+                                                          className="px-2.5 py-1.5 bg-[#8DBFB4]/12 hover:bg-[#8DBFB4]/20 text-[#1A5040] text-[9.5px] font-bold uppercase tracking-wider rounded transition-all cursor-pointer border-none"
+                                                        >
+                                                          Answer Reflection
+                                                        </button>
+                                                      );
+                                                    }
+                                                    return null;
+                                                  })()}
                                                 </div>
                                                 <div className="flex items-center justify-end text-[10px] font-bold uppercase tracking-widest text-secondary group-hover:text-primary transition-colors">
                                                   <span className="flex items-center gap-1">
