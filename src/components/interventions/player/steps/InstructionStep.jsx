@@ -3,8 +3,15 @@ import { ArrowRight, BookOpen, Edit3, CheckCircle2 } from 'lucide-react';
 import { InteractiveExerciseTools } from '../widgets/InteractiveExerciseTools';
 
 export function InstructionStep({ step, initialValue = '', onSaveAnswer, onNext, isSubmitting }) {
-  const needsResponse = (text) => /\b(write|jot down|list|note|log)\b/i.test(text || '');
-  const hasWriteIn = !!step.optional_question || step.step_type === 'reflection' || step.step_type === 'text' || needsResponse(step.content);
+  const isQuestionOrWriteStep = (text, title, optionalQuestion, stepType) => {
+    if (optionalQuestion && optionalQuestion.prompt) return true;
+    if (stepType === 'reflection' || stepType === 'text') return true;
+    const fullText = `${title || ''} ${text || ''}`;
+    if (fullText.includes('?')) return true;
+    return /\b(write|jot down|list|note|log|identify|ask|reflect|describe|name|pick|draft|record)\b/i.test(fullText);
+  };
+
+  const hasWriteIn = isQuestionOrWriteStep(step.content, step.title, step.optional_question, step.step_type);
   const qId = step.optional_question?.id || step.step_id || `q_${step.step_number}`;
 
   const [text, setText] = useState(initialValue);

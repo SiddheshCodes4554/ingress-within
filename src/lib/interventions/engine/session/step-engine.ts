@@ -11,8 +11,11 @@ export class StepEngine {
     const totalDurationMinutes = intervention.estimated_duration || intervention.duration_minutes || (intervention as any).duration || 5;
     const defaultStepDurationSeconds = Math.ceil((totalDurationMinutes * 60) / Math.max(1, rawSteps.length));
 
-    const needsResponse = (text: string) =>
-      /\b(write|jot down|list|note|log)\b/i.test(text || '');
+    const needsResponse = (text: string, title?: string) => {
+      const fullText = `${title || ''} ${text || ''}`;
+      if (fullText.includes('?')) return true;
+      return /\b(write|jot down|list|note|log|identify|ask|reflect|describe|name|pick|draft|record)\b/i.test(fullText);
+    };
 
     return rawSteps.map((stepItem, index) => {
       const stepNumber = index + 1;
@@ -37,7 +40,7 @@ export class StepEngine {
       // Pre-structured step object
       const s = stepItem as any;
       const stepContent = s.content || s.instruction || '';
-      const isWriteStep = s.step_type === 'reflection' || s.step_type === 'text' || !!s.optional_question || !!questionForStep || needsResponse(stepContent || s.title || '');
+      const isWriteStep = s.step_type === 'reflection' || s.step_type === 'text' || !!s.optional_question || !!questionForStep || needsResponse(stepContent, s.title);
       const qObj = s.optional_question || questionForStep || (isWriteStep ? { id: `q_${intervention.id}_step_${stepNumber}`, prompt: stepContent || s.title || '', type: 'text' } : undefined);
 
       return {
