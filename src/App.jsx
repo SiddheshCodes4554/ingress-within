@@ -15,6 +15,7 @@ const OnboardingPage = lazy(() => import('./views/OnboardingPage'));
 const DashboardPage = lazy(() => import('./views/DashboardPage'));
 const SettingsPage = lazy(() => import('./views/SettingsPage'));
 const WritePage = lazy(() => import('./views/WritePage'));
+const GuidedWritePage = lazy(() => import('./views/GuidedWritePage'));
 const ReportsPage = lazy(() => import('./views/ReportsPage'));
 const PatternsPage = lazy(() => import('./views/PatternsPage'));
 const VocabPage = lazy(() => import('./views/VocabPage'));
@@ -315,7 +316,10 @@ export default function App() {
       } else if (path === '/settings' || path === '/settings/') {
         setCurrentRoute('settings');
         window.scrollTo(0, 0);
-      } else if (path === '/write' || path === '/write/') {
+      } else if (path === '/write/guided' || path === '/write/guided/') {
+        setCurrentRoute('write-guided');
+        window.scrollTo(0, 0);
+      } else if (path === '/write' || path === '/write/' || path.startsWith('/write')) {
         setCurrentRoute('write');
         window.scrollTo(0, 0);
       } else if (path === '/reports' || path === '/reports/') {
@@ -459,6 +463,8 @@ export default function App() {
         return <SettingsPage user={user} profile={profile} onSignOut={handleSignOut} />;
       case 'write':
         return <WritePage user={user} profile={profile} onSignOut={handleSignOut} />;
+      case 'write-guided':
+        return <GuidedWritePage user={user} profile={profile} onSignOut={handleSignOut} />;
       case 'reports':
         return <ReportsPage user={user} profile={profile} onSignOut={handleSignOut} />;
       case 'patterns':

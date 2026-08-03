@@ -207,6 +207,7 @@ export async function GET(request: NextRequest) {
       return {
         ...entry,
         cycle_number: cycleNum,
+        entry_mode: entry.entry_mode || 'free',
         reflectionStatus,
         reflection: reflection ? {
           ...reflection,
@@ -243,7 +244,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { content } = body;
+    const { content, entry_mode, started_at, completed_at, completion_time, resume_count } = body;
 
     if (!content || !content.trim()) {
       return NextResponse.json(
@@ -343,6 +344,11 @@ export async function POST(request: NextRequest) {
       content: content.trim(),
       new_entry_text_encrypted: content.trim(), // for future AI workflow compatibility
       entry_type: 'new_only',
+      entry_mode: (entry_mode === 'guided' ? 'guided' : 'free'),
+      started_at: started_at || new Date().toISOString(),
+      completed_at: completed_at || new Date().toISOString(),
+      completion_time: completion_time || null,
+      resume_count: resume_count || 0,
       word_count: wordCount,
       session_id: null,
       cycle_id: cycleId,

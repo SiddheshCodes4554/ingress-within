@@ -670,33 +670,57 @@ export default function DashboardPage({ user, profile, onSignOut }) {
                     </motion.div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* Premium Start Card */}
+                      {/* Left Card: Free Write */}
                       <div 
-                        onClick={() => handleStartWriting('fresh')}
-                        className="bg-primary text-white p-4.5 rounded-xl flex flex-col justify-between h-[130px] cursor-pointer hover:bg-[#2A3A3E] transition-all group shadow-sm border border-primary/5"
+                        onClick={() => window.navigateTo('/write')}
+                        className="bg-white border border-[#1E2A2E]/10 hover:border-primary/30 p-5 rounded-2xl flex flex-col justify-between min-h-[170px] cursor-pointer hover:shadow-md transition-all group relative text-left"
                       >
-                        <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center text-accent group-hover:scale-105 transition-transform">
-                          <Sparkles size={14} />
+                        <div className="flex items-center justify-between">
+                          <div className="w-9 h-9 rounded-xl bg-primary/5 flex items-center justify-center text-primary group-hover:scale-105 transition-transform border border-primary/10">
+                            <PenLine size={16} />
+                          </div>
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-mid/70 px-2 py-0.5 bg-primary/5 rounded-full">Direct</span>
                         </div>
-                        <div className="space-y-0.5">
-                          <div className="text-[8px] font-bold text-accent uppercase tracking-widest">DAILY SESSION</div>
-                          <h3 className="text-[13.5px] font-bold">Begin today's session</h3>
-                          <p className="text-[11px] text-on-primary/60 font-light leading-snug">Guided breathing, cognitive reframing, and writing.</p>
+
+                        <div className="space-y-1.5 pt-3">
+                          <h3 className="font-serif text-lg font-normal text-primary group-hover:text-secondary transition-colors">Free Write</h3>
+                          <p className="text-xs font-semibold text-primary/80">Write freely about whatever is on your mind today.</p>
+                          <p className="text-[11.5px] text-mid font-light leading-relaxed">A blank journal where you decide what matters.</p>
+                        </div>
+
+                        <div className="pt-4 flex items-center justify-between border-t border-[#1E2A2E]/5 mt-2">
+                          <span className="text-[11px] font-semibold text-primary group-hover:text-secondary transition-colors flex items-center gap-1">
+                            Start Writing <ArrowRight size={12} className="transform group-hover:translate-x-0.5 transition-transform" />
+                          </span>
+                          <span className="text-[9.5px] text-mid/60 font-serif italic">Blank canvas</span>
                         </div>
                       </div>
 
-                      {/* Secondary Fresh Entry Card */}
+                      {/* Right Card: Guided Writing */}
                       <div 
-                        onClick={() => handleStartWriting('fresh')}
-                        className="bg-white border border-[#1E2A2E]/8 p-4.5 rounded-xl flex flex-col justify-between h-[130px] cursor-pointer hover:shadow-md hover:border-[#1E2A2E]/15 transition-all group"
+                        onClick={() => window.navigateTo('/write/guided')}
+                        className="bg-gradient-to-br from-[#8DBFB4]/10 via-[#8DBFB4]/5 to-white border border-[#8DBFB4]/30 hover:border-[#8DBFB4]/60 p-5 rounded-2xl flex flex-col justify-between min-h-[170px] cursor-pointer hover:shadow-md transition-all group relative text-left"
                       >
-                        <div className="w-7 h-7 rounded-lg bg-[#1E2A2E]/5 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
-                          <PenLine size={13} />
+                        <div className="flex items-center justify-between">
+                          <div className="w-9 h-9 rounded-xl bg-[#8DBFB4]/20 flex items-center justify-center text-[#1A5040] group-hover:scale-105 transition-transform border border-[#8DBFB4]/30">
+                            <Compass size={16} />
+                          </div>
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-[#1A5040] px-2 py-0.5 bg-[#8DBFB4]/20 rounded-full flex items-center gap-1">
+                            <Sparkles size={10} /> Recommended
+                          </span>
                         </div>
-                        <div className="space-y-0.5">
-                          <div className="text-[8px] font-bold text-secondary uppercase tracking-widest">FREE WRITE</div>
-                          <h3 className="text-[13.5px] font-bold text-primary">Write a fresh entry</h3>
-                          <p className="text-[11px] text-mid font-light leading-snug">Direct journal entry workspace without prompts.</p>
+
+                        <div className="space-y-1.5 pt-3">
+                          <h3 className="font-serif text-lg font-normal text-primary group-hover:text-[#1A5040] transition-colors">Guided Writing</h3>
+                          <p className="text-xs font-semibold text-primary/80">A structured conversation to help you explore one experience more deeply.</p>
+                          <p className="text-[11.5px] text-mid font-light leading-relaxed">We'll guide you through a few thoughtful questions and then reflect back what we notice.</p>
+                        </div>
+
+                        <div className="pt-4 flex items-center justify-between border-t border-[#8DBFB4]/15 mt-2">
+                          <span className="text-[11px] font-semibold text-[#1A5040] group-hover:text-primary transition-colors flex items-center gap-1">
+                            Begin Guided Session <ArrowRight size={12} className="transform group-hover:translate-x-0.5 transition-transform" />
+                          </span>
+                          <span className="text-[9.5px] text-[#1A5040]/70 font-serif italic">5 guided prompts</span>
                         </div>
                       </div>
                     </div>
