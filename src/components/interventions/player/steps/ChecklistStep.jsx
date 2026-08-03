@@ -20,11 +20,20 @@ export function ChecklistStep({ step, onNext, isSubmitting }) {
 
   return (
     <div className="max-w-2xl mx-auto py-6 animate-fade-in">
-      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider mb-4">
+      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider mb-4 gap-4 flex-wrap">
         <div className="flex items-center gap-2 text-accent">
           <CheckSquare size={16} />
           <span>Interactive Checklist</span>
         </div>
+
+        {/* Compact Top Corner Timer / Counter Widget */}
+        <InteractiveExerciseTools
+          title={step.title}
+          content={step.content}
+          items={items}
+          estimatedDuration={step.estimated_duration}
+        />
+
         <span className="text-supporting font-medium">
           {completedCount} of {items.length} completed
         </span>
@@ -37,14 +46,6 @@ export function ChecklistStep({ step, onNext, isSubmitting }) {
       <p className="text-mid text-sm mb-6">
         Check off items as you complete them:
       </p>
-
-      {/* Interactive Timer & Counter Tools */}
-      <InteractiveExerciseTools
-        title={step.title}
-        content={step.content}
-        items={items}
-        estimatedDuration={step.estimated_duration}
-      />
 
       <div className="space-y-3 mb-8">
         {items.map((item, idx) => {

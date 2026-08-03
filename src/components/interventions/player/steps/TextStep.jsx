@@ -31,11 +31,20 @@ export function TextStep({ step, initialValue = '', onSaveAnswer, onNext, isSubm
 
   return (
     <div className="max-w-2xl mx-auto py-6 animate-fade-in">
-      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider mb-4">
+      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider mb-4 gap-4 flex-wrap">
         <div className="flex items-center gap-2 text-accent">
           <Edit3 size={16} />
           <span>Written Practice</span>
         </div>
+
+        {/* Compact Top Corner Timer / Counter Widget */}
+        <InteractiveExerciseTools
+          title={step.title}
+          content={step.content || step.optional_question?.prompt}
+          items={step.items}
+          estimatedDuration={step.estimated_duration}
+        />
+
         {isSaved && (
           <span className="flex items-center gap-1 text-emerald-600 font-medium lowercase">
             <CheckCircle2 size={13} /> Autosaved
@@ -50,14 +59,6 @@ export function TextStep({ step, initialValue = '', onSaveAnswer, onNext, isSubm
       <p className="text-mid text-sm mb-6 leading-relaxed">
         {step.content || step.optional_question?.prompt}
       </p>
-
-      {/* Interactive Timer & Counter Tools */}
-      <InteractiveExerciseTools
-        title={step.title}
-        content={step.content || step.optional_question?.prompt}
-        items={step.items}
-        estimatedDuration={step.estimated_duration}
-      />
 
       <div className="mb-6 relative">
         <textarea

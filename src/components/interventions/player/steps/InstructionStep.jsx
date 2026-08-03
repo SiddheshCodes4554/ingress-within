@@ -33,11 +33,20 @@ export function InstructionStep({ step, initialValue = '', onSaveAnswer, onNext,
 
   return (
     <div className="max-w-2xl mx-auto py-6 animate-fade-in">
-      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider mb-4">
+      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider mb-4 gap-4 flex-wrap">
         <div className="flex items-center gap-2 text-accent">
           <BookOpen size={16} />
           <span>Guided Instruction</span>
         </div>
+
+        {/* Compact Top Corner Timer / Counter Widget */}
+        <InteractiveExerciseTools
+          title={step.title}
+          content={step.content}
+          items={step.items}
+          estimatedDuration={step.estimated_duration}
+        />
+
         {hasWriteIn && isSaved && (
           <span className="flex items-center gap-1 text-emerald-600 font-medium lowercase">
             <CheckCircle2 size={13} /> Saved
@@ -54,14 +63,6 @@ export function InstructionStep({ step, initialValue = '', onSaveAnswer, onNext,
           <p key={idx}>{paragraph}</p>
         ))}
       </div>
-
-      {/* Interactive Timer & Counter Tools */}
-      <InteractiveExerciseTools
-        title={step.title}
-        content={step.content}
-        items={step.items}
-        estimatedDuration={step.estimated_duration}
-      />
 
       {hasWriteIn && (
         <div className="mb-8 relative border-t border-accent/15 pt-6 mt-6">
