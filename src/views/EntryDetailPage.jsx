@@ -13,7 +13,8 @@ import {
   AlertCircle,
   HelpCircle,
   Clock,
-  HeartHandshake
+  HeartHandshake,
+  CheckCircle2
 } from 'lucide-react';
 import DashboardNavbar from '../components/DashboardNavbar';
 import { PostJournalInterventions } from '../components/interventions/PostJournalInterventions';
@@ -69,6 +70,10 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [playerInterventionId, setPlayerInterventionId] = useState(null);
+  const [reflectionAnswerText, setReflectionAnswerText] = useState('');
+  const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
+  const [answerError, setAnswerError] = useState(null);
+  const [isEditingAnswer, setIsEditingAnswer] = useState(false);
 
   const fetchEntryDetails = async () => {
     setIsLoading(true);
@@ -83,11 +88,53 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
         throw new Error(json.error?.message || 'Failed to retrieve journal entry details.');
       }
       setData(json);
+      if (json.reflection?.reflection_answer) {
+        setReflectionAnswerText(json.reflection.reflection_answer);
+      } else if (json.entry?.decrypted_reflection_text) {
+        setReflectionAnswerText(json.entry.decrypted_reflection_text);
+      }
     } catch (err) {
       console.error('[EntryDetailPage] Fetch Error:', err);
       setError(err.message || 'An unexpected network error occurred.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSaveReflectionAnswer = async () => {
+    const reflectionId = data?.reflection?.id;
+    if (!reflectionAnswerText.trim() || !reflectionId) return;
+    setIsSubmittingAnswer(true);
+    setAnswerError(null);
+    try {
+      const res = await fetch('/api/reflections/answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reflectionId,
+          answer: reflectionAnswerText.trim(),
+          status: 'completed'
+        })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error?.message || 'Failed to save reflection response.');
+      }
+      setData(prev => ({
+        ...prev,
+        reflection: {
+          ...prev.reflection,
+          reflection_answer: reflectionAnswerText.trim(),
+          status: 'completed',
+          answered_at: new Date().toISOString()
+        }
+      }));
+      setIsEditingAnswer(false);
+    } catch (err) {
+      console.error('[EntryDetailPage] Failed to submit reflection answer:', err);
+      setAnswerError(err.message || 'Failed to save reflection answer.');
+    } finally {
+      setIsSubmittingAnswer(false);
     }
   };
 
@@ -304,17 +351,89 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
                   }
                 </p>
                 
-                {(reflection?.closing_question || "What is feeling the most steady or grounding for you right now?") && (
-                  <div className="p-4 bg-secondary/5 rounded-xl border border-secondary/15 space-y-1.5 mt-3">
-                    <div className="text-[8px] font-bold uppercase tracking-widest text-secondary flex items-center gap-1">
-                      <HelpCircle size={10} />
-                      <span>Inquiry for contemplation</span>
-                    </div>
-                    <p className="font-serif text-sm italic text-primary/95 leading-relaxed">
-                      "{reflection?.closing_question || "What is feeling the most steady or grounding for you right now?"}"
-                    </p>
+                {/* Reflection Question */}
+                <div className="p-4 bg-secondary/5 rounded-xl border border-secondary/15 space-y-2 mt-3 text-left">
+                  <div className="text-[8.5px] font-bold uppercase tracking-widest text-secondary flex items-center gap-1">
+                    <HelpCircle size={11} />
+                    <span>Reflection Question for Contemplation</span>
                   </div>
-                )}
+                  <p className="font-serif text-sm italic text-primary/95 leading-relaxed">
+                    "{reflection?.closing_question || "What is feeling the most steady or grounding for you right now?"}"
+                  </p>
+                </div>
+
+                {/* Reflection Answer Section */}
+                {(() => {
+                  const existingAnswer = reflection?.reflection_answer || entry?.decrypted_reflection_text;
+                  const isAnswered = Boolean(existingAnswer && existingAnswer.trim() && !isEditingAnswer);
+
+                  if (isAnswered) {
+                    return (
+                      <div className="p-4 bg-[#8DBFB4]/10 rounded-xl border border-[#8DBFB4]/25 space-y-2 mt-3 text-left">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-bold uppercase tracking-widest text-[#1A5040] flex items-center gap-1">
+                            <CheckCircle2 size={12} className="text-[#8DBFB4]" />
+                            <span>Your Answer</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReflectionAnswerText(existingAnswer);
+                              setIsEditingAnswer(true);
+                            }}
+                            className="text-[9.5px] font-semibold text-[#1A5040] hover:underline cursor-pointer border-none bg-transparent"
+                          >
+                            Edit Answer
+                          </button>
+                        </div>
+                        <p className="font-serif text-[13.5px] italic text-primary leading-relaxed pl-2.5 border-l-2 border-[#8DBFB4]/50">
+                          "{existingAnswer}"
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="p-4 bg-white rounded-xl border border-[#1E2A2E]/10 space-y-3 mt-3 text-left">
+                      <div className="text-[9px] font-bold uppercase tracking-widest text-secondary flex items-center gap-1">
+                        <Sparkles size={11} />
+                        <span>Answer Reflection Question</span>
+                      </div>
+                      {answerError && (
+                        <div className="text-[11px] text-accent font-semibold">{answerError}</div>
+                      )}
+                      <textarea
+                        value={reflectionAnswerText}
+                        onChange={(e) => setReflectionAnswerText(e.target.value)}
+                        placeholder="Write your response to this reflection question..."
+                        className="w-full min-h-[90px] border border-[#1E2A2E]/10 rounded-lg p-3 text-xs leading-relaxed outline-none focus:border-primary font-sans text-primary placeholder:text-mid/40 placeholder:font-serif italic resize-y"
+                      />
+                      <div className="flex items-center justify-end gap-2">
+                        {isEditingAnswer && (
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingAnswer(false)}
+                            className="px-3 py-1.5 rounded text-[11px] font-semibold text-mid hover:text-primary bg-transparent border-none cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleSaveReflectionAnswer}
+                          disabled={isSubmittingAnswer || !reflectionAnswerText.trim()}
+                          className={`px-4 py-1.5 rounded text-[11px] font-semibold uppercase tracking-wider transition-all border-none ${
+                            isSubmittingAnswer || !reflectionAnswerText.trim()
+                              ? 'bg-primary/20 text-white cursor-not-allowed'
+                              : 'bg-primary text-white hover:bg-[#2A3A3E] cursor-pointer shadow-xs'
+                          }`}
+                        >
+                          {isSubmittingAnswer ? 'Saving...' : 'Submit Answer'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
