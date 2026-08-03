@@ -397,37 +397,7 @@ export default function WritePage({ user, profile, onSignOut }) {
           </div>
 
           {/* Writing Area */}
-          <div className="flex-1 max-w-[620px] mx-auto w-full px-6 pt-6 flex flex-col space-y-6">
-            
-            {/* PREDEFINED PROMPTS BAR */}
-            <div className="bg-white rounded-xl border border-[#1E2A2E]/8 p-4 shadow-xs space-y-2.5 text-left select-none">
-              <div className="text-[9px] font-bold uppercase tracking-widest text-[#8DBFB4] flex items-center gap-1.5">
-                <span>TRY AN EXAMPLE, OR WRITE YOUR OWN BELOW</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {[
-                  { label: "Work, before a 'first'", isWarning: false, text: "I have to present our new quarterly strategy to the leadership team tomorrow morning. It's the first time I'm leading the presentation alone. I feel restless energy and a constant urge to re-check my slides for tiny errors." },
-                  { label: "Snapped at my sister", isWarning: false, text: "My sister asked a simple question about dinner plans after I came home exhausted, and I responded with sharp irritation. Instant guilt and a heavy pit in my stomach." },
-                  { label: "Sunday heaviness", isWarning: false, text: "It's Sunday afternoon, and a quiet wave of dread and weight started settling in about the upcoming week. Sluggishness, low motivation, and a subtle knot of anticipation in my stomach." },
-                  { label: "Said yes again", isWarning: false, text: "A coworker asked me to take over their project deck deadline, and I immediately agreed even though my schedule is full. Resentment and frustration at my inability to set firm boundaries." },
-                  { label: "Genuinely unclear", isWarning: true, text: "Something felt off during the team meeting today, but I can't pinpoint the exact trigger or conversation. Vague unease, distraction, and a nagging sense of uncertainty." },
-                  { label: "Claims fine", isWarning: true, text: "People asked how I was doing today and I automatically replied 'I'm completely fine', even though I felt overwhelmed. Numbness and emotional detachment." },
-                  { label: "Almost all blank", isWarning: true, text: "Nothing specific occurred today, just a quiet, empty routine. Flat mood, neutral energy, quiet stillness." },
-                  { label: "Two readings possible", isWarning: true, text: "My manager left a brief message saying 'Let's talk tomorrow', which could mean positive feedback or a critical issue. Ambivalence and catastrophic thinking." },
-                  { label: "Write your own", isWarning: false, text: "" }
-                ].map((p, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setEntryText(p.text)}
-                    className="px-3 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border flex items-center gap-1 bg-white text-primary border-[#1E2A2E]/15 hover:border-primary/40 hover:bg-primary/5"
-                  >
-                    {p.isWarning && <span className="text-[#b45309] font-bold text-[10px]">⚠</span>}
-                    <span>{p.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="flex-1 max-w-[620px] mx-auto w-full px-6 pt-8 flex flex-col space-y-6">
             <AnimatePresence>
               {showRecoveredMsg && (
                 <motion.div
