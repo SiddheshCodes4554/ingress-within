@@ -2,9 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Play, Pause, RotateCcw, Clock, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 export function TimerStep({ step, onNext, isSubmitting }) {
-  const initialSeconds = step.estimated_duration || 180; // default 3 mins
-  const [timeLeft, setTimeLeft] = useState(initialSeconds);
+  const [totalSeconds, setTotalSeconds] = useState(step.estimated_duration || 180);
+  const [timeLeft, setTimeLeft] = useState(totalSeconds);
   const [isRunning, setIsRunning] = useState(true);
+
+  const handleSelectPreset = (mins) => {
+    const secs = mins * 60;
+    setTotalSeconds(secs);
+    setTimeLeft(secs);
+    setIsRunning(false);
+  };
 
   useEffect(() => {
     if (!isRunning || timeLeft <= 0) return;
@@ -22,7 +29,7 @@ export function TimerStep({ step, onNext, isSubmitting }) {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progressPercent = Math.round(((initialSeconds - timeLeft) / initialSeconds) * 100);
+  const progressPercent = totalSeconds > 0 ? Math.round(((totalSeconds - timeLeft) / totalSeconds) * 100) : 0;
 
   return (
     <div className="max-w-xl mx-auto py-8 text-center animate-fade-in flex flex-col items-center">
@@ -34,9 +41,28 @@ export function TimerStep({ step, onNext, isSubmitting }) {
       <h2 className="text-2xl font-serif text-primary mb-3">
         {step.title}
       </h2>
-      <p className="text-mid text-sm mb-8 max-w-md">
+      <p className="text-mid text-sm mb-4 max-w-md">
         {step.content || 'Take a moment to remain in this practice until the timer expires.'}
       </p>
+
+      {/* Quick Timer Presets */}
+      <div className="flex items-center gap-2 mb-6">
+        <span className="text-xs text-mid font-medium mr-1">Duration:</span>
+        {[1, 3, 5, 10].map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => handleSelectPreset(m)}
+            className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border ${
+              totalSeconds === m * 60
+                ? 'bg-primary text-white border-primary shadow-xs'
+                : 'bg-white text-primary border-[#1E2A2E]/15 hover:bg-primary/5'
+            }`}
+          >
+            {m} min
+          </button>
+        ))}
+      </div>
 
       {/* Ring Timer */}
       <div className="my-6 relative w-56 h-56 flex items-center justify-center">
@@ -85,7 +111,7 @@ export function TimerStep({ step, onNext, isSubmitting }) {
         </button>
         <button
           onClick={() => {
-            setTimeLeft(initialSeconds);
+            setTimeLeft(totalSeconds);
             setIsRunning(false);
           }}
           className="p-3.5 bg-mint-grey hover:bg-accent/20 text-supporting hover:text-primary rounded-full transition-all cursor-pointer border border-accent/20"

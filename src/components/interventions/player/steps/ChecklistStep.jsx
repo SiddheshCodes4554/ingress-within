@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CheckSquare, Check, ArrowRight } from 'lucide-react';
+import { InteractiveExerciseTools } from '../widgets/InteractiveExerciseTools';
 
 export function ChecklistStep({ step, onNext, isSubmitting }) {
   const items = Array.isArray(step.items)
@@ -36,6 +37,14 @@ export function ChecklistStep({ step, onNext, isSubmitting }) {
       <p className="text-mid text-sm mb-6">
         Check off items as you complete them:
       </p>
+
+      {/* Interactive Timer & Counter Tools */}
+      <InteractiveExerciseTools
+        title={step.title}
+        content={step.content}
+        items={items}
+        estimatedDuration={step.estimated_duration}
+      />
 
       <div className="space-y-3 mb-8">
         {items.map((item, idx) => {

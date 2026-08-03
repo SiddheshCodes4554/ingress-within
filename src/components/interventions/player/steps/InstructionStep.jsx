@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, BookOpen, Edit3, CheckCircle2 } from 'lucide-react';
+import { InteractiveExerciseTools } from '../widgets/InteractiveExerciseTools';
 
 export function InstructionStep({ step, initialValue = '', onSaveAnswer, onNext, isSubmitting }) {
   const needsResponse = (text) => /\b(write|jot down|list|note|log)\b/i.test(text || '');
@@ -53,6 +54,14 @@ export function InstructionStep({ step, initialValue = '', onSaveAnswer, onNext,
           <p key={idx}>{paragraph}</p>
         ))}
       </div>
+
+      {/* Interactive Timer & Counter Tools */}
+      <InteractiveExerciseTools
+        title={step.title}
+        content={step.content}
+        items={step.items}
+        estimatedDuration={step.estimated_duration}
+      />
 
       {hasWriteIn && (
         <div className="mb-8 relative border-t border-accent/15 pt-6 mt-6">

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Edit3, CheckCircle2, ArrowRight } from 'lucide-react';
+import { InteractiveExerciseTools } from '../widgets/InteractiveExerciseTools';
 
 export function TextStep({ step, initialValue = '', onSaveAnswer, onNext, isSubmitting }) {
   const [text, setText] = useState(initialValue);
@@ -49,6 +50,14 @@ export function TextStep({ step, initialValue = '', onSaveAnswer, onNext, isSubm
       <p className="text-mid text-sm mb-6 leading-relaxed">
         {step.content || step.optional_question?.prompt}
       </p>
+
+      {/* Interactive Timer & Counter Tools */}
+      <InteractiveExerciseTools
+        title={step.title}
+        content={step.content || step.optional_question?.prompt}
+        items={step.items}
+        estimatedDuration={step.estimated_duration}
+      />
 
       <div className="mb-6 relative">
         <textarea
