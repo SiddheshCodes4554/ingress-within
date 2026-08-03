@@ -427,7 +427,7 @@ export async function POST(request: NextRequest) {
           const fallback = generateLocalFallbackReflection(content.trim(), newEntry.day_ei || null, newEntry.day_sa || null);
           const fullFallbackText = `${fallback.reflection.trim()}\n\n${(fallback.closing_nudge || 'Be gentle with yourself.').trim()}`;
           
-          const fallbackPayload = {
+          const fallbackPayload: any = {
             entry_id: newEntry.id,
             user_id: authUser.userId,
             cycle_id: newEntry.cycle_id,
@@ -437,7 +437,6 @@ export async function POST(request: NextRequest) {
             provider: 'local-fallback',
             confidence: 'high',
             themes: fallback.themes || [],
-            reflection_type: (updatedEntry || newEntry)?.crisis_flag ? 'crisis' : 'normal',
             status: 'ready',
             generated_at: new Date().toISOString()
           };

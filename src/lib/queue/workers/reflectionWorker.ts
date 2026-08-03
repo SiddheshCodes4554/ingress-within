@@ -285,7 +285,7 @@ export async function processReflectionGeneration(jobData: {
   const initialFallback = generateLocalFallbackReflection(newEntryText, entry.day_ei, entry.day_sa);
   const initialText = `${initialFallback.reflection.trim()}\n\n${(initialFallback.closing_nudge || 'Be gentle with yourself.').trim()}`;
 
-  const initialReadyPayload = {
+  const initialReadyPayload: any = {
     entry_id,
     user_id,
     cycle_id: entry.cycle_id,
@@ -295,15 +295,18 @@ export async function processReflectionGeneration(jobData: {
     provider: providerName,
     confidence: 'medium',
     themes: initialFallback.themes || [],
-    reflection_type: entry.crisis_flag ? 'crisis' : 'normal',
     status: 'ready',
     generated_at: new Date().toISOString()
   };
 
-  if (existingReflection) {
-    await supabase.from('reflections').update(initialReadyPayload).eq('id', existingReflection.id);
-  } else {
-    await supabase.from('reflections').insert(initialReadyPayload);
+  try {
+    if (existingReflection) {
+      await supabase.from('reflections').update(initialReadyPayload).eq('id', existingReflection.id);
+    } else {
+      await supabase.from('reflections').insert(initialReadyPayload);
+    }
+  } catch (initSaveErr: any) {
+    console.warn('[Reflection Engine] Failed to save initial ready payload:', initSaveErr?.message);
   }
 
   // 5. Generation/Validation loop
@@ -395,18 +398,29 @@ export async function processReflectionGeneration(jobData: {
       .eq('entry_id', entry_id)
       .maybeSingle();
 
+    let cycleId = entry.cycle_id;
+    if (!cycleId) {
+      const { data: activeCycle } = await supabase
+        .from('cycles')
+        .select('id')
+        .eq('user_id', user_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      cycleId = activeCycle?.id || null;
+    }
+
     const fullReflectionText = `${result.reflection.trim()}\n\n${(result.closing_nudge || 'Sit with that tonight.\nCome back tomorrow and tell me what came up.').trim()}`;
     const reflectionPayload: any = {
       entry_id,
       user_id,
-      cycle_id: entry.cycle_id,
+      cycle_id: cycleId,
       reflection_text: fullReflectionText,
       closing_question: result.closing_question,
       classification: result.classification,
       provider: providerName,
       confidence: result.confidence || 'high',
       themes: result.themes || [],
-      reflection_type: entry.crisis_flag ? 'crisis' : 'normal',
       status: 'ready',
       generated_at: new Date().toISOString()
     };
@@ -418,15 +432,32 @@ export async function processReflectionGeneration(jobData: {
         .from('reflections')
         .update(reflectionPayload)
         .eq('id', freshRefl.data.id);
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.warn(`[Reflection Engine] Update failed (${updateError.message}), retrying...`);
+        const { error: retryError } = await supabase
+          .from('reflections')
+          .update(reflectionPayload)
+          .eq('id', freshRefl.data.id);
+        if (retryError) throw retryError;
+      }
     } else {
       const { data: newRefl, error: insertError } = await supabase
         .from('reflections')
         .insert(reflectionPayload)
         .select()
         .single();
-      if (insertError) throw insertError;
-      reflectionId = newRefl.id;
+      if (insertError) {
+        console.warn(`[Reflection Engine] Insert failed (${insertError.message}), retrying...`);
+        const { data: retryRefl, error: retryInsertErr } = await supabase
+          .from('reflections')
+          .insert(reflectionPayload)
+          .select()
+          .single();
+        if (retryInsertErr) throw retryInsertErr;
+        if (retryRefl) reflectionId = retryRefl.id;
+      } else if (newRefl) {
+        reflectionId = newRefl.id;
+      }
     }
 
     console.log(`[Reflection Engine] [7/8] [Entry: ${entry_id}] Saved reflection observation to Supabase reflections table.`);

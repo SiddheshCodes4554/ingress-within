@@ -67,7 +67,7 @@ export async function GET(
         const fallback = generateLocalFallbackReflection(entry.content || '', entry.day_ei || null, entry.day_sa || null);
         const fullText = `${fallback.reflection.trim()}\n\n${(fallback.closing_nudge || 'Be gentle with yourself.').trim()}`;
         
-        const fallbackPayload = {
+        const fallbackPayload: any = {
           entry_id: entry.id,
           user_id: authUser.userId,
           cycle_id: entry.cycle_id,
@@ -77,7 +77,6 @@ export async function GET(
           provider: 'local-fallback',
           confidence: 'high',
           themes: fallback.themes || [],
-          reflection_type: entry.crisis_flag ? 'crisis' : 'normal',
           status: 'ready',
           generated_at: new Date().toISOString()
         };
