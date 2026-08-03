@@ -88,12 +88,22 @@ export function generateLocalFallbackReflection(
   confidence: "high" | "medium" | "low";
   themes: string[];
 } {
-  const text = (entryText || '').toLowerCase();
-  
+  const rawText = entryText || '';
+  const text = rawText.toLowerCase();
+
+  // Create text seed hash so different entries get different questions
+  let hash = 0;
+  for (let i = 0; i < rawText.length; i++) {
+    hash = (hash << 5) - hash + rawText.charCodeAt(i);
+    hash |= 0;
+  }
+  const seed = Math.abs(hash);
+
   // Keyword & Sentiment Analysis
-  const hasExhaustion = text.includes('heavy') || text.includes('exhaust') || text.includes('weight') || text.includes('tired') || text.includes('burden') || text.includes('holding together') || text.includes('energy') || text.includes('hopeless');
-  const hasAvoidance = text.includes('avoid') || text.includes('quiet') || text.includes('alone') || text.includes('hide') || text.includes('pretend') || text.includes('mask') || text.includes('explain');
-  const hasAnxiety = text.includes('anxious') || text.includes('worry') || text.includes('panic') || text.includes('scared') || text.includes('future') || text.includes('mind') || text.includes('overwhelmed');
+  const hasExhaustion = text.includes('heavy') || text.includes('exhaust') || text.includes('weight') || text.includes('tired') || text.includes('burden') || text.includes('holding together') || text.includes('energy') || text.includes('hopeless') || text.includes('dread') || text.includes('heaviness');
+  const hasAvoidance = text.includes('avoid') || text.includes('quiet') || text.includes('alone') || text.includes('hide') || text.includes('pretend') || text.includes('mask') || text.includes('explain') || text.includes('fine') || text.includes('snapped');
+  const hasAnxiety = text.includes('anxious') || text.includes('worry') || text.includes('panic') || text.includes('scared') || text.includes('future') || text.includes('mind') || text.includes('overwhelmed') || text.includes('first') || text.includes('present') || text.includes('work');
+  const hasBoundary = text.includes('yes') || text.includes('coworker') || text.includes('agree') || text.includes('boundary') || text.includes('people') || text.includes('saying no');
   
   let classification: "Flat" | "Open" | "Scattered" = "Scattered";
   let reflection = "";
@@ -101,29 +111,57 @@ export function generateLocalFallbackReflection(
   let closing_nudge = "";
   let themes: string[] = [];
 
-  if (hasExhaustion || hasAvoidance) {
+  const boundaryQuestions = [
+    "When you notice yourself agreeing to take on extra weight, what boundary is your inner voice asking you to protect?",
+    "Where in your day could you reclaim 10 minutes that belong entirely to your own replenishment?",
+    "If saying no were an act of self-preservation rather than disappointment, how would your schedule change tomorrow?",
+    "What is one commitment you are carrying right now that you can step back from without feeling guilty?"
+  ];
+
+  const exhaustionQuestions = [
+    "If you allowed yourself to pause trying to hold everything together tonight, what is the smallest thing that would give your body true rest?",
+    "What part of the weight you carried today can you leave behind before you go to sleep?",
+    "When your energy is depleted, what kind of stillness restores your peace most deeply?",
+    "What is your mind or body signaling that it needs right now to feel supported?"
+  ];
+
+  const anxietyQuestions = [
+    "What is one expectation or worry about tomorrow that you can gently set aside for the rest of today?",
+    "Looking closely at what triggered your mind today, what part of this situation is actually within your control right now?",
+    "If you trusted that things would unfold step by step, how would your breath feel in this moment?",
+    "What assumption about the future is taking up the most mental space, and can you let it rest tonight?"
+  ];
+
+  const openQuestions = [
+    "What is feeling the most steady or grounding for you as you observe your day in hindsight?",
+    "What insight about yourself becomes clearer when you sit quietly with today's events?",
+    "What shift in your internal rhythm did you notice most clearly while writing today?",
+    "What experience from today deserves a moment of quiet appreciation before the day ends?"
+  ];
+
+  if (hasBoundary) {
+    classification = "Scattered";
+    themes = ["Boundaries", "Self-Advocacy", "Energy Management"];
+    reflection = `You highlighted a dynamic around boundaries and overcommitting, observing how reflexively taking on responsibilities creates tension between your desire to support others and your own energy capacity.\n\nNoticing this pattern is the first step toward intentional choice. Protecting your space isn't selfish; it allows you to show up with genuine presence.`;
+    closing_question = boundaryQuestions[seed % boundaryQuestions.length];
+    closing_nudge = "Protect your peace tonight.";
+  } else if (hasExhaustion || hasAvoidance) {
     classification = "Scattered";
     themes = ["Emotional Exhaustion", "Self-Preservation", "Vulnerability"];
-    
-    reflection = `You described carrying a heavy sense of exhaustion today, expressing how difficult it feels to hold everything together when energy is depleted. Acknowledging that weight takes vulnerability, especially when going through your normal routine no longer brings relief.\n\nThere is a quiet strength in putting words to this fatigue rather than continuing to mask it. You seem to be navigating a moment where stepping back and protecting your quiet space feels necessary to guard your remaining strength.`;
-    
-    closing_question = "If you allowed yourself to pause trying to hold everything together for just tonight, what is the smallest thing that would give your body true rest?";
+    reflection = `You described carrying a sense of fatigue today, expressing how challenging it feels when energy is depleted and demands remain high.\n\nThere is quiet strength in acknowledging this fatigue rather than masking it. Navigating low-energy moments with self-compassion guards your remaining capacity.`;
+    closing_question = exhaustionQuestions[seed % exhaustionQuestions.length];
     closing_nudge = "Be deeply gentle with yourself tonight.";
   } else if (hasAnxiety) {
     classification = "Scattered";
     themes = ["Anxiety Pattern", "Uncertainty", "Overthinking"];
-    
-    reflection = `Your writing captures a heightened sense of internal pressure, where lingering uncertainty about what comes next is creating a feeling of tension. You are observing your thoughts closely as they try to anticipate every outcome.\n\nNotice how much effort your mind is spending attempting to solve things all at once. Simply naming this pattern creates a small boundary between who you are and the urgency of the thought.`;
-    
-    closing_question = "What is one expectation or worry you can gently set aside for the rest of today?";
+    reflection = `Your writing captures internal pressure around upcoming demands or uncertainty, where your mind is trying to anticipate outcomes.\n\nSimply naming this pattern creates space between your core self and the urgency of the thought. You don't have to resolve everything tonight.`;
+    closing_question = anxietyQuestions[seed % anxietyQuestions.length];
     closing_nudge = "Breathe into this moment.";
   } else {
     classification = "Open";
     themes = ["Self-Awareness", "Clarity", "Observation"];
-    
-    reflection = `You are taking time to examine your daily experiences and internal state with steady attention. Putting these reflections into words creates clarity out of quiet, implicit feelings.\n\nNotice how giving yourself space to write allows you to process where your energy is naturally settling. There is value in taking stock of your thoughts without needing to immediately fix or change them.`;
-    
-    closing_question = "What is feeling the most steady or grounding for you as you move forward today?";
+    reflection = `You examined your daily experiences with steady attention. Putting these reflections into words creates clarity out of quiet, implicit feelings.\n\nNotice how giving yourself space to write allows you to process where your energy is naturally settling without needing to immediately fix or change anything.`;
+    closing_question = openQuestions[seed % openQuestions.length];
     closing_nudge = "Hold onto this moment of awareness.";
   }
 

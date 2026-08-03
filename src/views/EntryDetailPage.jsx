@@ -365,7 +365,7 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
                 {/* Reflection Answer Section */}
                 {(() => {
                   const existingAnswer = reflection?.reflection_answer || entry?.decrypted_reflection_text;
-                  const isAnswered = Boolean(existingAnswer && existingAnswer.trim() && !isEditingAnswer);
+                  const isAnswered = Boolean(existingAnswer && existingAnswer.trim());
 
                   if (isAnswered) {
                     return (
@@ -375,18 +375,8 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
                             <CheckCircle2 size={12} className="text-[#8DBFB4]" />
                             <span>Your Answer</span>
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReflectionAnswerText(existingAnswer);
-                              setIsEditingAnswer(true);
-                            }}
-                            className="text-[9.5px] font-semibold text-[#1A5040] hover:underline cursor-pointer border-none bg-transparent"
-                          >
-                            Edit Answer
-                          </button>
                         </div>
-                        <p className="font-serif text-[13.5px] italic text-primary leading-relaxed pl-2.5 border-l-2 border-[#8DBFB4]/50">
+                        <p className="font-serif text-[13.5px] italic text-primary leading-relaxed pl-2.5 border-l-2 border-[#8DBFB4]/50 select-text">
                           "{existingAnswer}"
                         </p>
                       </div>
@@ -409,15 +399,6 @@ export default function EntryDetailPage({ entryId, onSignOut }) {
                         className="w-full min-h-[90px] border border-[#1E2A2E]/10 rounded-lg p-3 text-xs leading-relaxed outline-none focus:border-primary font-sans text-primary placeholder:text-mid/40 placeholder:font-serif italic resize-y"
                       />
                       <div className="flex items-center justify-end gap-2">
-                        {isEditingAnswer && (
-                          <button
-                            type="button"
-                            onClick={() => setIsEditingAnswer(false)}
-                            className="px-3 py-1.5 rounded text-[11px] font-semibold text-mid hover:text-primary bg-transparent border-none cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                        )}
                         <button
                           type="button"
                           onClick={handleSaveReflectionAnswer}
