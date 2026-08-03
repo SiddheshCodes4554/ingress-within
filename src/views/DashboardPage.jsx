@@ -22,7 +22,8 @@ import {
   AlertCircle,
   ChevronDown,
   MessageSquare,
-  Loader2
+  Loader2,
+  Compass
 } from 'lucide-react';
 import { DashboardService } from '../services/dashboardService';
 import DashboardNavbar from '../components/DashboardNavbar';
