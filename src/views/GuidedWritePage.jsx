@@ -64,10 +64,122 @@ export const STANDARD_GUIDED_JOURNEY = {
   ]
 };
 
+export const PREDEFINED_PROMPTS = [
+  {
+    id: 'work_first',
+    label: "Work, before a 'first'",
+    isWarning: false,
+    answers: {
+      q1: "I have to present our new quarterly strategy to the leadership team tomorrow morning. It's the first time I'm leading the presentation alone.",
+      q2: "Restless energy, tight shoulders, and a constant urge to re-check my slides for tiny errors.",
+      q3: "I want my team's hard work to be recognized, and I care deeply about being taken seriously in this role.",
+      q4: "Whenever I step into high-visibility situations, my mind defaults to hyper-vigilance to prevent any potential criticism.",
+      q5: "I will review my main outline once, close the deck by 9 PM, and practice 4-7-8 breathing before bed."
+    }
+  },
+  {
+    id: 'snapped_sister',
+    label: "Snapped at my sister",
+    isWarning: false,
+    answers: {
+      q1: "My sister asked a simple question about dinner plans after I came home exhausted, and I responded with sharp irritation.",
+      q2: "Instant guilt, heavy pit in my stomach, and lingering annoyance at myself.",
+      q3: "I love her and value our relationship, but my energy was completely depleted from a long work day.",
+      q4: "When I suppress workplace fatigue, the closest people in my life end up absorbing the spillover frustration.",
+      q5: "I will apologize directly, explain my low energy transparently, and take 15 minutes of quiet time to decompress."
+    }
+  },
+  {
+    id: 'sunday_heaviness',
+    label: "Sunday heaviness",
+    isWarning: false,
+    answers: {
+      q1: "It's Sunday afternoon, and a quiet wave of dread and weight started settling in about the upcoming week.",
+      q2: "Sluggishness, low motivation, and a subtle knot of anticipation in my stomach.",
+      q3: "I value peace of mind on weekends, but work stress bleeds into my resting time.",
+      q4: "Sunday evening has historically triggered anxiety about back-to-back meetings and unread emails.",
+      q5: "I will write down top 3 priorities for Monday so my brain can release the mental clutter today."
+    }
+  },
+  {
+    id: 'said_yes',
+    label: "Said yes again",
+    isWarning: false,
+    answers: {
+      q1: "A coworker asked me to take over their project deck deadline, and I immediately agreed even though my schedule is full.",
+      q2: "Resentment, feeling overcommitted, and frustration at my inability to set firm boundaries.",
+      q3: "My personal time and core tasks are being compromised to avoid momentary discomfort or disappointing others.",
+      q4: "I have a long-standing habit of equating saying 'no' with being unhelpful or selfish.",
+      q5: "I will communicate a realistic timeline extension for the deck and practice saying 'Let me check my schedule first' next time."
+    }
+  },
+  {
+    id: 'genuinely_unclear',
+    label: "Genuinely unclear",
+    isWarning: true,
+    answers: {
+      q1: "Something felt off during the team meeting today, but I can't pinpoint the exact trigger or conversation.",
+      q2: "Vague unease, distraction, and a nagging sense of uncertainty.",
+      q3: "I like having emotional clarity, and feeling confused makes me feel ungrounded.",
+      q4: "When subtle social cues are ambiguous, I over-analyze every detail looking for meaning.",
+      q5: "I will give myself permission to not have it all solved today and focus on physical grounding exercises."
+    }
+  },
+  {
+    id: 'claims_fine',
+    label: "Claims fine",
+    isWarning: true,
+    answers: {
+      q1: "People asked how I was doing today and I automatically replied 'I'm completely fine', even though I felt overwhelmed.",
+      q2: "Numbness, emotional detachment, and slight tension in my throat.",
+      q3: "Hiding my real state isolates me from genuine support and drains my emotional capacity.",
+      q4: "I default to self-reliance because asking for help used to feel vulnerable or burdensome.",
+      q5: "I will acknowledge my true feelings in this journal without needing to pretend for anyone."
+    }
+  },
+  {
+    id: 'almost_blank',
+    label: "Almost all blank",
+    isWarning: true,
+    answers: {
+      q1: "Nothing specific occurred today, just a quiet, empty routine.",
+      q2: "Flat mood, neutral energy, quiet stillness.",
+      q3: "I am learning to notice quiet days without feeling like I should be producing more.",
+      q4: "Life has natural lulls between high-intensity periods.",
+      q5: "I will embrace the low-demand evening and rest without expectation."
+    }
+  },
+  {
+    id: 'two_readings',
+    label: "Two readings possible",
+    isWarning: true,
+    answers: {
+      q1: "My manager left a brief message saying 'Let's talk tomorrow', which could mean positive feedback or a critical issue.",
+      q2: "Ambivalence, mind jumping between hope and defensive anxiety.",
+      q3: "My sense of professional security and competence feels put on hold.",
+      q4: "Short messages trigger my catastrophic thinking habit.",
+      q5: "I will remind myself that brief messages are usually routine, and reserve judgment until the actual meeting."
+    }
+  },
+  {
+    id: 'custom',
+    label: "Write your own",
+    isWarning: false,
+    answers: {
+      q1: "",
+      q2: "",
+      q3: "",
+      q4: "",
+      q5: ""
+    }
+  }
+];
+
 const DRAFT_KEY = 'iw_guided_writing_draft_v2';
 
 export default function GuidedWritePage({ journeyConfig = STANDARD_GUIDED_JOURNEY, onSignOut }) {
   const [currentStep, setCurrentStep] = useState(0);
+  const [selectedPromptId, setSelectedPromptId] = useState(null);
   const [answers, setAnswers] = useState({
     q1: '',
     q2: '',
@@ -145,6 +257,11 @@ export default function GuidedWritePage({ journeyConfig = STANDARD_GUIDED_JOURNE
   const activeQuestion = questions[currentStep] || questions[0];
   const activeAnswerKey = activeQuestion.id;
   const currentAnswerText = answers[activeAnswerKey] || '';
+
+  const handleSelectPrompt = (prompt) => {
+    setSelectedPromptId(prompt.id);
+    setAnswers(prompt.answers);
+  };
 
   const handleAnswerChange = (text) => {
     setAnswers(prev => ({ ...prev, [activeAnswerKey]: text }));
@@ -312,6 +429,34 @@ export default function GuidedWritePage({ journeyConfig = STANDARD_GUIDED_JOURNE
                 </button>
               </div>
             )}
+
+            {/* TRY AN EXAMPLE OR WRITE YOUR OWN */}
+            <div className="bg-white rounded-2xl border border-[#1E2A2E]/8 p-5 shadow-xs space-y-3 text-left">
+              <div className="text-[9px] font-bold uppercase tracking-widest text-[#1A5040] flex items-center gap-1.5">
+                <Sparkles size={11} className="text-[#8DBFB4]" />
+                <span>TRY AN EXAMPLE, OR WRITE YOUR OWN BELOW</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {PREDEFINED_PROMPTS.map((p) => {
+                  const isSelected = selectedPromptId === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => handleSelectPrompt(p)}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border flex items-center gap-1.5 ${
+                        isSelected
+                          ? 'bg-primary text-white border-primary shadow-xs'
+                          : 'bg-white text-primary border-[#1E2A2E]/15 hover:border-primary/40 hover:bg-primary/5'
+                      }`}
+                    >
+                      {p.isWarning && <AlertCircle size={12} className={isSelected ? 'text-white' : 'text-[#b45309]'} />}
+                      <span>{p.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             {/* Step Progress Header */}
             <div className="bg-white rounded-2xl border border-[#1E2A2E]/8 p-6 shadow-xs space-y-4">
