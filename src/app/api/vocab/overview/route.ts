@@ -14,6 +14,11 @@ export async function GET(request: NextRequest) {
 
     const userId = authUser.userId;
 
+    // Trigger non-blocking 3-day regular update check in background
+    import('../../../../lib/intelligence/periodicUpdater')
+      .then(m => m.checkAndRefreshThreeDayIntelligence(userId))
+      .catch(err => console.warn('[Vocab Overview Route] Periodic check warning:', err.message));
+
     const auditParam = request.nextUrl.searchParams.get('vocabAudit') === 'true';
     const isDev = process.env.NODE_ENV === 'development';
     const forceAudit = auditParam || isDev;

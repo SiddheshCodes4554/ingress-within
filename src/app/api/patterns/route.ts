@@ -19,6 +19,11 @@ export async function GET(request: NextRequest) {
 
     const userId = authUser.userId;
 
+    // Trigger non-blocking 3-day regular update check in background
+    import('../../../lib/intelligence/periodicUpdater')
+      .then(m => m.checkAndRefreshThreeDayIntelligence(userId))
+      .catch(err => console.warn('[Patterns Route] Periodic check warning:', err.message));
+
     // Run state determination and overview fetch in parallel for speed.
     const [userState, overview] = await Promise.all([
       PatternIntelligenceService.determinePatternUserState(userId),
