@@ -168,6 +168,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 6. Record exercise_0 as COMPLETED in exercise_instances & exercise_results so Assessment Dashboard shows it completed!
+    const nowIso = new Date().toISOString();
+    try {
+      const { data: ex0Instance } = await supabase
+        .from('exercise_instances')
+        .upsert({
+          user_id: user.userId,
+          exercise_id: 'exercise_0',
+          status: 'completed',
+          unlock_time: nowIso,
+          started_at: nowIso,
+          submitted_at: nowIso,
+          completed_at: nowIso,
+          updated_at: nowIso
+        }, { onConflict: 'user_id,exercise_id' })
+        .select()
+        .single();
+
+      if (ex0Instance) {
+        await supabase
+          .from('exercise_results')
+          .upsert({
+            instance_id: ex0Instance.id,
+            user_id: user.userId,
+            exercise_id: 'exercise_0',
+            summary: summaryText,
+            metrics: {
+              openness,
+              conscientiousness,
+              extraversion,
+              agreeableness,
+              neuroticism,
+              calculated_at: nowIso
+            },
+            insights: [
+              `Openness: ${Math.round(openness * 20)}%`,
+              `Conscientiousness: ${Math.round(conscientiousness * 20)}%`,
+              `Extraversion: ${Math.round(extraversion * 20)}%`,
+              `Agreeableness: ${Math.round(agreeableness * 20)}%`,
+              `Neuroticism: ${Math.round(neuroticism * 20)}%`
+            ],
+            created_at: nowIso
+          }, { onConflict: 'instance_id' });
+
+        console.log(`[API Assessment] Recorded exercise_0 instance ${ex0Instance.id} as COMPLETED for user ${user.userId}`);
+      }
+    } catch (exErr: any) {
+      console.error('[API Assessment] Non-fatal error recording exercise_0 instance completion:', exErr?.message);
+    }
+
     return NextResponse.json({
       success: true,
       personality_summary_text: summaryText

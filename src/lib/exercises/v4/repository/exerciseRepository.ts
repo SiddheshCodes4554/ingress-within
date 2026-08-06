@@ -117,10 +117,36 @@ export class ExerciseRepository {
   }
 
   /**
-   * Retrieves user exercise instances, automatically deduplicating by exercise_id
-   * and auto-creating missing core exercises (0, 1, 2, 3) as available.
+   * Retrieves user exercise instances, auto-healing completed baseline assessment status.
    */
   public static async getUserInstances(userId: string, cycleId?: string): Promise<ExerciseInstance[]> {
+    // 0. Auto-heal check: Check if user completed onboarding baseline assessment
+    let hasCompletedBaselineOnboarding = false;
+    let userData: any = null;
+    try {
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('assessment_completed, onboarding_completed')
+        .eq('id', userId)
+        .maybeSingle();
+
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('ocean_openness, personality_summary_text, personality_profile_json')
+        .eq('id', userId)
+        .maybeSingle();
+
+      userData = userRow;
+      hasCompletedBaselineOnboarding =
+        userProfile?.assessment_completed === true ||
+        userProfile?.onboarding_completed === true ||
+        userRow?.ocean_openness !== null ||
+        userRow?.personality_profile_json !== null ||
+        !!userRow?.personality_summary_text;
+    } catch (e) {
+      console.warn('[ExerciseRepository] Check onboarding baseline error:', e);
+    }
+
     let query = supabase.from('exercise_instances').select('*').eq('user_id', userId);
     if (cycleId) query = query.eq('cycle_id', cycleId);
 
@@ -158,17 +184,65 @@ export class ExerciseRepository {
       }
     }
 
+    // Auto-heal exercise_0 if user completed onboarding baseline assessment
+    if (hasCompletedBaselineOnboarding) {
+      const ex0 = deduplicatedMap.get('exercise_0') || deduplicatedMap.get('ocean');
+      if (!ex0 || ex0.status !== 'completed') {
+        const nowIso = new Date().toISOString();
+        try {
+          const { data: healedInst } = await supabase
+            .from('exercise_instances')
+            .upsert({
+              user_id: userId,
+              exercise_id: 'exercise_0',
+              status: 'completed',
+              unlock_time: nowIso,
+              started_at: nowIso,
+              submitted_at: nowIso,
+              completed_at: nowIso,
+              updated_at: nowIso
+            }, { onConflict: 'user_id,exercise_id' })
+            .select()
+            .single();
+
+          if (healedInst) {
+            deduplicatedMap.set('exercise_0', healedInst);
+
+            // Also ensure exercise_results exists for exercise_0
+            if (userData) {
+              await supabase
+                .from('exercise_results')
+                .upsert({
+                  instance_id: healedInst.id,
+                  user_id: userId,
+                  exercise_id: 'exercise_0',
+                  summary: userData.personality_summary_text || 'Baseline psychometric profile recorded during onboarding.',
+                  metrics: {
+                    openness: userData.ocean_openness || 3,
+                    calculated_at: nowIso
+                  },
+                  created_at: nowIso
+                }, { onConflict: 'instance_id' });
+            }
+          }
+        } catch (healErr) {
+          console.warn('[ExerciseRepository] Auto-heal exercise_0 error:', healErr);
+        }
+      }
+    }
+
     // Ensure all 4 core exercises exist for the user
     const coreExerciseIds = ['exercise_0', 'exercise_1', 'exercise_2', 'exercise_3'];
     for (const reqId of coreExerciseIds) {
       if (!deduplicatedMap.has(reqId)) {
+        const isCoreEx0Completed = reqId === 'exercise_0' && hasCompletedBaselineOnboarding;
         try {
           const { data: newInst } = await supabase
             .from('exercise_instances')
             .insert({
               user_id: userId,
               exercise_id: reqId,
-              status: 'available',
+              status: isCoreEx0Completed ? 'completed' : 'available',
               unlock_time: new Date().toISOString(),
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
