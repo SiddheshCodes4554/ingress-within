@@ -151,11 +151,21 @@ export default function RelationshipMapFlow({ instanceId, onClose, onComplete })
   };
 
   const handleFinalSubmit = async () => {
+    const activePeople = validPeople.length >= 3 
+      ? validPeople 
+      : peopleInputs.filter(p => p.name.trim().length > 0 && p.label !== '');
+
+    if (activePeople.length < 3) {
+      console.warn('[RelationshipMapFlow] Attempted submission with less than 3 active people. Aborting.');
+      setIsSubmitting(false);
+      return;
+    }
+
     if (isSubmitting) return;
     setIsSubmitting(true);
     setPhase('loading');
 
-    const relationshipMapData = validPeople.map((p, idx) => {
+    const relationshipMapData = activePeople.map((p, idx) => {
       const a = answers[idx] || {};
       const feeling = (a.feeling || '').trim();
       const energy = a.energy || '';

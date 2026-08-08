@@ -70,10 +70,28 @@ export default function RelationshipMapResultView({ instanceId, onClose }) {
 
   const analysis = result.analysis || result.data || {};
   const relationshipMap = analysis.relationship_map || [];
-  const reflectionText =
+  
+  let rawReflection =
     analysis.reflection_text ||
     (result.summary && result.summary !== 'Your relationship map has been recorded below.' ? result.summary : null) ||
     'Your relationship map has been recorded below.';
+
+  // Sanitize raw reflection text if AI output contained unparsed JSON key fragments
+  if (rawReflection.includes('{') || rawReflection.includes('reflection_text')) {
+    const reflMatch = rawReflection.match(/reflection_text["']?\s*:\s*["']?([\s\S]+?)(?:["']?\s*,\s*["']?highest_drain_person|["']?\s*\}|$)/i);
+    if (reflMatch && reflMatch[1]) {
+      rawReflection = reflMatch[1].replace(/^["']|["']$/g, '').trim();
+    } else {
+      rawReflection = rawReflection
+        .replace(/[*#"`]/g, '')
+        .replace(/^\{?\s*reflection_text:\s*/i, '')
+        .replace(/,\s*highest_drain_person:.*$/i, '')
+        .replace(/\}?\s*$/g, '')
+        .trim();
+    }
+  }
+
+  const reflectionText = rawReflection || 'Your relationship map has been recorded below.';
 
   const formattedDate = completedAt
     ? new Date(completedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })

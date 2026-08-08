@@ -102,6 +102,12 @@ export class RelationshipMapWorker {
       return storedResult;
     }
 
+    // If roster is empty, skip AI call completely to prevent LLM hallucinations
+    if (relationshipMap.length === 0) {
+      console.warn('[RelationshipMapWorker] Empty relationship_map roster. Skipping AI call.');
+      return storedResult;
+    }
+
     // Format roster for AI Prompt
     const rosterFormatted = relationshipMap.map((p: any) => {
       return `${p.position}. ${p.name} (${p.label}) — Feeling: "${p.feeling}" | Energy: ${p.energy} | Frequency: ${p.frequency}${
@@ -124,39 +130,63 @@ export class RelationshipMapWorker {
       const rawText = await Promise.race([aiPromise, timeoutPromise]);
       let cleanedText = rawText.trim();
 
-      // Try to parse JSON from AI output
+      // 1. Try JSON.parse first
       try {
         const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           if (parsed.reflection_text) {
-            reflectionText = String(parsed.reflection_text).replace(/[*#"`]/g, '').trim();
+            reflectionText = String(parsed.reflection_text).trim();
           }
           if (parsed.highest_drain_person) {
             highestDrainPerson = String(parsed.highest_drain_person).trim();
           }
         }
-      } catch (jsonErr) {
-        // Fallback: raw text as reflection_text
-        reflectionText = cleanedText.replace(/[*#"`]/g, '').trim();
+      } catch (_) {
+        // Fallthrough to regex extraction below
       }
 
-      if (!reflectionText || reflectionText.length < 10) {
-        reflectionText = cleanedText.replace(/[*#"`]/g, '').trim();
+      // 2. Regex fallback for unquoted/malformed pseudo-JSON keys
+      if (!reflectionText) {
+        const reflMatch = cleanedText.match(/reflection_text["']?\s*:\s*["']?([\s\S]+?)(?:["']?\s*,\s*["']?highest_drain_person|["']?\s*\}|$)/i);
+        if (reflMatch && reflMatch[1]) {
+          reflectionText = reflMatch[1].replace(/^["']|["']$/g, '').trim();
+        }
+      }
+
+      if (!highestDrainPerson) {
+        const drainMatch = cleanedText.match(/highest_drain_person["']?\s*:\s*["']?([^}"'\n]+)/i);
+        if (drainMatch && drainMatch[1]) {
+          highestDrainPerson = drainMatch[1].replace(/^["']|["']$/g, '').trim();
+        }
+      }
+
+      // 3. Last fallback: if raw text was plain text without JSON tokens
+      if (!reflectionText && !cleanedText.includes('{') && !cleanedText.includes('reflection_text')) {
+        reflectionText = cleanedText.trim();
+      }
+
+      // Clean all markdown, asterisks, quotes, and residual JSON key fragments from reflectionText
+      if (reflectionText) {
+        reflectionText = reflectionText
+          .replace(/[*#"`]/g, '')
+          .replace(/^\{?\s*reflection_text:\s*/i, '')
+          .replace(/,\s*highest_drain_person:.*$/i, '')
+          .trim();
       }
 
       // CRITICAL REQUIREMENT 24: Validate highest_drain_person against roster names
       if (highestDrainPerson) {
-        const isValidMember = relationshipMap.some(
+        // Remove trailing braces/quotes if any
+        highestDrainPerson = highestDrainPerson.replace(/[\}"']/g, '').trim();
+        const matched = relationshipMap.find(
           p => p.name.toLowerCase() === highestDrainPerson!.toLowerCase()
         );
-        if (!isValidMember) {
+        if (!matched) {
           console.warn(`[RelationshipMapWorker] Invalid highest_drain_person "${highestDrainPerson}" not in roster. Resetting to null.`);
           highestDrainPerson = null;
         } else {
-          // Exact casing from roster
-          const matched = relationshipMap.find(p => p.name.toLowerCase() === highestDrainPerson!.toLowerCase());
-          if (matched) highestDrainPerson = matched.name;
+          highestDrainPerson = matched.name;
         }
       }
 
