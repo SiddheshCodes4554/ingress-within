@@ -36,7 +36,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const result = await ExerciseResultService.getResult(instanceId);
+    const retry = request.nextUrl.searchParams.get('retry') === 'true';
+    let result = await ExerciseResultService.getResult(instanceId);
+
+    if (retry && result && (instance.exercise_id === 'relationship_map' || instance.exercise_id === 'exercise_5')) {
+      if (!result.data?.reflection_text || result.summary === 'Your relationship map has been recorded below.') {
+        try {
+          const { RelationshipMapWorker } = await import('../../../../lib/exercises/v4/workers/relationshipMapWorker');
+          result = await RelationshipMapWorker.processInstance(instanceId);
+        } catch (retryErr) {
+          console.warn('[GET /api/exercises/result] Retry worker failed:', retryErr);
+        }
+      }
+    }
+
     return NextResponse.json({ success: true, result, instance });
   } catch (error: any) {
     console.error('[GET /api/exercises/result] Error:', error);

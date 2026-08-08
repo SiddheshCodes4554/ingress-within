@@ -280,6 +280,18 @@ export class ExerciseRepository {
       console.warn('[ExerciseRepository] Error fetching user cycle for unlock evaluation:', cycleErr);
     }
 
+    // Fetch total journal entries count for entry-requirement exercises (e.g. relationship_map requires 5+ entries)
+    let userEntryCount = 0;
+    try {
+      const { count } = await supabase
+        .from('entries')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      userEntryCount = count || 0;
+    } catch (entryErr) {
+      console.warn('[ExerciseRepository] Error fetching entry count:', entryErr);
+    }
+
     // Map of unlock days per exercise
     const UNLOCK_DAYS: Record<string, number> = {
       exercise_0: 1,
@@ -339,7 +351,10 @@ export class ExerciseRepository {
     // Dynamic unlock status check for existing locked instances
     for (const [reqId, inst] of canonicalMap.entries()) {
       const requiredDay = UNLOCK_DAYS[reqId] || 1;
-      if (inst.status === 'locked' && totalUserDays >= requiredDay) {
+      const requiresEntries = reqId === 'relationship_map' || reqId === 'exercise_5' ? 5 : 0;
+      const isUnlocked = totalUserDays >= requiredDay && (requiresEntries === 0 || userEntryCount >= requiresEntries);
+
+      if (inst.status === 'locked' && isUnlocked) {
         inst.status = 'available';
         inst.unlock_time = new Date().toISOString();
         canonicalMap.set(reqId, inst);
@@ -351,8 +366,9 @@ export class ExerciseRepository {
     for (const reqId of coreExerciseIds) {
       if (!canonicalMap.has(reqId)) {
         const unlockDay = UNLOCK_DAYS[reqId] || 1;
+        const requiresEntries = reqId === 'relationship_map' || reqId === 'exercise_5' ? 5 : 0;
         const isEx0Completed = reqId === 'exercise_0' && hasCompletedBaselineOnboarding;
-        const isUnlocked = totalUserDays >= unlockDay;
+        const isUnlocked = totalUserDays >= unlockDay && (requiresEntries === 0 || userEntryCount >= requiresEntries);
         const defaultStatus = isEx0Completed ? 'completed' : isUnlocked ? 'available' : 'locked';
 
         const nowIso = new Date().toISOString();

@@ -1,12 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { RELATIONSHIP_LABELS, FREQUENCY_CHOICES } from '../../../lib/exercises/v4/definitions/relationshipMapCatalog';
+import {
+  RELATIONSHIP_LABELS,
+  FREQUENCY_CHOICES,
+  FREQUENCY_CANONICAL_MAP,
+  NAME_MODES,
+  NameMode,
+  checkAmbivalence
+} from '../../../lib/exercises/v4/definitions/relationshipMapCatalog';
 import RelationshipMapResultView from './RelationshipMapResultView';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 export default function RelationshipMapFlow({ instanceId, onClose, onComplete }) {
   const [loading, setLoading] = useState(true);
   const [instance, setInstance] = useState(null);
   const [phase, setPhase] = useState('intro'); // 'intro' | 'naming' | 'questions' | 'loading' | 'result'
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Name mode: 'name' | 'nickname' | 'initial'
+  const [nameMode, setNameMode] = useState('name');
+
+  // Soft prompt state
+  const [softPromptShown, setSoftPromptShown] = useState(false);
 
   // Phase 1 Naming: Array of up to 5 people [{ name, label }]
   const [peopleInputs, setPeopleInputs] = useState([
@@ -65,20 +79,34 @@ export default function RelationshipMapFlow({ instanceId, onClose, onComplete })
     const updated = [...peopleInputs];
     updated[idx].name = val;
     setPeopleInputs(updated);
+
+    // Show soft prompt if 3 rows completed and editing 4th or 5th
+    const filled = updated.filter(p => p.name.trim().length > 0 && p.label !== '').length;
+    if (filled >= 3 && filled < 5 && !softPromptShown) {
+      setSoftPromptShown(true);
+    }
   };
 
   const handleLabelChange = (idx, val) => {
     const updated = [...peopleInputs];
     updated[idx].label = val;
     setPeopleInputs(updated);
+
+    const filled = updated.filter(p => p.name.trim().length > 0 && p.label !== '').length;
+    if (filled >= 3 && filled < 5 && !softPromptShown) {
+      setSoftPromptShown(true);
+    }
   };
 
-  const filledCount = peopleInputs.filter(p => p.name.trim().length > 0 && p.label !== '').length;
+  const completedRows = peopleInputs.filter(p => p.name.trim().length > 0 && p.label !== '');
+  const completedCount = completedRows.length;
 
   const handleProceedToQuestions = () => {
-    const valid = peopleInputs.filter(p => p.name.trim().length > 0 && p.label !== '');
-    if (valid.length < 3) return;
-    setValidPeople(valid);
+    if (completedCount < 3) {
+      setSoftPromptShown(true);
+      return;
+    }
+    setValidPeople(completedRows);
     setPersonIdx(0);
     setPhase('questions');
   };
@@ -95,7 +123,23 @@ export default function RelationshipMapFlow({ instanceId, onClose, onComplete })
 
   const currentPerson = validPeople[personIdx] || { name: '', label: '' };
   const currentAnswer = answers[personIdx] || { feeling: '', energy: '', frequency: '' };
-  const isPersonComplete = currentAnswer.feeling?.trim().length > 0 && currentAnswer.energy && currentAnswer.frequency;
+  const isPersonComplete =
+    currentAnswer.feeling?.trim().length > 0 &&
+    (currentAnswer.energy === 'gives' || currentAnswer.energy === 'takes') &&
+    currentAnswer.frequency;
+
+  const handleBackQuestion = () => {
+    if (personIdx > 0) {
+      // Clear current person's answers before going back as per spec rule 14
+      setAnswers(prev => {
+        const nextAnswers = { ...prev };
+        delete nextAnswers[personIdx];
+        delete nextAnswers[personIdx - 1]; // Clear target previous person as well so user deliberately re-answers
+        return nextAnswers;
+      });
+      setPersonIdx(prev => prev - 1);
+    }
+  };
 
   const handleNextPerson = () => {
     if (!isPersonComplete) return;
@@ -107,22 +151,24 @@ export default function RelationshipMapFlow({ instanceId, onClose, onComplete })
   };
 
   const handleFinalSubmit = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     setPhase('loading');
 
-    const AMBIVALENT_WORDS = ['complicated', 'mixed', 'both', 'unsure', 'confused', 'weird'];
     const relationshipMapData = validPeople.map((p, idx) => {
       const a = answers[idx] || {};
-      const feeling = a.feeling || '';
+      const feeling = (a.feeling || '').trim();
       const energy = a.energy || '';
-      const freq = (a.frequency || '').toLowerCase().replace(' ', '_');
-      const ambivalent = AMBIVALENT_WORDS.some(w => feeling.toLowerCase().includes(w));
+      const freqCanonical = FREQUENCY_CANONICAL_MAP[a.frequency] || 'a_little';
+      const ambivalent = checkAmbivalence(feeling);
+
       return {
         position: idx + 1,
-        name: p.name,
+        name: p.name.trim(),
         label: p.label,
         feeling,
         energy,
-        frequency: freq || 'a_little',
+        frequency: freqCanonical,
         ambivalent
       };
     });
@@ -136,12 +182,14 @@ export default function RelationshipMapFlow({ instanceId, onClose, onComplete })
         body: JSON.stringify({
           instance_id: targetInstanceId,
           exercise_id: 'relationship_map',
-          relationship_map: relationshipMapData
+          relationship_map: relationshipMapData,
+          name_mode: nameMode
         })
       });
     } catch (err) {
       console.error('[RelationshipMapFlow] Submission error:', err);
     } finally {
+      setIsSubmitting(false);
       setPhase('result');
     }
   };
@@ -213,9 +261,9 @@ export default function RelationshipMapFlow({ instanceId, onClose, onComplete })
               <div className="flex items-center justify-between border-b border-[#1E2A2E]/10 pb-4 mb-6">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#8DBFB4]">
-                    Name five people
+                    Name people
                   </span>
-                  <h2 className="font-serif text-xl text-primary font-normal">
+                  <h2 className="font-serif text-xl text-primary font-normal mt-0.5">
                     Start with whoever comes to mind first.
                   </h2>
                 </div>
@@ -226,11 +274,27 @@ export default function RelationshipMapFlow({ instanceId, onClose, onComplete })
                 )}
               </div>
 
-              <p className="text-xs text-mid mb-6">
-                Use a first name, nickname, or just an initial — whatever feels right. Names are only used to personalize your questions.
-              </p>
+              {/* Name Mode Toggle */}
+              <div className="flex items-center justify-between bg-white border border-line rounded-xl p-1 mb-6">
+                <span className="text-xs text-mid pl-3 font-medium">Input mode:</span>
+                <div className="flex gap-1">
+                  {NAME_MODES.map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => setNameMode(m.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+                        nameMode === m.id
+                          ? 'bg-[#1E2A2E] text-white'
+                          : 'text-mid hover:text-primary'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-              <div className="space-y-4 pb-24">
+              <div className="space-y-4 pb-4 font-sans">
                 {peopleInputs.map((p, idx) => (
                   <div key={idx} className="flex items-center gap-3">
                     <span className="text-xs font-mono text-mid w-14 flex-shrink-0">
@@ -238,7 +302,13 @@ export default function RelationshipMapFlow({ instanceId, onClose, onComplete })
                     </span>
                     <input
                       type="text"
-                      placeholder="First name or nickname"
+                      placeholder={
+                        nameMode === 'initial'
+                          ? 'e.g. S'
+                          : nameMode === 'nickname'
+                          ? 'e.g. Sam'
+                          : 'e.g. Sarah'
+                      }
                       value={p.name}
                       onChange={(e) => handleNameChange(idx, e.target.value)}
                       className="flex-1 px-3 py-2.5 rounded-xl border border-line bg-white text-sm focus:outline-none focus:border-primary"
@@ -256,20 +326,33 @@ export default function RelationshipMapFlow({ instanceId, onClose, onComplete })
                   </div>
                 ))}
               </div>
+
+              {/* Soft Prompt Banner */}
+              {(softPromptShown || (completedCount >= 3 && completedCount < 5)) && (
+                <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-900 text-xs leading-relaxed">
+                  Can't think of a fifth? Three is enough to continue.
+                </div>
+              )}
+
+              <p className="text-[11px] text-mid mt-4 italic">
+                Names are only used to personalise your questions. They are not shared.
+              </p>
             </div>
 
             <div className="fixed bottom-0 left-0 right-0 p-4 sm:p-6 bg-[#FAF9F6]/90 backdrop-blur-md border-t border-[#1E2A2E]/10 z-30">
               <div className="max-w-[480px] mx-auto">
                 <button
-                  disabled={filledCount < 3}
+                  disabled={completedCount < 3}
                   onClick={handleProceedToQuestions}
                   className={`w-full py-4 rounded-2xl text-xs font-semibold transition-colors shadow-sm cursor-pointer ${
-                    filledCount >= 3
+                    completedCount >= 3
                       ? 'bg-[#1E2A2E] text-white hover:bg-[#1E2A2E]/90'
                       : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   }`}
                 >
-                  {filledCount >= 3 && filledCount < 5 ? `Continue with ${filledCount} people` : 'Continue to questions'}
+                  {completedCount >= 3 && completedCount < 5
+                    ? `Continue with ${completedCount} people`
+                    : 'Continue to questions'}
                 </button>
               </div>
             </div>
@@ -292,7 +375,7 @@ export default function RelationshipMapFlow({ instanceId, onClose, onComplete })
                 </div>
                 {personIdx > 0 && (
                   <button
-                    onClick={() => setPersonIdx(prev => prev - 1)}
+                    onClick={handleBackQuestion}
                     className="text-xs text-[#8DBFB4] hover:text-primary font-medium cursor-pointer"
                   >
                     ← Back
@@ -371,10 +454,10 @@ export default function RelationshipMapFlow({ instanceId, onClose, onComplete })
             <div className="fixed bottom-0 left-0 right-0 p-4 sm:p-6 bg-[#FAF9F6]/90 backdrop-blur-md border-t border-[#1E2A2E]/10 z-30">
               <div className="max-w-[480px] mx-auto">
                 <button
-                  disabled={!isPersonComplete}
+                  disabled={!isPersonComplete || isSubmitting}
                   onClick={handleNextPerson}
                   className={`w-full py-4 rounded-2xl text-xs font-semibold transition-colors shadow-sm cursor-pointer ${
-                    isPersonComplete
+                    isPersonComplete && !isSubmitting
                       ? 'bg-[#1E2A2E] text-white hover:bg-[#1E2A2E]/90'
                       : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   }`}
