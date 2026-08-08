@@ -80,9 +80,23 @@ export class ExerciseService {
   }
 
   /**
-   * Transitions an available exercise instance to 'started'.
+   * Transitions an available exercise instance to 'started'. Auto-unlocks locked instances first.
    */
   public static async startExercise(instanceId: string): Promise<ExerciseInstance> {
+    let instance = await ExerciseRepository.getInstance(instanceId);
+    if (!instance) {
+      throw new Error(`Instance not found: ${instanceId}`);
+    }
+
+    // Auto-heal lifecycle: transition locked instances to available first
+    if (instance.status === 'locked') {
+      instance = await ExerciseLifecycleService.transitionTo(instanceId, 'available');
+    }
+
+    if (instance.status === 'started' || instance.status === 'in_progress') {
+      return instance;
+    }
+
     return await ExerciseLifecycleService.transitionTo(instanceId, 'started');
   }
 

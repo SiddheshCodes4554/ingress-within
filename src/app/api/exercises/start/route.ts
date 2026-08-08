@@ -35,19 +35,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, instance, result });
     }
 
-    if (!instanceId && exerciseId) {
+    let instance = instanceId ? await ExerciseRepository.getInstance(instanceId) : null;
+
+    if (!instance && exerciseId) {
       const found = await ExerciseRepository.getInstanceByUserAndExercise(authUser.userId, body.cycle_id, exerciseId);
-      if (found) instanceId = found.id;
+      if (found) {
+        instance = found;
+      } else {
+        instance = await ExerciseService.createInstance(authUser.userId, exerciseId, body.cycle_id, 'available');
+      }
     }
 
-    if (!instanceId) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_INPUT', message: 'Must provide valid instance_id or exercise_id.' } },
-        { status: 400 }
-      );
-    }
-
-    const instance = await ExerciseRepository.getInstance(instanceId);
     if (!instance) {
       return NextResponse.json(
         { error: { code: 'NOT_FOUND', message: 'Exercise instance not found.' } },
@@ -62,7 +60,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const startedInstance = await ExerciseService.startExercise(instanceId);
+    const startedInstance = await ExerciseService.startExercise(instance.id);
     return NextResponse.json({ success: true, instance: startedInstance });
   } catch (error: any) {
     console.error('[POST /api/exercises/start] Error:', error);
