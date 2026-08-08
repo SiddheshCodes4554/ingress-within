@@ -41,7 +41,28 @@ export async function POST(request: NextRequest) {
     const submittedInstance = await ExerciseService.submitExercise(instance_id);
 
     // Trigger AI Analysis Worker based on exercise_id
-    if (instance.exercise_id === 'core_values_card_sort' || instance.exercise_id === 'core_values' || instance.exercise_id === 'exercise_4') {
+    if (instance.exercise_id === 'relationship_map' || instance.exercise_id === 'exercise_5') {
+      const { RelationshipMapWorker } = await import('../../../../lib/exercises/v4/workers/relationshipMapWorker');
+      await RelationshipMapWorker.processInstance(instance_id, {
+        relationship_map: body.relationship_map
+      }).catch(err => {
+        console.error(`[POST /api/exercises/submit] Relationship Map AI worker error for ${instance_id}:`, err);
+      });
+    } else if (instance.exercise_id === 'body_signal_inventory' || instance.exercise_id === 'exercise_6') {
+      const { BodySignalWorker } = await import('../../../../lib/exercises/v4/workers/bodySignalWorker');
+      await BodySignalWorker.processInstance(instance_id, {
+        system_signals: body.system_signals
+      }).catch(err => {
+        console.error(`[POST /api/exercises/submit] Body Signal AI worker error for ${instance_id}:`, err);
+      });
+    } else if (instance.exercise_id === 'avoidance_audit' || instance.exercise_id === 'exercise_7') {
+      const { AvoidanceAuditWorker } = await import('../../../../lib/exercises/v4/workers/avoidanceAuditWorker');
+      await AvoidanceAuditWorker.processInstance(instance_id, {
+        completions: body.completions
+      }).catch(err => {
+        console.error(`[POST /api/exercises/submit] Avoidance Audit AI worker error for ${instance_id}:`, err);
+      });
+    } else if (instance.exercise_id === 'core_values_card_sort' || instance.exercise_id === 'core_values' || instance.exercise_id === 'exercise_4') {
       const { CoreValuesAnalysisWorker } = await import('../../../../lib/exercises/v4/workers/coreValuesAnalysisWorker');
       await CoreValuesAnalysisWorker.processInstance(instance_id, {
         selected_values: body.selected_values,

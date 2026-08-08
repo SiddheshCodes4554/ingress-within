@@ -231,6 +231,35 @@ export class ExerciseRepository {
       }
     }
 
+    // Ensure exercise_definitions table contains definitions for all 8 core exercises
+    try {
+      const { EXERCISE_0_DEFINITION } = await import('../definitions/exercise0Catalog');
+      const { EXERCISE_1_DEFINITION } = await import('../definitions/exercise1Catalog');
+      const { EXERCISE_2_DEFINITION } = await import('../definitions/exercise2Catalog');
+      const { EXERCISE_3_DEFINITION } = await import('../definitions/exercise3Catalog');
+      const { CORE_VALUES_DEFINITION } = await import('../definitions/coreValuesCatalog');
+      const { RELATIONSHIP_MAP_DEFINITION } = await import('../definitions/relationshipMapCatalog');
+      const { BODY_SIGNAL_INVENTORY_DEFINITION } = await import('../definitions/bodySignalCatalog');
+      const { AVOIDANCE_AUDIT_DEFINITION } = await import('../definitions/avoidanceAuditCatalog');
+
+      const defs = [
+        EXERCISE_0_DEFINITION,
+        EXERCISE_1_DEFINITION,
+        EXERCISE_2_DEFINITION,
+        EXERCISE_3_DEFINITION,
+        CORE_VALUES_DEFINITION,
+        RELATIONSHIP_MAP_DEFINITION,
+        BODY_SIGNAL_INVENTORY_DEFINITION,
+        AVOIDANCE_AUDIT_DEFINITION
+      ];
+
+      for (const def of defs) {
+        await ExerciseRepository.upsertDefinition(def).catch(() => {});
+      }
+    } catch (defErr) {
+      console.warn('[ExerciseRepository] Auto-upsert definitions warning:', defErr);
+    }
+
     // Fetch user cycle to compute accumulated total days for unlock evaluation
     let totalUserDays = 1;
     try {
@@ -251,51 +280,120 @@ export class ExerciseRepository {
       console.warn('[ExerciseRepository] Error fetching user cycle for unlock evaluation:', cycleErr);
     }
 
-    // Dynamic unlock status update for core_values_card_sort if present but locked and user reached Day 35
-    const existingCoreValues = deduplicatedMap.get('core_values_card_sort') || deduplicatedMap.get('core_values');
-    if (existingCoreValues && existingCoreValues.status === 'locked' && totalUserDays >= 35) {
-      existingCoreValues.status = 'available';
-      existingCoreValues.unlock_time = new Date().toISOString();
-      deduplicatedMap.set('core_values_card_sort', existingCoreValues);
-      supabase.from('exercise_instances').update({ status: 'available', unlock_time: existingCoreValues.unlock_time }).eq('id', existingCoreValues.id).then();
+    // Map of unlock days per exercise
+    const UNLOCK_DAYS: Record<string, number> = {
+      exercise_0: 1,
+      ocean: 1,
+      exercise_1: 9,
+      word_association: 9,
+      exercise_2: 16,
+      inkblot_projective: 16,
+      exercise_3: 23,
+      self_perception: 23,
+      core_values_card_sort: 35,
+      core_values: 35,
+      exercise_4: 35,
+      relationship_map: 42,
+      exercise_5: 42,
+      body_signal_inventory: 49,
+      exercise_6: 49,
+      avoidance_audit: 91,
+      exercise_7: 91
+    };
+
+    // All 8 core exercise keys
+    const coreExerciseIds = [
+      'exercise_0',
+      'exercise_1',
+      'exercise_2',
+      'exercise_3',
+      'core_values_card_sort',
+      'relationship_map',
+      'body_signal_inventory',
+      'avoidance_audit'
+    ];
+
+    // Canonical alias map to unify deduplicatedMap keys
+    const ALIAS_MAP: Record<string, string> = {
+      ocean: 'exercise_0',
+      word_association: 'exercise_1',
+      inkblot_projective: 'exercise_2',
+      self_perception: 'exercise_3',
+      core_values: 'core_values_card_sort',
+      exercise_4: 'core_values_card_sort',
+      exercise_5: 'relationship_map',
+      exercise_6: 'body_signal_inventory',
+      exercise_7: 'avoidance_audit'
+    };
+
+    // Re-alias deduplicatedMap entries for consistency
+    const canonicalMap = new Map<string, ExerciseInstance>();
+    for (const [key, inst] of deduplicatedMap.entries()) {
+      const canonicalKey = ALIAS_MAP[key] || key;
+      const existing = canonicalMap.get(canonicalKey);
+      if (!existing || (statusPriority[inst.status] || 0) > (statusPriority[existing.status] || 0)) {
+        canonicalMap.set(canonicalKey, { ...inst, exercise_id: canonicalKey });
+      }
     }
 
-    // Ensure all 5 core exercises exist for the user
-    const coreExerciseIds = ['exercise_0', 'exercise_1', 'exercise_2', 'exercise_3', 'core_values_card_sort'];
-    for (const reqId of coreExerciseIds) {
-      if (!deduplicatedMap.has(reqId)) {
-        const isCoreEx0Completed = reqId === 'exercise_0' && hasCompletedBaselineOnboarding;
-        const isCoreValuesUnlocked = reqId === 'core_values_card_sort' && totalUserDays >= 35;
-        const defaultStatus = isCoreEx0Completed
-          ? 'completed'
-          : reqId === 'core_values_card_sort'
-          ? (isCoreValuesUnlocked ? 'available' : 'locked')
-          : 'available';
+    // Dynamic unlock status check for existing locked instances
+    for (const [reqId, inst] of canonicalMap.entries()) {
+      const requiredDay = UNLOCK_DAYS[reqId] || 1;
+      if (inst.status === 'locked' && totalUserDays >= requiredDay) {
+        inst.status = 'available';
+        inst.unlock_time = new Date().toISOString();
+        canonicalMap.set(reqId, inst);
+        supabase.from('exercise_instances').update({ status: 'available', unlock_time: inst.unlock_time }).eq('id', inst.id).then();
+      }
+    }
 
+    // Guarantee ALL 8 core exercises exist in canonicalMap
+    for (const reqId of coreExerciseIds) {
+      if (!canonicalMap.has(reqId)) {
+        const unlockDay = UNLOCK_DAYS[reqId] || 1;
+        const isEx0Completed = reqId === 'exercise_0' && hasCompletedBaselineOnboarding;
+        const isUnlocked = totalUserDays >= unlockDay;
+        const defaultStatus = isEx0Completed ? 'completed' : isUnlocked ? 'available' : 'locked';
+
+        const nowIso = new Date().toISOString();
+        const placeholderInst: ExerciseInstance = {
+          id: `inst_${reqId}_${userId.slice(0, 8)}`,
+          user_id: userId,
+          cycle_id: cycleId || undefined,
+          exercise_id: reqId,
+          status: defaultStatus,
+          unlock_time: defaultStatus === 'available' || defaultStatus === 'completed' ? nowIso : null,
+          created_at: nowIso,
+          updated_at: nowIso
+        };
+
+        canonicalMap.set(reqId, placeholderInst);
+
+        // Attempt DB insert asynchronously
         try {
-          const { data: newInst } = await supabase
+          supabase
             .from('exercise_instances')
             .insert({
               user_id: userId,
+              cycle_id: cycleId || undefined,
               exercise_id: reqId,
               status: defaultStatus,
-              unlock_time: defaultStatus === 'available' || defaultStatus === 'completed' ? new Date().toISOString() : null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
+              unlock_time: placeholderInst.unlock_time,
+              created_at: nowIso,
+              updated_at: nowIso
             })
             .select()
-            .single();
-
-          if (newInst) {
-            deduplicatedMap.set(reqId, newInst);
-          }
+            .single()
+            .then(({ data: created }) => {
+              if (created) canonicalMap.set(reqId, created);
+            });
         } catch (e) {
-          console.warn(`[ExerciseRepository] Failed to auto-create missing ${reqId} for ${userId}`, e);
+          console.warn(`[ExerciseRepository] DB insert fallback for ${reqId}:`, e);
         }
       }
     }
 
-    // Sort by standard exercise order (exercise_0, exercise_1, exercise_2, exercise_3, core_values_card_sort)
+    // Sort by standard exercise order (Exercises 0 to 7)
     const exerciseOrder = [
       'exercise_0',
       'ocean',
@@ -307,10 +405,16 @@ export class ExerciseRepository {
       'self_perception',
       'core_values_card_sort',
       'core_values',
-      'exercise_4'
+      'exercise_4',
+      'relationship_map',
+      'exercise_5',
+      'body_signal_inventory',
+      'exercise_6',
+      'avoidance_audit',
+      'exercise_7'
     ];
     
-    return Array.from(deduplicatedMap.values()).sort((a, b) => {
+    return Array.from(canonicalMap.values()).sort((a, b) => {
       const idxA = exerciseOrder.indexOf(a.exercise_id);
       const idxB = exerciseOrder.indexOf(b.exercise_id);
       if (idxA !== -1 && idxB !== -1) return idxA - idxB;

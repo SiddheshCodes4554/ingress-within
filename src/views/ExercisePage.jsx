@@ -26,6 +26,12 @@ import Exercise3Flow from '../components/exercise/v4/Exercise3Flow';
 import Exercise3ResultView from '../components/exercise/v4/Exercise3ResultView';
 import CoreValuesFlow from '../components/exercise/v4/CoreValuesFlow';
 import CoreValuesResultView from '../components/exercise/v4/CoreValuesResultView';
+import RelationshipMapFlow from '../components/exercise/v4/RelationshipMapFlow';
+import RelationshipMapResultView from '../components/exercise/v4/RelationshipMapResultView';
+import BodySignalFlow from '../components/exercise/v4/BodySignalFlow';
+import BodySignalResultView from '../components/exercise/v4/BodySignalResultView';
+import AvoidanceAuditFlow from '../components/exercise/v4/AvoidanceAuditFlow';
+import AvoidanceAuditResultView from '../components/exercise/v4/AvoidanceAuditResultView';
 
 // Founder-approved exercise definitions & titles
 const EXERCISE_METADATA = {
@@ -104,6 +110,48 @@ const EXERCISE_METADATA = {
     category: 'Values',
     description: '5–7 minute forced-choice values exercise mapping your primary behavioral principles.',
     unlockDay: 35,
+    getProgress: () => `In Progress`
+  },
+  relationship_map: {
+    title: 'Relationship Map',
+    category: 'Relationships',
+    description: 'Map the people taking up mental space, energy dynamics, and communication patterns.',
+    unlockDay: 42,
+    getProgress: () => `In Progress`
+  },
+  exercise_5: {
+    title: 'Relationship Map',
+    category: 'Relationships',
+    description: 'Map the people taking up mental space, energy dynamics, and communication patterns.',
+    unlockDay: 42,
+    getProgress: () => `In Progress`
+  },
+  body_signal_inventory: {
+    title: 'Body Signal Inventory',
+    category: 'Somatic',
+    description: 'Structured somatic inventory mapping physical signals across 6 body systems.',
+    unlockDay: 49,
+    getProgress: () => `In Progress`
+  },
+  exercise_6: {
+    title: 'Body Signal Inventory',
+    category: 'Somatic',
+    description: 'Structured somatic inventory mapping physical signals across 6 body systems.',
+    unlockDay: 49,
+    getProgress: () => `In Progress`
+  },
+  avoidance_audit: {
+    title: 'Avoidance Audit',
+    category: 'Cognitive',
+    description: 'Six incomplete sentence stems exposing subtle avoidance behaviors, procrastination, and hidden fears.',
+    unlockDay: 91,
+    getProgress: () => `In Progress`
+  },
+  exercise_7: {
+    title: 'Avoidance Audit',
+    category: 'Cognitive',
+    description: 'Six incomplete sentence stems exposing subtle avoidance behaviors, procrastination, and hidden fears.',
+    unlockDay: 91,
     getProgress: () => `In Progress`
   }
 };
@@ -186,6 +234,45 @@ export default function ExercisePage({ user, profile, onSignOut }) {
 
         const exId = inst.exercise_id;
         
+        if (exId === 'relationship_map' || exId === 'exercise_5') {
+          return (
+            <RelationshipMapFlow
+              instanceId={activeExerciseInstanceId}
+              onClose={() => setActiveExerciseInstanceId(null)}
+              onComplete={() => {
+                setActiveExerciseInstanceId(null);
+                fetchExerciseInstances();
+              }}
+            />
+          );
+        }
+
+        if (exId === 'body_signal_inventory' || exId === 'exercise_6') {
+          return (
+            <BodySignalFlow
+              instanceId={activeExerciseInstanceId}
+              onClose={() => setActiveExerciseInstanceId(null)}
+              onComplete={() => {
+                setActiveExerciseInstanceId(null);
+                fetchExerciseInstances();
+              }}
+            />
+          );
+        }
+
+        if (exId === 'avoidance_audit' || exId === 'exercise_7') {
+          return (
+            <AvoidanceAuditFlow
+              instanceId={activeExerciseInstanceId}
+              onClose={() => setActiveExerciseInstanceId(null)}
+              onComplete={() => {
+                setActiveExerciseInstanceId(null);
+                fetchExerciseInstances();
+              }}
+            />
+          );
+        }
+
         if (exId === 'core_values_card_sort' || exId === 'core_values' || exId === 'exercise_4') {
           return (
             <CoreValuesFlow
@@ -262,6 +349,33 @@ export default function ExercisePage({ user, profile, onSignOut }) {
         if (!inst) return null;
 
         const exId = inst.exercise_id;
+
+        if (exId === 'relationship_map' || exId === 'exercise_5') {
+          return (
+            <RelationshipMapResultView
+              instanceId={activeResultInstanceId}
+              onClose={() => setActiveResultInstanceId(null)}
+            />
+          );
+        }
+
+        if (exId === 'body_signal_inventory' || exId === 'exercise_6') {
+          return (
+            <BodySignalResultView
+              instanceId={activeResultInstanceId}
+              onClose={() => setActiveResultInstanceId(null)}
+            />
+          );
+        }
+
+        if (exId === 'avoidance_audit' || exId === 'exercise_7') {
+          return (
+            <AvoidanceAuditResultView
+              instanceId={activeResultInstanceId}
+              onClose={() => setActiveResultInstanceId(null)}
+            />
+          );
+        }
 
         if (exId === 'core_values_card_sort' || exId === 'core_values' || exId === 'exercise_4') {
           return (
