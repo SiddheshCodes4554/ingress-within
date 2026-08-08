@@ -24,6 +24,8 @@ import Exercise2Flow from '../components/exercise/v4/Exercise2Flow';
 import Exercise2ResultView from '../components/exercise/v4/Exercise2ResultView';
 import Exercise3Flow from '../components/exercise/v4/Exercise3Flow';
 import Exercise3ResultView from '../components/exercise/v4/Exercise3ResultView';
+import CoreValuesFlow from '../components/exercise/v4/CoreValuesFlow';
+import CoreValuesResultView from '../components/exercise/v4/CoreValuesResultView';
 
 // Founder-approved exercise definitions & titles
 const EXERCISE_METADATA = {
@@ -82,6 +84,27 @@ const EXERCISE_METADATA = {
     description: 'Structured self-perception mapping measuring self-ideal congruence and identity alignment.',
     unlockDay: 23,
     getProgress: (inst) => `Question ${inst.current_step || 1} of 5`
+  },
+  core_values_card_sort: {
+    title: 'Core Values Card Sort',
+    category: 'Values',
+    description: '5–7 minute forced-choice values exercise mapping your primary behavioral principles.',
+    unlockDay: 35,
+    getProgress: () => `In Progress`
+  },
+  core_values: {
+    title: 'Core Values Card Sort',
+    category: 'Values',
+    description: '5–7 minute forced-choice values exercise mapping your primary behavioral principles.',
+    unlockDay: 35,
+    getProgress: () => `In Progress`
+  },
+  exercise_4: {
+    title: 'Core Values Card Sort',
+    category: 'Values',
+    description: '5–7 minute forced-choice values exercise mapping your primary behavioral principles.',
+    unlockDay: 35,
+    getProgress: () => `In Progress`
   }
 };
 
@@ -163,6 +186,19 @@ export default function ExercisePage({ user, profile, onSignOut }) {
 
         const exId = inst.exercise_id;
         
+        if (exId === 'core_values_card_sort' || exId === 'core_values' || exId === 'exercise_4') {
+          return (
+            <CoreValuesFlow
+              instanceId={activeExerciseInstanceId}
+              onClose={() => setActiveExerciseInstanceId(null)}
+              onComplete={() => {
+                setActiveExerciseInstanceId(null);
+                fetchExerciseInstances();
+              }}
+            />
+          );
+        }
+
         if (exId === 'exercise_3' || exId === 'self_perception') {
           return (
             <Exercise3Flow
@@ -226,6 +262,15 @@ export default function ExercisePage({ user, profile, onSignOut }) {
         if (!inst) return null;
 
         const exId = inst.exercise_id;
+
+        if (exId === 'core_values_card_sort' || exId === 'core_values' || exId === 'exercise_4') {
+          return (
+            <CoreValuesResultView
+              instanceId={activeResultInstanceId}
+              onClose={() => setActiveResultInstanceId(null)}
+            />
+          );
+        }
 
         if (exId === 'exercise_3' || exId === 'self_perception') {
           return (

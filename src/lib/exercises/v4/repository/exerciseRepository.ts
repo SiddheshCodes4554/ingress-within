@@ -231,19 +231,55 @@ export class ExerciseRepository {
       }
     }
 
-    // Ensure all 4 core exercises exist for the user
-    const coreExerciseIds = ['exercise_0', 'exercise_1', 'exercise_2', 'exercise_3'];
+    // Fetch user cycle to compute accumulated total days for unlock evaluation
+    let totalUserDays = 1;
+    try {
+      const { data: latestCycle } = await supabase
+        .from('cycles')
+        .select('cycle_number, number, current_day')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestCycle) {
+        const cNum = latestCycle.cycle_number || latestCycle.number || 1;
+        const cDay = latestCycle.current_day || 1;
+        totalUserDays = (cNum - 1) * 30 + cDay;
+      }
+    } catch (cycleErr) {
+      console.warn('[ExerciseRepository] Error fetching user cycle for unlock evaluation:', cycleErr);
+    }
+
+    // Dynamic unlock status update for core_values_card_sort if present but locked and user reached Day 35
+    const existingCoreValues = deduplicatedMap.get('core_values_card_sort') || deduplicatedMap.get('core_values');
+    if (existingCoreValues && existingCoreValues.status === 'locked' && totalUserDays >= 35) {
+      existingCoreValues.status = 'available';
+      existingCoreValues.unlock_time = new Date().toISOString();
+      deduplicatedMap.set('core_values_card_sort', existingCoreValues);
+      supabase.from('exercise_instances').update({ status: 'available', unlock_time: existingCoreValues.unlock_time }).eq('id', existingCoreValues.id).then();
+    }
+
+    // Ensure all 5 core exercises exist for the user
+    const coreExerciseIds = ['exercise_0', 'exercise_1', 'exercise_2', 'exercise_3', 'core_values_card_sort'];
     for (const reqId of coreExerciseIds) {
       if (!deduplicatedMap.has(reqId)) {
         const isCoreEx0Completed = reqId === 'exercise_0' && hasCompletedBaselineOnboarding;
+        const isCoreValuesUnlocked = reqId === 'core_values_card_sort' && totalUserDays >= 35;
+        const defaultStatus = isCoreEx0Completed
+          ? 'completed'
+          : reqId === 'core_values_card_sort'
+          ? (isCoreValuesUnlocked ? 'available' : 'locked')
+          : 'available';
+
         try {
           const { data: newInst } = await supabase
             .from('exercise_instances')
             .insert({
               user_id: userId,
               exercise_id: reqId,
-              status: isCoreEx0Completed ? 'completed' : 'available',
-              unlock_time: new Date().toISOString(),
+              status: defaultStatus,
+              unlock_time: defaultStatus === 'available' || defaultStatus === 'completed' ? new Date().toISOString() : null,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             })
@@ -259,8 +295,20 @@ export class ExerciseRepository {
       }
     }
 
-    // Sort by standard exercise order (exercise_0, exercise_1, exercise_2, exercise_3)
-    const exerciseOrder = ['exercise_0', 'ocean', 'exercise_1', 'word_association', 'exercise_2', 'inkblot_projective', 'exercise_3', 'self_perception'];
+    // Sort by standard exercise order (exercise_0, exercise_1, exercise_2, exercise_3, core_values_card_sort)
+    const exerciseOrder = [
+      'exercise_0',
+      'ocean',
+      'exercise_1',
+      'word_association',
+      'exercise_2',
+      'inkblot_projective',
+      'exercise_3',
+      'self_perception',
+      'core_values_card_sort',
+      'core_values',
+      'exercise_4'
+    ];
     
     return Array.from(deduplicatedMap.values()).sort((a, b) => {
       const idxA = exerciseOrder.indexOf(a.exercise_id);

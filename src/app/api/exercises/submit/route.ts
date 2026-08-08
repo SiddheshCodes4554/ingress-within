@@ -41,7 +41,16 @@ export async function POST(request: NextRequest) {
     const submittedInstance = await ExerciseService.submitExercise(instance_id);
 
     // Trigger AI Analysis Worker based on exercise_id
-    if (instance.exercise_id === 'exercise_3' || instance.exercise_id === 'self_perception') {
+    if (instance.exercise_id === 'core_values_card_sort' || instance.exercise_id === 'core_values' || instance.exercise_id === 'exercise_4') {
+      const { CoreValuesAnalysisWorker } = await import('../../../../lib/exercises/v4/workers/coreValuesAnalysisWorker');
+      await CoreValuesAnalysisWorker.processInstance(instance_id, {
+        selected_values: body.selected_values,
+        selection_order: body.selection_order,
+        reorder_delta: body.reorder_delta
+      }).catch(err => {
+        console.error(`[POST /api/exercises/submit] Core Values AI worker error for ${instance_id}:`, err);
+      });
+    } else if (instance.exercise_id === 'exercise_3' || instance.exercise_id === 'self_perception') {
       const { Exercise3AnalysisWorker } = await import('../../../../lib/exercises/v4/workers/exercise3AnalysisWorker');
       await Exercise3AnalysisWorker.processInstance(instance_id).catch(err => {
         console.error(`[POST /api/exercises/submit] Exercise 3 AI worker error for ${instance_id}:`, err);
