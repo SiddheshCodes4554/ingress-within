@@ -2,12 +2,12 @@ import { supabase } from '../../../db';
 import { aiProvider } from '../../../ai/factory';
 import { ExerciseResultService } from '../services/exerciseResultService';
 import { ExerciseRepository } from '../repository/exerciseRepository';
-import { BodySignalPrompt } from '../ai/bodySignalPrompt';
-import { BODY_SIGNAL_QUESTIONS } from '../definitions/month3Catalog';
+import { TriggerMappingPrompt } from '../ai/triggerMappingPrompt';
+import { decrypt } from '../../../encryption';
 
-export class BodySignalWorker {
+export class TriggerMappingWorker {
   public static async processInstance(instanceId: string, payload?: any): Promise<any> {
-    console.log(`[BodySignalWorker] Processing instance: ${instanceId}`);
+    console.log(`[TriggerMappingWorker] Processing instance: ${instanceId}`);
 
     const instance = await ExerciseRepository.getInstance(instanceId);
     if (!instance) {
@@ -17,11 +17,35 @@ export class BodySignalWorker {
     let existingResult = await ExerciseResultService.getResult(instanceId);
     const existingAnalysis = existingResult?.analysis || existingResult?.data || {};
 
-    const rawSelections = payload?.raw_selections || existingAnalysis?.raw_selections || {};
-    const locationData = payload?.location_data || existingAnalysis?.location_data || {};
-    const q1 = payload?.q1 !== undefined ? payload.q1 : existingAnalysis?.q1 || '';
-    const q2 = payload?.q2 !== undefined ? payload.q2 : existingAnalysis?.q2 || '';
-    const q3 = payload?.q3 !== undefined ? payload.q3 : existingAnalysis?.q3 || '';
+    const entryAnswers = payload?.entry_answers || payload?.answers || existingAnalysis?.entry_answers || [];
+    const synthesisAnswer = payload?.synthesis_answer || payload?.synthesis || existingAnalysis?.synthesis_answer || '';
+
+    // Fetch user's top 5 high-intensity journal entries server-side
+    let selectedEntries = existingAnalysis?.selected_entries || [];
+    if (!Array.isArray(selectedEntries) || selectedEntries.length === 0) {
+      try {
+        const { data: entries } = await supabase
+          .from('entries')
+          .select('id, created_at, written_at, day_ei, content, new_entry_text_encrypted, new_entry_text_iv')
+          .eq('user_id', instance.user_id)
+          .order('day_ei', { ascending: false })
+          .limit(5);
+
+        if (entries && entries.length > 0) {
+          selectedEntries = entries.map(e => {
+            const rawText = decrypt(e.new_entry_text_encrypted, e.new_entry_text_iv) || e.content || '';
+            const excerpt = rawText.length > 200 ? rawText.slice(0, 200) + '...' : rawText;
+            return {
+              id: e.id,
+              date: e.written_at || e.created_at,
+              excerpt
+            };
+          });
+        }
+      } catch (err) {
+        console.warn('[TriggerMappingWorker] Error fetching top entries:', err);
+      }
+    }
 
     let entryCountAtCompletion = existingAnalysis?.entry_count_at_completion;
     if (entryCountAtCompletion === undefined || entryCountAtCompletion === null) {
@@ -38,13 +62,12 @@ export class BodySignalWorker {
 
     // Immediate primary persistence BEFORE AI call
     const initialData = {
-      raw_selections: rawSelections,
-      location_data: locationData,
-      q1,
-      q2,
-      q3,
+      selected_entries: selectedEntries,
+      entry_answers: entryAnswers,
+      synthesis_answer: synthesisAnswer,
       entry_count_at_completion: entryCountAtCompletion,
-      worth_sitting_with: existingAnalysis?.worth_sitting_with || [],
+      trigger_architecture: existingAnalysis?.trigger_architecture || null,
+      decision_points: existingAnalysis?.decision_points || [],
       reflection_text: existingAnalysis?.reflection_text || null
     };
 
@@ -85,30 +108,29 @@ export class BodySignalWorker {
       return storedResult;
     }
 
-    // Format selections and location/timing data for prompt
-    const signalsFormatted = Object.entries(rawSelections).map(([system, item]: [string, any]) => {
-      if (typeof item === 'string' && item.includes('steady')) {
-        return `- ${system.toUpperCase()}: ${item} [POSITIVE]`;
-      }
-      const locInfo = locationData[system] || locationData[item] || {};
-      const locDetail = locInfo.zones ? ` (Zones: ${locInfo.zones.join(', ')})` : locInfo.chips ? ` (Timing: ${locInfo.chips.join(', ')})` : locInfo.text ? ` (${locInfo.text})` : '';
-      return `- ${system.toUpperCase()}: ${item}${locDetail}`;
-    }).join('\n');
+    // Format entries and answers for AI call
+    const entriesFormatted = selectedEntries.map((e: any, idx: number) => {
+      return `Moment ${idx + 1} (${e.date || 'Entry'}): "${e.excerpt}"`;
+    }).join('\n\n');
 
-    const questionsFormatted = `Q1 (${BODY_SIGNAL_QUESTIONS[0].stem}): "${q1}"
-Q2 (${BODY_SIGNAL_QUESTIONS[1].stem}): "${q2}"
-Q3 (${BODY_SIGNAL_QUESTIONS[2].stem}): "${q3}"`;
+    const userAnswersFormatted = entryAnswers.map((a: any, idx: number) => {
+      return `Moment ${idx + 1}:
+- Q1 (What was actually happening): ${a.q1 || 'N/A'}
+- Q2 (What were you most afraid of): ${a.q2 || 'N/A'}
+- Q3 (How did it resolve): ${a.q3 || 'N/A'}`;
+    }).join('\n\n') + `\n\nSynthesis (Pattern across situations): ${synthesisAnswer}`;
 
-    const promptText = BodySignalPrompt.buildPrompt(signalsFormatted, questionsFormatted);
+    const promptText = TriggerMappingPrompt.buildPrompt(entriesFormatted, userAnswersFormatted);
 
     let summaryText = 'Your responses have been recorded below.';
     let reflectionText: string | null = null;
-    let worthSittingWith: any[] = [];
+    let triggerArchitecture: string | null = null;
+    let decisionPoints: string[] = [];
 
     try {
       const aiPromise = aiProvider.callRaw(promptText);
       const timeoutPromise = new Promise<string>((_, reject) =>
-        setTimeout(() => reject(new Error('Body Signal Inventory AI timeout (8s)')), 8000)
+        setTimeout(() => reject(new Error('Trigger Mapping AI timeout (8s)')), 8000)
       );
 
       const rawText = await Promise.race([aiPromise, timeoutPromise]);
@@ -119,11 +141,12 @@ Q3 (${BODY_SIGNAL_QUESTIONS[2].stem}): "${q3}"`;
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           if (parsed.reflection_text) reflectionText = String(parsed.reflection_text).trim();
-          if (Array.isArray(parsed.worth_sitting_with)) worthSittingWith = parsed.worth_sitting_with;
+          if (parsed.trigger_architecture) triggerArchitecture = String(parsed.trigger_architecture).trim();
+          if (Array.isArray(parsed.decision_points)) decisionPoints = parsed.decision_points;
         }
       } catch (_) {
         // Regex fallback
-        const reflMatch = cleanedText.match(/reflection_text["']?\s*:\s*["']?([\s\S]+?)(?:["']?\s*,\s*["']?worth_sitting_with|["']?\s*\}|$)/i);
+        const reflMatch = cleanedText.match(/reflection_text["']?\s*:\s*["']?([\s\S]+?)(?:["']?\s*,\s*["']?trigger_architecture|["']?\s*\}|$)/i);
         if (reflMatch && reflMatch[1]) {
           reflectionText = reflMatch[1].replace(/^["']|["']$/g, '').trim();
         }
@@ -138,20 +161,20 @@ Q3 (${BODY_SIGNAL_QUESTIONS[2].stem}): "${q3}"`;
         summaryText = reflectionText;
       }
     } catch (err: any) {
-      console.warn(`[BodySignalWorker] AI call failed or timed out: ${err.message}. Retaining primary fallback.`);
+      console.warn(`[TriggerMappingWorker] AI call failed or timed out: ${err.message}. Retaining primary fallback.`);
       summaryText = 'Your responses have been recorded below.';
       reflectionText = null;
-      worthSittingWith = [];
+      triggerArchitecture = null;
+      decisionPoints = [];
     }
 
     const finalData = {
-      raw_selections: rawSelections,
-      location_data: locationData,
-      q1,
-      q2,
-      q3,
+      selected_entries: selectedEntries,
+      entry_answers: entryAnswers,
+      synthesis_answer: synthesisAnswer,
       entry_count_at_completion: entryCountAtCompletion,
-      worth_sitting_with: worthSittingWith,
+      trigger_architecture: triggerArchitecture,
+      decision_points: decisionPoints,
       reflection_text: reflectionText
     };
 

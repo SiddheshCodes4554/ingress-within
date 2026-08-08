@@ -279,8 +279,7 @@ export class ExerciseRepository {
     } catch (cycleErr) {
       console.warn('[ExerciseRepository] Error fetching user cycle for unlock evaluation:', cycleErr);
     }
-
-    // Fetch total journal entries count for entry-requirement exercises (e.g. relationship_map requires 5+ entries)
+    // Fetch total journal entries count for entry-requirement exercises (e.g. relationship_map requires 5+ total entries)
     let userEntryCount = 0;
     try {
       const { count } = await supabase
@@ -291,6 +290,61 @@ export class ExerciseRepository {
     } catch (entryErr) {
       console.warn('[ExerciseRepository] Error fetching entry count:', entryErr);
     }
+
+    // Fetch user's fixed Day 30 assessment (or latest assessment) for Month 3 branch routing & secondary modifications
+    let userBranch = 'A';
+    let assessmentScores: { sa_avg?: number; ei_avg?: number; dt_score?: number } = {};
+    try {
+      const { data: assRow } = await supabase
+        .from('assessments')
+        .select('branch_assignment, sa_avg, ei_avg, dt_score')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (assRow) {
+        if (assRow.branch_assignment) userBranch = assRow.branch_assignment;
+        assessmentScores = {
+          sa_avg: assRow.sa_avg !== null ? Number(assRow.sa_avg) : undefined,
+          ei_avg: assRow.ei_avg !== null ? Number(assRow.ei_avg) : undefined,
+          dt_score: assRow.dt_score !== null ? Number(assRow.dt_score) : undefined
+        };
+      }
+    } catch (assErr) {
+      console.warn('[ExerciseRepository] Error fetching assessment for branch routing:', assErr);
+    }
+
+    // Resolve exact Month 3 exercise for this user using branch + secondary rules
+    const { resolveMonth3Exercise } = await import('../definitions/month3Catalog');
+    const month3Resolved = resolveMonth3Exercise(userBranch, assessmentScores);
+    const targetMonth3Id = month3Resolved.exerciseId;
+    const requiredMonth3Entries = month3Resolved.minEntries;
+
+    // Check completed timestamp of Relationship Map (previous exercise)
+    let relMapCompletedAt: string | null = null;
+    const relMapInst = deduplicatedMap.get('relationship_map') || deduplicatedMap.get('exercise_5');
+    if (relMapInst && relMapInst.status === 'completed') {
+      relMapCompletedAt = relMapInst.completed_at || (relMapInst as any).completion_time || relMapInst.updated_at || relMapInst.created_at;
+    }
+
+    // Count NEW entries created strictly AFTER Relationship Map completion
+    let postRelMapEntryCount = 0;
+    if (relMapCompletedAt) {
+      try {
+        const { count } = await supabase
+          .from('entries')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .gt('created_at', relMapCompletedAt);
+        postRelMapEntryCount = count || 0;
+      } catch (entryErr) {
+        console.warn('[ExerciseRepository] Error fetching post-Relationship Map entry count:', entryErr);
+      }
+    }
+
+    const isMonth3Unlocked = relMapCompletedAt !== null && postRelMapEntryCount >= requiredMonth3Entries;
+    const remainingMonth3Entries = Math.max(0, requiredMonth3Entries - postRelMapEntryCount);
 
     // Map of unlock days per exercise
     const UNLOCK_DAYS: Record<string, number> = {
@@ -307,13 +361,13 @@ export class ExerciseRepository {
       exercise_4: 35,
       relationship_map: 42,
       exercise_5: 42,
-      body_signal_inventory: 49,
-      exercise_6: 49,
       avoidance_audit: 91,
-      exercise_7: 91
+      trigger_mapping: 91,
+      body_signal_inventory: 91,
+      narrative_arc: 91
     };
 
-    // All 8 core exercise keys
+    // Core exercises list (including the target Month 3 exercise)
     const coreExerciseIds = [
       'exercise_0',
       'exercise_1',
@@ -321,8 +375,7 @@ export class ExerciseRepository {
       'exercise_3',
       'core_values_card_sort',
       'relationship_map',
-      'body_signal_inventory',
-      'avoidance_audit'
+      targetMonth3Id
     ];
 
     // Canonical alias map to unify deduplicatedMap keys
@@ -333,9 +386,7 @@ export class ExerciseRepository {
       self_perception: 'exercise_3',
       core_values: 'core_values_card_sort',
       exercise_4: 'core_values_card_sort',
-      exercise_5: 'relationship_map',
-      exercise_6: 'body_signal_inventory',
-      exercise_7: 'avoidance_audit'
+      exercise_5: 'relationship_map'
     };
 
     // Re-alias deduplicatedMap entries for consistency
@@ -350,9 +401,18 @@ export class ExerciseRepository {
 
     // Dynamic unlock status check for existing locked instances
     for (const [reqId, inst] of canonicalMap.entries()) {
-      const requiredDay = UNLOCK_DAYS[reqId] || 1;
-      const requiresEntries = reqId === 'relationship_map' || reqId === 'exercise_5' ? 5 : 0;
-      const isUnlocked = totalUserDays >= requiredDay && (requiresEntries === 0 || userEntryCount >= requiresEntries);
+      let isUnlocked = false;
+
+      if (reqId === targetMonth3Id) {
+        isUnlocked = isMonth3Unlocked;
+        if (!isUnlocked && remainingMonth3Entries > 0) {
+          inst.metadata = { ...inst.metadata, remaining_entries_needed: remainingMonth3Entries, unlock_label: `${remainingMonth3Entries} more entries needed` };
+        }
+      } else {
+        const requiredDay = UNLOCK_DAYS[reqId] || 1;
+        const requiresEntries = reqId === 'relationship_map' || reqId === 'exercise_5' ? 5 : 0;
+        isUnlocked = totalUserDays >= requiredDay && (requiresEntries === 0 || userEntryCount >= requiresEntries);
+      }
 
       if (inst.status === 'locked' && isUnlocked) {
         inst.status = 'available';
@@ -362,13 +422,22 @@ export class ExerciseRepository {
       }
     }
 
-    // Guarantee ALL 8 core exercises exist in canonicalMap
+    // Guarantee ALL core exercises (including target Month 3) exist in canonicalMap
     for (const reqId of coreExerciseIds) {
       if (!canonicalMap.has(reqId)) {
-        const unlockDay = UNLOCK_DAYS[reqId] || 1;
-        const requiresEntries = reqId === 'relationship_map' || reqId === 'exercise_5' ? 5 : 0;
+        let isUnlocked = false;
+        let remainingNeeded = 0;
+
+        if (reqId === targetMonth3Id) {
+          isUnlocked = isMonth3Unlocked;
+          remainingNeeded = remainingMonth3Entries;
+        } else {
+          const unlockDay = UNLOCK_DAYS[reqId] || 1;
+          const requiresEntries = reqId === 'relationship_map' || reqId === 'exercise_5' ? 5 : 0;
+          isUnlocked = totalUserDays >= unlockDay && (requiresEntries === 0 || userEntryCount >= requiresEntries);
+        }
+
         const isEx0Completed = reqId === 'exercise_0' && hasCompletedBaselineOnboarding;
-        const isUnlocked = totalUserDays >= unlockDay && (requiresEntries === 0 || userEntryCount >= requiresEntries);
         const defaultStatus = isEx0Completed ? 'completed' : isUnlocked ? 'available' : 'locked';
 
         const nowIso = new Date().toISOString();
@@ -379,6 +448,7 @@ export class ExerciseRepository {
           exercise_id: reqId,
           status: defaultStatus,
           unlock_time: defaultStatus === 'available' || defaultStatus === 'completed' ? nowIso : null,
+          metadata: !isUnlocked && remainingNeeded > 0 ? { remaining_entries_needed: remainingNeeded, unlock_label: `${remainingNeeded} more entries needed` } : undefined,
           created_at: nowIso,
           updated_at: nowIso
         };
@@ -424,9 +494,11 @@ export class ExerciseRepository {
       'exercise_4',
       'relationship_map',
       'exercise_5',
-      'body_signal_inventory',
-      'exercise_6',
       'avoidance_audit',
+      'trigger_mapping',
+      'body_signal_inventory',
+      'narrative_arc',
+      'exercise_6',
       'exercise_7'
     ];
     

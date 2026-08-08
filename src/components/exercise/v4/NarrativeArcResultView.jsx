@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { RotateCw, ArrowLeft } from 'lucide-react';
+import { NARRATIVE_ARC_QUESTIONS } from '../../../lib/exercises/v4/definitions/month3Catalog';
 
-export default function AvoidanceAuditResultView({ instanceId, onClose }) {
+export default function NarrativeArcResultView({ instanceId, onClose }) {
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -33,7 +34,7 @@ export default function AvoidanceAuditResultView({ instanceId, onClose }) {
       <div className="fixed inset-0 z-50 bg-[#FAF9F6] flex flex-col items-center justify-center p-6 text-center font-sans">
         <RotateCw className="w-6 h-6 animate-spin text-[#4A6A64] mb-3 opacity-70" />
         <p className="font-serif italic text-base text-[#4A6A64]">
-          Processing your Avoidance Audit...
+          Processing your Narrative Arc...
         </p>
       </div>
     );
@@ -56,24 +57,15 @@ export default function AvoidanceAuditResultView({ instanceId, onClose }) {
   }
 
   const analysis = result.analysis || result.data || {};
-  const completions = analysis.raw_completions || [];
-  const worthSittingWith = analysis.worth_sitting_with || [];
-  
-  let rawReflection =
+  const q1 = analysis.q1 || '';
+  const q2 = analysis.q2 || '';
+  const q3 = analysis.q3 || '';
+  const q4 = analysis.q4 || '';
+
+  const reflectionText =
     analysis.reflection_text ||
     (result.summary && !result.summary.includes('recorded below') ? result.summary : null) ||
-    'Your completions have been recorded below.';
-
-  if (rawReflection.includes('{') || rawReflection.includes('reflection_text')) {
-    const reflMatch = rawReflection.match(/reflection_text["']?\s*:\s*["']?([\s\S]+?)(?:["']?\s*,\s*["']?worth_sitting_with|["']?\s*\}|$)/i);
-    if (reflMatch && reflMatch[1]) {
-      rawReflection = reflMatch[1].replace(/^["']|["']$/g, '').trim();
-    } else {
-      rawReflection = rawReflection.replace(/[*#"`]/g, '').replace(/^\{?\s*reflection_text:\s*/i, '').trim();
-    }
-  }
-
-  const reflectionText = rawReflection || 'Your completions have been recorded below.';
+    'Your responses have been recorded below.';
 
   return (
     <div className="fixed inset-0 z-50 bg-[#FAF9F6] flex flex-col p-6 md:p-12 font-sans overflow-y-auto">
@@ -89,8 +81,8 @@ export default function AvoidanceAuditResultView({ instanceId, onClose }) {
         </div>
 
         <div className="space-y-2">
-          <h1 className="text-3xl font-serif text-stone-900 tracking-tight">Avoidance Audit</h1>
-          <p className="text-xs text-stone-400 uppercase tracking-widest font-semibold">Reflection & Findings</p>
+          <h1 className="text-3xl font-serif text-stone-900 tracking-tight">Narrative Arc Exercise</h1>
+          <p className="text-xs text-stone-400 uppercase tracking-widest font-semibold">Stability Beneath Emotional Variability</p>
         </div>
 
         {/* AI Reflection Card */}
@@ -100,50 +92,43 @@ export default function AvoidanceAuditResultView({ instanceId, onClose }) {
             {reflectionText}
           </p>
 
-          {analysis.common_thread && analysis.common_thread !== 'No single thread identified.' && (
-            <div className="pt-3 border-t border-stone-100">
-              <span className="text-xs font-medium text-stone-400 block mb-1">Common Thread</span>
-              <p className="text-sm text-stone-700 italic font-serif">
-                "{analysis.common_thread}"
+          {analysis.stable_structures && (
+            <div className="pt-3 border-t border-stone-100 space-y-1">
+              <span className="text-xs font-semibold text-stone-400 uppercase tracking-wider">Stable Structures Identified</span>
+              <p className="text-sm text-stone-700 leading-relaxed font-sans">
+                {analysis.stable_structures}
               </p>
             </div>
           )}
         </div>
 
-        {/* Worth Sitting With Notes */}
-        {worthSittingWith && worthSittingWith.length > 0 && (
-          <div className="space-y-4 pt-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-stone-400">Worth Sitting With</h2>
-            <div className="space-y-3">
-              {worthSittingWith.map((noteItem, idx) => (
-                <div key={idx} className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm space-y-2">
-                  <span className="text-xs font-medium text-[#4A6A64]">Prompt {noteItem.prompt}</span>
-                  <p className="text-sm text-stone-700 leading-relaxed font-sans">
-                    {noteItem.note}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* User's 6 Finished Continuous Sentences */}
+        {/* Answers Recap */}
         <div className="space-y-4 pt-4 border-t border-stone-200">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-stone-400">Here's what you wrote</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-stone-400">Your Narrative Responses</h2>
           <div className="space-y-3">
-            {completions.map((c, idx) => (
-              <div key={idx} className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm text-base font-serif leading-relaxed">
-                <span className="text-stone-400">{c.stem}</span>
-                <span className="text-stone-900 font-normal">{c.completion}</span>
-              </div>
-            ))}
+            <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm space-y-2">
+              <span className="text-xs font-semibold text-[#4A6A64]">{NARRATIVE_ARC_QUESTIONS[0].prompt}</span>
+              <p className="text-sm text-stone-800 font-serif italic">"{q1}"</p>
+            </div>
+            <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm space-y-2">
+              <span className="text-xs font-semibold text-[#4A6A64]">{NARRATIVE_ARC_QUESTIONS[1].prompt}</span>
+              <p className="text-sm text-stone-800 font-serif italic">"{q2}"</p>
+            </div>
+            <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm space-y-2">
+              <span className="text-xs font-semibold text-[#4A6A64]">{NARRATIVE_ARC_QUESTIONS[2].prompt}</span>
+              <p className="text-sm text-stone-800 font-serif italic">"{q3}"</p>
+            </div>
+            <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm space-y-2">
+              <span className="text-xs font-semibold text-[#4A6A64]">{NARRATIVE_ARC_QUESTIONS[3].prompt}</span>
+              <p className="text-sm text-stone-800 font-serif italic">"{q4}"</p>
+            </div>
           </div>
         </div>
 
-        {/* Closing Lines & Standing Support Line */}
+        {/* Closing Lines & Support Line */}
         <div className="pt-6 text-center space-y-2 border-t border-stone-200">
           <p className="text-xs text-stone-400 italic">You don’t need to do anything with this right now.</p>
-          <p className="text-xs text-stone-400 italic">This is where things stand today. It can look different next time.</p>
+          <p className="text-xs text-stone-400 italic">This is your map for now. It will evolve.</p>
           <p className="text-xs text-stone-500 pt-3 max-w-[460px] mx-auto leading-relaxed">
             If anything here brought something difficult up, support is available — you don’t have to sit with it alone.
           </p>

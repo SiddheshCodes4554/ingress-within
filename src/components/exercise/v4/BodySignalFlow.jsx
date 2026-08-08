@@ -1,67 +1,114 @@
-import React, { useState, useEffect } from 'react';
-import { BODY_SYSTEMS, POSITIVE_SIGNALS } from '../../../lib/exercises/v4/definitions/bodySignalCatalog';
+import React, { useState } from 'react';
+import { BODY_SIGNAL_SYSTEMS, BODY_SIGNAL_QUESTIONS } from '../../../lib/exercises/v4/definitions/month3Catalog';
 import BodySignalResultView from './BodySignalResultView';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, RotateCw } from 'lucide-react';
 
-export default function BodySignalFlow({ instanceId, onClose, onComplete }) {
-  const [loading, setLoading] = useState(true);
-  const [instance, setInstance] = useState(null);
-  const [phase, setPhase] = useState('intro'); // 'intro' | 'select' | 'loading' | 'result'
-
-  // System signal selections: { sleep: { signal: '...' }, appetite: { ... }, ... }
+export default function BodySignalFlow({ instance, instanceId, onClose }) {
+  const [phase, setPhase] = useState('intro'); // 'intro' | 'checklist' | 'locations' | 'questions' | 'loading' | 'result'
   const [systemSelections, setSystemSelections] = useState({});
+  const [activeSignalList, setActiveSignalList] = useState([]);
+  const [signalLocIdx, setSignalLocIdx] = useState(0);
+  const [locationData, setLocationData] = useState({});
+  const [answers, setAnswers] = useState({ q1: '', q2: '', q3: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    initializeFlow();
-  }, [instanceId]);
+  // Toggle signal selection in checklist
+  const handleToggleSignal = (systemId, signalId, isPositive) => {
+    setSystemSelections(prev => {
+      const current = prev[systemId] || [];
 
-  const initializeFlow = async () => {
-    setLoading(true);
-    try {
-      let currentInst = null;
-      if (instanceId) {
-        const resumeRes = await fetch(`/api/exercises/current?instance_id=${instanceId}`);
-        if (resumeRes.ok) {
-          const data = await resumeRes.json();
-          currentInst = data.instance;
+      if (isPositive) {
+        // Positive selection clears symptoms
+        return { ...prev, [systemId]: [signalId] };
+      } else {
+        // Symptom selection clears positive option
+        const filtered = current.filter(id => !id.includes('steady') && !id.includes('positive') && !id.includes('balanced') && !id.includes('relaxed'));
+        const hasIt = filtered.includes(signalId);
+        const next = hasIt ? filtered.filter(id => id !== signalId) : [...filtered, signalId];
+        return { ...prev, [systemId]: next };
+      }
+    });
+  };
+
+  const handleFinishChecklist = () => {
+    // Collect all selected non-positive symptom signals across systems
+    const list = [];
+    BODY_SIGNAL_SYSTEMS.forEach(sys => {
+      const selIds = systemSelections[sys.id] || [];
+      selIds.forEach(sigId => {
+        const sigObj = sys.signals.find(s => s.id === sigId);
+        if (sigObj) {
+          list.push({ systemId: sys.id, ...sigObj });
         }
-      }
+      });
+    });
 
-      if (!currentInst) {
-        const startRes = await fetch('/api/exercises/start', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ exercise_id: 'body_signal_inventory' })
-        });
-        if (startRes.ok) {
-          const data = await startRes.json();
-          currentInst = data.instance;
-        }
-      }
+    setActiveSignalList(list);
 
-      setInstance(currentInst);
-      if (currentInst?.status === 'completed') {
-        setPhase('result');
-      }
-    } catch (err) {
-      console.error('[BodySignalFlow] Init error:', err);
-    } finally {
-      setLoading(false);
+    if (list.length > 0) {
+      setSignalLocIdx(0);
+      setPhase('locations');
+    } else {
+      setPhase('questions');
     }
   };
 
-  const handleSelectSignal = (sysKey, signal) => {
-    setSystemSelections(prev => ({
+  const currentSignal = activeSignalList[signalLocIdx];
+  const currentLocData = currentSignal ? locationData[currentSignal.id] || { zones: [], chips: [], text: '' } : null;
+
+  const handleToggleZone = (zoneName) => {
+    if (!currentSignal) return;
+    const currentZones = currentLocData.zones || [];
+    const nextZones = currentZones.includes(zoneName) ? currentZones.filter(z => z !== zoneName) : [...currentZones, zoneName];
+    const autoText = nextZones.length > 0 ? `I feel it in ${nextZones.join(', ')}` : '';
+
+    setLocationData(prev => ({
       ...prev,
-      [sysKey]: { signal }
+      [currentSignal.id]: { ...prev[currentSignal.id], zones: nextZones, text: autoText }
     }));
   };
 
-  const allSystemsSelected = BODY_SYSTEMS.every(sys => systemSelections[sys.key]?.signal);
+  const handleToggleChip = (chipText) => {
+    if (!currentSignal) return;
+    const currentChips = currentLocData.chips || [];
+    const nextChips = currentChips.includes(chipText) ? currentChips.filter(c => c !== chipText) : [...currentChips, chipText];
+    const autoText = nextChips.length > 0 ? `Noticed ${nextChips.join(', ')}` : '';
 
-  const handleSubmit = async () => {
-    if (!allSystemsSelected) return;
+    setLocationData(prev => ({
+      ...prev,
+      [currentSignal.id]: { ...prev[currentSignal.id], chips: nextChips, text: autoText }
+    }));
+  };
+
+  const handleNextLocation = () => {
+    if (signalLocIdx < activeSignalList.length - 1) {
+      setSignalLocIdx(prev => prev + 1);
+    } else {
+      setPhase('questions');
+    }
+  };
+
+  const isQValid = answers.q1.trim().length >= 3 && answers.q2.trim().length >= 3;
+
+  const handleFinalSubmit = async () => {
+    if (isSubmitting || !isQValid) return;
+    setIsSubmitting(true);
     setPhase('loading');
+
+    // Build raw_selections object
+    const rawSelections = {};
+    BODY_SIGNAL_SYSTEMS.forEach(sys => {
+      const selIds = systemSelections[sys.id] || [sys.positiveOption];
+      if (selIds.length === 1 && selIds[0].includes('steady')) {
+        rawSelections[sys.id] = sys.positiveOption;
+      } else {
+        const labels = selIds.map(id => {
+          const sig = sys.signals.find(s => s.id === id);
+          return sig ? sig.label : id;
+        });
+        rawSelections[sys.id] = labels.length === 1 ? labels[0] : labels;
+      }
+    });
 
     const targetInstanceId = instance?.id || instanceId;
 
@@ -72,145 +119,284 @@ export default function BodySignalFlow({ instanceId, onClose, onComplete }) {
         body: JSON.stringify({
           instance_id: targetInstanceId,
           exercise_id: 'body_signal_inventory',
-          system_signals: systemSelections
+          raw_selections: rawSelections,
+          location_data: locationData,
+          q1: answers.q1.trim(),
+          q2: answers.q2.trim(),
+          q3: answers.q3.trim()
         })
       });
     } catch (err) {
       console.error('[BodySignalFlow] Submission error:', err);
     } finally {
+      setIsSubmitting(false);
       setPhase('result');
     }
   };
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 z-50 bg-[#ECEFF0] flex items-center justify-center font-serif italic text-[18px] text-[#4A6A64] animate-pulse">
-        Loading Body Signal Inventory...
-      </div>
-    );
-  }
-
   if (phase === 'result') {
-    return (
-      <BodySignalResultView
-        instanceId={instance?.id || instanceId}
-        onClose={() => {
-          if (onComplete) onComplete();
-          if (onClose) onClose();
-        }}
-      />
-    );
+    return <BodySignalResultView instanceId={instance?.id || instanceId} onClose={onClose} />;
   }
 
   if (phase === 'loading') {
     return (
-      <div className="fixed inset-0 z-50 bg-[#FAF9F6] text-[#1E2A2E] flex flex-col items-center justify-center p-6 text-center font-sans">
-        <p className="font-serif italic text-xl md:text-2xl text-[#1E2A2E]">
-          Mapping body signals...
+      <div className="fixed inset-0 z-50 bg-[#FAF9F6] flex flex-col items-center justify-center p-6 text-center font-sans">
+        <RotateCw className="w-6 h-6 animate-spin text-[#4A6A64] mb-3 opacity-70" />
+        <p className="font-serif italic text-base text-[#4A6A64]">
+          Processing your Body Signal Inventory...
         </p>
       </div>
     );
   }
 
-  return (
-    <div className="fixed inset-0 z-50 bg-[#FAF9F6] text-[#1E2A2E] font-sans overflow-y-auto flex flex-col justify-between">
-      <div className="w-full max-w-[480px] mx-auto min-h-screen flex flex-col justify-between p-6 sm:p-8">
-        
-        {phase === 'intro' && (
-          <div className="flex flex-col justify-between min-h-[calc(100vh-4rem)]">
-            <div className="space-y-6 pt-4">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#8DBFB4]">
-                Body Signal Inventory
-              </span>
-              <h1 className="font-serif text-3xl md:text-4xl text-primary font-normal">
-                Somatic Inventory
-              </h1>
-              <p className="text-sm md:text-base text-[#1E2A2E]/80 leading-relaxed">
-                Your body notices changes long before your mind puts words to them. Select the signal that best describes what you have physically experienced across 6 body systems.
-              </p>
-            </div>
+  if (phase === 'intro') {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#FAF9F6] flex flex-col justify-between p-6 md:p-12 font-sans overflow-y-auto">
+        <div className="max-w-[540px] mx-auto w-full pt-8 space-y-6">
+          <button
+            onClick={onClose}
+            className="p-2 text-stone-400 hover:text-stone-700 transition-colors rounded-full hover:bg-stone-100"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
 
-            <div className="pt-8">
-              <button
-                onClick={() => setPhase('select')}
-                className="w-full py-4 rounded-2xl bg-[#1E2A2E] text-white text-xs font-semibold hover:bg-[#1E2A2E]/90 transition-colors shadow-sm cursor-pointer"
-              >
-                Begin Inventory
-              </button>
-            </div>
+          <div className="space-y-3 pt-4">
+            <span className="text-xs uppercase tracking-widest text-[#4A6A64] font-semibold">
+              Month 3 • Exercise 6C
+            </span>
+            <h1 className="text-3xl font-serif text-stone-900 tracking-tight">
+              Body Signal Inventory
+            </h1>
+            <p className="text-base text-stone-600 leading-relaxed font-light">
+              Surface physical and somatic signals as emotional data across 6 body systems.
+            </p>
           </div>
-        )}
 
-        {phase === 'select' && (
-          <div className="flex flex-col justify-between min-h-[calc(100vh-4rem)]">
-            <div>
-              <div className="flex items-center justify-between border-b border-[#1E2A2E]/10 pb-4 mb-6">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#8DBFB4]">
-                    6 Systems
-                  </span>
-                  <h2 className="font-serif text-xl text-primary font-normal">
-                    Select 1 signal per system
-                  </h2>
+          <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm space-y-3 text-sm text-stone-600 leading-relaxed">
+            <p>
+              Select the physical signals you've been noticing across body systems, indicate where or when they show up, and complete 3 short reflection sentences.
+            </p>
+            <p className="text-xs text-stone-400">
+              Estimated duration: 6–10 minutes
+            </p>
+          </div>
+        </div>
+
+        <div className="max-w-[540px] mx-auto w-full pb-8">
+          <button
+            onClick={() => setPhase('checklist')}
+            className="w-full py-4 rounded-2xl bg-[#1E2A2E] text-white text-sm font-semibold hover:bg-[#1E2A2E]/90 transition-all cursor-pointer shadow-sm"
+          >
+            Begin Inventory
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'checklist') {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#FAF9F6] flex flex-col justify-between p-6 md:p-12 font-sans overflow-y-auto">
+        <div className="max-w-[640px] mx-auto w-full pt-4 space-y-8">
+          <div className="flex items-center justify-between text-xs text-stone-400 font-medium">
+            <span>Body Systems Checklist</span>
+            <button onClick={onClose} className="hover:text-stone-700">Exit</button>
+          </div>
+
+          <div className="space-y-6">
+            {BODY_SIGNAL_SYSTEMS.map(sys => {
+              const selectedIds = systemSelections[sys.id] || [];
+              const isPosSelected = selectedIds.includes(sys.positiveOption);
+
+              return (
+                <div key={sys.id} className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm space-y-3">
+                  <h3 className="text-base font-serif font-semibold text-stone-900">{sys.name}</h3>
+                  <div className="space-y-2">
+                    {/* Positive Option */}
+                    <button
+                      onClick={() => handleToggleSignal(sys.id, sys.positiveOption, true)}
+                      className={`w-full text-left p-3 rounded-xl text-xs font-medium transition-all ${
+                        isPosSelected
+                          ? 'bg-[#4A6A64]/10 border border-[#4A6A64] text-[#4A6A64]'
+                          : 'bg-stone-50 border border-stone-200 text-stone-600 hover:bg-stone-100'
+                      }`}
+                    >
+                      ✓ {sys.positiveOption}
+                    </button>
+
+                    {/* Symptom Options */}
+                    {sys.signals.map(sig => {
+                      const isSelected = selectedIds.includes(sig.id);
+                      return (
+                        <button
+                          key={sig.id}
+                          onClick={() => handleToggleSignal(sys.id, sig.id, false)}
+                          className={`w-full text-left p-3 rounded-xl text-xs font-medium transition-all ${
+                            isSelected
+                              ? 'bg-[#1E2A2E] text-white border border-[#1E2A2E]'
+                              : 'bg-stone-50 border border-stone-200 text-stone-700 hover:bg-stone-100'
+                          }`}
+                        >
+                          {isSelected ? '✓ ' : '+ '}{sig.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                {onClose && (
-                  <button onClick={onClose} className="p-1.5 text-mid hover:text-primary rounded-full hover:bg-black/5">
-                    <ArrowLeft className="w-5 h-5" />
-                  </button>
-                )}
-              </div>
+              );
+            })}
+          </div>
+        </div>
 
-              <div className="space-y-6 pb-24">
-                {BODY_SYSTEMS.map(sys => {
-                  const currentSel = systemSelections[sys.key]?.signal;
+        <div className="max-w-[640px] mx-auto w-full pt-6 pb-8">
+          <button
+            onClick={handleFinishChecklist}
+            className="w-full py-4 rounded-2xl bg-[#1E2A2E] text-white text-sm font-semibold hover:bg-[#1E2A2E]/90 transition-all cursor-pointer shadow-sm"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'locations' && currentSignal) {
+    const isSpatial = currentSignal.type === 'spatial';
+
+    return (
+      <div className="fixed inset-0 z-50 bg-[#FAF9F6] flex flex-col justify-between p-6 md:p-12 font-sans overflow-y-auto">
+        <div className="max-w-[540px] mx-auto w-full pt-4 space-y-6">
+          <div className="flex items-center justify-between text-xs text-stone-400 font-medium">
+            <span>Signal {signalLocIdx + 1} of {activeSignalList.length}</span>
+            <button onClick={handleNextLocation} className="hover:text-stone-700">Skip</button>
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-xs uppercase tracking-widest text-[#4A6A64] font-semibold">
+              {currentSignal.systemId.toUpperCase()}
+            </span>
+            <h2 className="text-xl font-serif text-stone-900">{currentSignal.label}</h2>
+            <p className="text-xs text-stone-500">
+              {isSpatial ? 'Tap where you feel this in your body:' : 'Select when or in what context this shows up:'}
+            </p>
+          </div>
+
+          {isSpatial ? (
+            /* Spatial 11-Zone Body Diagram Selector */
+            <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm space-y-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {['Head / Temples', 'Jaw', 'Neck', 'Shoulders', 'Chest', 'Stomach', 'Lower Back', 'Arms', 'Legs'].map(zone => {
+                  const isSel = (currentLocData?.zones || []).includes(zone);
                   return (
-                    <div key={sys.key} className="space-y-2 bg-white rounded-2xl p-4 border border-line">
-                      <h3 className="font-serif text-base text-primary font-semibold border-b border-line/60 pb-2">
-                        {sys.label}
-                      </h3>
-                      <div className="space-y-1.5 pt-1">
-                        {sys.signals.map(sig => {
-                          const isSelected = currentSel === sig;
-                          return (
-                            <button
-                              key={sig}
-                              onClick={() => handleSelectSignal(sys.key, sig)}
-                              className={`w-full text-left p-3 rounded-xl border text-xs transition-colors cursor-pointer flex items-center justify-between ${
-                                isSelected
-                                  ? 'bg-[#1E2A2E] border-[#1E2A2E] text-white font-medium'
-                                  : 'bg-[#FAF9F6] border-line/60 text-primary hover:border-primary/40'
-                              }`}
-                            >
-                              <span>{sig}</span>
-                              {isSelected && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    <button
+                      key={zone}
+                      onClick={() => handleToggleZone(zone)}
+                      className={`p-3 rounded-xl text-xs font-medium border transition-all ${
+                        isSel
+                          ? 'bg-[#1E2A2E] text-white border-[#1E2A2E]'
+                          : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
+                      }`}
+                    >
+                      {isSel ? '✓ ' : ''}{zone}
+                    </button>
                   );
                 })}
               </div>
             </div>
-
-            <div className="fixed bottom-0 left-0 right-0 p-4 sm:p-6 bg-[#FAF9F6]/90 backdrop-blur-md border-t border-[#1E2A2E]/10 z-30">
-              <div className="max-w-[480px] mx-auto">
-                <button
-                  disabled={!allSystemsSelected}
-                  onClick={handleSubmit}
-                  className={`w-full py-4 rounded-2xl text-xs font-semibold transition-colors shadow-sm cursor-pointer ${
-                    allSystemsSelected
-                      ? 'bg-[#1E2A2E] text-white hover:bg-[#1E2A2E]/90'
-                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                  }`}
-                >
-                  Submit Inventory
-                </button>
+          ) : (
+            /* Temporal Chips Selector */
+            <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {(currentSignal.chips || ['Morning', 'Evening', 'During stress', 'At work']).map(chip => {
+                  const isSel = (currentLocData?.chips || []).includes(chip);
+                  return (
+                    <button
+                      key={chip}
+                      onClick={() => handleToggleChip(chip)}
+                      className={`px-4 py-2 rounded-full text-xs font-medium border transition-all ${
+                        isSel
+                          ? 'bg-[#1E2A2E] text-white border-[#1E2A2E]'
+                          : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
+                      }`}
+                    >
+                      {isSel ? '✓ ' : ''}{chip}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
+        <div className="max-w-[540px] mx-auto w-full pb-8">
+          <button
+            onClick={handleNextLocation}
+            className="w-full py-4 rounded-2xl bg-[#1E2A2E] text-white text-sm font-semibold hover:bg-[#1E2A2E]/90 transition-all cursor-pointer shadow-sm"
+          >
+            {signalLocIdx < activeSignalList.length - 1 ? 'Next Signal' : 'Proceed to Questions'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-[#FAF9F6] flex flex-col justify-between p-6 md:p-12 font-sans overflow-y-auto">
+      <div className="max-w-[620px] mx-auto w-full pt-4 space-y-6">
+        <div className="flex items-center justify-between text-xs text-stone-400 font-medium">
+          <span>Sentence Completions</span>
+          <button onClick={onClose} className="hover:text-stone-700">Exit</button>
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm space-y-2">
+            <span className="text-xs font-semibold text-[#4A6A64]">{BODY_SIGNAL_QUESTIONS[0].stem}</span>
+            <input
+              type="text"
+              value={answers.q1}
+              onChange={(e) => setAnswers(prev => ({ ...prev, q1: e.target.value }))}
+              placeholder="Finish the sentence..."
+              className="w-full bg-stone-50 rounded-xl p-3 border border-stone-200 text-stone-900 text-sm focus:outline-none focus:border-[#4A6A64]"
+            />
+          </div>
+
+          <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm space-y-2">
+            <span className="text-xs font-semibold text-[#4A6A64]">{BODY_SIGNAL_QUESTIONS[1].stem}</span>
+            <input
+              type="text"
+              value={answers.q2}
+              onChange={(e) => setAnswers(prev => ({ ...prev, q2: e.target.value }))}
+              placeholder="Finish the sentence..."
+              className="w-full bg-stone-50 rounded-xl p-3 border border-stone-200 text-stone-900 text-sm focus:outline-none focus:border-[#4A6A64]"
+            />
+          </div>
+
+          <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm space-y-2">
+            <span className="text-xs font-semibold text-[#4A6A64]">{BODY_SIGNAL_QUESTIONS[2].stem}</span>
+            <input
+              type="text"
+              value={answers.q3}
+              onChange={(e) => setAnswers(prev => ({ ...prev, q3: e.target.value }))}
+              placeholder="Finish the sentence (optional)..."
+              className="w-full bg-stone-50 rounded-xl p-3 border border-stone-200 text-stone-900 text-sm focus:outline-none focus:border-[#4A6A64]"
+            />
+            <p className="text-xs text-stone-400 italic">I haven't connected it to anything is a complete answer.</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-[620px] mx-auto w-full pb-8">
+        <button
+          onClick={handleFinalSubmit}
+          disabled={!isQValid || isSubmitting}
+          className={`w-full py-4 rounded-2xl text-sm font-semibold transition-all cursor-pointer shadow-sm ${
+            isQValid && !isSubmitting
+              ? 'bg-[#1E2A2E] text-white hover:bg-[#1E2A2E]/90'
+              : 'bg-stone-200 text-stone-400 cursor-not-allowed'
+          }`}
+        >
+          Complete Inventory
+        </button>
       </div>
     </div>
   );

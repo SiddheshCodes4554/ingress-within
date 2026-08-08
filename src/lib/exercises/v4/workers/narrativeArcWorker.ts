@@ -2,12 +2,12 @@ import { supabase } from '../../../db';
 import { aiProvider } from '../../../ai/factory';
 import { ExerciseResultService } from '../services/exerciseResultService';
 import { ExerciseRepository } from '../repository/exerciseRepository';
-import { AvoidanceAuditPrompt } from '../ai/avoidanceAuditPrompt';
-import { AVOIDANCE_AUDIT_PROMPTS } from '../definitions/month3Catalog';
+import { NarrativeArcPrompt } from '../ai/narrativeArcPrompt';
+import { NARRATIVE_ARC_QUESTIONS } from '../definitions/month3Catalog';
 
-export class AvoidanceAuditWorker {
+export class NarrativeArcWorker {
   public static async processInstance(instanceId: string, payload?: any): Promise<any> {
-    console.log(`[AvoidanceAuditWorker] Processing instance: ${instanceId}`);
+    console.log(`[NarrativeArcWorker] Processing instance: ${instanceId}`);
 
     const instance = await ExerciseRepository.getInstance(instanceId);
     if (!instance) {
@@ -17,24 +17,11 @@ export class AvoidanceAuditWorker {
     let existingResult = await ExerciseResultService.getResult(instanceId);
     const existingAnalysis = existingResult?.analysis || existingResult?.data || {};
 
-    let completions = payload?.raw_completions || payload?.completions || existingAnalysis?.raw_completions || [];
+    const q1 = payload?.q1 !== undefined ? payload.q1 : existingAnalysis?.q1 || '';
+    const q2 = payload?.q2 !== undefined ? payload.q2 : existingAnalysis?.q2 || '';
+    const q3 = payload?.q3 !== undefined ? payload.q3 : existingAnalysis?.q3 || '';
+    const q4 = payload?.q4 !== undefined ? payload.q4 : existingAnalysis?.q4 || '';
 
-    if (!Array.isArray(completions) || completions.length === 0) {
-      // Try reading responses from exercise_responses table
-      const responses = await ExerciseRepository.getResponsesForInstance(instanceId);
-      if (responses && responses.length > 0) {
-        completions = AVOIDANCE_AUDIT_PROMPTS.map((p, idx) => {
-          const r = responses.find(resp => String(resp.question_id) === String(p.id) || String((resp as any).step_id) === String(p.id)) || responses[idx];
-          return {
-            prompt: p.id,
-            stem: p.stem,
-            completion: r ? r.response : ''
-          };
-        });
-      }
-    }
-
-    // Fetch journal entry count snapshot at time of completion
     let entryCountAtCompletion = existingAnalysis?.entry_count_at_completion;
     if (entryCountAtCompletion === undefined || entryCountAtCompletion === null) {
       try {
@@ -48,12 +35,14 @@ export class AvoidanceAuditWorker {
       }
     }
 
-    // CRITICAL REQUIREMENT: Immediately persist primary completed result BEFORE AI call
+    // Immediate primary persistence BEFORE AI call
     const initialData = {
-      raw_completions: completions,
+      q1,
+      q2,
+      q3,
+      q4,
       entry_count_at_completion: entryCountAtCompletion,
-      common_thread: existingAnalysis?.common_thread || null,
-      worth_sitting_with: existingAnalysis?.worth_sitting_with || [],
+      stable_structures: existingAnalysis?.stable_structures || null,
       reflection_text: existingAnalysis?.reflection_text || null
     };
 
@@ -62,7 +51,7 @@ export class AvoidanceAuditWorker {
       const { data: updated } = await supabase
         .from('exercise_results')
         .update({
-          summary: existingResult.summary || 'Your completions have been recorded below.',
+          summary: existingResult.summary || 'Your responses have been recorded below.',
           analysis: { ...existingAnalysis, ...initialData }
         })
         .eq('id', existingResult.id)
@@ -73,14 +62,13 @@ export class AvoidanceAuditWorker {
       storedResult = await ExerciseResultService.storeResult({
         instanceId,
         userId: instance.user_id,
-        summary: 'Your completions have been recorded below.',
+        summary: 'Your responses have been recorded below.',
         analysis: initialData,
         model: process.env.AI_MODEL || 'claude-sonnet-4-6',
         provider: process.env.AI_PROVIDER || 'groq'
       });
     }
 
-    // Always update instance to completed status immediately
     await supabase
       .from('exercise_instances')
       .update({
@@ -90,36 +78,26 @@ export class AvoidanceAuditWorker {
       })
       .eq('id', instanceId);
 
-    // If reflection_text already exists and is non-empty, return stored result directly
     const currentReflection = storedResult?.analysis?.reflection_text || storedResult?.data?.reflection_text;
-    if (currentReflection && storedResult.summary !== 'Your completions have been recorded below.') {
+    if (currentReflection && storedResult.summary !== 'Your responses have been recorded below.') {
       return storedResult;
     }
 
-    if (!Array.isArray(completions) || completions.length === 0) {
-      console.warn('[AvoidanceAuditWorker] Empty completions. Skipping AI call.');
-      return storedResult;
-    }
+    const answersFormatted = `Q1 (${NARRATIVE_ARC_QUESTIONS[0].prompt}): "${q1}"
+Q2 (${NARRATIVE_ARC_QUESTIONS[1].prompt}): "${q2}"
+Q3 (${NARRATIVE_ARC_QUESTIONS[2].prompt}): "${q3}"
+Q4 (${NARRATIVE_ARC_QUESTIONS[3].prompt}): "${q4}"`;
 
-    // Format completions for AI Prompt
-    const formatted = completions.map((c: any, idx: number) => {
-      const pNum = c.prompt || idx + 1;
-      const stem = c.stem || AVOIDANCE_AUDIT_PROMPTS[idx]?.stem || '';
-      const userText = c.completion || '';
-      return `P${pNum}: "${stem}${userText}"`;
-    }).join('\n');
+    const promptText = NarrativeArcPrompt.buildPrompt(answersFormatted);
 
-    const promptText = AvoidanceAuditPrompt.buildPrompt(formatted);
-
-    let summaryText = 'Your completions have been recorded below.';
+    let summaryText = 'Your responses have been recorded below.';
     let reflectionText: string | null = null;
-    let commonThread: string | null = null;
-    let worthSittingWith: any[] = [];
+    let stableStructures: string | null = null;
 
     try {
       const aiPromise = aiProvider.callRaw(promptText);
       const timeoutPromise = new Promise<string>((_, reject) =>
-        setTimeout(() => reject(new Error('Avoidance Audit AI timeout (8s)')), 8000)
+        setTimeout(() => reject(new Error('Narrative Arc AI timeout (8s)')), 8000)
       );
 
       const rawText = await Promise.race([aiPromise, timeoutPromise]);
@@ -130,12 +108,10 @@ export class AvoidanceAuditWorker {
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           if (parsed.reflection_text) reflectionText = String(parsed.reflection_text).trim();
-          if (parsed.common_thread) commonThread = String(parsed.common_thread).trim();
-          if (Array.isArray(parsed.worth_sitting_with)) worthSittingWith = parsed.worth_sitting_with;
+          if (parsed.stable_structures) stableStructures = String(parsed.stable_structures).trim();
         }
       } catch (_) {
-        // Regex fallback
-        const reflMatch = cleanedText.match(/reflection_text["']?\s*:\s*["']?([\s\S]+?)(?:["']?\s*,\s*["']?worth_sitting_with|["']?\s*\}|$)/i);
+        const reflMatch = cleanedText.match(/reflection_text["']?\s*:\s*["']?([\s\S]+?)(?:["']?\s*,\s*["']?stable_structures|["']?\s*\}|$)/i);
         if (reflMatch && reflMatch[1]) {
           reflectionText = reflMatch[1].replace(/^["']|["']$/g, '').trim();
         }
@@ -146,26 +122,23 @@ export class AvoidanceAuditWorker {
       }
 
       if (reflectionText) {
-        reflectionText = reflectionText
-          .replace(/[*#"`]/g, '')
-          .replace(/^\{?\s*reflection_text:\s*/i, '')
-          .replace(/,\s*worth_sitting_with:.*$/i, '')
-          .trim();
+        reflectionText = reflectionText.replace(/[*#"`]/g, '').trim();
         summaryText = reflectionText;
       }
     } catch (err: any) {
-      console.warn(`[AvoidanceAuditWorker] AI call failed or timed out: ${err.message}. Retaining primary fallback.`);
-      summaryText = 'Your completions have been recorded below.';
+      console.warn(`[NarrativeArcWorker] AI call failed or timed out: ${err.message}. Retaining primary fallback.`);
+      summaryText = 'Your responses have been recorded below.';
       reflectionText = null;
-      commonThread = null;
-      worthSittingWith = [];
+      stableStructures = null;
     }
 
     const finalData = {
-      raw_completions: completions,
+      q1,
+      q2,
+      q3,
+      q4,
       entry_count_at_completion: entryCountAtCompletion,
-      common_thread: commonThread,
-      worth_sitting_with: worthSittingWith,
+      stable_structures: stableStructures,
       reflection_text: reflectionText
     };
 

@@ -39,12 +39,28 @@ export async function GET(request: NextRequest) {
     const retry = request.nextUrl.searchParams.get('retry') === 'true';
     let result = await ExerciseResultService.getResult(instanceId);
 
-    if (retry && result && (instance.exercise_id === 'relationship_map' || instance.exercise_id === 'exercise_5')) {
+    if (retry && result) {
       const analysis = result.analysis || result.data || {};
-      if (!analysis.reflection_text || result.summary === 'Your relationship map has been recorded below.') {
+      const isFallback = !analysis.reflection_text || (result.summary && result.summary.includes('recorded below'));
+
+      if (isFallback) {
         try {
-          const { RelationshipMapWorker } = await import('../../../../lib/exercises/v4/workers/relationshipMapWorker');
-          result = await RelationshipMapWorker.processInstance(instanceId);
+          if (instance.exercise_id === 'relationship_map' || instance.exercise_id === 'exercise_5') {
+            const { RelationshipMapWorker } = await import('../../../../lib/exercises/v4/workers/relationshipMapWorker');
+            result = await RelationshipMapWorker.processInstance(instanceId);
+          } else if (instance.exercise_id === 'avoidance_audit' || instance.exercise_id === 'exercise_7') {
+            const { AvoidanceAuditWorker } = await import('../../../../lib/exercises/v4/workers/avoidanceAuditWorker');
+            result = await AvoidanceAuditWorker.processInstance(instanceId);
+          } else if (instance.exercise_id === 'trigger_mapping') {
+            const { TriggerMappingWorker } = await import('../../../../lib/exercises/v4/workers/triggerMappingWorker');
+            result = await TriggerMappingWorker.processInstance(instanceId);
+          } else if (instance.exercise_id === 'body_signal_inventory' || instance.exercise_id === 'exercise_6') {
+            const { BodySignalWorker } = await import('../../../../lib/exercises/v4/workers/bodySignalWorker');
+            result = await BodySignalWorker.processInstance(instanceId);
+          } else if (instance.exercise_id === 'narrative_arc') {
+            const { NarrativeArcWorker } = await import('../../../../lib/exercises/v4/workers/narrativeArcWorker');
+            result = await NarrativeArcWorker.processInstance(instanceId);
+          }
         } catch (retryErr) {
           console.warn('[GET /api/exercises/result] Retry worker failed:', retryErr);
         }

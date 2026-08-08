@@ -32,6 +32,10 @@ import BodySignalFlow from '../components/exercise/v4/BodySignalFlow';
 import BodySignalResultView from '../components/exercise/v4/BodySignalResultView';
 import AvoidanceAuditFlow from '../components/exercise/v4/AvoidanceAuditFlow';
 import AvoidanceAuditResultView from '../components/exercise/v4/AvoidanceAuditResultView';
+import TriggerMappingFlow from '../components/exercise/v4/TriggerMappingFlow';
+import TriggerMappingResultView from '../components/exercise/v4/TriggerMappingResultView';
+import NarrativeArcFlow from '../components/exercise/v4/NarrativeArcFlow';
+import NarrativeArcResultView from '../components/exercise/v4/NarrativeArcResultView';
 
 // Founder-approved exercise definitions & titles
 const EXERCISE_METADATA = {
@@ -144,6 +148,20 @@ const EXERCISE_METADATA = {
     title: 'Avoidance Audit',
     category: 'Cognitive',
     description: 'Six incomplete sentence stems exposing subtle avoidance behaviors, procrastination, and hidden fears.',
+    unlockDay: 91,
+    getProgress: () => `In Progress`
+  },
+  trigger_mapping: {
+    title: 'Trigger Mapping',
+    category: 'Agency',
+    description: 'Map the situational architecture of reactive states across 5 high-intensity moments and identify decision points.',
+    unlockDay: 91,
+    getProgress: () => `In Progress`
+  },
+  narrative_arc: {
+    title: 'Narrative Arc Exercise',
+    category: 'Identity',
+    description: 'Identify stable structures beneath emotional variability across the past 3 months.',
     unlockDay: 91,
     getProgress: () => `In Progress`
   },
@@ -260,6 +278,32 @@ export default function ExercisePage({ user, profile, onSignOut }) {
           );
         }
 
+        if (exId === 'trigger_mapping') {
+          return (
+            <TriggerMappingFlow
+              instanceId={activeExerciseInstanceId}
+              onClose={() => setActiveExerciseInstanceId(null)}
+              onComplete={() => {
+                setActiveExerciseInstanceId(null);
+                fetchExerciseInstances();
+              }}
+            />
+          );
+        }
+
+        if (exId === 'narrative_arc') {
+          return (
+            <NarrativeArcFlow
+              instanceId={activeExerciseInstanceId}
+              onClose={() => setActiveExerciseInstanceId(null)}
+              onComplete={() => {
+                setActiveExerciseInstanceId(null);
+                fetchExerciseInstances();
+              }}
+            />
+          );
+        }
+
         if (exId === 'avoidance_audit' || exId === 'exercise_7') {
           return (
             <AvoidanceAuditFlow
@@ -362,6 +406,24 @@ export default function ExercisePage({ user, profile, onSignOut }) {
         if (exId === 'body_signal_inventory' || exId === 'exercise_6') {
           return (
             <BodySignalResultView
+              instanceId={activeResultInstanceId}
+              onClose={() => setActiveResultInstanceId(null)}
+            />
+          );
+        }
+
+        if (exId === 'trigger_mapping') {
+          return (
+            <TriggerMappingResultView
+              instanceId={activeResultInstanceId}
+              onClose={() => setActiveResultInstanceId(null)}
+            />
+          );
+        }
+
+        if (exId === 'narrative_arc') {
+          return (
+            <NarrativeArcResultView
               instanceId={activeResultInstanceId}
               onClose={() => setActiveResultInstanceId(null)}
             />
@@ -600,7 +662,7 @@ export default function ExercisePage({ user, profile, onSignOut }) {
                         className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-400 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-not-allowed"
                       >
                         <Lock className="w-3.5 h-3.5" />
-                        Locked (Unlocks Day {meta.unlockDay})
+                        {inst.metadata?.unlock_label ? `Locked (${inst.metadata.unlock_label})` : `Locked (Unlocks Day ${meta.unlockDay})`}
                       </button>
                     ) : (
                       <button
