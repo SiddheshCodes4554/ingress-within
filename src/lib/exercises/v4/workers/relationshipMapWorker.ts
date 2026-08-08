@@ -18,15 +18,16 @@ export class RelationshipMapWorker {
     }
 
     let existingResult = await ExerciseResultService.getResult(instanceId);
+    const existingAnalysis = existingResult?.analysis || existingResult?.data || {};
 
     // Parse relationship_map and clean structure
     let relationshipMap: any[] =
       payload?.relationship_map ||
       instance.metadata?.relationship_map ||
-      existingResult?.data?.relationship_map ||
+      existingAnalysis?.relationship_map ||
       [];
 
-    const nameMode = payload?.name_mode || instance.metadata?.name_mode || existingResult?.data?.name_mode || 'name';
+    const nameMode = payload?.name_mode || instance.metadata?.name_mode || existingAnalysis?.name_mode || 'name';
 
     // Normalize items in relationship_map
     relationshipMap = relationshipMap.map((p: any, idx: number) => ({
@@ -40,7 +41,7 @@ export class RelationshipMapWorker {
     }));
 
     // Fetch journal entry count snapshot at time of completion
-    let entryCountAtCompletion = existingResult?.data?.entry_count_at_completion;
+    let entryCountAtCompletion = existingAnalysis?.entry_count_at_completion;
     if (entryCountAtCompletion === undefined || entryCountAtCompletion === null) {
       try {
         const { count } = await supabase
@@ -58,8 +59,8 @@ export class RelationshipMapWorker {
       relationship_map: relationshipMap,
       name_mode: nameMode,
       entry_count_at_completion: entryCountAtCompletion,
-      highest_drain_person: existingResult?.data?.highest_drain_person || null,
-      reflection_text: existingResult?.data?.reflection_text || null
+      highest_drain_person: existingAnalysis?.highest_drain_person || null,
+      reflection_text: existingAnalysis?.reflection_text || null
     };
 
     let storedResult: any = null;
@@ -68,7 +69,7 @@ export class RelationshipMapWorker {
         .from('exercise_results')
         .update({
           summary: existingResult.summary || 'Your relationship map has been recorded below.',
-          data: { ...existingResult.data, ...initialData }
+          analysis: { ...existingAnalysis, ...initialData }
         })
         .eq('id', existingResult.id)
         .select()
@@ -96,7 +97,8 @@ export class RelationshipMapWorker {
       .eq('id', instanceId);
 
     // If reflection_text already exists and is non-empty, we can return stored result directly
-    if (storedResult?.data?.reflection_text && storedResult.summary !== 'Your relationship map has been recorded below.') {
+    const currentReflection = storedResult?.analysis?.reflection_text || storedResult?.data?.reflection_text;
+    if (currentReflection && storedResult.summary !== 'Your relationship map has been recorded below.') {
       return storedResult;
     }
 
@@ -179,7 +181,7 @@ export class RelationshipMapWorker {
 
     const { data: finalUpdated } = await supabase
       .from('exercise_results')
-      .update({ summary: summaryText, data: finalData })
+      .update({ summary: summaryText, analysis: finalData })
       .eq('id', storedResult.id)
       .select()
       .single();

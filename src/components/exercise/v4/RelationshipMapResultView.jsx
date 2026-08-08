@@ -28,8 +28,8 @@ export default function RelationshipMapResultView({ instanceId, onClose }) {
         setCompletedAt(data.instance?.completed_at || data.result?.created_at);
       }
 
-      // If reflection_text is null or fallback text, attempt a single silent background retry if not already retried
-      if (!retry && (!data.result?.data?.reflection_text || data.result?.summary === 'Your relationship map has been recorded below.')) {
+      const analysis = data.result?.analysis || data.result?.data || {};
+      if (!retry && (!analysis.reflection_text || data.result?.summary === 'Your relationship map has been recorded below.')) {
         console.log('[RelationshipMapResultView] reflection_text is null/fallback. Retrying analysis in background...');
         fetchResult(true);
       }
@@ -68,10 +68,11 @@ export default function RelationshipMapResultView({ instanceId, onClose }) {
     );
   }
 
-  const relationshipMap = result.data?.relationship_map || [];
+  const analysis = result.analysis || result.data || {};
+  const relationshipMap = analysis.relationship_map || [];
   const reflectionText =
-    result.data?.reflection_text ||
-    result.summary ||
+    analysis.reflection_text ||
+    (result.summary && result.summary !== 'Your relationship map has been recorded below.' ? result.summary : null) ||
     'Your relationship map has been recorded below.';
 
   const formattedDate = completedAt

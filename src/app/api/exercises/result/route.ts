@@ -40,7 +40,8 @@ export async function GET(request: NextRequest) {
     let result = await ExerciseResultService.getResult(instanceId);
 
     if (retry && result && (instance.exercise_id === 'relationship_map' || instance.exercise_id === 'exercise_5')) {
-      if (!result.data?.reflection_text || result.summary === 'Your relationship map has been recorded below.') {
+      const analysis = result.analysis || result.data || {};
+      if (!analysis.reflection_text || result.summary === 'Your relationship map has been recorded below.') {
         try {
           const { RelationshipMapWorker } = await import('../../../../lib/exercises/v4/workers/relationshipMapWorker');
           result = await RelationshipMapWorker.processInstance(instanceId);
