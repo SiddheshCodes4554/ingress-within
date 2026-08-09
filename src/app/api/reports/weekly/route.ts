@@ -169,6 +169,23 @@ async function healReportData(report: any, supabaseClient: any): Promise<any> {
     }
   }
 
+  // 4. Heal graph data (entry_lengths and consistency) if empty or all-zero
+  const entryLengths = reportData.writing_behaviour?.entry_lengths || [];
+  const isGraphEmpty = !entryLengths || entryLengths.length === 0 || entryLengths.every((h: number) => h === 0) || reportData.writing_behaviour?.consistency === 'No reflection data recorded this week.';
+
+  if (isGraphEmpty) {
+    try {
+      const { overlayWeeklyReportGraphData } = await import('../../../../lib/reportGraphHelper');
+      const tempReport = { ...report, report_data: reportData, day_start: dayStart, day_end: dayEnd };
+      const overlaid = await overlayWeeklyReportGraphData(tempReport, userId);
+      if (overlaid && overlaid.report_data) {
+        reportData.writing_behaviour = overlaid.report_data.writing_behaviour;
+      }
+    } catch (graphErr) {
+      console.error('[Heal Report Data] Error healing graph data:', graphErr);
+    }
+  }
+
   return {
     ...report,
     report_data: reportData

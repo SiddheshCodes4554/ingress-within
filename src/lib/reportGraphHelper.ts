@@ -51,21 +51,21 @@ export async function overlayWeeklyReportGraphData(report: any, userId: string) 
     const week_start_date = new Date(cycleStartDate.getTime() + (weekNumber - 1) * 7 * 24 * 60 * 60 * 1000);
     const week_next_start_date = new Date(cycleStartDate.getTime() + weekNumber * 7 * 24 * 60 * 60 * 1000);
 
-    // 2. Fetch entries written during this calendar week range with their scores
+    // 2. Fetch entries written for this cycle and week by cycle_day (authoritative)
     const { data: dbEntries, error: entriesError } = await supabase
       .from('entries')
-      .select('day_ei, day_pr, day_sa, created_at')
+      .select('id, day_ei, day_pr, day_sa, created_at, cycle_day, word_count, content, entry_type')
       .eq('cycle_id', cycleId)
       .eq('user_id', userId)
-      .gte('created_at', week_start_date.toISOString())
-      .lt('created_at', week_next_start_date.toISOString());
+      .gte('cycle_day', dayStart)
+      .lte('cycle_day', dayEnd);
 
     if (entriesError) {
       console.error(`[Overlay Graph Data] Error fetching entries: ${entriesError.message}`);
       return report;
     }
 
-    // 3. Group by date and select final entry (latest created_at)
+    // 3. Map entries by cycle_day first, with fallback to date string
     const dailyMap = new Map<string, any>();
     (dbEntries || []).forEach((entry: any) => {
       const entryDateStr = new Date(entry.created_at).toISOString().split('T')[0];
@@ -81,16 +81,39 @@ export async function overlayWeeklyReportGraphData(report: any, userId: string) 
     const sas: (number | null)[] = [];
 
     for (let i = 0; i < 7; i++) {
+      const targetCycleDay = dayStart + i;
       const targetDate = new Date(week_start_date.getTime() + i * 24 * 60 * 60 * 1000);
       const targetDateStr = targetDate.toISOString().split('T')[0];
-      const entry = dailyMap.get(targetDateStr);
 
-      if (entry && entry.day_ei !== null && entry.day_pr !== null && entry.day_sa !== null) {
-        const ei = Number(entry.day_ei);
-        const pr = Number(entry.day_pr);
-        const sa = Number(entry.day_sa);
-        const score = ei + pr + sa; // range 0 - 30
-        const normalized = Math.round((score / 30) * 64);
+      let entry = (dbEntries || []).find((e: any) => e.cycle_day === targetCycleDay && e.entry_type !== 'empty');
+      if (!entry) {
+        entry = dailyMap.get(targetDateStr);
+      }
+      if (entry && entry.entry_type === 'empty') {
+        entry = undefined;
+      }
+
+      if (entry) {
+        let ei: number;
+        let pr: number;
+        let sa: number;
+        let score: number;
+
+        if (entry.day_ei !== null && entry.day_pr !== null && entry.day_sa !== null) {
+          ei = Number(entry.day_ei);
+          pr = Number(entry.day_pr);
+          sa = Number(entry.day_sa);
+          score = ei + pr + sa;
+        } else {
+          // Fallback score estimation based on word count / content length when day scores are null
+          const wordCount = entry.word_count || (entry.content ? entry.content.split(/\s+/).filter(Boolean).length : 0);
+          score = Math.min(27, Math.max(12, Math.round(12 + Math.min(15, wordCount * 0.25))));
+          ei = Math.round(score / 3);
+          pr = Math.round(score / 3);
+          sa = score - ei - pr;
+        }
+
+        const normalized = Math.max(20, Math.round((score / 30) * 100));
 
         entry_lengths.push(normalized);
         rawScores.push(score);

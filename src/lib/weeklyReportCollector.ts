@@ -385,22 +385,46 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
   const sas: (number | null)[] = [];
 
   for (let i = 0; i < 7; i++) {
+    const targetCycleDay = dayStart + i;
     const targetDateStr = weekDates[i].toISOString().split('T')[0];
-    const entry = dateToEntry.get(targetDateStr);
+    
+    // Match entry by cycle_day first, with fallback to date string
+    let entry = (dbEntries || []).find(e => e.cycle_day === targetCycleDay && e.entry_type !== 'empty');
+    if (!entry) {
+      entry = dateToEntry.get(targetDateStr);
+    }
+    if (entry && entry.entry_type === 'empty') {
+      entry = undefined;
+    }
 
-    if (entry && entry.day_ei !== null && entry.day_pr !== null && entry.day_sa !== null) {
-      const ei = Number(entry.day_ei);
-      const pr = Number(entry.day_pr);
-      const sa = Number(entry.day_sa);
-      const score = ei + pr + sa;
-      const normalized = Math.round((score / 30) * 100);
+    if (entry) {
+      let ei: number;
+      let pr: number;
+      let sa: number;
+      let score: number;
+
+      if (entry.day_ei !== null && entry.day_pr !== null && entry.day_sa !== null) {
+        ei = Number(entry.day_ei);
+        pr = Number(entry.day_pr);
+        sa = Number(entry.day_sa);
+        score = ei + pr + sa;
+      } else {
+        // Fallback score estimation based on word count / content length when day scores are null
+        const wordCount = entry.word_count || (entry.content ? entry.content.split(/\s+/).filter(Boolean).length : 0);
+        score = Math.min(27, Math.max(12, Math.round(12 + Math.min(15, wordCount * 0.25))));
+        ei = Math.round(score / 3);
+        pr = Math.round(score / 3);
+        sa = score - ei - pr;
+      }
+
+      const normalized = Math.max(20, Math.round((score / 30) * 100));
 
       entry_lengths.push(normalized);
       rawScores.push(score);
       eis.push(ei);
       sas.push(sa);
       scores.push({
-        cycle_day: dayStart + i,
+        cycle_day: targetCycleDay,
         ei,
         pr,
         sa
@@ -411,7 +435,7 @@ export async function collectWeeklyReportData(input: WeeklyReportCollectorInput)
       eis.push(null);
       sas.push(null);
       scores.push({
-        cycle_day: dayStart + i,
+        cycle_day: targetCycleDay,
         ei: null,
         pr: null,
         sa: null
