@@ -2628,10 +2628,21 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                   <ArrowLeft size={14} /> Back to reports
                 </button>
 
-                {loadingDetail || !selectedAssessment ? (
+                {loadingDetail ? (
                   <div className="flex flex-col items-center justify-center py-20 space-y-3">
                     <Loader2 className="animate-spin text-secondary" size={24} />
                     <p className="text-xs font-serif italic text-mid">Decoding monthly cycle data...</p>
+                  </div>
+                ) : !selectedAssessment ? (
+                  <div className="bg-white rounded-2xl p-8 border border-stone-200 shadow-sm text-center space-y-4 max-w-[420px] mx-auto my-12 font-sans">
+                    <AlertCircle className="w-8 h-8 text-amber-600 mx-auto" />
+                    <p className="text-sm text-stone-800 font-serif">Assessment report details could not be loaded.</p>
+                    <button
+                      onClick={() => handleOpenAssessment(selectedCycleId)}
+                      className="w-full py-3 rounded-xl bg-[#1E2A2E] text-white text-xs font-semibold hover:bg-[#1E2A2E]/90 cursor-pointer"
+                    >
+                      Retry Loading Report
+                    </button>
                   </div>
                 ) : (
                   (() => {
