@@ -232,13 +232,13 @@ export default function ReportsPage({ user, profile, onSignOut }) {
     }
   };
 
-  const handleOpenAssessment = async (cycleId) => {
+  const handleOpenAssessment = async (cycleId, force = false) => {
     setSelectedCycleId(cycleId);
     setViewState('report');
     setLoadingDetail(true);
     setSelectedAssessment(null);
     try {
-      const data = await DashboardService.fetchCycleAssessment(cycleId);
+      const data = await DashboardService.fetchCycleAssessment(cycleId, force);
       setSelectedAssessment(data);
     } catch (err) {
       console.error(err);
@@ -2638,7 +2638,7 @@ export default function ReportsPage({ user, profile, onSignOut }) {
                     <AlertCircle className="w-8 h-8 text-amber-600 mx-auto" />
                     <p className="text-sm text-stone-800 font-serif">Assessment report details could not be loaded.</p>
                     <button
-                      onClick={() => handleOpenAssessment(selectedCycleId)}
+                      onClick={() => handleOpenAssessment(selectedCycleId, true)}
                       className="w-full py-3 rounded-xl bg-[#1E2A2E] text-white text-xs font-semibold hover:bg-[#1E2A2E]/90 cursor-pointer"
                     >
                       Retry Loading Report

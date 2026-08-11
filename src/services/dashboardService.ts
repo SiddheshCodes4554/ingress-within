@@ -826,11 +826,15 @@ export class DashboardService {
   /**
    * Fetches the Day 28 assessment report for a cycle.
    */
-  static async fetchCycleAssessment(cycleId: string): Promise<any> {
+  static async fetchCycleAssessment(cycleId: string, force = false): Promise<any> {
     const cacheKey = `cycle_assessment_${cycleId}`;
+    if (force) {
+      const scopedKey = this.getScopedCacheKey(cacheKey);
+      delete this.cache[scopedKey];
+    }
     return this.getCachedOrFetch<any>(cacheKey, async () => {
       const startTime = performance.now();
-      const res = await fetch(`/api/reports/assessment?cycleId=${cycleId}`, {
+      const res = await fetch(`/api/reports/assessment?cycleId=${encodeURIComponent(cycleId)}`, {
         headers: DashboardService.getHeaders()
       });
       const data = await res.json();
