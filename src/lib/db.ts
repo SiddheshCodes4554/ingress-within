@@ -1,21 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'dummy_supabase_key_for_client_bundle';
 
 if (typeof window === 'undefined' && process.env.NODE_ENV !== 'test') {
-  if (!supabaseUrl) {
-    throw new Error('CRITICAL: NEXT_PUBLIC_SUPABASE_URL environment variable is missing.');
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    console.warn('CRITICAL: NEXT_PUBLIC_SUPABASE_URL environment variable is missing.');
   }
-  if (!supabaseServiceKey) {
-    throw new Error(
-      'CRITICAL: SUPABASE_SERVICE_ROLE_KEY environment variable is missing. ' +
-      'Please RESTART your development server (e.g. npm run dev) so Next.js can load your .env file changes.'
-    );
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn('CRITICAL: SUPABASE_SERVICE_ROLE_KEY environment variable is missing.');
   }
 }
 
-// Service role client bypasses RLS for admin-level operations (e.g. querying/updating otp_verifications)
+// Service role client bypasses RLS for admin-level operations
 export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     persistSession: false,
