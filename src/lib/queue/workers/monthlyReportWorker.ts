@@ -418,86 +418,10 @@ Do not include markdown wrappers (like \`\`\`json) in your raw response. Return 
         }
       };
     } catch (parseErr: any) {
-      console.error('[Monthly Report Worker] AI JSON generation failed, using fallback:', parseErr.message);
-      compiledReport = {
-        cycleNumber: cycleNum,
-        startDate: startDateFormatted,
-        endDate: endDateFormatted,
-        stats: {
-          entriesCount: entry_count,
-          totalDays: totalDays,
-          daysSkipped: totalDays - entry_count,
-          mostUsedWord: topWord,
-          mostUsedWordFreq: topWordFreq,
-          mostUsedWordContext: `${topWordFreq} times, always about yourself`,
-          exercisesCompletedCount,
-          totalExercisesCount,
-          missedExercisesText: exercisesCompletedCount < totalExercisesCount ? `${totalExercisesCount - exercisesCompletedCount} missed` : 'None missed'
-        },
-        chartData: {
-          arcChart: {
-            writtenDays: timelineWritten,
-            skippedDays: timelineSkipped
-          },
-          radarChart: {
-            patternPersistence: Math.round(pr_avg * 10),
-            emotionalIntensity: Math.round(ei_avg * 10),
-            agency: Math.round(sa_avg * 10),
-            overallDirection: Math.round(dt_score * 10)
-          }
-        },
-        whatThisCycleShowed: {
-          openingObs: "The situations kept changing.\\nWhat you felt inside them mostly did not.",
-          pulledQuote: candidateQuotes[0],
-          narrative: `You completed ${entry_count} entries this cycle. Over the course of the month, your reflection entries showed a steady pattern of cognitive exploration with notable milestones in emotional awareness.`
-        },
-        patterns: [
-          {
-            name: "Avoidance Loop",
-            tag: "Most dominant",
-            tagClass: "tag-red",
-            mechanism: "Dismissing issues or labeling them as not serious to bypass immediate friction.",
-            cost: "Unresolved tensions continue to surface in subsequent cycle days.",
-            confidence: 0.7,
-            supportingEvidence: [candidateQuotes[0]],
-            loopNodes: [
-              { "step": 1, "title": "Happens", "sub": "at work" },
-              { "step": 2, "title": "Notice", "sub": "name it" },
-              { "step": 3, "title": "Dismiss", "sub": "probably fine" },
-              { "step": 4, "title": "Say okay", "sub": "move on" }
-            ]
-          }
-        ],
-        recurringThemes: [],
-        wordsReachedFor: {
-          analysisNote: `You reached for "${topWord}" ${topWordFreq} times this cycle.`,
-          unusedWords: []
-        },
-        fourThingsWeTracked: [
-          { label: "How stuck the patterns were", color: "#E0A898", title: "Pattern persistence", desc: "Analysis of pattern rigidity based on entries." },
-          { label: "How intense things felt", color: "#B8A8D4", title: "Emotional intensity", desc: "Analysis of emotional variance and intensity based on entries." },
-          { label: "How much you felt in control", color: "#8DBFB4", title: "Self-agency", desc: "Analysis of agency vs reactivity/situational framing in entries." },
-          { label: "Which direction things moved", color: "#8DBFB4", title: "Overall stability", desc: "Analysis of overall emotional stability/direction and shift across the cycle." }
-        ],
-        peopleWhoShowedUp: [],
-        saidVsShowed: {
-          said: ["I handle things well"],
-          showed: ["Emotions are described but sometimes suppressed"],
-          analysisNote: "There is a gap between how you explicitly label your responses and your day-to-day writing."
-        },
-        exercises: {
-          collectiveInsight: "Reframing tasks were logged during the cycle.",
-          items: []
-        },
-        whereLeavesYou: {
-          title: "Cycle complete",
-          body: "You completed your cycle. This report serves as a record of your reflective history."
-        },
-        closingQuote: {
-          quote: candidateQuotes[0],
-          observation: "Commentary on your cycle reflection."
-        }
-      };
+      console.error('[Monthly Report Worker] AI JSON generation failed, compiling real cycle report fallback:', parseErr.message);
+      const { resolveCycleAndEntries, compileRealCycleReport } = await import('../../reports/cycleReportBuilder');
+      const reportContext = await resolveCycleAndEntries(user_id, cycle_id);
+      compiledReport = compileRealCycleReport(reportContext);
     }
 
     const reportTextPayload = JSON.stringify(compiledReport);
