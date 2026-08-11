@@ -31,6 +31,8 @@ const TestPage = (process.env.NODE_ENV === 'development' || process.env.NEXT_PUB
   ? lazy(() => import('./views/TestPage'))
   : () => null;
 
+const ModulePlayerPage = lazy(() => import('./views/ModulePlayerPage'));
+
 const FounderTestPage = (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_TEST_PAGE === 'true')
   ? lazy(() => import('./views/FounderTestPage'))
   : () => null;
@@ -337,6 +339,9 @@ export default function App() {
       } else if (path === '/interventions' || path === '/interventions/') {
         setCurrentRoute('interventions');
         window.scrollTo(0, 0);
+      } else if (path.startsWith('/modules')) {
+        setCurrentRoute('modules');
+        window.scrollTo(0, 0);
       } else if (path === '/exercise' || path === '/exercise/' || path === '/exercises' || path === '/exercises/' || path === '/assessment' || path === '/assessment/') {
         setCurrentRoute('exercise');
         window.scrollTo(0, 0);
@@ -477,6 +482,8 @@ export default function App() {
         return <ExercisePage user={user} profile={profile} onSignOut={handleSignOut} />;
       case 'interventions':
         return <InterventionsPage />;
+      case 'modules':
+        return <ModulePlayerPage />;
       case 'support':
         return <SupportPage />;
       case 'session':
