@@ -37,6 +37,11 @@ const FounderTestPage = (process.env.NODE_ENV === 'development' || process.env.N
   ? lazy(() => import('./views/FounderTestPage'))
   : () => null;
 
+const PsychoeducationLabPage = (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_DEV_LAB === 'true')
+  ? lazy(() => import('./views/PsychoeducationLabPage'))
+  : () => null;
+
+
 
 
 
@@ -377,6 +382,13 @@ export default function App() {
         } else {
           setCurrentRoute('home');
         }
+      } else if (path === '/admin/psychoeducation-lab' || path === '/admin/psychoeducation-lab/') {
+        if (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_DEV_LAB === 'true') {
+          setCurrentRoute('psychoeducation-lab');
+          window.scrollTo(0, 0);
+        } else {
+          setCurrentRoute('home');
+        }
       } else {
         setCurrentRoute('home');
         // Handle section scroll deep link (e.g. /#auth -> scroll to auth section)
@@ -508,6 +520,11 @@ export default function App() {
       case 'test-founder':
         if (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_TEST_PAGE === 'true') {
           return <FounderTestPage />;
+        }
+        return <LandingPage onOpenPolicy={handleOpenPolicy} />;
+      case 'psychoeducation-lab':
+        if (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_DEV_LAB === 'true') {
+          return <PsychoeducationLabPage />;
         }
         return <LandingPage onOpenPolicy={handleOpenPolicy} />;
       case 'home':

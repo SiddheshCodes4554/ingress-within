@@ -14,7 +14,7 @@ import ModuleCompletionView from '../components/modules/ModuleCompletionView';
 
 const STORAGE_KEY_PREFIX = 'ingress_module_player_state_';
 
-export default function ModulePlayerPage() {
+export default function ModulePlayerPage({ moduleId: propModuleId, testMode = false, onClose }) {
   const [moduleCatalog, setModuleCatalog] = useState(null);
   const [moduleContent, setModuleContent] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -44,6 +44,7 @@ export default function ModulePlayerPage() {
 
   const pathParts = window.location.pathname.split('/').filter(Boolean);
   const moduleIdFromUrl = pathParts[1] || 'M1';
+  const targetModuleId = propModuleId || moduleIdFromUrl;
 
   // 1. Initial Load: Catalog, Content & Remote Progress Sync
   useEffect(() => {
@@ -51,11 +52,11 @@ export default function ModulePlayerPage() {
       setLoading(true);
       setError(null);
       try {
-        const catalog = await ModuleCatalogService.getModuleByIdOrSlug(moduleIdFromUrl);
-        const content = ModuleContentService.getModuleContent(moduleIdFromUrl);
+        const catalog = await ModuleCatalogService.getModuleByIdOrSlug(targetModuleId);
+        const content = ModuleContentService.getModuleContent(targetModuleId);
 
         if (!catalog && !content) {
-          setError(`Module '${moduleIdFromUrl}' not found.`);
+          setError(`Module '${targetModuleId}' not found.`);
           setLoading(false);
           return;
         }

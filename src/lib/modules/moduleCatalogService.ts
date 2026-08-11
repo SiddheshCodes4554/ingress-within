@@ -52,6 +52,13 @@ export const STATIC_MODULE_CATALOG: ModuleWithTaxonomy[] = [
 
 export class ModuleCatalogService {
   /**
+   * Returns static/cached catalog items synchronously for UI components.
+   */
+  public static getAllCatalogItems(): ModuleWithTaxonomy[] {
+    return STATIC_MODULE_CATALOG;
+  }
+
+  /**
    * Fetches all active psychoeducation modules with taxonomy mappings.
    */
   public static async getAllModules(): Promise<ModuleWithTaxonomy[]> {

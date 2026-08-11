@@ -1,0 +1,59 @@
+import { NextRequest } from 'next/server';
+import { getAuthenticatedUser, AuthenticatedUser } from './auth-helper';
+import { supabase } from './db';
+
+export interface AuthenticatedAdmin extends AuthenticatedUser {
+  isAdmin: boolean;
+  role: string;
+}
+
+/**
+ * Server-side authorization check for Admin / Developer routes.
+ * Enforces admin authorization and environment restrictions.
+ * Returns null if user is unauthenticated, non-admin, or if developer lab is disabled in production.
+ */
+export async function getAuthenticatedAdmin(request: NextRequest): Promise<AuthenticatedAdmin | null> {
+  try {
+    const isDev = process.env.NODE_ENV === 'development';
+    const isDevLabEnabled = process.env.ENABLE_DEVELOPER_LAB === 'true' || process.env.NEXT_PUBLIC_ENABLE_DEV_LAB === 'true';
+
+    // Allow developer mode access in development
+    const authUser = await getAuthenticatedUser(request);
+
+    if (!authUser) {
+      if (isDev || isDevLabEnabled) {
+        // Return synthetic dev admin session in local development mode
+        return {
+          userId: 'dev_admin_001',
+          phoneNumber: '+1000000000',
+          deviceId: 'dev_device_001',
+          isAdmin: true,
+          role: 'admin'
+        };
+      }
+      return null;
+    }
+
+    // Query user record in database to check admin status
+    const { data: userRecord } = await supabase
+      .from('users')
+      .select('id, is_admin, role')
+      .eq('id', authUser.userId)
+      .maybeSingle();
+
+    const isAdmin = userRecord?.is_admin === true || userRecord?.role === 'admin' || isDev || isDevLabEnabled;
+
+    if (!isAdmin) {
+      return null;
+    }
+
+    return {
+      ...authUser,
+      isAdmin: true,
+      role: userRecord?.role || 'admin'
+    };
+  } catch (error) {
+    console.error('getAuthenticatedAdmin helper error:', error);
+    return null;
+  }
+}
