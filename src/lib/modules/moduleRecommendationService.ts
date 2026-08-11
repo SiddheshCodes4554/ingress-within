@@ -147,13 +147,25 @@ export class ModuleRecommendationService {
     const moduleEvidence: Record<string, { totalWeight: number; triggeringPattern: MonthlyPatternInput; topConcern: string }> = {};
 
     for (const pattern of topPatterns) {
-      const pKey = pattern.patternId?.toLowerCase().trim();
-      let match = TAXONOMY_PATTERN_MAPPINGS[pKey];
+      const taxonomyCode = (pattern.taxonomyId || pattern.patternId || '').toUpperCase().trim();
+      const pKeyLower = (pattern.taxonomyId || pattern.patternId || '').toLowerCase().trim();
 
-      // Fallback matching by pattern title/key containing taxonomy keywords
+      let match = TAXONOMY_PATTERN_MAPPINGS[taxonomyCode] || TAXONOMY_PATTERN_MAPPINGS[pKeyLower];
+
+      // Fallback matching by pattern title/key/description containing taxonomy keywords
       if (!match) {
         for (const [key, val] of Object.entries(TAXONOMY_PATTERN_MAPPINGS)) {
-          if (pKey.includes(key) || key.includes(pKey)) {
+          const keyUpper = key.toUpperCase();
+          const keyLower = key.toLowerCase();
+          const titleLower = (pattern.title || '').toLowerCase();
+          const descLower = (pattern.description || '').toLowerCase();
+
+          if (
+            taxonomyCode === keyUpper ||
+            pKeyLower === keyLower ||
+            titleLower.includes(keyLower) ||
+            descLower.includes(keyLower)
+          ) {
             match = val;
             break;
           }

@@ -13,6 +13,7 @@ export interface MonthlyPatternInput {
   score: number;
   rank: number;
   isCrisis?: boolean;
+  taxonomyId?: string;
 }
 
 export interface RecommendationRecord {
