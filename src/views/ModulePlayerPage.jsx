@@ -22,7 +22,7 @@ export default function ModulePlayerPage() {
 
   // Player State
   const [playerState, setPlayerState] = useState({
-    view: 'overview', // 'overview' | 'intro' | 'mhpi_baseline' | 'week_list' | 'week_view' | 'touch_view' | 'mhpi_weekly' | 'mhpi_end' | 'mhpi_results' | 'completed'
+    view: 'overview',
     introStep: 0,
     weekIdx: 0,
     touchId: null,
@@ -42,11 +42,10 @@ export default function ModulePlayerPage() {
     }
   });
 
-  // Extract moduleId from URL path (e.g. /modules/M1 or /modules/self-worth-self-talk)
   const pathParts = window.location.pathname.split('/').filter(Boolean);
   const moduleIdFromUrl = pathParts[1] || 'M1';
 
-  // Load Module Catalog & Content
+  // 1. Initial Load: Catalog, Content & Remote Progress Sync
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -64,21 +63,61 @@ export default function ModulePlayerPage() {
         setModuleCatalog(catalog);
         setModuleContent(content);
 
-        // Load saved state from localStorage
-        const storageKey = `${STORAGE_KEY_PREFIX}${content?.moduleId || catalog?.id || moduleIdFromUrl}`;
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
+        const targetId = content?.moduleId || catalog?.id || moduleIdFromUrl;
+        const storageKey = `${STORAGE_KEY_PREFIX}${targetId}`;
+
+        // First check localStorage
+        let localState = null;
+        const savedLocal = localStorage.getItem(storageKey);
+        if (savedLocal) {
           try {
-            const parsed = JSON.parse(saved);
-            // Re-hydrate completedTouches as Array
-            setPlayerState(prev => ({
-              ...prev,
-              ...parsed,
-              completedTouches: Array.isArray(parsed.completedTouches) ? parsed.completedTouches : []
-            }));
+            localState = JSON.parse(savedLocal);
           } catch (e) {
-            console.error('[ModulePlayer] Error parsing saved state from localStorage:', e);
+            console.error('[ModulePlayer] Error parsing localStorage:', e);
           }
+        }
+
+        // Try API sync for authenticated user
+        try {
+          const res = await fetch(`/api/modules/${targetId}/progress`);
+          if (res.ok) {
+            const apiRes = await res.json();
+            if (apiRes.success && apiRes.state) {
+              const remote = apiRes.state;
+              setPlayerState(prev => ({
+                ...prev,
+                ...(localState || {}),
+                view: remote.progress?.status === 'completed' ? 'completed' : (localState?.view || (remote.mhpi?.baseline ? 'week_list' : 'overview')),
+                weekIdx: remote.progress?.current_week ? Math.max(0, remote.progress.current_week - 1) : (localState?.weekIdx || 0),
+                touchId: remote.progress?.current_touch_id || localState?.touchId || null,
+                completedTouches: Array.from(new Set([
+                  ...(localState?.completedTouches || []),
+                  ...(remote.completedTouches || [])
+                ])),
+                mhpiData: {
+                  baseline: remote.mhpi?.baseline?.responses || localState?.mhpiData?.baseline || null,
+                  baselineScore: remote.mhpi?.baseline?.severity_score ?? localState?.mhpiData?.baselineScore ?? null,
+                  weekly: remote.mhpi?.weekly || localState?.mhpiData?.weekly || {},
+                  end: remote.mhpi?.end?.responses || localState?.mhpiData?.end || null,
+                  endScore: remote.mhpi?.end?.severity_score ?? localState?.mhpiData?.endScore ?? null,
+                  improvementPct: remote.mhpi?.end?.improvement_pct ?? localState?.mhpiData?.improvementPct ?? null
+                }
+              }));
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (apiErr) {
+          console.warn('[ModulePlayer] Remote progress API check failed, using local storage:', apiErr);
+        }
+
+        // Fallback to localState if unauthenticated / offline
+        if (localState) {
+          setPlayerState(prev => ({
+            ...prev,
+            ...localState,
+            completedTouches: Array.isArray(localState.completedTouches) ? localState.completedTouches : []
+          }));
         }
       } catch (err) {
         console.error('[ModulePlayer] Error loading module data:', err);
@@ -91,17 +130,37 @@ export default function ModulePlayerPage() {
     loadData();
   }, [moduleIdFromUrl]);
 
-  // Save state to localStorage whenever playerState changes
+  // 2. Save state locally and trigger remote progress update
   useEffect(() => {
     if (!moduleContent && !moduleCatalog) return;
     const targetId = moduleContent?.moduleId || moduleCatalog?.id || moduleIdFromUrl;
     const storageKey = `${STORAGE_KEY_PREFIX}${targetId}`;
+
     try {
       localStorage.setItem(storageKey, JSON.stringify(playerState));
     } catch (e) {
       console.error('[ModulePlayer] Error saving state to localStorage:', e);
     }
-  }, [playerState, moduleContent, moduleCatalog, moduleIdFromUrl]);
+
+    // Sync progress state to API
+    const syncProgress = async () => {
+      try {
+        await fetch(`/api/modules/${targetId}/progress`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status: playerState.view === 'completed' ? 'completed' : 'active',
+            current_week: playerState.weekIdx + 1,
+            current_touch_id: playerState.touchId
+          })
+        });
+      } catch (err) {
+        // Silently handle offline/guest sync
+      }
+    };
+
+    syncProgress();
+  }, [playerState.view, playerState.weekIdx, playerState.touchId, moduleContent, moduleCatalog, moduleIdFromUrl]);
 
   const updateState = (updater) => {
     setPlayerState(prev => {
@@ -163,7 +222,6 @@ export default function ModulePlayerPage() {
   return (
     <div className="min-h-screen bg-[#1B2340] text-[#F5EFE3] font-sans">
       <div className="max-w-[760px] mx-auto px-5 py-7 pb-20">
-        {/* Render appropriate view based on playerState.view */}
         {playerState.view === 'overview' && (
           <ModuleOverview
             catalog={moduleCatalog}
@@ -189,7 +247,6 @@ export default function ModulePlayerPage() {
               if (playerState.introStep < moduleContent.introScreens.length - 1) {
                 updateState(prev => ({ introStep: prev.introStep + 1 }));
               } else {
-                // If baseline is already completed, go to week_list, otherwise mhpi_baseline
                 if (playerState.mhpiData.baseline) {
                   updateState({ view: 'week_list' });
                 } else {
