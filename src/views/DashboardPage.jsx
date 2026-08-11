@@ -30,6 +30,7 @@ import DashboardNavbar from '../components/DashboardNavbar';
 import { ThreadResponseModal } from '../components/ThreadResponseModal';
 import { ReflectionModal } from '../components/ReflectionModal';
 import { AssessmentModal } from '../components/AssessmentModal';
+import PsychoeducationRecommendationCard from '../components/dashboard/PsychoeducationRecommendationCard';
 
 export default function DashboardPage({ user, profile, onSignOut }) {
   const [isLoading, setIsLoading] = useState(true);
@@ -521,6 +522,14 @@ export default function DashboardPage({ user, profile, onSignOut }) {
             </div>
           </div>
         )}
+
+        {/* Persisted Monthly Psychoeducation Recommendation */}
+        <PsychoeducationRecommendationCard
+          cycleId={cycleInfo?.id || 'latest'}
+          onNavigateToModule={(id) => {
+            window.location.href = `/modules/${id}`;
+          }}
+        />
 
         {/* Responsive Desktop 3-Column Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
