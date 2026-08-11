@@ -37,9 +37,7 @@ const FounderTestPage = (process.env.NODE_ENV === 'development' || process.env.N
   ? lazy(() => import('./views/FounderTestPage'))
   : () => null;
 
-const PsychoeducationLabPage = (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_DEV_LAB === 'true')
-  ? lazy(() => import('./views/PsychoeducationLabPage'))
-  : () => null;
+const PsychoeducationLabPage = lazy(() => import('./views/PsychoeducationLabPage'));
 
 
 

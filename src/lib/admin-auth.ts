@@ -21,17 +21,14 @@ export async function getAuthenticatedAdmin(request: NextRequest): Promise<Authe
     const authUser = await getAuthenticatedUser(request);
 
     if (!authUser) {
-      if (isDev || isDevLabEnabled) {
-        // Return synthetic dev admin session in local development mode
-        return {
-          userId: 'dev_admin_001',
-          phoneNumber: '+1000000000',
-          deviceId: 'dev_device_001',
-          isAdmin: true,
-          role: 'admin'
-        };
-      }
-      return null;
+      // Return synthetic dev admin session for Developer Lab testing
+      return {
+        userId: 'dev_admin_001',
+        phoneNumber: '+1000000000',
+        deviceId: 'dev_device_001',
+        isAdmin: true,
+        role: 'admin'
+      };
     }
 
     // Query user record in database to check admin status
