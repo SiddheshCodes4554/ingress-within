@@ -6,6 +6,9 @@ function opt(label: string, isTarget: boolean, explain: string) {
 
 export const MODULE_1_CONTENT: ModuleContent = {
   moduleId: 'M1',
+  slug: 'self-worth-self-talk',
+  name: 'Self-Worth & Self-Talk',
+  duration_weeks: 7,
   brief: {
     moduleName: "Self-Worth & Self-Talk",
     tier: "Core · ₹349 · Self domain",

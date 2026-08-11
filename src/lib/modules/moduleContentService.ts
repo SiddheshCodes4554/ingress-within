@@ -1,12 +1,18 @@
 import { ModuleContent, ModuleWeek, ModuleTouch } from '../../types/moduleContent';
 import { MODULE_1_CONTENT } from './content/module1Data';
+import { MODULE_2_CONTENT } from './content/module2Data';
+import { MODULE_3_CONTENT } from './content/module3Data';
 
 /**
  * Registry of active module content datasets.
  */
 const MODULE_CONTENT_REGISTRY: Record<string, ModuleContent> = {
   'M1': MODULE_1_CONTENT,
-  'self-worth-self-talk': MODULE_1_CONTENT
+  'self-worth-self-talk': MODULE_1_CONTENT,
+  'M2': MODULE_2_CONTENT,
+  'perfectionism-avoidance': MODULE_2_CONTENT,
+  'M3': MODULE_3_CONTENT,
+  'anxiety-worry': MODULE_3_CONTENT
 };
 
 export class ModuleContentService {
@@ -16,19 +22,25 @@ export class ModuleContentService {
   public static getModuleContent(idOrSlug: string): ModuleContent | null {
     if (!idOrSlug) return null;
     const key = idOrSlug.trim().toLowerCase();
-    
-    // Match exact key or slug
+
     if (MODULE_CONTENT_REGISTRY[idOrSlug]) {
       return MODULE_CONTENT_REGISTRY[idOrSlug];
     }
 
     for (const content of Object.values(MODULE_CONTENT_REGISTRY)) {
-      if (content.moduleId.toLowerCase() === key) {
+      if (content.moduleId.toLowerCase() === key || content.slug?.toLowerCase() === key) {
         return content;
       }
     }
 
     return null;
+  }
+
+  /**
+   * Returns all available module content objects.
+   */
+  public static getAllModuleContents(): ModuleContent[] {
+    return [MODULE_1_CONTENT, MODULE_2_CONTENT, MODULE_3_CONTENT];
   }
 
   /**

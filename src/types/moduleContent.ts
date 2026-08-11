@@ -111,14 +111,14 @@ export interface RetrievalCheck {
 }
 
 export interface ModuleWeek {
-  num: number; // 1 to 7
+  num: number;
   title: string;
-  mechanism: string; // 'A', 'B', 'C', 'both'
+  mechanism: string;
   kind: 'blocked' | 'technique' | 'integration';
   retrievalCheck: RetrievalCheck | null;
   hasReferenceCard?: boolean;
   touches: ModuleTouch[];
-  summary: string | null;
+  summary?: string | null;
 }
 
 export interface ReinforcementBankRep {
@@ -137,10 +137,18 @@ export interface ToolData {
   kind: 'log_single' | 'upsert' | 'upsert_plus_log' | 'log_multi';
   intro: string;
   logLabel?: string;
+  logPlaceholder?: string;
+  linePlaceholder?: string;
   firstPlaceholder?: string;
-  placeholder: string;
+  placeholder?: string;
   firstUseExample?: string;
   revisitTip?: string;
+  fields?: Array<{
+    key: string;
+    label: string;
+    firstPlaceholder?: string;
+    placeholder?: string;
+  }>;
 }
 
 export interface MhpiQuestion {
@@ -166,8 +174,8 @@ export interface MhpiConfig {
 }
 
 export interface EscalationConfig {
-  tier1: string;
-  tier2: string;
+  tier1?: string;
+  tier2?: string;
   systemPrompt: string;
   tier1FallbackWords: string[];
   tier2FallbackWords: string[];
@@ -180,6 +188,10 @@ export interface OpenQuestion {
 
 export interface ModuleContent {
   moduleId: string;
+  slug?: string;
+  name?: string;
+  tier?: string;
+  duration_weeks?: number;
   brief: ModuleBrief;
   introScreens: IntroScreen[];
   weeks: ModuleWeek[];
@@ -187,5 +199,5 @@ export interface ModuleContent {
   toolsData: Record<string, ToolData>;
   mhpiConfig: MhpiConfig;
   escalationConfig: EscalationConfig;
-  openQuestions: OpenQuestion[];
+  openQuestions?: OpenQuestion[];
 }
