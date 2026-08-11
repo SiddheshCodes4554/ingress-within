@@ -382,13 +382,9 @@ export default function App() {
         } else {
           setCurrentRoute('home');
         }
-      } else if (path === '/admin/psychoeducation-lab' || path === '/admin/psychoeducation-lab/') {
-        if (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_DEV_LAB === 'true') {
-          setCurrentRoute('psychoeducation-lab');
-          window.scrollTo(0, 0);
-        } else {
-          setCurrentRoute('home');
-        }
+      } else if (path === '/admin/psychoeducation-lab' || path === '/admin/psychoeducation-lab/' || path.startsWith('/admin/psychoeducation-lab')) {
+        setCurrentRoute('psychoeducation-lab');
+        window.scrollTo(0, 0);
       } else {
         setCurrentRoute('home');
         // Handle section scroll deep link (e.g. /#auth -> scroll to auth section)
@@ -523,10 +519,7 @@ export default function App() {
         }
         return <LandingPage onOpenPolicy={handleOpenPolicy} />;
       case 'psychoeducation-lab':
-        if (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_DEV_LAB === 'true') {
-          return <PsychoeducationLabPage />;
-        }
-        return <LandingPage onOpenPolicy={handleOpenPolicy} />;
+        return <PsychoeducationLabPage />;
       case 'home':
 
       default:
