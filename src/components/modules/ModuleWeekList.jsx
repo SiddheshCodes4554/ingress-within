@@ -3,7 +3,7 @@ import React from 'react';
 export default function ModuleWeekList({ catalog, content, playerState, onSelectWeek, onBackToOverview, onCompleteModule }) {
   const weeks = content?.weeks || [];
   const completedTouches = playerState?.completedTouches || [];
-  const totalTouches = weeks.reduce((acc, w) => acc + w.touches.length, 0);
+  const totalTouches = weeks.reduce((acc, w) => acc + (w?.touches?.length || 0), 0);
   const totalCompleted = completedTouches.length;
   const isModuleFullyDone = totalCompleted >= totalTouches;
 

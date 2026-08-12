@@ -6,8 +6,8 @@ export default function ModuleTouchRenderer({ content, touchId, playerState, upd
   let technique = null;
 
   if (content && touchId) {
-    for (const week of content.weeks) {
-      const found = week.touches.find(t => t.id === touchId);
+    for (const week of (content?.weeks || [])) {
+      const found = (week?.touches || []).find(t => t.id === touchId);
       if (found) {
         touch = found;
         break;

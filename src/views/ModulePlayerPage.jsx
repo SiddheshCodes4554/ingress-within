@@ -169,8 +169,8 @@ export default function ModulePlayerPage({ moduleId: propModuleId, testMode = fa
 
   const updateState = (updater) => {
     setPlayerState(prev => {
-      const next = typeof updater === 'function' ? updater(prev) : { ...prev, ...updater };
-      return next;
+      const updates = typeof updater === 'function' ? updater(prev) : updater;
+      return { ...prev, ...updates };
     });
   };
 
@@ -327,6 +327,20 @@ export default function ModulePlayerPage({ moduleId: propModuleId, testMode = fa
             updateState={updateState}
             onFinish={() => updateState({ view: 'overview' })}
           />
+        )}
+
+        {/* Fallback for unrecognized or corrupted view states to prevent blank screens */}
+        {!['overview', 'intro', 'mhpi_baseline', 'week_list', 'week_view', 'touch_view', 'mhpi_weekly', 'mhpi_end', 'completed'].includes(playerState.view) && (
+          <div className="p-8 text-center space-y-4 bg-[#2A3358] border border-[#F5EFE3]/15 rounded-2xl shadow-xl">
+            <h3 className="font-serif text-xl text-[#F2C776]">Module View Recovered</h3>
+            <p className="text-xs text-[#C9C2AE]">The player recovered from an unexpected state. Click below to continue.</p>
+            <button
+              onClick={() => updateState({ view: 'overview', introStep: 0 })}
+              className="px-6 py-3 bg-[#E8A33D] hover:bg-[#F2C776] text-[#1B2340] font-semibold rounded-xl text-xs transition-all"
+            >
+              Return to Module Overview
+            </button>
+          </div>
         )}
       </div>
     </div>

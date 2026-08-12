@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 
 export default function ModuleWeekView({ content, weekIdx, playerState, onBackToWeekList, onSelectTouch, onOpenMhpiWeekly }) {
-  const week = content?.weeks?.[weekIdx];
+  const weeks = content?.weeks || [];
+  const safeWeekIdx = Math.max(0, Math.min(weekIdx || 0, (weeks.length || 1) - 1));
+  const week = weeks[safeWeekIdx] || weeks[0];
   const completedTouches = playerState?.completedTouches || [];
 
   const [showRetrievalReveal, setShowRetrievalReveal] = useState(false);

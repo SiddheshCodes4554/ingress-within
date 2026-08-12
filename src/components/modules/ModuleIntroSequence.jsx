@@ -2,10 +2,15 @@ import React from 'react';
 
 export default function ModuleIntroSequence({ content, step, onNextStep, onPrevStep }) {
   const screens = content?.introScreens || [];
-  const currentScreen = screens[step] || screens[0];
+  const safeStep = Math.max(0, Math.min(step || 0, (screens.length || 1) - 1));
+  const currentScreen = screens[safeStep] || screens[0];
   const mechanisms = content?.brief?.mechanisms || [];
 
   if (!currentScreen) return null;
+
+  const bodyParagraphs = Array.isArray(currentScreen.body)
+    ? currentScreen.body
+    : currentScreen.body ? [currentScreen.body] : [];
 
   return (
     <div className="space-y-6">
@@ -15,20 +20,20 @@ export default function ModuleIntroSequence({ content, step, onNextStep, onPrevS
           onClick={onPrevStep}
           className="text-xs text-[#C9C2AE] hover:text-[#F5EFE3] flex items-center gap-1"
         >
-          ← {step === 0 ? 'Back to Overview' : 'Previous'}
+          ← {safeStep === 0 ? 'Back to Overview' : 'Previous'}
         </button>
         <div className="flex gap-1.5 flex-1 max-w-[200px]">
           {screens.map((_, idx) => (
             <span
               key={idx}
               className={`h-1 flex-1 rounded-full transition-all ${
-                idx === step ? 'bg-[#E8A33D]' : idx < step ? 'bg-[#C9C2AE]' : 'bg-[#F5EFE3]/20'
+                idx === safeStep ? 'bg-[#E8A33D]' : idx < safeStep ? 'bg-[#C9C2AE]' : 'bg-[#F5EFE3]/20'
               }`}
             />
           ))}
         </div>
         <span className="text-xs font-mono text-[#C9C2AE]">
-          {step + 1}/{screens.length}
+          {safeStep + 1}/{screens.length}
         </span>
       </div>
 
@@ -43,7 +48,7 @@ export default function ModuleIntroSequence({ content, step, onNextStep, onPrevS
 
         {/* Screen Paragraphs */}
         <div className="space-y-3">
-          {currentScreen.body.map((p, idx) => (
+          {bodyParagraphs.map((p, idx) => (
             <p key={idx} className="text-sm text-[#C9C2AE] leading-relaxed">
               {p}
             </p>
@@ -131,7 +136,7 @@ export default function ModuleIntroSequence({ content, step, onNextStep, onPrevS
           onClick={onNextStep}
           className="flex-1 py-3 px-4 bg-[#E8A33D] hover:bg-[#F2C776] text-[#1B2340] font-semibold rounded-xl text-sm transition-all shadow-md"
         >
-          {currentScreen.cta || (step === screens.length - 1 ? 'Proceed' : 'Continue')} →
+          {currentScreen.cta || (safeStep === screens.length - 1 ? 'Proceed' : 'Continue')} →
         </button>
       </div>
     </div>
