@@ -36,6 +36,19 @@ export default function ModuleTouchRenderer({ content, touchId, playerState, upd
   const [rememberText, setRememberText] = useState(touchAnswers.rememberText || '');
   const [escalationWarning, setEscalationWarning] = useState(null);
 
+  React.useEffect(() => {
+    setStep('relate');
+    const answers = playerState?.userAnswers?.[touchId] || {};
+    setSelectedTapOpt(answers.selectedTapOpt ?? null);
+    setThinkWhyText(answers.thinkWhyText || '');
+    setThinkOpenText(answers.thinkOpenText || '');
+    setSelectedIntensity(answers.selectedIntensity ?? null);
+    setApplyText(answers.applyText || '');
+    setDistressRating(answers.distressRating ?? null);
+    setRememberText(answers.rememberText || '');
+    setEscalationWarning(null);
+  }, [touchId]);
+
   if (!touch && !technique) {
     return (
       <div className="p-6 text-center">
