@@ -527,7 +527,7 @@ export default function DashboardPage({ user, profile, onSignOut }) {
         <PsychoeducationRecommendationCard
           cycleId={cycleInfo?.id || 'latest'}
           onNavigateToModule={(id) => {
-            window.location.href = `/modules/${id}`;
+            window.navigateTo(`/modules/${id}`);
           }}
         />
 
@@ -739,13 +739,6 @@ export default function DashboardPage({ user, profile, onSignOut }) {
               )}
             </section>
 
-            {/* Psychoeducation Monthly Recommendation Surface */}
-            <section className="space-y-3">
-              <PsychoeducationRecommendationCard 
-                cycleId="latest"
-                onNavigateToModule={(moduleId) => window.navigateTo(`/modules/${moduleId}`)}
-              />
-            </section>
 
             {/* Cycles Overview */}
             <section className="space-y-3">
