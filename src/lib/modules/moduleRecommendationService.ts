@@ -10,39 +10,56 @@ import {
 
 // Stable Taxonomy ID Mapping Lookup Table
 const TAXONOMY_PATTERN_MAPPINGS: Record<string, { moduleId: 'M1' | 'M2' | 'M3'; concernId: string }> = {
-  // M1 Concerns
+  // M1 Concerns — Self-Worth & Self-Talk
   'M1-C01': { moduleId: 'M1', concernId: 'M1-C01' },
   'self_criticism': { moduleId: 'M1', concernId: 'M1-C01' },
+  'self-criticism': { moduleId: 'M1', concernId: 'M1-C01' },
+  'self_pressure': { moduleId: 'M1', concernId: 'M1-C01' },
+  'self-pressure': { moduleId: 'M1', concernId: 'M1-C01' },
   'harsh_self_talk': { moduleId: 'M1', concernId: 'M1-C01' },
+  'harsh-self-talk': { moduleId: 'M1', concernId: 'M1-C01' },
   'inner_critic': { moduleId: 'M1', concernId: 'M1-C01' },
   'shame_cycles': { moduleId: 'M1', concernId: 'M1-C01' },
+  'emotional suppression': { moduleId: 'M1', concernId: 'M1-C01' },
+  'emotional_suppression': { moduleId: 'M1', concernId: 'M1-C01' },
 
   'M1-C02': { moduleId: 'M1', concernId: 'M1-C02' },
   'low_self_worth': { moduleId: 'M1', concernId: 'M1-C02' },
+  'low-self-worth': { moduleId: 'M1', concernId: 'M1-C02' },
+  'low self-agency': { moduleId: 'M1', concernId: 'M1-C02' },
+  'low_self_agency': { moduleId: 'M1', concernId: 'M1-C02' },
   'imposter_syndrome': { moduleId: 'M1', concernId: 'M1-C02' },
   'feeling_defective': { moduleId: 'M1', concernId: 'M1-C02' },
-  'inadequacy': { moduleId: 'M1', concernId: 'M1-C02' },
 
   'M1-C03': { moduleId: 'M1', concernId: 'M1-C03' },
   'social_comparison': { moduleId: 'M1', concernId: 'M1-C03' },
   'approval_seeking': { moduleId: 'M1', concernId: 'M1-C03' },
   'people_pleasing': { moduleId: 'M1', concernId: 'M1-C03' },
+  'people pleasing': { moduleId: 'M1', concernId: 'M1-C03' },
+  'hypervigilance to others': { moduleId: 'M1', concernId: 'M1-C03' },
 
-  // M2 Concerns
+  // M2 Concerns — Perfectionism & Avoidance
   'M2-C01': { moduleId: 'M2', concernId: 'M2-C01' },
   'perfectionism': { moduleId: 'M2', concernId: 'M2-C01' },
+  'perfectionism as deflection': { moduleId: 'M2', concernId: 'M2-C01' },
   'rigid_standards': { moduleId: 'M2', concernId: 'M2-C01' },
   'over_polishing': { moduleId: 'M2', concernId: 'M2-C01' },
 
   'M2-C02': { moduleId: 'M2', concernId: 'M2-C02' },
   'procrastination': { moduleId: 'M2', concernId: 'M2-C02' },
+  'avoidance': { moduleId: 'M2', concernId: 'M2-C02' },
   'task_avoidance': { moduleId: 'M2', concernId: 'M2-C02' },
   'avoidance_procrastination': { moduleId: 'M2', concernId: 'M2-C02' },
+  'conflict aversion': { moduleId: 'M2', concernId: 'M2-C02' },
+  'conflict_aversion': { moduleId: 'M2', concernId: 'M2-C02' },
 
-  // M3 Concerns
+  // M3 Concerns — Anxiety & Worry
   'M3-C01': { moduleId: 'M3', concernId: 'M3-C01' },
   'rumination': { moduleId: 'M3', concernId: 'M3-C01' },
   'overthinking': { moduleId: 'M3', concernId: 'M3-C01' },
+  'calling it "overthinking"': { moduleId: 'M3', concernId: 'M3-C01' },
+  'catastrophising': { moduleId: 'M3', concernId: 'M3-C01' },
+  'catastrophizing': { moduleId: 'M3', concernId: 'M3-C01' },
   'mental_loops': { moduleId: 'M3', concernId: 'M3-C01' },
 
   'M3-C02': { moduleId: 'M3', concernId: 'M3-C02' },
@@ -53,12 +70,10 @@ const TAXONOMY_PATTERN_MAPPINGS: Record<string, { moduleId: 'M1' | 'M2' | 'M3'; 
   'M3-C03': { moduleId: 'M3', concernId: 'M3-C03' },
   'panic_attacks': { moduleId: 'M3', concernId: 'M3-C03' },
   'panic_disorder': { moduleId: 'M3', concernId: 'M3-C03' },
-  'somatic_panic': { moduleId: 'M3', concernId: 'M3-C03' },
 
   'M3-C04': { moduleId: 'M3', concernId: 'M3-C04' },
   'intrusive_thoughts': { moduleId: 'M3', concernId: 'M3-C04' },
-  'ocd_checking': { moduleId: 'M3', concernId: 'M3-C04' },
-  'checking_urges': { moduleId: 'M3', concernId: 'M3-C04' }
+  'ocd_checking': { moduleId: 'M3', concernId: 'M3-C04' }
 };
 
 // In-memory store fallback for recommendations indexed by `${userId}:${cycleId}`
