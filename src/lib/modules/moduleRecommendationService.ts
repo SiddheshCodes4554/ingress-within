@@ -75,32 +75,62 @@ export class ModuleRecommendationService {
   ): Promise<RecommendationResponse> {
     const memoryKey = `${userId.trim()}:${cycleId.trim()}`;
 
-    // Step 6: Check Idempotency (Existing recommendation check)
+    // Step 6: Check Idempotency (Existing recommendation check in memory)
     if (IN_MEMORY_RECOMMENDATIONS[memoryKey]) {
       const existing = IN_MEMORY_RECOMMENDATIONS[memoryKey];
-      console.log(`[Developer Log] Found existing idempotent recommendation in memory for cycle ${cycleId}:`, existing);
+      console.log(`[Developer Log] Found existing idempotent recommendation in memory for user ${userId}:`, existing);
       return this.buildResponseFromRecord(userId, existing);
     }
 
     try {
-      const { data: dbRecord } = await supabase
+      let query = supabase
         .from('module_recommendations')
         .select('*')
-        .eq('user_id', userId)
-        .eq('cycle_id', cycleId)
-        .single();
+        .eq('user_id', userId);
+
+      if (cycleId && cycleId !== 'latest') {
+        query = query.eq('cycle_id', cycleId);
+      }
+
+      const { data: dbRecord } = await query
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (dbRecord) {
         IN_MEMORY_RECOMMENDATIONS[memoryKey] = dbRecord as RecommendationRecord;
-        console.log(`[Developer Log] Found existing idempotent recommendation in DB for cycle ${cycleId}:`, dbRecord);
+        console.log(`[Developer Log] Found existing idempotent recommendation in DB for user ${userId}:`, dbRecord);
         return this.buildResponseFromRecord(userId, dbRecord as RecommendationRecord);
       }
     } catch (err) {
       // DB check fallback
     }
 
-    // Developer Log: Input top 3 patterns
-    console.log(`[Developer Log] Generating recommendation for user ${userId}, cycle ${cycleId}`);
+    // If no explicit top patterns passed (e.g. initial GET call from Dashboard), attempt auto-loading user's top patterns
+    if (!topPatterns || topPatterns.length === 0) {
+      try {
+        const { PatternIntelligenceService } = await import('../patterns/patternIntelligenceService');
+        const overview = await PatternIntelligenceService.getPatternOverview(userId);
+        if (overview?.patterns && overview.patterns.length > 0) {
+          const activePatterns = overview.patterns.filter((p: any) =>
+            p.status === 'present' || p.status === 'new' || p.status === 'shifting' || p.status === 'returned'
+          );
+          const selected = (activePatterns.length > 0 ? activePatterns : overview.patterns).slice(0, 3);
+          topPatterns = selected.map((p: any, idx: number) => ({
+            patternId: p.id || p.name,
+            taxonomyId: p.taxonomyId || p.id || p.name,
+            title: p.name,
+            description: p.body || p.meta,
+            score: 85 - (idx * 5),
+            rank: idx + 1
+          }));
+        }
+      } catch (patternErr) {
+        console.warn('[ModuleRecommendationService] Auto-fetch patterns lookup warning:', patternErr);
+      }
+    }
+
+    console.log(`[Developer Log] Running Psychoeducation Recommendation Engine for user ${userId}, cycle ${cycleId}`);
     console.log('[Developer Log] Top 3 Monthly Patterns:', JSON.stringify(topPatterns, null, 2));
 
     // Step 1: Safety Check

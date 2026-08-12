@@ -739,6 +739,14 @@ export default function DashboardPage({ user, profile, onSignOut }) {
               )}
             </section>
 
+            {/* Psychoeducation Monthly Recommendation Surface */}
+            <section className="space-y-3">
+              <PsychoeducationRecommendationCard 
+                cycleId="latest"
+                onNavigateToModule={(moduleId) => window.navigateTo(`/modules/${moduleId}`)}
+              />
+            </section>
+
             {/* Cycles Overview */}
             <section className="space-y-3">
               <div className="text-[9px] font-bold uppercase tracking-widest text-secondary">Cycles Overview</div>
