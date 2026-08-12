@@ -43,8 +43,9 @@ export default function ModulePlayerPage({ moduleId: propModuleId, testMode = fa
   });
 
   const pathParts = window.location.pathname.split('/').filter(Boolean);
-  const moduleIdFromUrl = pathParts[1] || 'M1';
-  const targetModuleId = propModuleId || moduleIdFromUrl;
+  const rawIdFromUrl = pathParts[1] || 'M1';
+  const moduleIdFromUrl = (rawIdFromUrl === 'admin' || rawIdFromUrl === 'psychoeducation-lab') ? 'M1' : rawIdFromUrl;
+  const targetModuleId = propModuleId || moduleIdFromUrl || 'M1';
 
   // 1. Initial Load: Catalog, Content & Remote Progress Sync
   useEffect(() => {
@@ -64,7 +65,7 @@ export default function ModulePlayerPage({ moduleId: propModuleId, testMode = fa
         setModuleCatalog(catalog);
         setModuleContent(content);
 
-        const targetId = content?.moduleId || catalog?.id || moduleIdFromUrl;
+        const targetId = content?.moduleId || catalog?.id || targetModuleId;
         const storageKey = `${STORAGE_KEY_PREFIX}${targetId}`;
 
         // First check localStorage
@@ -78,41 +79,43 @@ export default function ModulePlayerPage({ moduleId: propModuleId, testMode = fa
           }
         }
 
-        // Try API sync for authenticated user
-        try {
-          const res = await fetch(`/api/modules/${targetId}/progress`);
-          if (res.ok) {
-            const apiRes = await res.json();
-            if (apiRes.success && apiRes.state) {
-              const remote = apiRes.state;
-              setPlayerState(prev => ({
-                ...prev,
-                ...(localState || {}),
-                view: remote.progress?.status === 'completed' ? 'completed' : (localState?.view || (remote.mhpi?.baseline ? 'week_list' : 'overview')),
-                weekIdx: remote.progress?.current_week ? Math.max(0, remote.progress.current_week - 1) : (localState?.weekIdx || 0),
-                touchId: remote.progress?.current_touch_id || localState?.touchId || null,
-                completedTouches: Array.from(new Set([
-                  ...(localState?.completedTouches || []),
-                  ...(remote.completedTouches || [])
-                ])),
-                mhpiData: {
-                  baseline: remote.mhpi?.baseline?.responses || localState?.mhpiData?.baseline || null,
-                  baselineScore: remote.mhpi?.baseline?.severity_score ?? localState?.mhpiData?.baselineScore ?? null,
-                  weekly: remote.mhpi?.weekly || localState?.mhpiData?.weekly || {},
-                  end: remote.mhpi?.end?.responses || localState?.mhpiData?.end || null,
-                  endScore: remote.mhpi?.end?.severity_score ?? localState?.mhpiData?.endScore ?? null,
-                  improvementPct: remote.mhpi?.end?.improvement_pct ?? localState?.mhpiData?.improvementPct ?? null
-                }
-              }));
-              setLoading(false);
-              return;
+        // Try API sync for authenticated user (if not in test mode)
+        if (!testMode) {
+          try {
+            const res = await fetch(`/api/modules/${targetId}/progress`);
+            if (res.ok) {
+              const apiRes = await res.json();
+              if (apiRes.success && apiRes.state) {
+                const remote = apiRes.state;
+                setPlayerState(prev => ({
+                  ...prev,
+                  ...(localState || {}),
+                  view: remote.progress?.status === 'completed' ? 'completed' : (localState?.view || (remote.mhpi?.baseline ? 'week_list' : 'overview')),
+                  weekIdx: remote.progress?.current_week ? Math.max(0, remote.progress.current_week - 1) : (localState?.weekIdx || 0),
+                  touchId: remote.progress?.current_touch_id || localState?.touchId || null,
+                  completedTouches: Array.from(new Set([
+                    ...(localState?.completedTouches || []),
+                    ...(remote.completedTouches || [])
+                  ])),
+                  mhpiData: {
+                    baseline: remote.mhpi?.baseline?.responses || localState?.mhpiData?.baseline || null,
+                    baselineScore: remote.mhpi?.baseline?.severity_score ?? localState?.mhpiData?.baselineScore ?? null,
+                    weekly: remote.mhpi?.weekly || localState?.mhpiData?.weekly || {},
+                    end: remote.mhpi?.end?.responses || localState?.mhpiData?.end || null,
+                    endScore: remote.mhpi?.end?.severity_score ?? localState?.mhpiData?.endScore ?? null,
+                    improvementPct: remote.mhpi?.end?.improvement_pct ?? localState?.mhpiData?.improvementPct ?? null
+                  }
+                }));
+                setLoading(false);
+                return;
+              }
             }
+          } catch (apiErr) {
+            console.warn('[ModulePlayer] Remote progress API check failed, using local storage:', apiErr);
           }
-        } catch (apiErr) {
-          console.warn('[ModulePlayer] Remote progress API check failed, using local storage:', apiErr);
         }
 
-        // Fallback to localState if unauthenticated / offline
+        // Fallback to localState if testMode or unauthenticated
         if (localState) {
           setPlayerState(prev => ({
             ...prev,
@@ -121,7 +124,6 @@ export default function ModulePlayerPage({ moduleId: propModuleId, testMode = fa
           }));
         }
       } catch (err) {
-        console.error('[ModulePlayer] Error loading module data:', err);
         setError(err.message || 'Failed to load module.');
       } finally {
         setLoading(false);
@@ -129,12 +131,12 @@ export default function ModulePlayerPage({ moduleId: propModuleId, testMode = fa
     }
 
     loadData();
-  }, [moduleIdFromUrl]);
+  }, [targetModuleId, testMode]);
 
   // 2. Save state locally and trigger remote progress update
   useEffect(() => {
     if (!moduleContent && !moduleCatalog) return;
-    const targetId = moduleContent?.moduleId || moduleCatalog?.id || moduleIdFromUrl;
+    const targetId = moduleContent?.moduleId || moduleCatalog?.id || targetModuleId;
     const storageKey = `${STORAGE_KEY_PREFIX}${targetId}`;
 
     try {
@@ -142,6 +144,8 @@ export default function ModulePlayerPage({ moduleId: propModuleId, testMode = fa
     } catch (e) {
       console.error('[ModulePlayer] Error saving state to localStorage:', e);
     }
+
+    if (testMode) return;
 
     // Sync progress state to API
     const syncProgress = async () => {
@@ -161,7 +165,7 @@ export default function ModulePlayerPage({ moduleId: propModuleId, testMode = fa
     };
 
     syncProgress();
-  }, [playerState.view, playerState.weekIdx, playerState.touchId, moduleContent, moduleCatalog, moduleIdFromUrl]);
+  }, [playerState.view, playerState.weekIdx, playerState.touchId, moduleContent, moduleCatalog, targetModuleId, testMode]);
 
   const updateState = (updater) => {
     setPlayerState(prev => {
@@ -316,7 +320,7 @@ export default function ModulePlayerPage({ moduleId: propModuleId, testMode = fa
           />
         )}
 
-        {playerState.view === 'mhpi_end' && (
+        {(playerState.view === 'mhpi_end' || playerState.view === 'completed') && (
           <ModuleCompletionView
             content={moduleContent}
             playerState={playerState}
