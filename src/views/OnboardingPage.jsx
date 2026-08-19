@@ -323,7 +323,7 @@ export default function OnboardingPage({ initialStep = 'loading', onComplete }) 
           {/* Logo Mark in Center */}
           <div className="absolute z-20 flex flex-col items-center justify-center pointer-events-none">
             <img 
-              src="/logo-mark-transparent.png" 
+              src="/logo-mark-light.png" 
               alt="Ingress Within" 
               className="w-16 h-16 object-contain drop-shadow-md" 
             />

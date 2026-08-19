@@ -19,9 +19,9 @@ export default function Footer({ onOpenPolicy }) {
         <div className="md:col-span-2 space-y-3">
           <div className="flex items-center gap-3">
             <img 
-              src="/logo-mark-transparent.png" 
+              src="/logo-mark-light.png" 
               alt="Ingress Within" 
-              className="w-7 h-7 object-contain opacity-90" 
+              className="w-7 h-7 object-contain drop-shadow-sm" 
             />
             <div className="footer-logo-name font-serif text-xl font-normal text-white/90 leading-none">
               ingress <span className="font-semibold text-secondary">within</span>
