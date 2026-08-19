@@ -69,15 +69,36 @@ export async function executeScoringPipeline(
   // Persist Observability & Failures logs
   try {
     if (entryId) {
+      const actualProvider = (provider as any).lastProviderUsed || providerName;
+      const fallbackUsed = (provider as any).lastFallbackUsed || false;
+      const primaryProvider = (provider as any).lastPrimaryProvider || providerName;
+      const usage = (provider as any).lastUsage || null;
+
       // 1. Log to ai_observability table
       const { error: obsError } = await supabase
         .from('ai_observability')
         .insert({
           entry_id: entryId,
-          provider: providerName,
+          provider: actualProvider,
           raw_provider_response: rawResponse || null,
-          parsed_response: parsedJson || null,
-          validation_result: success ? { status: 'passed' } : { status: 'failed', error: errorReason },
+          parsed_response: parsedJson ? {
+            ...parsedJson,
+            _metadata: {
+              fallback_used: fallbackUsed,
+              primary_provider: primaryProvider,
+              usage
+            }
+          } : null,
+          validation_result: success ? { 
+            status: 'passed',
+            fallback_used: fallbackUsed,
+            primary_provider: primaryProvider
+          } : { 
+            status: 'failed', 
+            error: errorReason,
+            fallback_used: fallbackUsed,
+            primary_provider: primaryProvider
+          },
           processing_time: latency,
           retry_count: retryCount,
           error_reason: errorReason || null
@@ -108,8 +129,8 @@ export async function executeScoringPipeline(
         }
       }
     }
-  } catch (logErr: any) {
-    console.error('[AI Hardening Pipeline] Logging persistence caught unhandled error:', logErr.message || logErr);
+  } catch (logErr) {
+    console.error('[AI Hardening Pipeline] Observability logging caught unhandled error:', logErr);
   }
 
   return {
