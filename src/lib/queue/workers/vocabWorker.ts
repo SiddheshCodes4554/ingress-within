@@ -404,10 +404,18 @@ async function processSingleVocabularyExtraction(jobData: {
   }
 
   try {
+    let actualProvider = process.env.AI_PROVIDER || 'claude';
+    let actualModel = process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
+    let fallbackUsed = false;
+    let primaryProvider = 'claude';
+    const startTime = Date.now();
+
     let expressions: any[] = [];
     if (bypass_ai) {
       const { extractVocabularyDeterministic } = await import('../../vocabEngine');
       const detResult = extractVocabularyDeterministic(fullText);
+      actualProvider = 'deterministic-nlp';
+      actualModel = 'local-rule-engine';
       expressions = (detResult.extracted || []).map(item => ({
         word: item.word,
         normalized: item.normalized_word,
@@ -419,10 +427,16 @@ async function processSingleVocabularyExtraction(jobData: {
       try {
         const aiResult = await aiProvider.extractVocabulary(fullText);
         expressions = aiResult?.expressions || [];
+        actualProvider = (aiProvider as any).lastProviderUsed || actualProvider;
+        actualModel = (aiProvider as any).model || actualModel;
+        fallbackUsed = (aiProvider as any).lastFallbackUsed || false;
+        primaryProvider = (aiProvider as any).lastPrimaryProvider || 'claude';
       } catch (aiErr) {
         console.warn(`[Vocab Worker] AI vocabulary extraction failed. Falling back to NLP:`, aiErr);
         const { extractVocabularyDeterministic } = await import('../../vocabEngine');
         const detResult = extractVocabularyDeterministic(fullText);
+        actualProvider = 'deterministic-nlp-fallback';
+        actualModel = 'local-rule-engine';
         expressions = (detResult.extracted || []).map(item => ({
           word: item.word,
           normalized: item.normalized_word,
@@ -476,10 +490,10 @@ async function processSingleVocabularyExtraction(jobData: {
         sentence_context: verbatimSentence,
         confidence: exp.confidence || 1.0,
         sentence_reasoning: exp.semantic_meaning || '',
-        extractor_version: '3.0',
-        prompt_version: '3.0',
-        provider: process.env.AI_PROVIDER || 'gemini',
-        model: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
+        extractor_version: '4.0',
+        prompt_version: '4.0',
+        provider: actualProvider,
+        model: actualModel,
         generated_at: sourceCreatedAt,
         created_at: sourceCreatedAt
       });
@@ -534,6 +548,37 @@ async function processSingleVocabularyExtraction(jobData: {
           wordPayload.first_seen = sourceCreatedAt;
           await supabase.from('vocab_words').insert(wordPayload);
         }
+      }
+    }
+
+    // Persist to ai_observability
+    if (entry_id) {
+      try {
+        await supabase.from('ai_observability').insert({
+          entry_id,
+          provider: actualProvider,
+          raw_provider_response: (aiProvider as any).lastRawResponse || JSON.stringify(expressions),
+          parsed_response: {
+            expressions,
+            _metadata: {
+              module: 'vocabulary',
+              fallback_used: fallbackUsed,
+              primary_provider: primaryProvider,
+              usage: (aiProvider as any).lastUsage || null
+            }
+          },
+          validation_result: {
+            status: 'passed',
+            count: extractionsToInsert.length,
+            fallback_used: fallbackUsed,
+            primary_provider: primaryProvider
+          },
+          processing_time: Date.now() - startTime,
+          retry_count: fallbackUsed ? 1 : 0,
+          error_reason: null
+        });
+      } catch (obsErr) {
+        console.warn('[Vocab Worker] Failed to write to ai_observability:', obsErr);
       }
     }
 
