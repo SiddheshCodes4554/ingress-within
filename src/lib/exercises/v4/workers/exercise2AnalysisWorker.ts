@@ -1,5 +1,6 @@
 import { supabase } from '../../../../lib/db';
 import { Exercise2Prompt, Exercise2ResponseItem } from '../ai/exercise2Prompt';
+import { aiProvider } from '../../../ai/factory';
 
 export class Exercise2AnalysisWorker {
   /**
@@ -57,21 +58,23 @@ export class Exercise2AnalysisWorker {
     const promptText = Exercise2Prompt.buildPrompt(rawResponses);
     const startTime = Date.now();
 
-    // 4. Call AI Provider with 1 retry
+    // 4. Call AI Provider with fallback support
     let aiResponseText = '';
     let callError: any = null;
+    let actualProvider = process.env.AI_PROVIDER || 'claude';
+    let actualModel = process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
+    let fallbackUsed = false;
+    let primaryProvider = 'claude';
 
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        aiResponseText = await this.callAIProvider(promptText);
-        if (aiResponseText && aiResponseText.trim().length > 0) {
-          callError = null;
-          break;
-        }
-      } catch (err) {
-        callError = err;
-        console.warn(`[Exercise2AnalysisWorker] Attempt ${attempt} failed:`, err);
-      }
+    try {
+      aiResponseText = await aiProvider.callRaw(promptText);
+      actualProvider = (aiProvider as any).lastProviderUsed || actualProvider;
+      actualModel = (aiProvider as any).model || actualModel;
+      fallbackUsed = (aiProvider as any).lastFallbackUsed || false;
+      primaryProvider = (aiProvider as any).lastPrimaryProvider || 'claude';
+    } catch (err) {
+      callError = err;
+      console.warn(`[Exercise2AnalysisWorker] AI call failed:`, err);
     }
 
     // 5. Parse Prose Synthesis & JSON Payload
@@ -134,6 +137,8 @@ export class Exercise2AnalysisWorker {
           summary,
           analysis: analysisJson,
           raw_json: analysisJson,
+          model: actualModel,
+          provider: actualProvider,
           generated_at: now
         })
         .eq('id', existingDraftRes.id)
@@ -150,8 +155,8 @@ export class Exercise2AnalysisWorker {
           user_id: instance.user_id,
           summary,
           analysis: analysisJson,
-          model: 'llama-3.3-70b-versatile',
-          provider: 'groq',
+          model: actualModel,
+          provider: actualProvider,
           raw_json: analysisJson,
           generated_at: now
         })
@@ -160,6 +165,39 @@ export class Exercise2AnalysisWorker {
 
       if (createErr) console.error('[Exercise2AnalysisWorker] Result insert error:', createErr);
       finalResult = createdRes;
+    }
+
+    // Record to ai_observability
+    try {
+      await supabase.from('ai_observability').insert({
+        entry_id: null,
+        provider: actualProvider,
+        raw_provider_response: aiResponseText || JSON.stringify(analysisJson),
+        parsed_response: {
+          summary,
+          analysis: analysisJson,
+          _metadata: {
+            module: 'exercise_analysis',
+            exercise_id: 'exercise_2',
+            instance_id: instanceId,
+            user_id: instance.user_id,
+            fallback_used: fallbackUsed,
+            primary_provider: primaryProvider,
+            usage: (aiProvider as any).lastUsage || null
+          }
+        },
+        validation_result: {
+          status: 'passed',
+          default_lens_label: analysisJson.default_lens_label,
+          fallback_used: fallbackUsed,
+          primary_provider: primaryProvider
+        },
+        processing_time: processingTimeMs,
+        retry_count: fallbackUsed ? 1 : 0,
+        error_reason: null
+      });
+    } catch (obsErr) {
+      console.warn('[Exercise2AnalysisWorker] Failed to record ai_observability:', obsErr);
     }
 
     // 7. Update ExerciseInstance status to completed
@@ -174,38 +212,6 @@ export class Exercise2AnalysisWorker {
 
     console.log(`[Exercise2AnalysisWorker] Successfully completed instance ${instanceId} in ${processingTimeMs}ms`);
     return finalResult;
-  }
-
-  /**
-   * Calls AI provider (Groq or Claude).
-   */
-  private static async callAIProvider(promptText: string): Promise<string> {
-    const groqKey = process.env.GROQ_API_KEY;
-
-    if (groqKey) {
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${groqKey}`
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [{ role: 'user', content: promptText }],
-          temperature: 0.3,
-          max_tokens: 600
-        })
-      });
-
-      if (!res.ok) {
-        throw new Error(`Groq API returned HTTP ${res.status}`);
-      }
-
-      const data = await res.json();
-      return data.choices?.[0]?.message?.content || '';
-    }
-
-    throw new Error('No AI provider API key found (GROQ_API_KEY).');
   }
 
   /**

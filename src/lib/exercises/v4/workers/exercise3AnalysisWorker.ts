@@ -1,6 +1,7 @@
 import { supabase } from '../../../../lib/db';
 import { Exercise3SnapshotLoader } from '../snapshots/exercise3SnapshotLoader';
 import { Exercise3Prompt, Exercise3ResponseItem } from '../ai/exercise3Prompt';
+import { aiProvider } from '../../../ai/factory';
 
 export class Exercise3AnalysisWorker {
   /**
@@ -57,21 +58,23 @@ export class Exercise3AnalysisWorker {
     const promptText = Exercise3Prompt.buildPrompt(rawResponses, snapshotContext);
     const startTime = Date.now();
 
-    // 5. Call AI Provider with 1 retry
+    // 5. Call AI Provider with fallback support
     let aiResponseText = '';
     let callError: any = null;
+    let actualProvider = process.env.AI_PROVIDER || 'claude';
+    let actualModel = process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
+    let fallbackUsed = false;
+    let primaryProvider = 'claude';
 
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        aiResponseText = await this.callAIProvider(promptText);
-        if (aiResponseText && aiResponseText.trim().length > 0) {
-          callError = null;
-          break;
-        }
-      } catch (err) {
-        callError = err;
-        console.warn(`[Exercise3AnalysisWorker] Attempt ${attempt} failed:`, err);
-      }
+    try {
+      aiResponseText = await aiProvider.callRaw(promptText);
+      actualProvider = (aiProvider as any).lastProviderUsed || actualProvider;
+      actualModel = (aiProvider as any).model || actualModel;
+      fallbackUsed = (aiProvider as any).lastFallbackUsed || false;
+      primaryProvider = (aiProvider as any).lastPrimaryProvider || 'claude';
+    } catch (err) {
+      callError = err;
+      console.warn(`[Exercise3AnalysisWorker] AI call failed:`, err);
     }
 
     // 6. Parse Prose Synthesis & JSON Payload
@@ -129,6 +132,8 @@ export class Exercise3AnalysisWorker {
           summary,
           analysis: analysisJson,
           raw_json: analysisJson,
+          model: actualModel,
+          provider: actualProvider,
           generated_at: now
         })
         .eq('id', existingDraftRes.id)
@@ -145,8 +150,8 @@ export class Exercise3AnalysisWorker {
           user_id: instance.user_id,
           summary,
           analysis: analysisJson,
-          model: 'llama-3.3-70b-versatile',
-          provider: 'groq',
+          model: actualModel,
+          provider: actualProvider,
           raw_json: analysisJson,
           generated_at: now
         })
@@ -155,6 +160,40 @@ export class Exercise3AnalysisWorker {
 
       if (createErr) console.error('[Exercise3AnalysisWorker] Result insert error:', createErr);
       finalResult = createdRes;
+    }
+
+    // Record to ai_observability
+    try {
+      await supabase.from('ai_observability').insert({
+        entry_id: null,
+        provider: actualProvider,
+        raw_provider_response: aiResponseText || JSON.stringify(analysisJson),
+        parsed_response: {
+          summary,
+          analysis: analysisJson,
+          _metadata: {
+            module: 'exercise_analysis',
+            exercise_id: 'exercise_3',
+            instance_id: instanceId,
+            user_id: instance.user_id,
+            fallback_used: fallbackUsed,
+            primary_provider: primaryProvider,
+            usage: (aiProvider as any).lastUsage || null
+          }
+        },
+        validation_result: {
+          status: 'passed',
+          gap_score: score,
+          gap_severity: severity,
+          fallback_used: fallbackUsed,
+          primary_provider: primaryProvider
+        },
+        processing_time: processingTimeMs,
+        retry_count: fallbackUsed ? 1 : 0,
+        error_reason: null
+      });
+    } catch (obsErr) {
+      console.warn('[Exercise3AnalysisWorker] Failed to record ai_observability:', obsErr);
     }
 
     // 8. Update ExerciseInstance status to completed
@@ -169,38 +208,6 @@ export class Exercise3AnalysisWorker {
 
     console.log(`[Exercise3AnalysisWorker] Successfully completed instance ${instanceId} in ${processingTimeMs}ms`);
     return finalResult;
-  }
-
-  /**
-   * Calls AI provider (Groq or Claude).
-   */
-  private static async callAIProvider(promptText: string): Promise<string> {
-    const groqKey = process.env.GROQ_API_KEY;
-
-    if (groqKey) {
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${groqKey}`
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [{ role: 'user', content: promptText }],
-          temperature: 0.3,
-          max_tokens: 600
-        })
-      });
-
-      if (!res.ok) {
-        throw new Error(`Groq API returned HTTP ${res.status}`);
-      }
-
-      const data = await res.json();
-      return data.choices?.[0]?.message?.content || '';
-    }
-
-    throw new Error('No AI provider API key found (GROQ_API_KEY).');
   }
 
   /**
