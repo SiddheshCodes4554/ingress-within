@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../../lib/db';
 import { getAuthenticatedUser } from '../../../../lib/auth-helper';
-import { getAIProvider } from '../../../../lib/ai/factory';
+import { aiProvider } from '../../../../lib/ai/factory';
 
 export async function POST(request: NextRequest) {
   try {
@@ -112,10 +112,12 @@ export async function POST(request: NextRequest) {
     });
 
     // 3. Call AI Provider synchronously
-    const providerName = process.env.AI_PROVIDER || 'groq';
-    const aiProvider = getAIProvider(providerName);
-    
+    const aiStartTime = Date.now();
     let summaryText = '';
+    let actualProvider = process.env.AI_PROVIDER || 'claude';
+    let fallbackUsed = false;
+    let primaryProvider = 'claude';
+
     try {
       summaryText = await aiProvider.generatePersonalitySummary({
         openness,
@@ -124,10 +126,43 @@ export async function POST(request: NextRequest) {
         agreeableness,
         neuroticism
       });
+      actualProvider = (aiProvider as any).lastProviderUsed || actualProvider;
+      fallbackUsed = (aiProvider as any).lastFallbackUsed || false;
+      primaryProvider = (aiProvider as any).lastPrimaryProvider || 'claude';
     } catch (aiErr: any) {
-      console.error('Failed to generate AI personality summary, using default:', aiErr);
-      // Fallback description in case of API failure
+      console.error('Failed to generate AI personality summary, using default fallback:', aiErr);
+      // Deterministic fallback description in case of provider failure
       summaryText = `You show balanced qualities with a tendency to process experiences internally. You value self-reflection and structure in your daily routine. This space is designed for exactly that.`;
+    }
+
+    // Record to ai_observability
+    try {
+      await supabase.from('ai_observability').insert({
+        entry_id: null,
+        provider: actualProvider,
+        raw_provider_response: (aiProvider as any).lastRawResponse || summaryText,
+        parsed_response: {
+          summary: summaryText,
+          scores: { openness, conscientiousness, extraversion, agreeableness, neuroticism },
+          _metadata: {
+            module: 'personality_onboarding',
+            user_id: user.userId,
+            fallback_used: fallbackUsed,
+            primary_provider: primaryProvider,
+            usage: (aiProvider as any).lastUsage || null
+          }
+        },
+        validation_result: {
+          status: 'passed',
+          fallback_used: fallbackUsed,
+          primary_provider: primaryProvider
+        },
+        processing_time: Date.now() - aiStartTime,
+        retry_count: fallbackUsed ? 1 : 0,
+        error_reason: null
+      });
+    } catch (obsErr) {
+      console.warn('[API Assessment] Failed to record ai_observability:', obsErr);
     }
 
     // 4. Update users table with scores, answers, and summary text
