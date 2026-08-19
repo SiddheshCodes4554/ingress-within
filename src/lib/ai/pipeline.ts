@@ -142,3 +142,5 @@ export async function executeScoringPipeline(
     latency
   };
 }
+
+export const runScoringPipeline = executeScoringPipeline;

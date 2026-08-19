@@ -29,6 +29,12 @@ export async function processEntryScoring(jobData: { entry_id: string; user_id: 
     throw new Error(`Failed to fetch entry ${entry_id}: ${entryError?.message || 'Not found'}`);
   }
 
+  // Idempotency guard: If entry is already scored, preserve existing score and do not re-score
+  if (entry.scoring_status === 'scored' && entry.day_ei !== null && entry.day_pr !== null && entry.day_sa !== null) {
+    console.log(`[Entry Scoring Worker] Entry ${entry_id} has already been scored (EI=${entry.day_ei}, PR=${entry.day_pr}, SA=${entry.day_sa}). Preserving historical score without re-processing.`);
+    return;
+  }
+
   // 2. Fetch user context
   const { data: user, error: userError } = await supabase
     .from('users')
@@ -123,7 +129,7 @@ export async function processEntryScoring(jobData: { entry_id: string; user_id: 
 
   // STEP 2 — AI scores each part present (see Scoring Rubric for AI instructions)
   // Hardened with Zod validation, self-healing, retries, and failures logging.
-  const activeProvider = process.env.AI_PROVIDER || 'groq';
+  const activeProvider = process.env.AI_PROVIDER || 'claude';
   const pipelineResult = await executeScoringPipeline(
     hasReflection ? reflectionText : null,
     hasNewEntry ? newEntryText : null,
