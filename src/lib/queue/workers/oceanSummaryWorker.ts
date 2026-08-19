@@ -48,10 +48,14 @@ export async function processOceanSummary(jobData: {
 
 Generate a concise 2-3 sentence plain language personality summary based on these Big Five traits.`;
 
+    const aiStartTime = Date.now();
     const result = await aiProvider.generateOceanSummary([
       { content: inputContent, created_at: new Date().toISOString() }
     ]);
 
+    const actualProvider = (aiProvider as any).lastProviderUsed || process.env.AI_PROVIDER || 'claude';
+    const fallbackUsed = (aiProvider as any).lastFallbackUsed || false;
+    const primaryProvider = (aiProvider as any).lastPrimaryProvider || 'claude';
     const personalitySummary = result.analysis;
 
     // 3. Update users table with scores, raw answers, and the generated summary text
@@ -71,6 +75,35 @@ Generate a concise 2-3 sentence plain language personality summary based on thes
 
     if (updateError) {
       throw new Error(`Failed to update user personality profile: ${updateError.message}`);
+    }
+
+    // Record to ai_observability
+    try {
+      await supabase.from('ai_observability').insert({
+        entry_id: null,
+        provider: actualProvider,
+        raw_provider_response: (aiProvider as any).lastRawResponse || JSON.stringify(result),
+        parsed_response: {
+          ...result,
+          _metadata: {
+            module: 'ocean_summary',
+            user_id,
+            fallback_used: fallbackUsed,
+            primary_provider: primaryProvider,
+            usage: (aiProvider as any).lastUsage || null
+          }
+        },
+        validation_result: {
+          status: 'passed',
+          fallback_used: fallbackUsed,
+          primary_provider: primaryProvider
+        },
+        processing_time: Date.now() - aiStartTime,
+        retry_count: fallbackUsed ? 1 : 0,
+        error_reason: null
+      });
+    } catch (obsErr) {
+      console.warn('[OCEAN Summary Worker] Failed to record ai_observability:', obsErr);
     }
 
     console.log(`[OCEAN Summary Worker] Successfully calculated OCEAN scores and generated summary text for user ${user_id}`);

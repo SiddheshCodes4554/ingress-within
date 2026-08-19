@@ -359,7 +359,13 @@ Format your response as a strict JSON object with the following schema:
 Generate up to 3 patterns, up to 3 recurring themes, and up to 3 people who showed up. Fill in exercise items corresponding to completed reframing tasks or general cycle milestones.
 Do not include markdown wrappers (like \`\`\`json) in your raw response. Return only the raw JSON.`;
 
+      const aiStartTime = Date.now();
       const rawResponse = await aiProvider.callRaw(prompt);
+      const actualProvider = (aiProvider as any).lastProviderUsed || process.env.AI_PROVIDER || 'claude';
+      const actualModel = (aiProvider as any).model || process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
+      const fallbackUsed = (aiProvider as any).lastFallbackUsed || false;
+      const primaryProvider = (aiProvider as any).lastPrimaryProvider || 'claude';
+
       let cleaned = rawResponse.trim();
       if (cleaned.startsWith('```')) {
         cleaned = cleaned.replace(/^```[a-zA-Z]*\n/, '').replace(/\n```$/, '');
@@ -417,6 +423,40 @@ Do not include markdown wrappers (like \`\`\`json) in your raw response. Return 
           }
         }
       };
+
+      // Record to ai_observability
+      try {
+        await supabase.from('ai_observability').insert({
+          entry_id: assessment_id || monthly_score_id || null,
+          provider: actualProvider,
+          raw_provider_response: rawResponse || JSON.stringify(aiReport),
+          parsed_response: {
+            ...aiReport,
+            _metadata: {
+              module: 'monthly_report',
+              cycle_id,
+              user_id,
+              assessment_id,
+              monthly_score_id,
+              fallback_used: fallbackUsed,
+              primary_provider: primaryProvider,
+              usage: (aiProvider as any).lastUsage || null
+            }
+          },
+          validation_result: {
+            status: 'passed',
+            path_assignment,
+            branch_assignment,
+            fallback_used: fallbackUsed,
+            primary_provider: primaryProvider
+          },
+          processing_time: Date.now() - aiStartTime,
+          retry_count: fallbackUsed ? 1 : 0,
+          error_reason: null
+        });
+      } catch (obsErr) {
+        console.warn('[Monthly Report Worker] Failed to write ai_observability:', obsErr);
+      }
     } catch (parseErr: any) {
       console.error('[Monthly Report Worker] AI JSON generation failed, compiling real cycle report fallback:', parseErr.message);
       const { resolveCycleAndEntries, compileRealCycleReport } = await import('../../reports/cycleReportBuilder');
