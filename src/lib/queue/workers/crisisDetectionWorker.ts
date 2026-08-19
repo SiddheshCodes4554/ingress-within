@@ -62,7 +62,7 @@ export async function processCrisisDetection(jobData: {
 
   try {
     // 3. Call Layered Crisis Detection
-    const activeProvider = process.env.AI_PROVIDER || 'groq';
+    const activeProvider = process.env.AI_PROVIDER || 'claude';
     const result = await evaluateCrisisLayers(
       entryText,
       activeProvider,
@@ -71,7 +71,8 @@ export async function processCrisisDetection(jobData: {
         day_sa: entry.day_sa,
         riskLanguageDetected: entry.risk_language_quote ? true : false,
         riskLanguageQuote: entry.risk_language_quote
-      }
+      },
+      entry_id
     );
 
     const updatePayload: any = {
