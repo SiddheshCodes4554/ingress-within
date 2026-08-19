@@ -920,9 +920,17 @@ If no patterns are found, return: []`;
 
     let aiResponse = '';
     let parsedPatterns: any[] = [];
+    let actualProvider = process.env.AI_PROVIDER || 'claude';
+    let fallbackUsed = false;
+    let primaryProvider = 'claude';
+    const synthStartTime = Date.now();
+
     try {
       const { aiProvider } = await import('../ai/factory');
       aiResponse = await aiProvider.callRaw(prompt);
+      actualProvider = (aiProvider as any).lastProviderUsed || actualProvider;
+      fallbackUsed = (aiProvider as any).lastFallbackUsed || false;
+      primaryProvider = (aiProvider as any).lastPrimaryProvider || 'claude';
       
       let cleaned = aiResponse.trim();
       if (cleaned.startsWith('```')) {

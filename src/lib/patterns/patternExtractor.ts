@@ -66,10 +66,13 @@ export async function extractPatternsFromEntry(options: {
   const { entryText, userId, cycleId, entryId, sourceType, historicalPatterns = [] } = options;
 
   console.log(`[Pattern Extractor] Extracting patterns from ${sourceType} entry ${entryId}`);
+  const startTime = Date.now();
 
   const provider = aiProvider;
-  const providerName = process.env.AI_PROVIDER || 'groq';
-  const modelName = process.env.AI_MODEL || 'llama3-70b-8192';
+  let actualProvider = process.env.AI_PROVIDER || 'claude';
+  let actualModel = process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
+  let fallbackUsed = false;
+  let primaryProvider = 'claude';
 
   const historicalContext = historicalPatterns.length > 0
     ? `Known patterns already tracked for this user: ${historicalPatterns.join(', ')}.`
@@ -82,11 +85,16 @@ export async function extractPatternsFromEntry(options: {
 
   try {
     rawResponse = await provider.callRaw(prompt);
+    actualProvider = (provider as any).lastProviderUsed || actualProvider;
+    actualModel = (provider as any).model || actualModel;
+    fallbackUsed = (provider as any).lastFallbackUsed || false;
+    primaryProvider = (provider as any).lastPrimaryProvider || 'claude';
+
     candidates = parseExtractionResponse(rawResponse, entryText);
   } catch (err: any) {
     console.error(`[Pattern Extractor] AI call failed for entry ${entryId}:`, err.message);
     // Return empty — the system will try again on the next entry
-    return { candidates: [], provider: providerName, model: modelName, promptVersion: PROMPT_VERSION };
+    return { candidates: [], provider: actualProvider, model: actualModel, promptVersion: PROMPT_VERSION };
   }
 
   // Filter by confidence threshold
@@ -108,8 +116,8 @@ export async function extractPatternsFromEntry(options: {
       confidence: Math.min(1, Math.max(0, c.confidence)),
       extractor_version: EXTRACTOR_VERSION,
       prompt_version: PROMPT_VERSION,
-      provider: providerName,
-      model: modelName,
+      provider: actualProvider,
+      model: actualModel,
       generated_at: new Date().toISOString(),
     }));
 
@@ -122,14 +130,47 @@ export async function extractPatternsFromEntry(options: {
     }
   }
 
+  // Log to ai_observability
+  if (entryId) {
+    try {
+      await supabase.from('ai_observability').insert({
+        entry_id: entryId,
+        provider: actualProvider,
+        raw_provider_response: rawResponse || JSON.stringify(candidates),
+        parsed_response: {
+          candidates,
+          publishable_count: publishable.length,
+          _metadata: {
+            module: 'pattern_extraction',
+            fallback_used: fallbackUsed,
+            primary_provider: primaryProvider,
+            usage: (provider as any).lastUsage || null
+          }
+        },
+        validation_result: {
+          status: 'passed',
+          total_candidates: candidates.length,
+          publishable_candidates: publishable.length,
+          fallback_used: fallbackUsed,
+          primary_provider: primaryProvider
+        },
+        processing_time: Date.now() - startTime,
+        retry_count: fallbackUsed ? 1 : 0,
+        error_reason: null
+      });
+    } catch (obsErr) {
+      console.warn('[Pattern Extractor] Failed to record ai_observability:', obsErr);
+    }
+  }
+
   // Return only publishable candidates
   return {
     candidates: publishable.map(c => ({
       ...c,
       pattern_name: normalisePatternName(c.pattern_name),
     })),
-    provider: providerName,
-    model: modelName,
+    provider: actualProvider,
+    model: actualModel,
     promptVersion: PROMPT_VERSION,
   };
 }
