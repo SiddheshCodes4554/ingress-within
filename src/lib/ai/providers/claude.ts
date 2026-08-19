@@ -25,8 +25,8 @@ export class ClaudeProvider implements AIProvider {
   public lastUsage: any = null;
 
   constructor(apiKey?: string, model?: string) {
-    this.apiKey = apiKey || process.env.CLAUDE_API_KEY || '';
-    this.model = model || process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
+    this.apiKey = apiKey || process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_KEY || '';
+    this.model = model || process.env.CLAUDE_MODEL || process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022';
 
     if (this.apiKey && !this.apiKey.startsWith('mock_') && this.apiKey !== 'sk-ant-development-mock-key-replace-me') {
       try {
@@ -37,13 +37,24 @@ export class ClaudeProvider implements AIProvider {
     }
   }
 
+  private getEffectiveApiKey(): string {
+    return this.apiKey || process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_KEY || '';
+  }
+
+  private getEffectiveModel(): string {
+    return this.model || process.env.CLAUDE_MODEL || process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022';
+  }
+
   private async callClaude<T>(systemPrompt: string, userContent: string): Promise<T> {
     this.lastSystemPrompt = systemPrompt;
     this.lastUserContent = userContent;
 
-    // Development Mock Simulation
-    if (!this.apiKey || this.apiKey.startsWith('mock_') || this.apiKey === 'sk-ant-development-mock-key-replace-me') {
-      console.warn(`[ClaudeProvider] Running with mock key or empty key. Simulating AI response.`);
+    const effectiveKey = this.getEffectiveApiKey();
+    const effectiveModel = this.getEffectiveModel();
+
+    // Check if running with mock key for isolated local unit tests
+    if (effectiveKey && (effectiveKey.startsWith('mock_') || effectiveKey === 'sk-ant-development-mock-key-replace-me')) {
+      console.warn(`[ClaudeProvider] Running with mock key. Simulating AI response.`);
       let mockRes: any = null;
 
       if (systemPrompt.includes('clarityScore')) {
@@ -295,13 +306,21 @@ export class ClaudeProvider implements AIProvider {
       throw new Error(`[ClaudeProvider Mock] Unsupported prompt template.`);
     }
 
-    if (!this.client) {
+    if (!effectiveKey) {
+      throw new Error('[ClaudeProvider] Missing Claude API key. Please configure CLAUDE_API_KEY or ANTHROPIC_API_KEY in your environment variables.');
+    }
+
+    if (!this.client || this.apiKey !== effectiveKey) {
+      this.apiKey = effectiveKey;
       this.client = new Anthropic({ apiKey: this.apiKey });
     }
 
+    const selectedModel = effectiveModel;
+    console.log(`[ClaudeProvider] Calling Anthropic API (${selectedModel})...`);
+
     try {
       const response = await this.client.messages.create({
-        model: this.model,
+        model: selectedModel,
         max_tokens: 4000,
         temperature: 0.1,
         system: `${systemPrompt}\nYou must return a valid JSON object matching the requested schema. Output ONLY the JSON block. Do not output any conversational introductions, markdown formatting outside of a json codeblock, or explanation. Begin your response with '{' and end with '}'.`,

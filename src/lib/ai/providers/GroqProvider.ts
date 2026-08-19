@@ -299,65 +299,91 @@ export class GroqProvider implements AIProvider {
       throw new Error(`[GroqProvider Mock] Unsupported prompt template.`);
     }
 
-    let attempts = 5;
-    let delayMs = 12000; // wait 12 seconds if rate limited
+    const effectiveApiKey = this.apiKey || process.env.GROQ_API_KEY || '';
+    if (!effectiveApiKey) {
+      throw new Error('[GroqProvider] Missing GROQ_API_KEY in environment variables.');
+    }
 
-    for (let attempt = 1; attempt <= attempts; attempt++) {
-      try {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: this.model,
-            messages: [
-              { role: 'system', content: `${systemPrompt}\nYou must return a valid JSON object matching the requested schema. Do not output any conversational introduction or explanation.` },
-              { role: 'user', content: userContent }
-            ],
-            response_format: { type: 'json_object' },
-            temperature: 0.1,
-            max_tokens: 2048
-          })
-        });
+    const candidateModels = [
+      this.model,
+      'llama-3.3-70b-versatile',
+      'llama-3.1-70b-versatile',
+      'llama-3.1-8b-instant'
+    ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
-        if (response.status === 429) {
-          if (attempt === attempts) {
-            throw new Error(`Groq API returned HTTP error 429 (Rate Limit Exceeded) after all attempts.`);
+    let lastError: any = null;
+
+    for (const currentModel of candidateModels) {
+      let attempts = 2;
+      let delayMs = 1000;
+
+      for (let attempt = 1; attempt <= attempts; attempt++) {
+        try {
+          const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${effectiveApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: currentModel,
+              messages: [
+                { role: 'system', content: `${systemPrompt}\nYou must return a valid JSON object matching the requested schema. Do not output any conversational introduction or explanation.` },
+                { role: 'user', content: userContent }
+              ],
+              response_format: { type: 'json_object' },
+              temperature: 0.1,
+              max_tokens: 2048
+            })
+          });
+
+          if (response.status === 429) {
+            if (attempt === attempts) {
+              throw new Error(`Groq API returned HTTP error 429 (Rate Limit Exceeded) for model ${currentModel}.`);
+            }
+            console.warn(`[GroqProvider] Rate limit hit (429) on ${currentModel}. Waiting ${delayMs}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            delayMs *= 2;
+            continue;
           }
-          console.warn(`[GroqProvider] Rate limit hit (429). Attempt ${attempt} of ${attempts}. Waiting ${delayMs}ms...`);
+
+          if (response.status === 404) {
+            const errText = await response.text();
+            console.warn(`[GroqProvider] Model ${currentModel} returned 404 not found. Trying next fallback model...`);
+            lastError = new Error(`Groq model ${currentModel} not found: ${errText}`);
+            break; // Break attempt loop to try next candidate model immediately!
+          }
+
+          if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Groq API returned HTTP error ${response.status}: ${errText}`);
+          }
+
+          const payload = await response.json();
+          const rawText = payload.choices?.[0]?.message?.content;
+          if (!rawText) {
+            throw new Error('Groq API returned an empty completion response.');
+          }
+
+          this.lastRawResponse = rawText;
+          this.lastUsage = payload.usage || null;
+
+          return extractJson<T>(rawText);
+        } catch (error: any) {
+          lastError = error;
+          if (error.message?.includes('404') || error.message?.includes('401') || error.message?.includes('403')) {
+            break; // Non-retryable error, try next model or throw
+          }
+          if (attempt === attempts) {
+            break;
+          }
           await new Promise(resolve => setTimeout(resolve, delayMs));
-          delayMs *= 2.0; // Exponential backoff
-          continue;
+          delayMs *= 2;
         }
-
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(`Groq API returned HTTP error ${response.status}: ${errText}`);
-        }
-
-        const payload = await response.json();
-        const rawText = payload.choices?.[0]?.message?.content;
-        if (!rawText) {
-          throw new Error('Groq API returned an empty completion response.');
-        }
-
-        this.lastRawResponse = rawText;
-        this.lastUsage = payload.usage || null;
-
-        return extractJson<T>(rawText);
-      } catch (error) {
-        if (attempt === attempts) {
-          console.error('[GroqProvider] API request failed after all attempts:', error);
-          throw error;
-        }
-        console.warn(`[GroqProvider] Request failed on attempt ${attempt}. Retrying in ${delayMs}ms... Error: ${error instanceof Error ? error.message : String(error)}`);
-        await new Promise(resolve => setTimeout(resolve, delayMs));
-        delayMs *= 2.0;
       }
     }
-    throw new Error('GroqProvider call completed loop without returning or throwing.');
+
+    throw lastError || new Error('GroqProvider call completed loop without returning or throwing.');
   }
 
   async scoreEntry(content: string): Promise<ClarityScoreResponse> {
