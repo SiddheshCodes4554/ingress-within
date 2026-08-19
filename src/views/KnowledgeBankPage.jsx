@@ -76,7 +76,8 @@ const ICON_PATHS = {
 };
 
 function TiIcon({ name, className = '', style = {}, ...props }) {
-  const path = ICON_PATHS[name];
+  const cleanName = (name || '').replace(/^ti-/, '');
+  const path = ICON_PATHS[cleanName] || ICON_PATHS[name];
   if (!path) {
     return (
       <svg viewBox="0 0 24 24" className={`ti-icon ${className}`} style={{ width: '1em', height: '1em', display: 'inline-block', strokeWidth: 2, stroke: 'currentColor', fill: 'none', strokeLinecap: 'round', strokeLinejoin: 'round', ...style }} {...props}>
@@ -1080,22 +1081,13 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
                               style={{ transform: isExpanded ? 'rotate(180deg)' : '' }} 
                             />
                           </div>
-                          <div className={`family-emotions ${isExpanded ? 'open' : ''}`}>
-                            {f.emotions.map((emName, eIdx) => {
-                              const e = DICTIONARY_EMOTIONS[emName];
-                              if (!e) return null;
-                              return (
-                                <div key={eIdx} className="emo-chip" onClick={() => openEmotionDirect(emName)}>
-                                  <div className="emo-chip-glyph" style={{ background: e.color }}>
-                                    <TiIcon name={e.icon} style={{ color: e.ic }} />
-                                  </div>
-                                  <div>
-                                    <div className="emo-chip-name">{emName}</div>
-                                    <div className="emo-chip-aka">{e.aka}</div>
-                                  </div>
-                                </div>
-                              );
-                            })}
+                          <div className={`family-pills ${isExpanded ? 'open' : ''}`}>
+                            {f.emotions.map((name, eIdx) => (
+                              <div key={eIdx} className="emo-pill" onClick={() => openEmotionDirect(name)}>
+                                {visited.includes(name) && <span className="visited-dot"></span>}
+                                <span>{name}</span>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       );
