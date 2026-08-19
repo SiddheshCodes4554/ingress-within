@@ -322,7 +322,6 @@ export class ClaudeProvider implements AIProvider {
       const response = await this.client.messages.create({
         model: selectedModel,
         max_tokens: 4000,
-        temperature: 0.1,
         system: `${systemPrompt}\nYou must return a valid JSON object matching the requested schema. Output ONLY the JSON block. Do not output any conversational introductions, markdown formatting outside of a json codeblock, or explanation. Begin your response with '{' and end with '}'.`,
         messages: [
           { role: 'user', content: userContent }
@@ -901,7 +900,6 @@ Return a valid JSON object matching the requested schema:
       const response = await this.client.messages.create({
         model: this.model,
         max_tokens: 4000,
-        temperature: 0.1,
         messages: [
           { role: 'user', content: prompt }
         ]
