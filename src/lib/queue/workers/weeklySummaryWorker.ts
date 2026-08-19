@@ -308,7 +308,18 @@ export async function processWeeklySummary(jobData: {
     collectedData.lastWeekTopExpressions = lastWeekTopExpressions;
 
     // 4. Call AI Provider with fully collected report context
+    const aiStartTime = Date.now();
     const result = await aiProvider.generateWeeklyReport(collectedData);
+
+    const actualProvider = (aiProvider as any).lastProviderUsed || process.env.AI_PROVIDER || 'claude';
+    const actualModel = (aiProvider as any).model || process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
+    const fallbackUsed = (aiProvider as any).lastFallbackUsed || false;
+    const primaryProvider = (aiProvider as any).lastPrimaryProvider || 'claude';
+
+    // Output schema validation
+    if (!result || typeof result !== 'object' || !result.what_we_saw || !result.carry_question) {
+      throw new Error(`Weekly report validation failed: Missing required narrative or carry question.`);
+    }
 
     const updatedOrchestration = summaryRow.report_data?.orchestration || {};
     updatedOrchestration.status = 'READY';
@@ -349,6 +360,38 @@ export async function processWeeklySummary(jobData: {
 
     if (updateError) {
       throw new Error(`Failed to update weekly summary row: ${updateError.message}`);
+    }
+
+    // Record to ai_observability
+    try {
+      await supabase.from('ai_observability').insert({
+        entry_id: actualSummaryId,
+        provider: actualProvider,
+        raw_provider_response: (aiProvider as any).lastRawResponse || JSON.stringify(result),
+        parsed_response: {
+          ...result,
+          _metadata: {
+            module: 'weekly_report',
+            summary_id: actualSummaryId,
+            cycle_id,
+            week_number,
+            fallback_used: fallbackUsed,
+            primary_provider: primaryProvider,
+            usage: (aiProvider as any).lastUsage || null
+          }
+        },
+        validation_result: {
+          status: 'passed',
+          week_tone: result.week_tone,
+          fallback_used: fallbackUsed,
+          primary_provider: primaryProvider
+        },
+        processing_time: Date.now() - aiStartTime,
+        retry_count: fallbackUsed ? 1 : 0,
+        error_reason: null
+      });
+    } catch (obsErr) {
+      console.warn('[Weekly Summary Worker] Failed to write ai_observability:', obsErr);
     }
 
     // 6. Create open thread in open_threads (if it doesn't already exist for this summary)
