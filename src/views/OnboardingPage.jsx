@@ -322,13 +322,13 @@ export default function OnboardingPage({ initialStep = 'loading', onComplete }) 
         <div className="relative w-80 h-80 flex items-center justify-center shrink-0 my-8">
           {/* Logo Mark in Center */}
           <div className="absolute z-20 flex flex-col items-center justify-center pointer-events-none">
-            <svg className="w-14 h-14 text-white" viewBox="0 0 32 32" fill="none">
-              <circle cx="16" cy="16" r="2" fill="currentColor"/>
-              <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-              <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary"/>
-            </svg>
-            <span className="font-serif text-white text-sm font-normal tracking-[0.08em] mt-2 leading-none">
-              onboarding
+            <img 
+              src="/logo-mark-transparent.png" 
+              alt="Ingress Within" 
+              className="w-16 h-16 object-contain drop-shadow-md" 
+            />
+            <span className="font-serif text-white text-sm font-normal tracking-[0.08em] mt-3 leading-none">
+              ingress <span className="font-semibold text-secondary">within</span>
             </span>
           </div>
 
@@ -380,13 +380,13 @@ export default function OnboardingPage({ initialStep = 'loading', onComplete }) 
           <span className="font-sans text-[11px] font-medium tracking-[0.14em] uppercase text-secondary-dark">
             {step === 'loading' ? 'Checking status...' : `Step ${step === 'consent' ? '1 of 5' : step === 'profile' ? '2 of 5' : step === 'welcome' ? '3 of 5' : step === 'assessment' ? '4 of 5' : '5 of 5'}`}
           </span>
-          <div className="flex items-center gap-1.5 lg:hidden">
-            <svg className="w-6 h-6 text-primary" viewBox="0 0 32 32" fill="none">
-              <circle cx="16" cy="16" r="2" fill="currentColor"/>
-              <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-              <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary"/>
-            </svg>
-            <span className="font-serif text-sm font-bold text-primary">ingress</span>
+          <div className="flex items-center gap-2 lg:hidden">
+            <img 
+              src="/logo-mark-transparent.png" 
+              alt="Ingress Within" 
+              className="w-6 h-6 object-contain" 
+            />
+            <span className="font-serif text-sm font-bold text-primary">ingress <span className="font-normal text-secondary">within</span></span>
           </div>
         </div>
 

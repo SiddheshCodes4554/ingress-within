@@ -81,10 +81,12 @@ export default function Exercise3ResultView({ instanceId, onClose }) {
         {/* Top Bar Logo & Close */}
         <div className="flex items-center justify-between border-b border-[#1E2A2E]/10 pb-4 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <div className="w-[18px] h-[18px] rounded-full border-[1.5px] border-[#8DBFB4] flex items-center justify-center">
-              <div className="w-[5px] h-[5px] rounded-full bg-[#8DBFB4]" />
-            </div>
-            <span className="font-sans font-semibold text-xs text-[#1E2A2E]">
+            <img 
+              src="/logo-mark-transparent.png" 
+              alt="Ingress Within" 
+              className="w-5 h-5 object-contain" 
+            />
+            <span className="font-serif font-semibold text-xs text-[#1E2A2E]">
               ingress <em className="text-[#8DBFB4] not-italic">within</em>
             </span>
           </div>

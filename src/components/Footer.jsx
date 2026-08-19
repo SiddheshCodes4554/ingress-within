@@ -17,11 +17,18 @@ export default function Footer({ onOpenPolicy }) {
       <div className="max-w-[1060px] mx-auto grid grid-cols-1 md:grid-cols-5 gap-12 mb-12">
         {/* Column 1: Brand descriptor */}
         <div className="md:col-span-2 space-y-3">
-          <div className="footer-logo-name font-serif text-xl font-normal text-white/60 leading-none">
-            ingress <span className="font-semibold">within</span>
+          <div className="flex items-center gap-3">
+            <img 
+              src="/logo-mark-transparent.png" 
+              alt="Ingress Within" 
+              className="w-7 h-7 object-contain opacity-90" 
+            />
+            <div className="footer-logo-name font-serif text-xl font-normal text-white/90 leading-none">
+              ingress <span className="font-semibold text-secondary">within</span>
+            </div>
           </div>
-          <div className="footer-tagline font-sans text-[10px] font-light text-white/35 tracking-[0.1em] uppercase">
-            The way within
+          <div className="footer-tagline font-sans text-[10px] font-medium text-white/45 tracking-[0.14em] uppercase">
+            Understand. Grow. Continue
           </div>
           <p className="footer-desc font-sans text-[13px] font-light text-[#C8DDD9]/55 leading-relaxed max-w-[260px]">
             A space to process what you are carrying — before therapy, during it, after it, or entirely on your own.

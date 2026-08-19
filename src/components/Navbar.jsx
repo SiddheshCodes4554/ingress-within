@@ -44,25 +44,21 @@ export default function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-[100] px-[5%] h-[68px] flex items-center justify-between bg-mint-grey/95 backdrop-blur-[12px] border-b border-primary/8 transition-all duration-300">
 
       {/* Logo block */}
-      <div className="logo flex flex-col gap-[1px]">
-        <div className="logo-mark flex items-center gap-[10px]">
-          <svg className="logo-icon w-8 h-8" viewBox="0 0 32 32" fill="none">
-            <circle cx="16" cy="16" r="2" fill="#1E2A2E" />
-            <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="#1E2A2E" strokeWidth="1.2" fill="none" />
-            <circle cx="16" cy="16" r="6" stroke="#2E7A70" strokeWidth="1.2" fill="none" />
-            <circle cx="16" cy="16" r="10" stroke="#2E7A70" strokeWidth="0.9" fill="none" opacity="0.65" />
-            <circle cx="16" cy="16" r="14" stroke="#2E7A70" strokeWidth="0.6" fill="none" opacity="0.35" />
-          </svg>
-          <a href="/" className="no-underline">
-            <span className="logo-name font-serif text-xl font-normal text-primary tracking-[0.01em]">
-              ingress <span className="font-semibold">within</span>
-            </span>
-          </a>
+      <a href="/" className="logo flex items-center gap-3 no-underline group cursor-pointer">
+        <img 
+          src="/logo-mark-transparent.png" 
+          alt="Ingress Within" 
+          className="w-8 h-8 object-contain transition-transform duration-300 group-hover:scale-105 flex-shrink-0" 
+        />
+        <div className="flex flex-col justify-center">
+          <span className="logo-name font-serif text-xl font-normal text-primary tracking-[0.01em] leading-none">
+            ingress <span className="font-semibold text-secondary">within</span>
+          </span>
+          <span className="logo-tagline font-sans text-[9px] font-medium text-mid/75 tracking-[0.14em] uppercase leading-tight mt-1">
+            Understand. Grow. Continue
+          </span>
         </div>
-        <span className="logo-tagline font-sans text-[10px] font-light text-mid tracking-[0.12em] uppercase pl-[42px] leading-none">
-          The way within
-        </span>
-      </div>
+      </a>
 
       {/* Nav Links */}
       <ul className="nav-links hidden md:flex items-center gap-6 list-none">

@@ -1,0 +1,23 @@
+{
+  "name": "Ingress Within",
+  "short_name": "Ingress Within",
+  "description": "Guided Journaling, Emotional Pattern Intelligence, and Personal Growth.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ECEFF0",
+  "theme_color": "#1E2A2E",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

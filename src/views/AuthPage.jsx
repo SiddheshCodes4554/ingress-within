@@ -316,13 +316,13 @@ export default function AuthPage({ onOpenPolicy }) {
           
           {/* Logo Mark in Center */}
           <div className="absolute z-20 flex flex-col items-center justify-center pointer-events-none">
-            <svg className="w-14 h-14 text-white" viewBox="0 0 32 32" fill="none">
-              <circle cx="16" cy="16" r="2" fill="currentColor"/>
-              <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-              <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary"/>
-            </svg>
-            <span className="font-serif text-white text-sm font-normal tracking-[0.08em] mt-2 leading-none">
-              ingress <span>within</span>
+            <img 
+              src="/logo-mark-transparent.png" 
+              alt="Ingress Within" 
+              className="w-16 h-16 object-contain drop-shadow-md" 
+            />
+            <span className="font-serif text-white text-sm font-normal tracking-[0.08em] mt-3 leading-none">
+              ingress <span className="font-semibold text-secondary">within</span>
             </span>
           </div>
 
@@ -391,13 +391,13 @@ export default function AuthPage({ onOpenPolicy }) {
         
         {/* Top Header bar with Logo mark for Mobile view */}
         <div className="w-full flex justify-end items-center max-w-[360px] z-10">
-          <div className="flex items-center gap-1.5 lg:hidden">
-            <svg className="w-6 h-6 text-primary" viewBox="0 0 32 32" fill="none">
-              <circle cx="16" cy="16" r="2" fill="currentColor"/>
-              <path d="M16 10 Q19 13 16 16 Q13 19 16 22" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-              <circle cx="16" cy="16" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" className="text-secondary"/>
-            </svg>
-            <span className="font-serif text-sm font-bold text-primary">ingress</span>
+          <div className="flex items-center gap-2 lg:hidden">
+            <img 
+              src="/logo-mark-transparent.png" 
+              alt="Ingress Within" 
+              className="w-6 h-6 object-contain" 
+            />
+            <span className="font-serif text-sm font-bold text-primary">ingress <span className="font-normal text-secondary">within</span></span>
           </div>
         </div>
 
