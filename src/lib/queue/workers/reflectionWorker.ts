@@ -187,8 +187,8 @@ export async function processReflectionGeneration(jobData: {
 }) {
   const { entry_id, user_id, bypass_ai, orchestrator_job_id } = jobData;
   const startTime = Date.now();
-  const providerName = process.env.AI_PROVIDER || 'groq';
-  const modelName = (aiProvider as any).model || 'unknown';
+  const providerName = process.env.AI_PROVIDER || 'claude';
+  const modelName = (aiProvider as any).model || process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
 
   console.log(`[Reflection Engine] [1/8] [Entry: ${entry_id}] Starting reflection pipeline. Provider: ${providerName}, Model: ${modelName}`);
 
@@ -448,6 +448,11 @@ export async function processReflectionGeneration(jobData: {
       cycleId = activeCycle?.id || null;
     }
 
+    const actualProvider = (aiProvider as any).lastProviderUsed || providerName;
+    const fallbackUsed = (aiProvider as any).lastFallbackUsed || false;
+    const primaryProvider = (aiProvider as any).lastPrimaryProvider || 'claude';
+    const usage = (aiProvider as any).lastUsage || null;
+
     const fullReflectionText = `${result.reflection.trim()}\n\n${(result.closing_nudge || 'Sit with that tonight.\nCome back tomorrow and tell me what came up.').trim()}`;
     const reflectionPayload: any = {
       entry_id,
@@ -456,7 +461,7 @@ export async function processReflectionGeneration(jobData: {
       reflection_text: fullReflectionText,
       closing_question: result.closing_question,
       classification: result.classification,
-      provider: providerName,
+      provider: actualProvider,
       confidence: result.confidence || 'high',
       themes: result.themes || [],
       status: 'ready',
@@ -496,6 +501,33 @@ export async function processReflectionGeneration(jobData: {
       } else if (newRefl) {
         reflectionId = newRefl.id;
       }
+    }
+
+    // Persist to ai_observability table
+    try {
+      await supabase.from('ai_observability').insert({
+        entry_id,
+        provider: actualProvider,
+        raw_provider_response: (aiProvider as any).lastRawResponse || JSON.stringify(result),
+        parsed_response: {
+          ...result,
+          _metadata: {
+            fallback_used: fallbackUsed,
+            primary_provider: primaryProvider,
+            usage
+          }
+        },
+        validation_result: {
+          status: 'passed',
+          fallback_used: fallbackUsed,
+          primary_provider: primaryProvider
+        },
+        processing_time: Date.now() - startTime,
+        retry_count: attempts - 1,
+        error_reason: null
+      });
+    } catch (obsErr) {
+      console.warn('[Reflection Engine] Failed to write to ai_observability:', obsErr);
     }
 
     console.log(`[Reflection Engine] [7/8] [Entry: ${entry_id}] Saved reflection observation to Supabase reflections table.`);
