@@ -122,7 +122,7 @@ const REFRAMES_FALLBACK = [
 
 export default function KnowledgeBankPage({ user, profile: initialProfile, onSignOut }) {
   const [activeTab, setActiveTab] = useState('explore');
-  const [innerPatternTab, setInnerPatternTab] = useState('by-pattern');
+  const [innerPatternTab, setInnerPatternTab] = useState('your-patterns');
   const [exploreScreen, setExploreScreen] = useState('home');
   const [activeEmotionName, setActiveEmotionName] = useState(null);
 
@@ -132,6 +132,7 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
   const [relationships, setRelationships] = useState([]);
   const [snapshots, setSnapshots] = useState([]);
   const [vocabOverview, setVocabOverview] = useState(null);
+  const [patternsData, setPatternsData] = useState(null);
   const [visited, setVisited] = useState([]);
   const [resonanceData, setResonanceData] = useState({ cards: [], patterns: [] });
   const [quizHistory, setQuizHistory] = useState([]);
@@ -158,18 +159,21 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
   const [patternResonanceScores, setPatternResonanceScores] = useState({});
   const [patternResonanceNotes, setPatternResonanceNotes] = useState({});
 
-  // Quiz Engine State
+  // Interactive Quiz / Assessment Engine State
+  const [quizPhase, setQuizPhase] = useState('intro'); // 'intro' | 'question' | 'feedback' | 'summary'
   const [quizQuestionNumber, setQuizQuestionNumber] = useState(0);
   const [quizScore, setQuizScore] = useState({ correct: 0, total: 0 });
   const [currentQuiz, setCurrentQuiz] = useState(null);
   const [quizRecentNames, setQuizRecentNames] = useState([]);
+  const [quizAnswersRecord, setQuizAnswersRecord] = useState([]);
+  const [quizSummary, setQuizSummary] = useState(null);
 
   const patternBodyRefs = useRef({});
 
   // Fetch all user and dictionary data
   const loadAllData = async () => {
     try {
-      const [profRes, cardsRes, relsRes, snapsRes, vocabRes, trailRes, resRes, quizRes] = await Promise.all([
+      const [profRes, cardsRes, relsRes, snapsRes, vocabRes, trailRes, resRes, quizRes, patternsRes] = await Promise.all([
         fetch('/api/knowledge/profile').then(r => r.json()).catch(() => ({ profile: null })),
         fetch('/api/knowledge/cards').then(r => r.json()).catch(() => ({ cards: [] })),
         fetch('/api/knowledge/relationships').then(r => r.json()).catch(() => ({ relationships: [] })),
@@ -177,7 +181,8 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
         fetch('/api/vocab/overview').then(r => r.json()).catch(() => ({ data: null })),
         fetch('/api/knowledge/trail').then(r => r.json()).catch(() => ({ visited: [] })),
         fetch('/api/knowledge/resonance').then(r => r.json()).catch(() => ({ cards: [], patterns: [] })),
-        fetch('/api/knowledge/quiz').then(r => r.json()).catch(() => ({ history: [] }))
+        fetch('/api/knowledge/quiz').then(r => r.json()).catch(() => ({ history: [] })),
+        fetch('/api/patterns').then(r => r.json()).catch(() => ({ patterns: [] }))
       ]);
 
       if (profRes.success) setProfile(profRes.profile);
@@ -188,6 +193,14 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
       if (trailRes.success) setVisited(trailRes.visited || []);
       if (resRes.success) setResonanceData({ cards: resRes.cards || [], patterns: resRes.patterns || [] });
       if (quizRes.success) setQuizHistory(quizRes.history || []);
+      if (patternsRes.success || patternsRes.patterns) {
+        setPatternsData(patternsRes);
+        if (patternsRes.patterns && patternsRes.patterns.length > 0) {
+          setInnerPatternTab('your-patterns');
+        } else {
+          setInnerPatternTab('by-pattern');
+        }
+      }
     } catch (err) {
       console.error('Failed to load Knowledge Bank data:', err);
     } finally {
@@ -294,11 +307,37 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
     });
   }, [vocabOverview]);
 
-  // Active patterns derived from profile or snapshots
+  // User personal detected patterns from Pattern Engine
+  const userPatterns = useMemo(() => {
+    if (patternsData?.patterns && Array.isArray(patternsData.patterns) && patternsData.patterns.length > 0) {
+      return patternsData.patterns;
+    }
+    return [];
+  }, [patternsData]);
+
+  // Active pattern names
   const activePatterns = useMemo(() => {
+    const fromApi = userPatterns.map(p => p.name);
+    if (fromApi.length > 0) return fromApi;
     if (!profile || !profile.pattern_model || !profile.pattern_model.referenced_nodes) return [];
     return profile.pattern_model.referenced_nodes;
-  }, [profile]);
+  }, [userPatterns, profile]);
+
+  // Emotional Landscape stats derived from Vocab Overview
+  const emotionalLandscape = useMemo(() => {
+    if (!vocabOverview) return null;
+    const mostUsed = vocabOverview.mostUsed || [];
+    const newWords = vocabOverview.new_words || [];
+    const droppedWords = vocabOverview.dropped_words || [];
+    const stats = vocabOverview.stats || { distinctWordCount: 0, entriesCount: 0 };
+    return {
+      frequent: mostUsed.slice(0, 4),
+      emerging: newWords.slice(0, 4),
+      quiet: droppedWords.slice(0, 4),
+      distinctCount: stats.distinctWordCount || 0,
+      entriesCount: stats.entriesCount || 0
+    };
+  }, [vocabOverview]);
 
   // Sorted situations based on active patterns and resonance
   const sortedSituations = useMemo(() => {
@@ -543,7 +582,7 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
     }
   };
 
-  // Quiz Engine
+  // ─── Interactive Assessment Engine ───
   const shuffleArr = (arr) => {
     const a = arr.slice();
     for (let i = a.length - 1; i > 0; i--) {
@@ -564,9 +603,16 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
     setQuizScore({ correct: 0, total: 0 });
     setQuizQuestionNumber(0);
     setQuizRecentNames([]);
-    buildQuizQuestion(forcedName, []);
+    setQuizAnswersRecord([]);
+    setQuizSummary(null);
+    setQuizPhase('intro');
     setExploreScreen('quiz');
     setActiveTab('explore');
+  };
+
+  const beginQuizQuestions = (forcedName) => {
+    setQuizPhase('question');
+    buildQuizQuestion(forcedName, []);
   };
 
   const buildQuizQuestion = (forcedName, recentList) => {
@@ -576,7 +622,7 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
       return;
     }
 
-    let name = (forcedName && DICTIONARY_EMOTIONS[forcedName] && DICTIONARY_EMOTIONS[forcedName].rl.length && DICTIONARY_EMOTIONS[forcedName].cw.length) ? forcedName : null;
+    let name = (forcedName && DICTIONARY_EMOTIONS[forcedName] && DICTIONARY_EMOTIONS[forcedName].rl?.length && DICTIONARY_EMOTIONS[forcedName].cw?.length) ? forcedName : null;
     if (!name) {
       const recents = recentList || quizRecentNames;
       const candidates = pool.filter(n => !recents.includes(n));
@@ -596,40 +642,85 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
     );
 
     setQuizQuestionNumber(prev => prev + 1);
-    setCurrentQuiz({ name, scenario, options, answered: false, picked: null });
+    setCurrentQuiz({ name, scenario, options, answered: false, picked: null, microInsight: '' });
   };
 
   const answerQuiz = async (idx) => {
     if (!currentQuiz || currentQuiz.answered) return;
-    const correct = currentQuiz.options[idx].correct;
+    const pickedOption = currentQuiz.options[idx];
+    const correct = pickedOption.correct;
     const newCorrectCount = quizScore.correct + (correct ? 1 : 0);
     const newTotalCount = quizScore.total + 1;
 
-    setQuizScore({ correct: newCorrectCount, total: newTotalCount });
-    setCurrentQuiz(prev => ({ ...prev, answered: true, picked: idx }));
-
-    // Persist result to database quiz history
-    try {
-      const res = await fetch('/api/knowledge/quiz', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          concept_name: currentQuiz.name,
-          score_correct: correct ? 1 : 0,
-          score_total: 1
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setQuizHistory(prev => [data.result, ...prev]);
-      }
-    } catch (e) {
-      console.error('Failed to log quiz result:', e);
+    // Generate supportive contextual micro-insight
+    let microInsight = '';
+    if (correct) {
+      const insights = [
+        "You seem to notice this pattern clearly when it happens — identifying the exact nuance makes it easier to respond intentionally.",
+        "Clear discernment here. Distinguishing between surface tension and the deeper feeling creates room for genuine clarity.",
+        "Spot on — recognizing subtle emotional shifts before they escalate is a valuable skill in your reflection practice."
+      ];
+      microInsight = insights[Math.floor(Math.random() * insights.length)];
+    } else {
+      const insights = [
+        `That's useful context. Notice how situational pressure can make ${pickedOption.n.toLowerCase()} feel similar to ${currentQuiz.name.toLowerCase()}.`,
+        `An important distinction — while both feel intense, ${currentQuiz.name.toLowerCase()} carries specific roots worth sitting with.`,
+        `Interesting observation. In demanding moments, our first instinct is often to name ${pickedOption.n.toLowerCase()} before noticing ${currentQuiz.name.toLowerCase()}.`
+      ];
+      microInsight = insights[Math.floor(Math.random() * insights.length)];
     }
+
+    setQuizScore({ correct: newCorrectCount, total: newTotalCount });
+    setCurrentQuiz(prev => ({ ...prev, answered: true, picked: idx, microInsight }));
+    setQuizPhase('feedback');
+
+    const updatedAnswers = [...quizAnswersRecord, { concept: currentQuiz.name, picked: pickedOption.n, correct }];
+    setQuizAnswersRecord(updatedAnswers);
   };
 
   const nextQuizQuestion = () => {
-    buildQuizQuestion();
+    if (quizQuestionNumber < 5) {
+      setQuizPhase('question');
+      buildQuizQuestion();
+    } else {
+      // Completed 5 questions: generate final 4-part observational analysis
+      const correctRatio = quizScore.correct / Math.max(1, quizScore.total);
+      let noticed = "You demonstrate thoughtful emotional reflection, taking time to explore how subtle interpersonal tensions show up.";
+      let context = "This pattern appears most noticeably during moments of uncertainty or social expectations.";
+      let strength = "Your reflective stance helps you recognize nuanced emotional states before they turn into prolonged reactivity.";
+      let watch = "Notice if analyzing an emotion intellectually sometimes takes the place of simply allowing yourself to feel it.";
+
+      if (correctRatio >= 0.8) {
+        noticed = "You have high emotional granularity, accurately pinpointing underlying feelings even in complex social scenarios.";
+        strength = "Your ability to name exact emotional states prevents ambiguity and helps you clarify personal boundaries.";
+      } else if (correctRatio >= 0.5) {
+        noticed = "You are developing strong discernment between reactive emotions and deeper internal feelings.";
+        watch = "When situational pressure rises, notice when multiple feelings overlap before jumping to a conclusion.";
+      }
+
+      const summary = { noticed, context, strength, watch };
+      setQuizSummary(summary);
+      setQuizPhase('summary');
+
+      // Persist completed assessment to database
+      fetch('/api/knowledge/quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          concept_name: 'Emotional Granularity Assessment',
+          score_correct: quizScore.correct,
+          score_total: quizScore.total,
+          summary
+        })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.result) {
+          setQuizHistory(prev => [data.result, ...prev]);
+        }
+      })
+      .catch(e => console.error('Failed to log assessment result:', e));
+    }
   };
 
   const toggleFamily = (name) => {
@@ -771,19 +862,89 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
                     </div>
                   )}
 
+                  {/* Personal Emotional Landscape Widget */}
+                  <div className="landscape-container">
+                    <div className="landscape-header">
+                      <span className="landscape-title">
+                        <TiIcon name="activity" style={{ color: 'var(--logo-sage)' }} />
+                        Your Emotional Landscape
+                      </span>
+                      <span style={{ fontSize: '11px', color: 'var(--body-light)', fontWeight: 600 }}>
+                        {emotionalLandscape?.distinctCount || userWords.length} active words
+                      </span>
+                    </div>
+
+                    <div className="landscape-grid">
+                      <div className="landscape-col">
+                        <div className="landscape-col-label">
+                          <TiIcon name="sparkles" style={{ color: 'var(--terracotta)' }} />
+                          Frequently appearing
+                        </div>
+                        <div className="landscape-tags">
+                          {emotionalLandscape?.frequent && emotionalLandscape.frequent.length > 0 ? (
+                            emotionalLandscape.frequent.map((item, idx) => (
+                              <span key={idx} className="landscape-tag" onClick={() => openEmotionDirect(item.word)}>
+                                {item.word}
+                                <span className="landscape-tag-freq">{item.frequency}×</span>
+                              </span>
+                            ))
+                          ) : (
+                            <span style={{ fontSize: '11px', color: 'var(--body-light)', fontStyle: 'italic' }}>Observing ongoing entries...</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="landscape-col">
+                        <div className="landscape-col-label">
+                          <TiIcon name="sunrise" style={{ color: 'var(--ocean-sage)' }} />
+                          Recently emerging
+                        </div>
+                        <div className="landscape-tags">
+                          {emotionalLandscape?.emerging && emotionalLandscape.emerging.length > 0 ? (
+                            emotionalLandscape.emerging.map((word, idx) => (
+                              <span key={idx} className="landscape-tag" onClick={() => openEmotionDirect(word)}>
+                                {word}
+                              </span>
+                            ))
+                          ) : (
+                            <span style={{ fontSize: '11px', color: 'var(--body-light)', fontStyle: 'italic' }}>No newly emerging words yet.</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="landscape-col">
+                        <div className="landscape-col-label">
+                          <TiIcon name="wind" style={{ color: 'var(--soft-iris)' }} />
+                          Less present recently
+                        </div>
+                        <div className="landscape-tags">
+                          {emotionalLandscape?.quiet && emotionalLandscape.quiet.length > 0 ? (
+                            emotionalLandscape.quiet.map((word, idx) => (
+                              <span key={idx} className="landscape-tag" style={{ opacity: 0.75 }}>
+                                {word}
+                              </span>
+                            ))
+                          ) : (
+                            <span style={{ fontSize: '11px', color: 'var(--body-light)', fontStyle: 'italic' }}>Stable register across cycles.</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Your Words */}
-                  <div className="eyebrow"><TiIcon name="sparkles" /> Your words</div>
+                  <div className="eyebrow"><TiIcon name="sparkles" /> Your living vocabulary</div>
                   {userWords.length === 0 ? (
-                    <div className="your-words-empty">
-                      Nothing yet — this fills in as the words in your entries get picked up.
-                      <br />
-                      <button className="empty-cta" onClick={() => setActiveTab('trail')}>
-                        See how, in the Trail tab <TiIcon name="arrow-right" />
-                      </button>
+                    <div className="kb-empty-box">
+                      <div className="kb-empty-icon"><TiIcon name="sparkles" /></div>
+                      <div className="kb-empty-title">Your personal vocabulary is gathering</div>
+                      <p className="kb-empty-text">
+                        As you write in your daily journals and reflect, meaningful emotional words, state descriptions, and recurring expressions will appear here.
+                      </p>
                     </div>
                   ) : (
                     <div className="your-words-list" style={{ marginBottom: '28px' }}>
-                      {userWords.slice(0, 10).map((w, idx) => (
+                      {userWords.slice(0, 12).map((w, idx) => (
                         <div 
                           key={idx} 
                           className="your-word-card" 
@@ -793,7 +954,6 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
                             } else if (w.matches && w.matches.length > 0) {
                               pickSurface(w.original, 'expression from your diaries', w.matches);
                             } else {
-                              // If custom and no matches, fallback search
                               setSearchQuery(w.original);
                               handleSearch();
                             }
@@ -803,7 +963,7 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
                           <div className="your-word-body">
                             <div className="your-word-name">
                               {w.original}
-                              {!w.isStandard && <span className="yours-badge">Yours</span>}
+                              {w.frequency ? <span className="yours-badge" style={{ marginLeft: '6px' }}>Used {w.frequency}×</span> : <span className="yours-badge">Yours</span>}
                             </div>
                             <div className="your-word-plain">{w.aka}</div>
                           </div>
@@ -836,8 +996,8 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
                   <div className="quiz-cta-card" onClick={() => startQuiz()}>
                     <div className="quiz-cta-glyph"><TiIcon name="flask" /></div>
                     <div className="quiz-cta-body">
-                      <div className="quiz-cta-title">Test yourself</div>
-                      <div className="quiz-cta-sub">A real-life scenario, a few close words — see if you'd pick the right one</div>
+                      <div className="quiz-cta-title">Test yourself — Emotional Granularity</div>
+                      <div className="quiz-cta-sub">Guided micro-exploration of situational emotions with supportive observational feedback</div>
                     </div>
                     <TiIcon name="chevron-right" className="match-chev" />
                   </div>
@@ -920,13 +1080,22 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
                               style={{ transform: isExpanded ? 'rotate(180deg)' : '' }} 
                             />
                           </div>
-                          <div className={`family-pills ${isExpanded ? 'open' : ''}`}>
-                            {f.emotions.map((name, eIdx) => (
-                              <div key={eIdx} className="emo-pill" onClick={() => openEmotionDirect(name)}>
-                                {visited.includes(name) && <span className="visited-dot"></span>}
-                                {name}
-                              </div>
-                            ))}
+                          <div className={`family-emotions ${isExpanded ? 'open' : ''}`}>
+                            {f.emotions.map((emName, eIdx) => {
+                              const e = DICTIONARY_EMOTIONS[emName];
+                              if (!e) return null;
+                              return (
+                                <div key={eIdx} className="emo-chip" onClick={() => openEmotionDirect(emName)}>
+                                  <div className="emo-chip-glyph" style={{ background: e.color }}>
+                                    <TiIcon name={e.icon} style={{ color: e.ic }} />
+                                  </div>
+                                  <div>
+                                    <div className="emo-chip-name">{emName}</div>
+                                    <div className="emo-chip-aka">{e.aka}</div>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       );
@@ -1123,26 +1292,54 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
                 </div>
               )}
 
-              {/* Explorer QUIZ SCREEN */}
+              {/* Explorer QUIZ / INTERACTIVE ASSESSMENT SCREEN */}
               {exploreScreen === 'quiz' && (
                 <div className="screen active">
                   <div className="back-row">
-                    <button className="back-btn" onClick={goHome}><TiIcon name="arrow-left" /> Back</button>
-                    <span className="breadcrumb">Test yourself</span>
+                    <button className="back-btn" onClick={goHome}><TiIcon name="arrow-left" /> Back to Knowledge Hub</button>
+                    <span className="breadcrumb">Emotional Granularity Exploration</span>
                   </div>
-                  <div className="quiz-progress">
-                    <span id="quiz-progress-text">Question {quizQuestionNumber}</span>
-                    <span className="quiz-score" id="quiz-score-text">{quizScore.correct} / {quizScore.total} correct</span>
-                  </div>
-                  
-                  {currentQuiz ? (
-                    <div id="quiz-body">
+
+                  {/* INTRO SCREEN */}
+                  {quizPhase === 'intro' && (
+                    <div className="assessment-card">
+                      <div className="quiz-scenario-eyebrow" style={{ color: 'var(--logo-sage)' }}>About this exploration</div>
+                      <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--teal-black)', margin: '8px 0 12px' }}>
+                        Exploring Emotional Granularity
+                      </h2>
+                      <p style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--body-light)', marginBottom: '16px' }}>
+                        This 5-question exploration examines how you differentiate subtle emotional nuances across real-world situations. There are no right or wrong judgments — our goal is to help you sharpen emotional discernment and notice what holds true in your experience.
+                      </p>
+                      <button 
+                        className="quiz-next-btn" 
+                        onClick={() => beginQuizQuestions(activeEmotionName)}
+                        style={{ marginTop: '8px' }}
+                      >
+                        Begin Exploration <TiIcon name="arrow-right" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* QUESTION / FEEDBACK SCREEN */}
+                  {(quizPhase === 'question' || quizPhase === 'feedback') && currentQuiz && (
+                    <div id="quiz-body" className="assessment-card">
+                      <div className="assessment-progress-wrap">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700, color: 'var(--body-light)' }}>
+                          <span>Question {quizQuestionNumber} of 5</span>
+                          <span>{5 - quizQuestionNumber} remaining</span>
+                        </div>
+                        <div className="assessment-progress-bar">
+                          <div className="assessment-progress-fill" style={{ width: `${(quizQuestionNumber / 5) * 100}%` }} />
+                        </div>
+                      </div>
+
                       <div className="quiz-scenario-card">
-                        <div className="quiz-scenario-eyebrow">The situation</div>
+                        <div className="quiz-scenario-eyebrow">The Situation</div>
                         <div className="quiz-scenario-sit">{currentQuiz.scenario.s}</div>
                         <div className="quiz-scenario-text">{currentQuiz.scenario.f}</div>
                       </div>
-                      <div className="quiz-question">What would you call this feeling?</div>
+
+                      <div className="quiz-question">What descriptor best captures this underlying experience?</div>
                       <div className="quiz-options">
                         {currentQuiz.options.map((o, idx) => {
                           let cls = 'quiz-option';
@@ -1166,28 +1363,69 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
                         })}
                       </div>
 
-                      {currentQuiz.answered && (
-                        <>
-                          {currentQuiz.options[currentQuiz.picked].correct ? (
-                            <div className="quiz-feedback correct">
-                              <div className="quiz-feedback-label">Right — {currentQuiz.name}</div>
-                              {DICTIONARY_EMOTIONS[currentQuiz.name].aka}
+                      {/* Immediate Micro-Insight Acknowledgement */}
+                      {quizPhase === 'feedback' && currentQuiz.answered && (
+                        <div style={{ marginTop: '16px' }}>
+                          <div className="assessment-micro-insight">
+                            <div style={{ fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <TiIcon name="bulb" />
+                              Observation
                             </div>
-                          ) : (
-                            <div className="quiz-feedback wrong">
-                              <div className="quiz-feedback-label">This one was {currentQuiz.name}, not {currentQuiz.options[currentQuiz.picked].n}</div>
-                              {currentQuiz.options[currentQuiz.picked].d}
-                            </div>
-                          )}
-                          <button className="quiz-next-btn" onClick={nextQuizQuestion}>
-                            Next question <TiIcon name="arrow-right" />
+                            {currentQuiz.microInsight}
+                          </div>
+                          <button className="quiz-next-btn" onClick={nextQuizQuestion} style={{ marginTop: '16px' }}>
+                            {quizQuestionNumber < 5 ? (
+                              <>Continue to next question <TiIcon name="arrow-right" /></>
+                            ) : (
+                              <>View assessment findings <TiIcon name="sparkles" /></>
+                            )}
                           </button>
-                        </>
+                        </div>
                       )}
                     </div>
-                  ) : (
-                    <div className="quiz-empty">
-                      Not enough words with real-life examples yet to build a quiz from. Explore a few more first.
+                  )}
+
+                  {/* FINAL OBSERVATIONAL SUMMARY SCREEN */}
+                  {quizPhase === 'summary' && quizSummary && (
+                    <div className="assessment-summary-card">
+                      <div className="quiz-scenario-eyebrow" style={{ color: 'var(--logo-sage)' }}>Assessment Result</div>
+                      <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--teal-black)', margin: '8px 0 6px' }}>
+                        What We Noticed
+                      </h2>
+                      <p style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--body-light)', marginBottom: '16px' }}>
+                        Observational feedback on your emotional granularity and situational discernment:
+                      </p>
+
+                      <div className="assessment-summary-grid">
+                        <div className="assessment-summary-block">
+                          <div className="assessment-summary-label"><TiIcon name="sparkles" /> Primary Observation</div>
+                          <div className="assessment-summary-text">{quizSummary.noticed}</div>
+                        </div>
+
+                        <div className="assessment-summary-block">
+                          <div className="assessment-summary-label"><TiIcon name="map-pin" /> When This Shows Up</div>
+                          <div className="assessment-summary-text">{quizSummary.context}</div>
+                        </div>
+
+                        <div className="assessment-summary-block">
+                          <div className="assessment-summary-label"><TiIcon name="award" /> A Strength</div>
+                          <div className="assessment-summary-text">{quizSummary.strength}</div>
+                        </div>
+
+                        <div className="assessment-summary-block">
+                          <div className="assessment-summary-label"><TiIcon name="eye" /> Something to Watch</div>
+                          <div className="assessment-summary-text">{quizSummary.watch}</div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                        <button className="quiz-next-btn" onClick={() => startQuiz()} style={{ flex: 1 }}>
+                          Take another exploration <TiIcon name="refresh" />
+                        </button>
+                        <button className="back-btn" onClick={goHome} style={{ padding: '10px 18px' }}>
+                          Done
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1199,6 +1437,12 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
           {activeTab === 'patterns' && (
             <div className="screen active">
               <div className="inner-tab-bar">
+                <button 
+                  className={`inner-tab ${innerPatternTab === 'your-patterns' ? 'active' : ''}`} 
+                  onClick={() => setInnerPatternTab('your-patterns')}
+                >
+                  <TiIcon name="sparkles" /> Your patterns ({userPatterns.length})
+                </button>
                 <button 
                   className={`inner-tab ${innerPatternTab === 'by-pattern' ? 'active' : ''}`} 
                   onClick={() => setInnerPatternTab('by-pattern')}
@@ -1213,139 +1457,157 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
                 </button>
               </div>
 
-              {/* inner tab BY PATTERN */}
-              {innerPatternTab === 'by-pattern' && (
-                <div id="inner-by-pattern">
-                  <div className="eyebrow"><TiIcon name="sparkles" /> Your patterns</div>
+              {/* inner tab YOUR PATTERNS */}
+              {innerPatternTab === 'your-patterns' && (
+                <div id="inner-your-patterns">
+                  <div className="eyebrow"><TiIcon name="sparkles" /> Patterns detected in your writing</div>
                   
-                  {/* Your active patterns accordion list */}
-                  <div className="ptn-list" style={{ marginBottom: '28px' }}>
-                    {activePatterns.length === 0 ? (
-                      <div className="your-words-empty">
-                        Nothing yet — this fills in as patterns turn up in your entries.
-                        <br />
-                        <button className="empty-cta" onClick={() => setActiveTab('trail')}>
-                          See how, in the Trail tab <TiIcon name="arrow-right" />
-                        </button>
-                      </div>
-                    ) : (
-                      activePatterns.map((pname, idx) => {
-                        const p = PATTERNS.find(x => x.name === pname);
-                        if (!p) return null;
-                        const isExpanded = !!expandedPatterns[p.id];
-                        const resVal = resonanceData.patterns.find(x => x.concept_name === pname);
+                  {userPatterns.length === 0 ? (
+                    <div className="kb-empty-box">
+                      <div className="kb-empty-icon"><TiIcon name="sparkles" /></div>
+                      <div className="kb-empty-title">We're still getting to know your patterns</div>
+                      <p className="kb-empty-text">
+                        As you continue writing, recurring themes, behavioral tendencies, and emotional patterns will begin to appear here.
+                      </p>
+                      <button className="empty-cta" onClick={() => setInnerPatternTab('by-pattern')}>
+                        Explore known patterns in our library <TiIcon name="arrow-right" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="ptn-list" style={{ marginBottom: '28px' }}>
+                      {userPatterns.map((p, idx) => {
+                        const ptnDef = PATTERNS.find(x => x.name.toLowerCase() === p.name.toLowerCase()) || {};
+                        const isExpanded = !!expandedPatterns[p.id || idx];
+                        const resVal = resonanceData.patterns.find(x => x.concept_name === p.name);
+                        const statusClass = (p.status || 'present').toLowerCase();
 
                         return (
-                          <div key={idx} className="ptn-card">
-                            <div className="ptn-header" onClick={() => togglePatternAccordion(p.id)}>
-                              <div className="ptn-left">
-                                <div className="ptn-glyph" style={{ background: p.gc }}>
-                                  <TiIcon name={p.icon} style={{ color: p.ic }} />
-                                </div>
-                                <div>
-                                  <div className="ptn-title">
-                                    {p.name}
-                                    <span className="yours-badge" style={{ marginLeft: '6px' }}>Yours</span>
-                                  </div>
-                                  <div className="ptn-sub">{p.sub}</div>
-                                </div>
-                              </div>
-                              <TiIcon 
-                                name="chevron-down" 
-                                className="ptn-chev" 
-                                style={{ transform: isExpanded ? 'rotate(180deg)' : '' }} 
-                              />
-                            </div>
-                            <div 
-                              ref={el => { patternBodyRefs.current[p.id] = el; }}
-                              className={`ptn-body ${isExpanded ? 'open' : ''}`}
-                            >
+                          <div key={idx} className="personal-ptn-card">
+                            <div className="personal-ptn-header">
                               <div>
-                                <div className="ptn-sec">What this looks like</div>
-                                <div className="ptn-desc">{p.desc}</div>
+                                <div className="personal-ptn-title-row">
+                                  <span className="personal-ptn-name">{p.name}</span>
+                                  <span className={`status-badge ${statusClass}`}>
+                                    {p.status || 'Present'}
+                                  </span>
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'var(--body-light)', marginTop: '4px' }}>
+                                  {p.meta || p.orientation || ptnDef.sub || 'Recurring cognitive pattern'}
+                                </div>
                               </div>
-                              {p.signs && (
-                                <div>
-                                  <div className="ptn-sec">Common signs</div>
-                                  <div className="signs-text">{p.signs}</div>
-                                </div>
-                              )}
-                              {p.emotions && p.emotions.length > 0 && (
-                                <div>
-                                  <div className="ptn-sec">Often shows up with</div>
-                                  <div className="tag-row">
-                                    {p.emotions.map((emName, eIdx) => (
-                                      <span key={eIdx} className="tag-item" onClick={() => openEmotionDirect(emName)}>
-                                        {emName}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                              {p.actions && p.actions.length > 0 && (
-                                <div>
-                                  <div className="ptn-sec">What you can try</div>
-                                  <div className="action-list">
-                                    {p.actions.map((act, aIdx) => (
-                                      <div key={aIdx} className="action-row">
-                                        <span className="action-num">{aIdx + 1}</span>
-                                        <span>{act}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Resonance Block */}
-                              <div className="trail-resonance" style={{ borderTop: '1px solid var(--border-teal)', marginTop: '16px', paddingTop: '16px' }}>
-                                {resVal ? (
-                                  <div className="trail-resonance-saved">
-                                    <TiIcon name="check" /> Resonance: <strong>{resVal.score}/5</strong>
-                                    {resVal.notes ? ` · "${resVal.notes}"` : ''}
-                                  </div>
-                                ) : (
-                                  <>
-                                    <div className="trail-resonance-label">Does this resonate?</div>
-                                    <div className="trail-slider-labels">
-                                      <span>Not really</span>
-                                      <span>Strongly</span>
-                                    </div>
-                                    <div className="trail-slider-wrap">
-                                      <input 
-                                        type="range" 
-                                        min="1" 
-                                        max="5" 
-                                        value={patternResonanceScores[p.name] || 3} 
-                                        onChange={e => setPatternResonanceScores(prev => ({ ...prev, [p.name]: parseInt(e.target.value) }))}
-                                        className="trail-slider" 
-                                      />
-                                      <span className="trail-slider-val">{patternResonanceScores[p.name] || 3}</span>
-                                    </div>
-                                    <textarea 
-                                      className="trail-note" 
-                                      placeholder="What specifically feels true? (optional)" 
-                                      rows={2}
-                                      value={patternResonanceNotes[p.name] || ''}
-                                      onChange={e => setPatternResonanceNotes(prev => ({ ...prev, [p.name]: e.target.value }))}
-                                    />
-                                    <button className="trail-resonance-save" onClick={() => handleSavePatternResonance(p.name)}>
-                                      Save response
-                                    </button>
-                                  </>
-                                )}
-                              </div>
+                              <button 
+                                onClick={() => togglePatternAccordion(p.id || idx)}
+                                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--body-light)' }}
+                              >
+                                <TiIcon name="chevron-down" style={{ transform: isExpanded ? 'rotate(180deg)' : '' }} />
+                              </button>
                             </div>
+
+                            <div className="personal-ptn-body">
+                              {p.body || p.summary || ptnDef.desc || 'Pattern observed across writing entries.'}
+                            </div>
+
+                            <div className="personal-ptn-meta-row">
+                              {p.firstAppeared && (
+                                <div className="personal-ptn-meta-item">
+                                  <TiIcon name="calendar" />
+                                  <span>First noticed: {p.firstAppeared}</span>
+                                </div>
+                              )}
+                              {p.totalOccurrences && (
+                                <div className="personal-ptn-meta-item">
+                                  <TiIcon name="activity" />
+                                  <span>Observed in {p.totalOccurrences} cycles</span>
+                                </div>
+                              )}
+                              {p.connectedPatterns && p.connectedPatterns.length > 0 && (
+                                <div className="personal-ptn-meta-item">
+                                  <TiIcon name="link" />
+                                  <span>Connected to: {p.connectedPatterns.join(', ')}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {isExpanded && (
+                              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-teal)' }}>
+                                {ptnDef.signs && (
+                                  <div style={{ marginBottom: '12px' }}>
+                                    <div className="ptn-sec">Common signs</div>
+                                    <div className="signs-text">{ptnDef.signs}</div>
+                                  </div>
+                                )}
+                                {ptnDef.actions && ptnDef.actions.length > 0 && (
+                                  <div>
+                                    <div className="ptn-sec">What you can try</div>
+                                    <div className="action-list">
+                                      {ptnDef.actions.map((act, aIdx) => (
+                                        <div key={aIdx} className="action-row">
+                                          <span className="action-num">{aIdx + 1}</span>
+                                          <span>{act}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Resonance Block */}
+                                <div className="trail-resonance" style={{ borderTop: '1px solid var(--border-teal)', marginTop: '16px', paddingTop: '16px' }}>
+                                  {resVal ? (
+                                    <div className="trail-resonance-saved">
+                                      <TiIcon name="check" /> Resonance: <strong>{resVal.score}/5</strong>
+                                      {resVal.notes ? ` · "${resVal.notes}"` : ''}
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div className="trail-resonance-label">Does this resonate with you?</div>
+                                      <div className="trail-slider-labels">
+                                        <span>Not really</span>
+                                        <span>Strongly</span>
+                                      </div>
+                                      <div className="trail-slider-wrap">
+                                        <input 
+                                          type="range" 
+                                          min="1" 
+                                          max="5" 
+                                          value={patternResonanceScores[p.name] || 3} 
+                                          onChange={e => setPatternResonanceScores(prev => ({ ...prev, [p.name]: parseInt(e.target.value) }))}
+                                          className="trail-slider" 
+                                        />
+                                        <span className="trail-slider-val">{patternResonanceScores[p.name] || 3}</span>
+                                      </div>
+                                      <textarea 
+                                        className="trail-note" 
+                                        placeholder="What specifically feels true? (optional)" 
+                                        rows={2}
+                                        value={patternResonanceNotes[p.name] || ''}
+                                        onChange={e => setPatternResonanceNotes(prev => ({ ...prev, [p.name]: e.target.value }))}
+                                      />
+                                      <button className="trail-resonance-save" onClick={() => handleSavePatternResonance(p.name)}>
+                                        Save resonance
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
-                      })
-                    )}
-                  </div>
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
-                  <div className="eyebrow" style={{ marginBottom: '2px' }}><TiIcon name="layout-grid" /> The full list</div>
-                  <div className="section-subtext">The built-in set — always here, whether or not it's shown up in your entries yet.</div>
+              {/* inner tab BY PATTERN (Educational Catalog) */}
+              {innerPatternTab === 'by-pattern' && (
+                <div id="inner-by-pattern">
+                  <div className="eyebrow"><TiIcon name="layout-grid" /> All known patterns</div>
+                  <div className="section-subtext">The complete educational library of behavioral and cognitive patterns.</div>
+                  
                   <div className="ptn-list">
-                    {PATTERNS.filter(p => !activePatterns.includes(p.name)).map((p, idx) => {
+                    {PATTERNS.map((p, idx) => {
                       const isExpanded = !!expandedPatterns[p.id];
+                      const isDetected = activePatterns.includes(p.name);
                       return (
                         <div key={idx} className="ptn-card">
                           <div className="ptn-header" onClick={() => togglePatternAccordion(p.id)}>
@@ -1354,7 +1616,10 @@ export default function KnowledgeBankPage({ user, profile: initialProfile, onSig
                                 <TiIcon name={p.icon} style={{ color: p.ic }} />
                               </div>
                               <div>
-                                <div className="ptn-title">{p.name}</div>
+                                <div className="ptn-title">
+                                  {p.name}
+                                  {isDetected && <span className="yours-badge" style={{ marginLeft: '6px' }}>Detected in you</span>}
+                                </div>
                                 <div className="ptn-sub">{p.sub}</div>
                               </div>
                             </div>
