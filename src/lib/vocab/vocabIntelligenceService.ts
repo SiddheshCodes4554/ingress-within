@@ -327,6 +327,7 @@ export class VocabularyIntelligenceService {
     if (currentTop3Words.length === 0) return [];
 
     console.log(`[Vocab Clusters] Generating AI word clusters for top words: ${currentTop3Words.join(', ')}`);
+    const startTime = Date.now();
     try {
       const { aiProvider } = await import('../ai/factory');
       const wordsToGenerate = sortedWords.slice(0, 3).map(w => ({
@@ -337,9 +338,41 @@ export class VocabularyIntelligenceService {
       }));
 
       const aiResponse = await aiProvider.groupClusters(wordsToGenerate);
-      const generatedClusters = aiResponse.clusters || [];
+      const generatedClusters = aiResponse?.clusters || [];
 
-      // Save to vocab_clusters cache table
+      const actualProvider = (aiProvider as any).lastProviderUsed || process.env.AI_PROVIDER || 'claude';
+      const fallbackUsed = (aiProvider as any).lastFallbackUsed || false;
+      const primaryProvider = (aiProvider as any).lastPrimaryProvider || 'claude';
+
+      // Validate clusters before persisting
+      const validatedClusters: any[] = [];
+      for (const cl of generatedClusters) {
+        if (!cl || typeof cl !== 'object') continue;
+        const clusterName = (cl.cluster_name || '').trim();
+        const description = (cl.description || '').trim();
+        const clusterWords = Array.isArray(cl.words) ? cl.words.map((w: any) => String(w).trim()).filter(Boolean) : [];
+        const confidence = typeof cl.confidence === 'number' ? Math.max(0, Math.min(1, cl.confidence)) : 0.9;
+
+        if (!clusterName || !description || clusterWords.length === 0) {
+          console.warn(`[Vocab Clusters] Skipping invalid cluster:`, cl);
+          continue;
+        }
+
+        validatedClusters.push({
+          cluster_name: clusterName,
+          description,
+          confidence,
+          words: clusterWords
+        });
+      }
+
+      // Fail safe: If no valid clusters generated, do not delete existing clusters
+      if (validatedClusters.length === 0) {
+        console.warn(`[Vocab Clusters] No valid clusters produced by AI. Keeping existing clusters intact.`);
+        return [];
+      }
+
+      // Save to vocab_clusters cache table (atomic replace for this cycle)
       await supabase
         .from('vocab_clusters')
         .delete()
@@ -347,31 +380,59 @@ export class VocabularyIntelligenceService {
         .eq('cycle_id', cycleId);
 
       const savedClusters: any[] = [];
-      for (const cl of generatedClusters) {
-        const clusterName = cl.cluster_name || '';
-        if (!clusterName) continue;
-
-        const clusterWords = cl.words || [];
+      for (const cl of validatedClusters) {
         await supabase
           .from('vocab_clusters')
           .insert({
             user_id: userId,
             cycle_id: cycleId,
-            cluster_name: clusterName,
+            cluster_name: cl.cluster_name,
             cluster_type: 'emotional',
-            words: clusterWords,
+            words: cl.words,
             description: cl.description,
-            confidence: cl.confidence || 0.9,
-            word_count: clusterWords.length
+            confidence: cl.confidence,
+            word_count: cl.words.length
           });
 
         savedClusters.push({
-          cluster_name: clusterName,
-          description: cl.description || 'Recurring emotional theme.',
-          confidence: cl.confidence || 0.9,
-          words: clusterWords
+          cluster_name: cl.cluster_name,
+          description: cl.description,
+          confidence: cl.confidence,
+          words: cl.words
         });
       }
+
+      // Log observability
+      try {
+        await supabase.from('ai_observability').insert({
+          entry_id: null,
+          provider: actualProvider,
+          raw_provider_response: (aiProvider as any).lastRawResponse || JSON.stringify(generatedClusters),
+          parsed_response: {
+            clusters: savedClusters,
+            _metadata: {
+              module: 'vocabulary_clustering',
+              user_id: userId,
+              cycle_id: cycleId,
+              fallback_used: fallbackUsed,
+              primary_provider: primaryProvider,
+              usage: (aiProvider as any).lastUsage || null
+            }
+          },
+          validation_result: {
+            status: 'passed',
+            count: savedClusters.length,
+            fallback_used: fallbackUsed,
+            primary_provider: primaryProvider
+          },
+          processing_time: Date.now() - startTime,
+          retry_count: fallbackUsed ? 1 : 0,
+          error_reason: null
+        });
+      } catch (obsErr) {
+        console.warn('[Vocab Clusters] Failed to record ai_observability:', obsErr);
+      }
+
       return savedClusters;
     } catch (err: any) {
       console.error(`[Vocab Clusters] Background AI cluster generation failed:`, err.message || err);
