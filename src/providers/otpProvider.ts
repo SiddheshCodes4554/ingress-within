@@ -259,25 +259,32 @@ import { Msg91OtpProvider } from './msg91Provider';
 // 3. Factory Function
 // ----------------------------------------------------
 export function getOtpProvider(): OtpProvider {
-  const provider = (process.env.OTP_PROVIDER || '').toLowerCase();
-  
-  if (provider === 'msg91') {
-    return new Msg91OtpProvider();
-  }
-  
-  if (provider === 'fast2sms') {
-    return new Fast2SmsProvider();
+  const rawProvider = process.env.OTP_PROVIDER;
+  const provider = (rawProvider || '').trim().toLowerCase();
+
+  // If OTP_PROVIDER is explicitly configured, match against supported providers
+  if (provider) {
+    if (provider === 'msg91') {
+      return new Msg91OtpProvider();
+    }
+    if (provider === 'supabase') {
+      return new SupabaseOtpProvider();
+    }
+    if (provider === 'fast2sms') {
+      return new Fast2SmsProvider();
+    }
+    
+    // Explicitly reject unsupported provider configurations
+    const errorMsg = `[OTP Provider Configuration Error] Unsupported OTP_PROVIDER "${rawProvider}". Supported values are "msg91", "supabase", or "fast2sms".`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
   }
 
-  if (provider === 'supabase') {
-    return new SupabaseOtpProvider();
-  }
-
-  // If MSG91_AUTH_KEY is provided, default to MSG91
+  // If OTP_PROVIDER is not set but MSG91_AUTH_KEY is configured, default to MSG91
   if (process.env.MSG91_AUTH_KEY) {
     return new Msg91OtpProvider();
   }
 
-  // Default fallback
+  // Default fallback when unconfigured
   return new SupabaseOtpProvider();
 }

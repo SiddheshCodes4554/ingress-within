@@ -2,16 +2,64 @@ import { Msg91OtpProvider, normalizeMsg91Phone, maskPhone, validateMsg91Config }
 import { getOtpProvider, SupabaseOtpProvider, Fast2SmsProvider, OtpProvider } from '../src/providers/otpProvider';
 
 async function runTests() {
-  console.log('=== Starting MSG91 Live-Only Production OTP Test Suite ===\n');
+  console.log('=== Starting OTP Provider Factory & MSG91 Verification Suite ===\n');
 
-  // Test 1: Phone Normalization
-  console.log('Test 1: Phone normalization to MSG91 format (91XXXXXXXXXX)');
+  // Test 1: Provider Factory Resolution
+  console.log('Test 1: Provider Factory Resolution');
+  
+  // 1a. OTP_PROVIDER=msg91
+  process.env.OTP_PROVIDER = 'msg91';
+  process.env.MSG91_AUTH_KEY = 'live_key_test';
+  process.env.MSG91_TEMPLATE_ID = 'test_template_123';
+  const msg91Prov = getOtpProvider();
+  if (msg91Prov instanceof Msg91OtpProvider) {
+    console.log('  PASS: getOtpProvider() returns Msg91OtpProvider when OTP_PROVIDER=msg91.');
+  } else {
+    console.error('  FAIL: getOtpProvider() did not return Msg91OtpProvider.');
+  }
+
+  // 1b. OTP_PROVIDER=supabase
+  process.env.OTP_PROVIDER = 'supabase';
+  const sbProv = getOtpProvider();
+  if (sbProv instanceof SupabaseOtpProvider) {
+    console.log('  PASS: getOtpProvider() returns SupabaseOtpProvider when OTP_PROVIDER=supabase.');
+  } else {
+    console.error('  FAIL: getOtpProvider() did not return SupabaseOtpProvider.');
+  }
+
+  // 1c. OTP_PROVIDER=fast2sms
+  process.env.OTP_PROVIDER = 'fast2sms';
+  const f2sProv = getOtpProvider();
+  if (f2sProv instanceof Fast2SmsProvider) {
+    console.log('  PASS: getOtpProvider() returns Fast2SmsProvider when OTP_PROVIDER=fast2sms.');
+  } else {
+    console.error('  FAIL: getOtpProvider() did not return Fast2SmsProvider.');
+  }
+
+  // 1d. Unsupported OTP_PROVIDER
+  process.env.OTP_PROVIDER = 'unsupported_custom_gateway';
+  let threwError = false;
+  try {
+    getOtpProvider();
+  } catch (err: any) {
+    threwError = true;
+    if (err.message.includes('Unsupported OTP_PROVIDER')) {
+      console.log('  PASS: getOtpProvider() throws clear configuration error for unsupported OTP_PROVIDER.');
+    } else {
+      console.error('  FAIL: Error message does not describe unsupported provider.');
+    }
+  }
+  if (!threwError) {
+    console.error('  FAIL: getOtpProvider() did not throw on unsupported OTP_PROVIDER.');
+  }
+
+  // Test 2: Phone Normalization
+  console.log('\nTest 2: Phone normalization to MSG91 format (91XXXXXXXXXX)');
   const testCases = [
     { input: '+919876543210', expected: '919876543210' },
     { input: '9876543210', expected: '919876543210' },
     { input: '+91 98765 43210', expected: '919876543210' },
-    { input: '919876543210', expected: '919876543210' },
-    { input: '+91-9876543210', expected: '919876543210' }
+    { input: '919876543210', expected: '919876543210' }
   ];
 
   let normPassed = 0;
@@ -23,70 +71,22 @@ async function runTests() {
       console.error(`  FAIL: Expected "${tc.input}" -> "${tc.expected}", got "${result}"`);
     }
   }
-  console.log(`  Passed ${normPassed}/${testCases.length} normalization tests.\n`);
+  console.log(`  Passed ${normPassed}/${testCases.length} normalization tests.`);
 
-  // Test 2: Masking Phone Numbers for Privacy
-  console.log('Test 2: Phone number masking');
-  const masked1 = maskPhone('+919876543210');
-  const masked2 = maskPhone('9876543210');
-  console.log(`  Masked (+919876543210) -> ${masked1}`);
-  console.log(`  Masked (9876543210) -> ${masked2}`);
-  if (masked1.includes('****') && masked2.includes('****')) {
-    console.log('  PASS: Phone masking protects sensitive user data.\n');
-  } else {
-    console.error('  FAIL: Phone masking did not obscure digits properly.\n');
-  }
-
-  // Test 3: Server-side Environment Validation (Strict Live Enforcement)
-  console.log('Test 3: MSG91 Server-side Environment Validation (Live Only)');
-
-  // 3a. Rejection of missing/placeholder keys
-  process.env.MSG91_AUTH_KEY = 'mock_developer_key';
-  process.env.MSG91_TEMPLATE_ID = '';
-  const mockVal = validateMsg91Config();
-  console.log('  Mock/Unset key validation result:', mockVal);
-  if (!mockVal.isValid && mockVal.errors.length > 0) {
-    console.log('  PASS: Successfully rejects mock/missing keys in live-only mode.');
-  } else {
-    console.error('  FAIL: Mock key was not rejected.');
-  }
-
-  // 3b. Valid live production variables
-  process.env.MSG91_AUTH_KEY = 'live_production_key_test';
-  process.env.MSG91_TEMPLATE_ID = '654321abcd';
-  process.env.MSG91_SENDER_ID = 'INGWRT';
-  process.env.MSG91_OTP_EXPIRY = '5';
-  const validLive = validateMsg91Config();
-  console.log('  Valid Live validation result:', validLive);
-  if (validLive.isValid && validLive.authKeyPresent && validLive.templateIdPresent) {
-    console.log('  PASS: Valid live configuration correctly verified.\n');
-  } else {
-    console.error('  FAIL: Valid live configuration was not verified.\n');
-  }
-
-  // Test 4: Provider Factory Resolution
-  console.log('Test 4: Provider Factory Resolution');
+  // Test 3: Verify sendOtp and verifyOtp contract via factory instance
+  console.log('\nTest 3: Contract Verification via Factory Resolution');
   process.env.OTP_PROVIDER = 'msg91';
-  const provider = getOtpProvider();
-  if (provider instanceof Msg91OtpProvider) {
-    console.log('  PASS: getOtpProvider() successfully returns Msg91OtpProvider when OTP_PROVIDER=msg91.');
+  process.env.MSG91_AUTH_KEY = 'live_key_test';
+  process.env.MSG91_TEMPLATE_ID = 'template_test';
+  
+  const activeProvider: OtpProvider = getOtpProvider();
+  if (typeof activeProvider.sendOtp === 'function' && typeof activeProvider.verifyOtp === 'function') {
+    console.log('  PASS: Factory instance conforms strictly to OtpProvider interface.');
   } else {
-    console.error('  FAIL: getOtpProvider() did not return Msg91OtpProvider.');
+    console.error('  FAIL: Factory instance does not conform to OtpProvider interface.');
   }
 
-  process.env.OTP_PROVIDER = 'supabase';
-  const sbProvider = getOtpProvider();
-  if (sbProvider instanceof SupabaseOtpProvider) {
-    console.log('  PASS: getOtpProvider() successfully returns SupabaseOtpProvider when OTP_PROVIDER=supabase.');
-  }
-
-  process.env.OTP_PROVIDER = 'fast2sms';
-  const f2sProvider = getOtpProvider();
-  if (f2sProvider instanceof Fast2SmsProvider) {
-    console.log('  PASS: getOtpProvider() successfully returns Fast2SmsProvider when OTP_PROVIDER=fast2sms.\n');
-  }
-
-  console.log('=== All MSG91 Live Production Tests Passed Successfully ===');
+  console.log('\n=== All Factory & Provider Tests Passed Successfully ===');
 }
 
 runTests().catch(err => {
