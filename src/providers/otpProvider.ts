@@ -253,13 +253,31 @@ export class Fast2SmsProvider implements OtpProvider {
   }
 }
 
+import { Msg91OtpProvider } from './msg91Provider';
+
 // ----------------------------------------------------
 // 3. Factory Function
 // ----------------------------------------------------
 export function getOtpProvider(): OtpProvider {
-  const provider = process.env.OTP_PROVIDER || 'supabase';
+  const provider = (process.env.OTP_PROVIDER || '').toLowerCase();
+  
+  if (provider === 'msg91') {
+    return new Msg91OtpProvider();
+  }
+  
   if (provider === 'fast2sms') {
     return new Fast2SmsProvider();
   }
+
+  if (provider === 'supabase') {
+    return new SupabaseOtpProvider();
+  }
+
+  // If MSG91_AUTH_KEY is provided, default to MSG91
+  if (process.env.MSG91_AUTH_KEY) {
+    return new Msg91OtpProvider();
+  }
+
+  // Default fallback
   return new SupabaseOtpProvider();
 }
