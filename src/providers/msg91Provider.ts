@@ -24,14 +24,14 @@ export function validateMsg91Config(): Msg91ConfigValidation {
 
   const errors: string[] = [];
 
-  const authKeyPresent = Boolean(authKey && authKey !== 'mock_developer_key' && authKey !== 'your_msg91_auth_key_here');
+  const authKeyPresent = Boolean(authKey && authKey !== 'your_msg91_auth_key_here');
   const templateIdPresent = Boolean(templateId && templateId !== 'your_msg91_dlt_template_id_here');
 
   if (!authKeyPresent) {
-    errors.push('MSG91_AUTH_KEY is missing or invalid. Set your live MSG91 authentication key in the server environment.');
+    errors.push('MSG91_AUTH_KEY is missing. Please configure your live MSG91 Auth Key in the environment.');
   }
   if (!templateIdPresent) {
-    errors.push('MSG91_TEMPLATE_ID is missing or invalid. Set your live DLT-approved MSG91 template ID in the server environment.');
+    errors.push('MSG91_TEMPLATE_ID is missing. Please configure your live DLT-approved MSG91 Template ID in the environment.');
   }
 
   return {
@@ -45,7 +45,7 @@ export function validateMsg91Config(): Msg91ConfigValidation {
 }
 
 /**
- * Normalizes any Indian phone number into MSG91 standard format: "91XXXXXXXXXX" (no leading '+', 12 digits total).
+ * Normalizes any Indian phone number into MSG91 standard format: "91XXXXXXXXXX" (12 digits, no leading '+').
  */
 export function normalizeMsg91Phone(phoneNumber: string): string {
   const cleanDigits = (phoneNumber || '').replace(/\D/g, '');
@@ -75,11 +75,13 @@ export function maskPhone(phoneNumber: string): string {
 }
 
 /**
- * Production MSG91 OTP Provider using live MSG91 SendOTP v5 API.
- * Adheres strictly to the OtpProvider interface without any mock or simulation fallback.
+ * Production-ready MSG91 OTP Provider integrating with official MSG91 SendOTP v5 and Verify OTP APIs.
+ * Adheres strictly to the OtpProvider interface.
  */
 export class Msg91OtpProvider implements OtpProvider {
-  private readonly baseUrl = 'https://control.msg91.com/api/v5/otp';
+  private readonly sendOtpUrl = 'https://control.msg91.com/api/v5/otp';
+  private readonly verifyOtpUrl = 'https://control.msg91.com/api/v5/otp/verify';
+  private readonly requestTimeoutMs = 10000; // 10 seconds timeout
 
   constructor() {
     const validation = validateMsg91Config();
@@ -98,11 +100,20 @@ export class Msg91OtpProvider implements OtpProvider {
     const normalizedMobile = normalizeMsg91Phone(phoneNumber);
     const masked = maskPhone(phoneNumber);
 
+    // 1. Validate Phone Number format
+    if (!/^91[6-9]\d{9}$/.test(normalizedMobile)) {
+      return {
+        success: false,
+        message: "That doesn't look like a valid Indian mobile number."
+      };
+    }
+
+    // 2. Validate Environment Configuration
     if (!validation.isValid) {
       console.error(`[MSG91 Production] Send OTP blocked: ${validation.errors.join('; ')}`);
       return {
         success: false,
-        message: "SMS service is not properly configured. Please contact administrator."
+        message: 'SMS verification service is currently unconfigured. Please contact support.'
       };
     }
 
@@ -110,7 +121,14 @@ export class Msg91OtpProvider implements OtpProvider {
       const authKey = process.env.MSG91_AUTH_KEY!.trim();
       const templateId = process.env.MSG91_TEMPLATE_ID!.trim();
 
-      console.log(`[MSG91 Production] Sending live OTP to ${masked} (Expiry: ${validation.otpExpiryMinutes}m, Attempt: ${rateLimitCount})`);
+      console.log(`[MSG91 Production] Dispatching OTP to ${masked} (Expiry: ${validation.otpExpiryMinutes}m, Attempt: ${rateLimitCount})`);
+
+      const url = new URL(this.sendOtpUrl);
+      url.searchParams.set('template_id', templateId);
+      url.searchParams.set('mobile', normalizedMobile);
+      url.searchParams.set('authkey', authKey);
+      url.searchParams.set('otp_expiry', String(validation.otpExpiryMinutes));
+      url.searchParams.set('otp_length', '6');
 
       const payload: Record<string, any> = {
         template_id: templateId,
@@ -123,20 +141,23 @@ export class Msg91OtpProvider implements OtpProvider {
         payload.sender = validation.senderId;
       }
 
-      const response = await fetch(this.baseUrl, {
+      const response = await fetch(url.toString(), {
         method: 'POST',
         headers: {
           'authkey': authKey,
           'Content-Type': 'application/json',
           'accept': 'application/json'
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(this.requestTimeoutMs)
       });
 
       const data = await response.json().catch(() => ({}));
 
-      if (!response.ok || data.type === 'error') {
-        const errorMsg = data.message || `MSG91 gateway error (HTTP ${response.status})`;
+      const isSuccess = response.ok && (data.type === 'success' || data.type === 'SUCCESS' || !data.type);
+
+      if (!isSuccess || data.type === 'error') {
+        const errorMsg = data.message || `MSG91 Gateway returned HTTP ${response.status}`;
         console.error(`[MSG91 Production] Send OTP failed for ${masked}:`, errorMsg);
         return {
           success: false,
@@ -144,7 +165,7 @@ export class Msg91OtpProvider implements OtpProvider {
         };
       }
 
-      console.log(`[MSG91 Production] Live OTP successfully dispatched to ${masked}. Message: ${data.message || 'Success'}`);
+      console.log(`[MSG91 Production] OTP successfully dispatched to ${masked}. Message: ${data.message || 'Success'}`);
 
       return {
         success: true,
@@ -152,10 +173,15 @@ export class Msg91OtpProvider implements OtpProvider {
         resendInSeconds: 30
       };
     } catch (err: any) {
-      console.error(`[MSG91 Production] Network or execution error sending OTP to ${masked}:`, err.message);
+      const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
+      const logMessage = isTimeout ? 'Request timed out after 10s' : err.message;
+      console.error(`[MSG91 Production] Network error sending OTP to ${masked}: ${logMessage}`);
+
       return {
         success: false,
-        message: 'A connection issue occurred while sending your code. Please try again.'
+        message: isTimeout 
+          ? 'Network timeout connecting to SMS gateway. Please try again.' 
+          : 'A connection issue occurred while sending your code. Please try again.'
       };
     }
   }
@@ -168,35 +194,52 @@ export class Msg91OtpProvider implements OtpProvider {
     const normalizedMobile = normalizeMsg91Phone(phoneNumber);
     const masked = maskPhone(phoneNumber);
 
+    // 1. Validate OTP format
+    if (!code || !/^\d{4,8}$/.test(code.trim())) {
+      return {
+        success: false,
+        message: "That code didn't match. Try again.",
+        code: 'AUTH_OTP_MISMATCH'
+      };
+    }
+
+    // 2. Validate Environment Configuration
     if (!validation.isValid) {
       console.error(`[MSG91 Production] Verify OTP blocked: ${validation.errors.join('; ')}`);
       return {
         success: false,
-        message: "SMS service is not properly configured. Please contact administrator.",
+        message: 'SMS verification service is currently unconfigured. Please contact support.',
         code: 'CONFIG_ERROR'
       };
     }
 
     try {
       const authKey = process.env.MSG91_AUTH_KEY!.trim();
-      console.log(`[MSG91 Production] Verifying live OTP for ${masked}`);
+      console.log(`[MSG91 Production] Verifying OTP for ${masked}`);
 
-      const verifyUrl = new URL(`${this.baseUrl}/verify`);
-      verifyUrl.searchParams.set('otp', code);
+      const verifyUrl = new URL(this.verifyOtpUrl);
+      verifyUrl.searchParams.set('otp', code.trim());
       verifyUrl.searchParams.set('mobile', normalizedMobile);
+      verifyUrl.searchParams.set('authkey', authKey);
 
       const response = await fetch(verifyUrl.toString(), {
         method: 'GET',
         headers: {
           'authkey': authKey,
           'accept': 'application/json'
-        }
+        },
+        signal: AbortSignal.timeout(this.requestTimeoutMs)
       });
 
       const data = await response.json().catch(() => ({}));
 
-      // MSG91 returns { type: "success", message: "OTP verified success" } on valid code
-      if (response.ok && data.type === 'success') {
+      const isSuccess = response.ok && (
+        data.type === 'success' || 
+        data.type === 'SUCCESS' ||
+        (data.message && /success|verified/i.test(data.message))
+      );
+
+      if (isSuccess) {
         console.log(`[MSG91 Production] OTP verified successfully for ${masked}`);
         return {
           success: true,
@@ -216,7 +259,7 @@ export class Msg91OtpProvider implements OtpProvider {
         };
       }
 
-      if (rawMessage.includes('limit') || rawMessage.includes('maximum') || rawMessage.includes('blocked')) {
+      if (rawMessage.includes('limit') || rawMessage.includes('maximum') || rawMessage.includes('blocked') || rawMessage.includes('exceeded')) {
         return {
           success: false,
           message: 'Please wait before requesting another code.',
@@ -230,10 +273,15 @@ export class Msg91OtpProvider implements OtpProvider {
         code: 'AUTH_OTP_MISMATCH'
       };
     } catch (err: any) {
-      console.error(`[MSG91 Production] Verification network error for ${masked}:`, err.message);
+      const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
+      const logMessage = isTimeout ? 'Request timed out after 10s' : err.message;
+      console.error(`[MSG91 Production] Network error verifying OTP for ${masked}: ${logMessage}`);
+
       return {
         success: false,
-        message: 'An unexpected verification error occurred. Please try again.',
+        message: isTimeout 
+          ? 'Verification timed out. Please check your connection and try again.' 
+          : 'An unexpected verification error occurred. Please try again.',
         code: 'NETWORK_ISSUE'
       };
     }
