@@ -1,5 +1,5 @@
-import { InterventionEngine } from './src/lib/interventions/engine/intervention-engine';
-import { StepEngine } from './src/lib/interventions/engine/session/step-engine';
+import { InterventionEngine } from '../src/lib/interventions/engine/intervention-engine';
+import { StepEngine } from '../src/lib/interventions/engine/session/step-engine';
 
 async function runPhase4Tests() {
   console.log('====================================================');

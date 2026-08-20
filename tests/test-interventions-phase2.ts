@@ -1,4 +1,4 @@
-import { InterventionEngine } from './src/lib/interventions/engine/intervention-engine';
+import { InterventionEngine } from '../src/lib/interventions/engine/intervention-engine';
 
 async function runPhase2Tests() {
   console.log('====================================================');

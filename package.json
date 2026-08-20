@@ -8,7 +8,10 @@
     "worker": "tsx src/lib/queue/run-worker.ts",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "tsx --env-file=.env tests/production-smoke-test.ts",
+    "test:auth": "tsx --env-file=.env tests/test-full-auth-flow.ts",
+    "test:interventions": "tsx --env-file=.env tests/test-interventions.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

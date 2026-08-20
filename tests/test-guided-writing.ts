@@ -1,4 +1,4 @@
-import { supabase } from './src/lib/db';
+import { supabase } from '../src/lib/db';
 
 async function runGuidedWritingTests() {
   console.log('====================================================');
@@ -109,7 +109,7 @@ I will take three slow deep breaths and schedule a calm one-on-one follow-up tom
     console.log('\n[Test 3] Testing Reflection Engine execution on Guided Entry...');
     if (insertedEntry?.id) {
       try {
-        const { processReflectionGeneration } = await import('./src/lib/queue/workers/reflectionWorker');
+        const { processReflectionGeneration } = await import('../src/lib/queue/workers/reflectionWorker');
         const reflectionResult = await processReflectionGeneration({
           entry_id: insertedEntry.id,
           user_id: testUserId,
@@ -134,14 +134,15 @@ I will take three slow deep breaths and schedule a calm one-on-one follow-up tom
 
     // 4. Test Verification of Dashboard 2-Card Layout
     console.log('\n[Test 4] Verifying Dashboard 2-Card Layout (Free Write & Guided Writing)...');
-    const dashboardFile = await import('fs').then(fs => fs.readFileSync('./src/views/DashboardPage.jsx', 'utf-8'));
+    const path = await import('path');
+    const dashboardFile = await import('fs').then(fs => fs.readFileSync(path.join(process.cwd(), 'src/views/DashboardPage.jsx'), 'utf-8'));
     assert(dashboardFile.includes('Free Write') && dashboardFile.includes('/write'), 'Dashboard renders Free Write card pointing to /write');
     assert(dashboardFile.includes('Guided Writing') && dashboardFile.includes('/write/guided'), 'Dashboard renders Guided Writing card pointing to /write/guided');
     assert(dashboardFile.includes('Recommended'), 'Guided Writing card displays Recommended badge');
 
     // 5. Test Router Configuration
     console.log('\n[Test 5] Verifying /write/guided Route Configuration...');
-    const appFile = await import('fs').then(fs => fs.readFileSync('./src/App.jsx', 'utf-8'));
+    const appFile = await import('fs').then(fs => fs.readFileSync(path.join(process.cwd(), 'src/App.jsx'), 'utf-8'));
     assert(appFile.includes('GuidedWritePage'), 'App.jsx imports GuidedWritePage component');
     assert(appFile.includes('/write/guided'), 'App.jsx registers /write/guided route');
 

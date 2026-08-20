@@ -2,8 +2,8 @@ import {
   CORE_VALUES_ITEMS,
   CORE_VALUES_DEFINITION,
   calculateReorderDelta
-} from './src/lib/exercises/v4/definitions/coreValuesCatalog';
-import { CoreValuesPrompt } from './src/lib/exercises/v4/ai/coreValuesPrompt';
+} from '../src/lib/exercises/v4/definitions/coreValuesCatalog';
+import { CoreValuesPrompt } from '../src/lib/exercises/v4/ai/coreValuesPrompt';
 
 console.log('====================================================');
 console.log('Ingress Within — Core Values Card Sort Test Suite');

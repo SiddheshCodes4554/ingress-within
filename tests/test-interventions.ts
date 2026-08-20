@@ -1,5 +1,5 @@
-import { InterventionEngine } from './src/lib/interventions/engine/intervention-engine';
-import { CatalogProvider } from './src/lib/interventions/catalog/catalog-provider';
+import { InterventionEngine } from '../src/lib/interventions/engine/intervention-engine';
+import { CatalogProvider } from '../src/lib/interventions/catalog/catalog-provider';
 
 async function runTests() {
   console.log('====================================================');
