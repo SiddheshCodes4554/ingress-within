@@ -1,6 +1,56 @@
 import { OtpProvider, OtpResult, OtpVerifyResult } from './otpProvider';
 
 /**
+ * Result structure for MSG91 server-side configuration validation.
+ */
+export interface Msg91ConfigValidation {
+  isValid: boolean;
+  isSimulator: boolean;
+  authKeyPresent: boolean;
+  templateIdPresent: boolean;
+  senderId: string;
+  otpExpiryMinutes: number;
+  errors: string[];
+}
+
+/**
+ * Validates MSG91 server environment variables.
+ * Safe to call at startup or per-request.
+ */
+export function validateMsg91Config(): Msg91ConfigValidation {
+  const authKey = (process.env.MSG91_AUTH_KEY || '').trim();
+  const templateId = (process.env.MSG91_TEMPLATE_ID || '').trim();
+  const senderId = (process.env.MSG91_SENDER_ID || 'INGWRT').trim();
+  const expiryRaw = parseInt(process.env.MSG91_OTP_EXPIRY || '5', 10);
+  const otpExpiryMinutes = Number.isNaN(expiryRaw) || expiryRaw <= 0 ? 5 : expiryRaw;
+
+  const isSimulator = !authKey || authKey === 'mock_developer_key';
+  const errors: string[] = [];
+
+  const authKeyPresent = Boolean(authKey && authKey !== 'your_msg91_auth_key_here');
+  const templateIdPresent = Boolean(templateId && templateId !== 'your_msg91_dlt_template_id_here');
+
+  if (!isSimulator) {
+    if (!authKeyPresent) {
+      errors.push('MSG91_AUTH_KEY is required for live OTP dispatch. Set MSG91_AUTH_KEY in your environment or use "mock_developer_key" for local simulation.');
+    }
+    if (!templateIdPresent) {
+      errors.push('MSG91_TEMPLATE_ID is required for live OTP dispatch. Please provide your DLT-approved MSG91 template ID.');
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    isSimulator,
+    authKeyPresent,
+    templateIdPresent,
+    senderId,
+    otpExpiryMinutes,
+    errors
+  };
+}
+
+/**
  * Normalizes any Indian phone number into MSG91 standard format: "91XXXXXXXXXX" (no leading '+', 12 digits total).
  */
 export function normalizeMsg91Phone(phoneNumber: string): string {
@@ -37,23 +87,33 @@ export function maskPhone(phoneNumber: string): string {
 export class Msg91OtpProvider implements OtpProvider {
   private readonly baseUrl = 'https://control.msg91.com/api/v5/otp';
 
+  constructor() {
+    // Validate environment upon instantiation and log actionable diagnostics
+    const validation = validateMsg91Config();
+    if (!validation.isValid && !validation.isSimulator) {
+      console.warn(`[MSG91 Provider Configuration Warning] ${validation.errors.join(' | ')}`);
+    } else if (validation.isSimulator) {
+      console.log('[MSG91 Provider] Running in SIMULATOR mode (MSG91_AUTH_KEY is mock/unset). Real SMS will not be billed.');
+    } else {
+      console.log(`[MSG91 Provider] Initialized in PRODUCTION mode (Sender ID: ${validation.senderId}, Expiry: ${validation.otpExpiryMinutes}m).`);
+    }
+  }
+
   /**
    * Dispatches OTP via MSG91 SendOTP API v5.
    */
   async sendOtp(phoneNumber: string, rateLimitCount: number = 0): Promise<OtpResult> {
-    const authKey = process.env.MSG91_AUTH_KEY || '';
-    const templateId = process.env.MSG91_TEMPLATE_ID || '';
-    const senderId = process.env.MSG91_SENDER_ID || '';
-    const expiryMinutes = parseInt(process.env.MSG91_OTP_EXPIRY || '5', 10);
+    const validation = validateMsg91Config();
     const normalizedMobile = normalizeMsg91Phone(phoneNumber);
     const masked = maskPhone(phoneNumber);
 
     // Development / Simulator fallback if auth key is not configured or set to mock
-    if (!authKey || authKey === 'mock_developer_key') {
+    if (validation.isSimulator) {
       console.log(`\n--- [MSG91 GATEWAY SIMULATOR] ---`);
       console.log(`Recipient: ${masked}`);
-      console.log(`Template ID: ${templateId || 'SIMULATED_TEMPLATE'}`);
-      console.log(`Expiry: ${expiryMinutes} minutes`);
+      console.log(`Template ID: ${process.env.MSG91_TEMPLATE_ID || 'SIMULATED_TEMPLATE'}`);
+      console.log(`Sender ID: ${validation.senderId}`);
+      console.log(`Expiry: ${validation.otpExpiryMinutes} minutes`);
       console.log(`Rate Count: ${rateLimitCount}`);
       console.log(`Status: Simulated OTP sent successfully.`);
       console.log(`---------------------------------\n`);
@@ -65,18 +125,30 @@ export class Msg91OtpProvider implements OtpProvider {
       };
     }
 
+    // If live mode is intended but required configuration is incomplete
+    if (!validation.isValid) {
+      console.error(`[MSG91 Provider] Send OTP blocked due to missing environment variables: ${validation.errors.join('; ')}`);
+      return {
+        success: false,
+        message: "SMS OTP service is currently unconfigured. Please check server configuration."
+      };
+    }
+
     try {
-      console.log(`[MSG91 Provider] Sending OTP to ${masked} (Expiry: ${expiryMinutes}m, Attempt: ${rateLimitCount})`);
+      const authKey = process.env.MSG91_AUTH_KEY!;
+      const templateId = process.env.MSG91_TEMPLATE_ID!;
+
+      console.log(`[MSG91 Provider] Sending OTP to ${masked} (Expiry: ${validation.otpExpiryMinutes}m, Attempt: ${rateLimitCount})`);
 
       const payload: Record<string, any> = {
         template_id: templateId,
         mobile: normalizedMobile,
         otp_length: 6,
-        otp_expiry: expiryMinutes
+        otp_expiry: validation.otpExpiryMinutes
       };
 
-      if (senderId) {
-        payload.sender = senderId;
+      if (validation.senderId) {
+        payload.sender = validation.senderId;
       }
 
       const response = await fetch(this.baseUrl, {
@@ -120,14 +192,14 @@ export class Msg91OtpProvider implements OtpProvider {
    * Verifies OTP via MSG91 Verify OTP API v5.
    */
   async verifyOtp(phoneNumber: string, code: string): Promise<OtpVerifyResult> {
-    const authKey = process.env.MSG91_AUTH_KEY || '';
+    const validation = validateMsg91Config();
     const normalizedMobile = normalizeMsg91Phone(phoneNumber);
     const masked = maskPhone(phoneNumber);
 
     // Development / Simulator verification
-    if (!authKey || authKey === 'mock_developer_key') {
+    if (validation.isSimulator) {
       console.log(`[MSG91 Gateway Simulator] Verifying code for ${masked}`);
-      // In simulator mode, accepting standard mock codes or any 6-digit numeric OTP for testing
+      // In simulator mode, accepting any valid 6-digit numeric OTP for frictionless testing
       if (/^\d{6}$/.test(code)) {
         console.log(`[MSG91 Gateway Simulator] Code verified successfully for ${masked}`);
         return {
@@ -143,7 +215,17 @@ export class Msg91OtpProvider implements OtpProvider {
       }
     }
 
+    if (!validation.isValid) {
+      console.error(`[MSG91 Provider] Verify OTP blocked due to missing environment variables: ${validation.errors.join('; ')}`);
+      return {
+        success: false,
+        message: "SMS OTP service is currently unconfigured. Please check server configuration.",
+        code: 'CONFIG_ERROR'
+      };
+    }
+
     try {
+      const authKey = process.env.MSG91_AUTH_KEY!;
       console.log(`[MSG91 Provider] Verifying OTP for ${masked}`);
 
       const verifyUrl = new URL(`${this.baseUrl}/verify`);
