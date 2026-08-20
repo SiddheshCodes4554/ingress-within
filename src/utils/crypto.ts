@@ -69,7 +69,11 @@ export function verifyJwt(token: string, secret: string): Record<string, any> | 
       .replace(/\+/g, '-')
       .replace(/\//g, '_');
       
-    if (signature !== expectedSignature) return null;
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expectedSignature);
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      return null;
+    }
     
     const payload = JSON.parse(base64UrlDecode(encodedPayload));
     const now = Math.floor(Date.now() / 1000);
