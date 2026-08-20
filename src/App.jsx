@@ -280,11 +280,24 @@ export default function App() {
     }
   }, [authChecked, isLoading, user, profile, currentRoute, authError]);
 
+  const handleAuthSuccess = (authData) => {
+    console.log('[App.jsx] handleAuthSuccess received authData:', authData ? { userId: authData.user?.id } : null);
+    if (authData?.user) {
+      setUser(authData.user);
+      setProfile(authData.profile || null);
+      setAuthChecked(true);
+      setAuthError(null);
+    }
+    // Also trigger silent background status validation
+    checkUserStatus(true);
+  };
+
   useEffect(() => {
     // Define global navigate function so pages/components can trigger programmatically
     window.navigateTo = (path) => {
       console.log('[App.jsx] window.navigateTo called with path:', path);
       window.history.pushState({}, '', path);
+      handleLocationChange();
       window.dispatchEvent(new PopStateEvent('popstate'));
     };
 
@@ -465,7 +478,7 @@ export default function App() {
       case 'contact':
         return <ContactPage onOpenPolicy={handleOpenPolicy} />;
       case 'auth':
-        return <AuthPage onOpenPolicy={handleOpenPolicy} />;
+        return <AuthPage onOpenPolicy={handleOpenPolicy} onAuthSuccess={handleAuthSuccess} />;
       case 'onboarding':
         return <OnboardingPage onComplete={() => window.navigateTo('/dashboard')} />;
       case 'dashboard':

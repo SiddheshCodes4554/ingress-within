@@ -9,7 +9,7 @@ const quotes = [
   "A single entry is a moment. A thread is a picture."
 ];
 
-export default function AuthPage({ onOpenPolicy }) {
+export default function AuthPage({ onOpenPolicy, onAuthSuccess }) {
   // Navigation views: 'entry', 'otp', 'success'
   const [view, setView] = useState('entry');
   const [profile, setProfile] = useState(null);
@@ -168,6 +168,9 @@ export default function AuthPage({ onOpenPolicy }) {
       
       // Success
       setProfile(data.profile || null);
+      if (onAuthSuccess) {
+        onAuthSuccess(data);
+      }
       navigateToView('success');
     } catch (err) {
       setErrorMsg(err.message);
@@ -609,10 +612,12 @@ export default function AuthPage({ onOpenPolicy }) {
                 <button 
                   onClick={() => {
                     const destination = (profile && !profile.onboarding_completed) ? '/onboarding/consent' : '/dashboard';
-                    if (window.navigateTo) {
-                      window.navigateTo(destination);
-                    } else {
-                      window.location.pathname = destination;
+                    if (typeof window !== 'undefined') {
+                      if (typeof window.navigateTo === 'function') {
+                        window.navigateTo(destination);
+                      } else {
+                        window.location.href = destination;
+                      }
                     }
                   }}
                   className="w-full py-4 bg-primary hover:bg-[#2A3A3E] text-mint-grey border-none rounded-md font-sans text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-xs"
