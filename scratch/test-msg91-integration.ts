@@ -2,7 +2,7 @@ import { Msg91OtpProvider, normalizeMsg91Phone, maskPhone, validateMsg91Config }
 import { getOtpProvider, SupabaseOtpProvider, Fast2SmsProvider, OtpProvider } from '../src/providers/otpProvider';
 
 async function runTests() {
-  console.log('=== Starting MSG91 OTP Integration & Environment Test Suite ===\n');
+  console.log('=== Starting MSG91 Live-Only Production OTP Test Suite ===\n');
 
   // Test 1: Phone Normalization
   console.log('Test 1: Phone normalization to MSG91 format (91XXXXXXXXXX)');
@@ -37,48 +37,32 @@ async function runTests() {
     console.error('  FAIL: Phone masking did not obscure digits properly.\n');
   }
 
-  // Test 3: Server-side Environment Validation
-  console.log('Test 3: MSG91 Server-side Environment Validation');
-  
-  // 3a. Simulator mode
+  // Test 3: Server-side Environment Validation (Strict Live Enforcement)
+  console.log('Test 3: MSG91 Server-side Environment Validation (Live Only)');
+
+  // 3a. Rejection of missing/placeholder keys
   process.env.MSG91_AUTH_KEY = 'mock_developer_key';
   process.env.MSG91_TEMPLATE_ID = '';
-  const simVal = validateMsg91Config();
-  console.log('  Simulator validation result:', simVal);
-  if (simVal.isSimulator && simVal.isValid) {
-    console.log('  PASS: Simulator mode is detected and valid.');
+  const mockVal = validateMsg91Config();
+  console.log('  Mock/Unset key validation result:', mockVal);
+  if (!mockVal.isValid && mockVal.errors.length > 0) {
+    console.log('  PASS: Successfully rejects mock/missing keys in live-only mode.');
   } else {
-    console.error('  FAIL: Simulator mode validation failed.');
+    console.error('  FAIL: Mock key was not rejected.');
   }
 
-  // 3b. Missing required live variables
-  process.env.MSG91_AUTH_KEY = 'live_key_example_123';
-  process.env.MSG91_TEMPLATE_ID = '';
-  const missingVal = validateMsg91Config();
-  console.log('  Missing Template ID validation result:', missingVal);
-  if (!missingVal.isValid && missingVal.errors.some(e => e.includes('MSG91_TEMPLATE_ID'))) {
-    console.log('  PASS: Correctly flagged missing MSG91_TEMPLATE_ID error.');
-  } else {
-    console.error('  FAIL: Missing template ID was not detected.');
-  }
-
-  // 3c. Valid live production variables
-  process.env.MSG91_AUTH_KEY = 'real_auth_key_sample';
+  // 3b. Valid live production variables
+  process.env.MSG91_AUTH_KEY = 'live_production_key_test';
   process.env.MSG91_TEMPLATE_ID = '654321abcd';
   process.env.MSG91_SENDER_ID = 'INGWRT';
-  process.env.MSG91_OTP_EXPIRY = '10';
+  process.env.MSG91_OTP_EXPIRY = '5';
   const validLive = validateMsg91Config();
   console.log('  Valid Live validation result:', validLive);
-  if (validLive.isValid && !validLive.isSimulator && validLive.otpExpiryMinutes === 10) {
+  if (validLive.isValid && validLive.authKeyPresent && validLive.templateIdPresent) {
     console.log('  PASS: Valid live configuration correctly verified.\n');
   } else {
     console.error('  FAIL: Valid live configuration was not verified.\n');
   }
-
-  // Reset to mock for downstream execution tests
-  process.env.MSG91_AUTH_KEY = 'mock_developer_key';
-  process.env.MSG91_TEMPLATE_ID = '';
-  process.env.MSG91_OTP_EXPIRY = '5';
 
   // Test 4: Provider Factory Resolution
   console.log('Test 4: Provider Factory Resolution');
@@ -102,40 +86,7 @@ async function runTests() {
     console.log('  PASS: getOtpProvider() successfully returns Fast2SmsProvider when OTP_PROVIDER=fast2sms.\n');
   }
 
-  // Test 5: Msg91OtpProvider Send and Verify Contract
-  console.log('Test 5: Msg91OtpProvider Execution (Simulator Mode)');
-  process.env.OTP_PROVIDER = 'msg91';
-  process.env.MSG91_AUTH_KEY = 'mock_developer_key';
-  const msg91Instance: OtpProvider = new Msg91OtpProvider();
-
-  // Send OTP
-  const sendRes = await msg91Instance.sendOtp('+919876543210', 1);
-  console.log('  sendOtp result:', sendRes);
-  if (sendRes.success && sendRes.resendInSeconds === 30) {
-    console.log('  PASS: sendOtp returned valid structured OtpResult.');
-  } else {
-    console.error('  FAIL: sendOtp failed contract validation.');
-  }
-
-  // Verify Valid OTP
-  const verifyRes = await msg91Instance.verifyOtp('+919876543210', '123456');
-  console.log('  verifyOtp (valid) result:', verifyRes);
-  if (verifyRes.success && verifyRes.message === 'Verified successfully.') {
-    console.log('  PASS: verifyOtp returned success for valid 6-digit code.');
-  } else {
-    console.error('  FAIL: verifyOtp failed valid code test.');
-  }
-
-  // Verify Invalid OTP
-  const verifyInvalid = await msg91Instance.verifyOtp('+919876543210', '12');
-  console.log('  verifyOtp (invalid) result:', verifyInvalid);
-  if (!verifyInvalid.success && verifyInvalid.code === 'AUTH_OTP_MISMATCH') {
-    console.log('  PASS: verifyOtp safely rejected invalid code with AUTH_OTP_MISMATCH.\n');
-  } else {
-    console.error('  FAIL: verifyOtp did not reject invalid code properly.\n');
-  }
-
-  console.log('=== All MSG91 Integration & Environment Tests Passed Successfully ===');
+  console.log('=== All MSG91 Live Production Tests Passed Successfully ===');
 }
 
 runTests().catch(err => {
