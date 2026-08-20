@@ -1,8 +1,8 @@
-import { ContentValidator } from './src/lib/interventions/validators/content.validator';
-import { ContentMigrator } from './src/lib/interventions/engine/content/migrator';
-import { FOUNDER_DECLARATIVE_INTERVENTIONS, DeclarativeCatalogProvider } from './src/lib/interventions/catalog/declarative-catalog';
-import { SEED_INTERVENTIONS } from './src/lib/interventions/catalog/seed-data';
-import { StepEngine } from './src/lib/interventions/engine/session/step-engine';
+import { ContentValidator } from '../src/lib/interventions/validators/content.validator';
+import { ContentMigrator } from '../src/lib/interventions/engine/content/migrator';
+import { FOUNDER_DECLARATIVE_INTERVENTIONS, DeclarativeCatalogProvider } from '../src/lib/interventions/catalog/declarative-catalog';
+import { SEED_INTERVENTIONS } from '../src/lib/interventions/catalog/seed-data';
+import { StepEngine } from '../src/lib/interventions/engine/session/step-engine';
 
 async function runPhase5Tests() {
   console.log('====================================================');

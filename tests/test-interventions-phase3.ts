@@ -1,5 +1,5 @@
-import { InterventionEngine } from './src/lib/interventions/engine/intervention-engine';
-import { SessionStateMachine } from './src/lib/interventions/engine/session/state-machine';
+import { InterventionEngine } from '../src/lib/interventions/engine/intervention-engine';
+import { SessionStateMachine } from '../src/lib/interventions/engine/session/state-machine';
 
 async function runPhase3Tests() {
   console.log('====================================================');
