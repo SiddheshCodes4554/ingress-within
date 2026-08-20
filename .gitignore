@@ -6,6 +6,8 @@ dist/
 dist-ssr/
 .next/
 out/
+*.tsbuildinfo
+tsconfig.tsbuildinfo
 
 # Environment files (MUST BE IGNORED to prevent credential leaks)
 .env
